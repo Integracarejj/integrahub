@@ -1,0 +1,80 @@
+.applications-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.page-header h1 {
+    margin: 0;
+    font-size: 22px;
+}
+
+.filters {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.filters input,
+.filters select {
+    padding: 6px 8px;
+    font-size: 14px;
+}
+
+.toggle {
+    font-size: 14px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.applications-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+}
+
+.applications-table th,
+.applications-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+}
+
+.applications-table th {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    background: #f9fafb;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.applications-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.applications-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+.applications-table td a {
+    color: #1f2937;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.applications-table td a:hover {
+    color: #2563eb;
+}
+
+.empty {
+    text-align: center;
+    color: #6b7280;
+    padding: 24px;
+}

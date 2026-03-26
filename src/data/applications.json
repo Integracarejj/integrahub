@@ -1,0 +1,83 @@
+[
+    {
+        "id": "app-paycor",
+        "name": "Paycor",
+        "capabilityId": "cap-hr",
+        "owner": "HR Director",
+        "status": "Active",
+        "type": "Standard",
+        "description": "Payroll, benefits, and HRIS platform used across the organization."
+    },
+    {
+        "id": "app-welcomehome",
+        "name": "WelcomeHome",
+        "capabilityId": "cap-crm",
+        "owner": "Marketing",
+        "status": "Active",
+        "type": "Standard",
+        "description": "Primary CRM for sales, marketing, inquiries, tours, and lead management."
+    },
+    {
+        "id": "app-moven",
+        "name": "Move‑N",
+        "capabilityId": "cap-crm",
+        "owner": "Marketing",
+        "status": "Sunset",
+        "type": "Standard",
+        "description": "Legacy CRM previously used for sales and marketing workflows; being replaced by WelcomeHome."
+    },
+    {
+        "id": "app-ecp",
+        "name": "ECP",
+        "capabilityId": "cap-clinical",
+        "owner": "Clinical Operations",
+        "status": "Active",
+        "type": "Standard",
+        "description": "Clinical and resident onboarding platform supporting care, documentation, and move‑in workflows."
+    },
+    {
+        "id": "app-azuread",
+        "name": "Azure AD",
+        "capabilityId": "cap-it",
+        "owner": "IT",
+        "status": "Active",
+        "type": "Platform",
+        "description": "Enterprise identity, authentication, and access management platform."
+    },
+    {
+        "id": "app-sharepoint",
+        "name": "SharePoint",
+        "capabilityId": "cap-it",
+        "owner": "IT",
+        "status": "Active",
+        "type": "Platform",
+        "description": "Internal document management, collaboration, and knowledge‑sharing platform."
+    },
+    {
+        "id": "app-bi",
+        "name": "Corporate Analytics / BI",
+        "capabilityId": "cap-analytics",
+        "owner": "Operations",
+        "status": "Active",
+        "type": "Standard",
+        "description": "Internal reporting and analytics layer consuming data exports from operational systems."
+    },
+    {
+        "id": "app-time-attendance",
+        "name": "Time & Attendance",
+        "capabilityId": "cap-hr",
+        "owner": "HR",
+        "status": "Active",
+        "type": "Standard",
+        "description": "Employee time tracking and attendance system integrated with payroll."
+    },
+    {
+        "id": "app-legacy-fin",
+        "name": "Legacy Finance Tool",
+        "capabilityId": "cap-fin",
+        "owner": "Finance",
+        "status": "Sunset",
+        "type": "Standard",
+        "description": "Legacy finance reporting system retained for historical reconciliation."
+    }
+]

@@ -1,0 +1,13 @@
+/* src/layouts/AppLayout.css */
+
+.app-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background-color: #f8f9fb;
+}
+
+.app-content {
+    flex: 1;
+    padding: 24px 32px;
+}

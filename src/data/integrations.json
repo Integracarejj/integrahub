@@ -1,0 +1,26 @@
+[
+    {
+        "id": "int-paycor-welcomehome",
+        "fromApplicationId": "app-welcomehome",
+        "toApplicationId": "app-paycor",
+        "integrationType": "API",
+        "status": "Active",
+        "description": "Sends new resident lead data from WelcomeHome into Paycor."
+    },
+    {
+        "id": "int-azuread-paycor",
+        "fromApplicationId": "app-azuread",
+        "toApplicationId": "app-paycor",
+        "integrationType": "SSO",
+        "status": "Active",
+        "description": "Provides identity and single sign-on for Paycor."
+    },
+    {
+        "id": "int-legacyfin-paycor",
+        "fromApplicationId": "app-legacy-fin",
+        "toApplicationId": "app-paycor",
+        "integrationType": "CSV Export",
+        "status": "Inactive",
+        "description": "Legacy finance exports retained for historical reconciliation."
+    }
+]

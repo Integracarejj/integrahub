@@ -1,0 +1,18 @@
+[
+    {
+        "id": "cap-hr",
+        "name": "Human Resources"
+    },
+    {
+        "id": "cap-fin",
+        "name": "Finance"
+    },
+    {
+        "id": "cap-crm",
+        "name": "CRM"
+    },
+    {
+        "id": "cap-it",
+        "name": "IT Operations"
+    }
+]
