@@ -4,23 +4,47 @@
         "fromApplicationId": "app-welcomehome",
         "toApplicationId": "app-paycor",
         "integrationType": "API",
+        "direction": "Outbound",
+        "method": "API",
+        "frequency": "Ad-hoc",
+        "dataType": "HR",
         "status": "Active",
-        "description": "Sends new resident lead data from WelcomeHome into Paycor."
+        "description": "Sends new resident lead data from WelcomeHome into Paycor for pre-boarding employee setup."
     },
     {
         "id": "int-azuread-paycor",
         "fromApplicationId": "app-azuread",
         "toApplicationId": "app-paycor",
         "integrationType": "SSO",
+        "direction": "Outbound",
+        "method": "SSO",
+        "frequency": "Real-time",
+        "dataType": "Identity",
         "status": "Active",
-        "description": "Provides identity and single sign-on for Paycor."
+        "description": "Provides identity and single sign-on for Paycor via Azure Active Directory."
     },
     {
         "id": "int-legacyfin-paycor",
         "fromApplicationId": "app-legacy-fin",
         "toApplicationId": "app-paycor",
         "integrationType": "CSV Export",
+        "direction": "Outbound",
+        "method": "CSV Export",
+        "frequency": "Monthly",
+        "dataType": "Finance",
         "status": "Inactive",
-        "description": "Legacy finance exports retained for historical reconciliation."
+        "description": "Legacy finance exports retained for historical reconciliation; replaced by new ERP integration."
+    },
+    {
+        "id": "int-time-attendance-paycor",
+        "fromApplicationId": "app-time-attendance",
+        "toApplicationId": "app-paycor",
+        "integrationType": "API",
+        "direction": "Outbound",
+        "method": "API",
+        "frequency": "Daily",
+        "dataType": "HR",
+        "status": "Active",
+        "description": "Syncs employee hours and attendance data to Paycor for payroll processing."
     }
 ]

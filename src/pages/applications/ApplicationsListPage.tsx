@@ -1,7 +1,12 @@
 // src/pages/applications/ApplicationsListPage.tsx
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { getApplications, getCapabilities, getCapabilityName } from "../../services/applicationService";
+import {
+    getApplications,
+    getCapabilities,
+    getCapabilityName,
+    searchApplications,
+} from "../../services/applicationService";
 import "./ApplicationsListPage.css";
 
 export default function ApplicationsListPage() {
@@ -14,25 +19,25 @@ export default function ApplicationsListPage() {
     const [showInactive, setShowInactive] = useState(false);
 
     const filteredApps = useMemo(() => {
-        return applications.filter((app) => {
-            // Default behavior rules
+        let result = applications;
+
+        result = searchApplications(result, search);
+
+        result = result.filter((app) => {
             if (!showInactive && app.status !== "Active") return false;
             if (app.type === "Platform") return false;
-
-            if (search && !app.name.toLowerCase().includes(search.toLowerCase())) {
-                return false;
-            }
-
-            if (capabilityFilter && app.capabilityId !== capabilityFilter) {
-                return false;
-            }
-
-            if (statusFilter && app.status !== statusFilter) {
-                return false;
-            }
-
             return true;
         });
+
+        if (capabilityFilter) {
+            result = result.filter((app) => app.capabilityId === capabilityFilter);
+        }
+
+        if (statusFilter) {
+            result = result.filter((app) => app.status === statusFilter);
+        }
+
+        return result;
     }, [applications, search, capabilityFilter, statusFilter, showInactive]);
 
     return (
@@ -86,6 +91,8 @@ export default function ApplicationsListPage() {
                     <tr>
                         <th>Name</th>
                         <th>Capability</th>
+                        <th>Criticality</th>
+                        <th>Impact If Down</th>
                         <th>Owner</th>
                         <th>Status</th>
                     </tr>
@@ -97,14 +104,16 @@ export default function ApplicationsListPage() {
                                 <Link to={`/applications/${app.id}`}>{app.name}</Link>
                             </td>
                             <td>{getCapabilityName(app.capabilityId)}</td>
-                            <td>{app.owner}</td>
+                            <td>{app.businessContext.businessCriticality}</td>
+                            <td>{app.businessContext.impactIfDown}</td>
+                            <td>{app.ownership.businessOwner}</td>
                             <td>{app.status}</td>
                         </tr>
                     ))}
 
                     {filteredApps.length === 0 && (
                         <tr>
-                            <td colSpan={4} className="empty">
+                            <td colSpan={6} className="empty">
                                 No applications match your filters.
                             </td>
                         </tr>

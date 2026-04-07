@@ -38,7 +38,7 @@ export default function PlatformsPage() {
 
             return (
                 app.name.toLowerCase().includes(q) ||
-                app.owner.toLowerCase().includes(q) ||
+                app.ownership.businessOwner.toLowerCase().includes(q) ||
                 (app.description ?? "").toLowerCase().includes(q)
             );
         });
@@ -96,7 +96,7 @@ export default function PlatformsPage() {
                                 <td>
                                     <Link to={`/applications/${app.id}`}>{app.name}</Link>
                                 </td>
-                                <td>{app.owner}</td>
+                                <td>{app.ownership.businessOwner}</td>
                                 <td>{app.status}</td>
                                 <td>{app.description ?? "—"}</td>
                             </tr>

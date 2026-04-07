@@ -6,7 +6,47 @@
         "owner": "HR Director",
         "status": "Active",
         "type": "Standard",
-        "description": "Payroll, benefits, and HRIS platform used across the organization."
+        "description": "Payroll, benefits, and HRIS platform used across the organization.",
+        "businessContext": {
+            "purpose": "Manage payroll processing, benefits administration, employee records, and tax compliance for all full-time and part-time employees.",
+            "businessCriticality": "High",
+            "businessFunctions": ["Human Resources", "Finance", "Payroll Operations"],
+            "departmentsSupported": ["HR", "Finance", "Operations"],
+            "impactIfDown": "Employees cannot be paid; regulatory penalties and employee dissatisfaction. Payroll must run on schedule."
+        },
+        "ownership": {
+            "businessOwner": "Chief Human Resources Officer",
+            "technicalOwner": "HRIS Administrator",
+            "vendor": "Paycor"
+        },
+        "capabilities": [
+            { "name": "Payroll Processing", "description": "Calculate and distribute employee compensation" },
+            { "name": "Benefits Administration", "description": "Manage health, dental, vision, and 401(k) enrollments" },
+            { "name": "Tax Filing", "description": "Automated federal and state tax withholdings and filings" },
+            { "name": "Time & Attendance Integration", "description": "Sync hours from time tracking system" }
+        ],
+        "integrations": [
+            {
+                "integrationId": "int-azuread-paycor",
+                "direction": "Inbound",
+                "method": "SSO",
+                "frequency": "Real-time",
+                "dataType": "Identity"
+            },
+            {
+                "integrationId": "int-time-attendance-paycor",
+                "direction": "Inbound",
+                "method": "API",
+                "frequency": "Daily",
+                "dataType": "HR"
+            }
+        ],
+        "platformStack": {
+            "hostingModel": "SaaS",
+            "platformVendor": "Paycor",
+            "runtimePlatform": "Vendor-managed",
+            "dataStoreType": "Multi-tenant Cloud"
+        }
     },
     {
         "id": "app-welcomehome",
@@ -15,7 +55,40 @@
         "owner": "Marketing",
         "status": "Active",
         "type": "Standard",
-        "description": "Primary CRM for sales, marketing, inquiries, tours, and lead management."
+        "description": "Primary CRM for sales, marketing, inquiries, tours, and lead management.",
+        "businessContext": {
+            "purpose": "Capture and manage prospective resident leads, track sales pipeline, schedule tours, and support move-in coordination for senior living communities.",
+            "businessCriticality": "High",
+            "businessFunctions": ["Sales", "Marketing", "Resident Relations"],
+            "departmentsSupported": ["Sales", "Marketing", "Operations"],
+            "impactIfDown": "Sales team cannot access leads or pipeline data; tour scheduling disrupted; revenue pipeline visibility lost."
+        },
+        "ownership": {
+            "businessOwner": "VP of Sales",
+            "technicalOwner": "Marketing Technology Manager",
+            "vendor": "WelcomeHome"
+        },
+        "capabilities": [
+            { "name": "Lead Management", "description": "Capture and track prospective resident inquiries" },
+            { "name": "Tour Scheduling", "description": "Coordinate community tours with prospects" },
+            { "name": "Sales Pipeline Tracking", "description": "Monitor deal stages from inquiry to move-in" },
+            { "name": "Move-In Coordination", "description": "Manage pre-move-in tasks and documentation" }
+        ],
+        "integrations": [
+            {
+                "integrationId": "int-paycor-welcomehome",
+                "direction": "Outbound",
+                "method": "API",
+                "frequency": "Ad-hoc",
+                "dataType": "HR"
+            }
+        ],
+        "platformStack": {
+            "hostingModel": "SaaS",
+            "platformVendor": "WelcomeHome",
+            "runtimePlatform": "Vendor-managed",
+            "dataStoreType": "Multi-tenant Cloud"
+        }
     },
     {
         "id": "app-moven",
@@ -24,7 +97,28 @@
         "owner": "Marketing",
         "status": "Sunset",
         "type": "Standard",
-        "description": "Legacy CRM previously used for sales and marketing workflows; being replaced by WelcomeHome."
+        "description": "Legacy CRM previously used for sales and marketing workflows; being replaced by WelcomeHome.",
+        "businessContext": {
+            "purpose": "Legacy sales and marketing CRM; retained for historical reporting until data migration to WelcomeHome is complete.",
+            "businessCriticality": "Low",
+            "businessFunctions": ["Sales", "Marketing"],
+            "departmentsSupported": ["Sales"],
+            "impactIfDown": "Read-only historical data. No operational impact; migration already underway."
+        },
+        "ownership": {
+            "businessOwner": "VP of Sales",
+            "technicalOwner": "Marketing Technology Manager",
+            "vendor": "Move-N"
+        },
+        "capabilities": [
+            { "name": "Historical Lead Data", "description": "Archived lead and sales records" }
+        ],
+        "integrations": [],
+        "platformStack": {
+            "hostingModel": "SaaS",
+            "platformVendor": "Move-N",
+            "runtimePlatform": "Vendor-managed"
+        }
     },
     {
         "id": "app-ecp",
@@ -33,7 +127,31 @@
         "owner": "Clinical Operations",
         "status": "Active",
         "type": "Standard",
-        "description": "Clinical and resident onboarding platform supporting care, documentation, and move‑in workflows."
+        "description": "Clinical and resident onboarding platform supporting care, documentation, and move‑in workflows.",
+        "businessContext": {
+            "purpose": "Manage clinical assessments, care plans, medication tracking, and resident health documentation across all care communities.",
+            "businessCriticality": "High",
+            "businessFunctions": ["Clinical Care", "Resident Services", "Compliance"],
+            "departmentsSupported": ["Clinical", "Care", "Nursing", "Compliance"],
+            "impactIfDown": "Clinical staff cannot access care plans or medication records; potential safety risk to residents; regulatory compliance violation."
+        },
+        "ownership": {
+            "businessOwner": "Chief Clinical Officer",
+            "technicalOwner": "Clinical Systems Administrator",
+            "vendor": "ECP"
+        },
+        "capabilities": [
+            { "name": "Care Planning", "description": "Create and manage individualized resident care plans" },
+            { "name": "Medication Management", "description": "Track and document medication administration" },
+            { "name": "Clinical Assessments", "description": "Conduct and record resident health evaluations" },
+            { "name": "Incident Reporting", "description": "Log and track resident care incidents" }
+        ],
+        "integrations": [],
+        "platformStack": {
+            "hostingModel": "Azure",
+            "platformVendor": "Microsoft",
+            "runtimePlatform": ".NET"
+        }
     },
     {
         "id": "app-azuread",
@@ -42,7 +160,40 @@
         "owner": "IT",
         "status": "Active",
         "type": "Platform",
-        "description": "Enterprise identity, authentication, and access management platform."
+        "description": "Enterprise identity, authentication, and access management platform.",
+        "businessContext": {
+            "purpose": "Provide centralized identity management, single sign-on (SSO), and conditional access policies for all corporate applications and users.",
+            "businessCriticality": "Critical",
+            "businessFunctions": ["IT Security", "Identity Management", "Access Control"],
+            "departmentsSupported": ["IT", "Security", "All Departments"],
+            "impactIfDown": "All users locked out of all applications; no authentication possible; complete business paralysis."
+        },
+        "ownership": {
+            "businessOwner": "Chief Information Security Officer",
+            "technicalOwner": "Identity & Access Management Lead",
+            "vendor": "Microsoft"
+        },
+        "capabilities": [
+            { "name": "Single Sign-On (SSO)", "description": "Authenticate users across all connected applications" },
+            { "name": "Multi-Factor Authentication", "description": "Enforce MFA for sensitive applications" },
+            { "name": "Conditional Access", "description": "Policy-based access control based on user context" },
+            { "name": "User Lifecycle Management", "description": "Automated provisioning and deprovisioning" }
+        ],
+        "integrations": [
+            {
+                "integrationId": "int-azuread-paycor",
+                "direction": "Outbound",
+                "method": "SSO",
+                "frequency": "Real-time",
+                "dataType": "Identity"
+            }
+        ],
+        "platformStack": {
+            "hostingModel": "Azure",
+            "platformVendor": "Microsoft",
+            "runtimePlatform": "Azure AD",
+            "dataStoreType": "Cloud-native Identity Store"
+        }
     },
     {
         "id": "app-sharepoint",
@@ -51,7 +202,32 @@
         "owner": "IT",
         "status": "Active",
         "type": "Platform",
-        "description": "Internal document management, collaboration, and knowledge‑sharing platform."
+        "description": "Internal document management, collaboration, and knowledge‑sharing platform.",
+        "businessContext": {
+            "purpose": "Store, organize, and share internal documents, policies, and collaborative content across departments and teams.",
+            "businessCriticality": "Medium",
+            "businessFunctions": ["Document Management", "Collaboration", "Knowledge Management"],
+            "departmentsSupported": ["All Departments"],
+            "impactIfDown": "Teams lose access to shared documents and policies; collaboration halted; workarounds required."
+        },
+        "ownership": {
+            "businessOwner": "Chief Operating Officer",
+            "technicalOwner": "SharePoint Administrator",
+            "vendor": "Microsoft"
+        },
+        "capabilities": [
+            { "name": "Document Storage", "description": "Centralized file storage with version history" },
+            { "name": "Team Sites", "description": "Dedicated collaboration spaces per department" },
+            { "name": "Policy Repository", "description": "Company-wide policy and procedure documents" },
+            { "name": "Workflow Automation", "description": "Approval workflows and process automation" }
+        ],
+        "integrations": [],
+        "platformStack": {
+            "hostingModel": "Azure",
+            "platformVendor": "Microsoft",
+            "runtimePlatform": "SharePoint Online",
+            "dataStoreType": "Azure Blob Storage"
+        }
     },
     {
         "id": "app-bi",
@@ -60,7 +236,32 @@
         "owner": "Operations",
         "status": "Active",
         "type": "Standard",
-        "description": "Internal reporting and analytics layer consuming data exports from operational systems."
+        "description": "Internal reporting and analytics layer consuming data exports from operational systems.",
+        "businessContext": {
+            "purpose": "Aggregate operational data from multiple source systems to provide executive dashboards, operational KPIs, and ad-hoc analytics reporting.",
+            "businessCriticality": "Medium",
+            "businessFunctions": ["Business Intelligence", "Executive Reporting", "Operations Analytics"],
+            "departmentsSupported": ["Executive", "Operations", "Finance", "Sales"],
+            "impactIfDown": "Leadership loses visibility into KPIs and operational metrics; decisions rely on manual data pulls."
+        },
+        "ownership": {
+            "businessOwner": "Chief Operating Officer",
+            "technicalOwner": "BI Developer / Data Analyst",
+            "vendor": "Microsoft"
+        },
+        "capabilities": [
+            { "name": "Executive Dashboards", "description": "Key performance indicators for leadership" },
+            { "name": "Operational Reports", "description": "Daily and weekly operational performance reports" },
+            { "name": "Ad-hoc Analytics", "description": "Self-service data exploration and querying" },
+            { "name": "Data Export Scheduling", "description": "Automated data extracts from source systems" }
+        ],
+        "integrations": [],
+        "platformStack": {
+            "hostingModel": "Azure",
+            "platformVendor": "Microsoft",
+            "runtimePlatform": "Power BI / SQL Server",
+            "dataStoreType": "SQL Data Warehouse"
+        }
     },
     {
         "id": "app-time-attendance",
@@ -69,7 +270,40 @@
         "owner": "HR",
         "status": "Active",
         "type": "Standard",
-        "description": "Employee time tracking and attendance system integrated with payroll."
+        "description": "Employee time tracking and attendance system integrated with payroll.",
+        "businessContext": {
+            "purpose": "Track employee work hours, paid time off, and attendance for payroll processing and compliance reporting.",
+            "businessCriticality": "High",
+            "businessFunctions": ["Human Resources", "Payroll Operations", "Compliance"],
+            "departmentsSupported": ["HR", "Operations"],
+            "impactIfDown": "Time data unavailable for payroll; manual time entry required; potential payroll errors and compliance issues."
+        },
+        "ownership": {
+            "businessOwner": "VP of Human Resources",
+            "technicalOwner": "HRIS Administrator",
+            "vendor": "ExakTime"
+        },
+        "capabilities": [
+            { "name": "Time Tracking", "description": "Clock in/out via mobile app or badge reader" },
+            { "name": "PTO Management", "description": "Track vacation, sick time, and other leave" },
+            { "name": "Scheduling", "description": "Employee shift scheduling and management" },
+            { "name": "Compliance Reporting", "description": "OSHA and labor law hour tracking" }
+        ],
+        "integrations": [
+            {
+                "integrationId": "int-time-attendance-paycor",
+                "direction": "Outbound",
+                "method": "API",
+                "frequency": "Daily",
+                "dataType": "HR"
+            }
+        ],
+        "platformStack": {
+            "hostingModel": "SaaS",
+            "platformVendor": "ExakTime",
+            "runtimePlatform": "Vendor-managed",
+            "dataStoreType": "Multi-tenant Cloud"
+        }
     },
     {
         "id": "app-legacy-fin",
@@ -78,6 +312,36 @@
         "owner": "Finance",
         "status": "Sunset",
         "type": "Standard",
-        "description": "Legacy finance reporting system retained for historical reconciliation."
+        "description": "Legacy finance reporting system retained for historical reconciliation.",
+        "businessContext": {
+            "purpose": "Historical financial reporting system retained for year-end reconciliation and audit purposes while migration to new ERP completes.",
+            "businessCriticality": "Low",
+            "businessFunctions": ["Finance", "Accounting", "Audit"],
+            "departmentsSupported": ["Finance"],
+            "impactIfDown": "Limited impact; read-only historical data. Finance team uses new ERP for current work."
+        },
+        "ownership": {
+            "businessOwner": "Chief Financial Officer",
+            "technicalOwner": "Finance Systems Lead",
+            "vendor": "Custom / Legacy"
+        },
+        "capabilities": [
+            { "name": "Historical Ledger", "description": "Past fiscal year financial records" },
+            { "name": "Audit Trail", "description": "Historical transaction documentation" }
+        ],
+        "integrations": [
+            {
+                "integrationId": "int-legacyfin-paycor",
+                "direction": "Outbound",
+                "method": "CSV Export",
+                "frequency": "Monthly",
+                "dataType": "Finance"
+            }
+        ],
+        "platformStack": {
+            "hostingModel": "On-Prem",
+            "runtimePlatform": "AS/400 / IBM i",
+            "dataStoreType": "DB2"
+        }
     }
 ]
