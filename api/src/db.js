@@ -2,8 +2,6 @@ import sql from "mssql";
 import { ClientSecretCredential } from "@azure/identity";
 
 let pool = null;
-let tokenCache = null;
-let tokenExpiry = 0;
 
 export async function getPool() {
     if (pool) {

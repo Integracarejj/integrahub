@@ -34,7 +34,10 @@ jobs:
       - name: Prepare deployment folder
         run: |
           mkdir -p deploy
-          cp -r api/package.json api/package-lock.json api/src deploy/
+          cp api/package.json deploy/
+          cp api/package-lock.json deploy/
+          cp -r api/src deploy/
+          cp -r api/.deployment deploy/
           cp -r dist deploy/
 
       - name: Create deployment package
