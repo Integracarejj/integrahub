@@ -40,13 +40,15 @@ app.get("/health/db", async (_req, res) => {
     }
 });
 
-app.get(/^\/(?!health(?:\/|$)).*/, (_req, res) => {
+app.use((req, res, next) => {
+    if (req.path.startsWith("/health")) return next();
+
     const indexPath = path.join(distPath, "index.html");
     if (existsSync(indexPath)) {
-        res.sendFile(indexPath);
-    } else {
-        res.status(404).send("Frontend not built or dist folder missing");
+        return res.sendFile(indexPath);
     }
+
+    res.status(404).send("Frontend not built or dist folder missing");
 });
 
 const server = app.listen(PORT, () => {
