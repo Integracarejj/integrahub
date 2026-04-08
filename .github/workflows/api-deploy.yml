@@ -1,4 +1,4 @@
-name: Deploy API to Azure App Service
+name: Deploy to Azure App Service
 
 on:
   push:
@@ -6,6 +6,9 @@ on:
       - main
     paths:
       - 'api/**'
+      - 'src/**'
+      - 'index.html'
+      - 'package.json'
       - '.github/workflows/api-deploy.yml'
   workflow_dispatch:
 
@@ -19,17 +22,26 @@ jobs:
         with:
           node-version: '24'
 
-      - run: npm ci
+      - name: Build frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install API dependencies
+        run: npm ci
         working-directory: api
 
-      - run: npm run build || echo "no build step"
-        working-directory: api
+      - name: Prepare deployment folder
+        run: |
+          mkdir -p deploy
+          cp -r api/package.json api/package-lock.json api/src deploy/
+          cp -r dist deploy/
 
       - name: Create deployment package
-        run: cd api && zip -r ../api.zip .
+        run: cd deploy && zip -r ../deploy.zip .
 
       - uses: azure/webapps-deploy@v3
         with:
           app-name: Integrasource
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: api.zip
+          package: deploy.zip

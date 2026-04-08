@@ -1,8 +1,25 @@
 import express from "express";
 import { query, closePool } from "./db.js";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const distPath = path.resolve(__dirname, "../dist");
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 8080;
+
+console.log(`Current working directory: ${process.cwd()}`);
+console.log(`Resolved dist path: ${distPath}`);
+
+if (existsSync(distPath)) {
+    console.log(`Serving static files from: ${distPath}`);
+    app.use(express.static(distPath));
+} else {
+    console.log("dist folder not found - frontend assets not served");
+}
 
 app.use(express.json());
 
@@ -20,6 +37,15 @@ app.get("/health/db", async (_req, res) => {
         sanitized = sanitized.replace(/tenant[_\s-]?id/gi, "[tenant-id]");
         sanitized = sanitized.replace(/client[_\s-]?secret/gi, "[client-secret]");
         res.status(500).json({ ok: false, db: false, error: sanitized });
+    }
+});
+
+app.get("*", (_req, res) => {
+    const indexPath = path.join(distPath, "index.html");
+    if (existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    } else {
+        res.status(404).send("Frontend not built or dist folder missing");
     }
 });
 
