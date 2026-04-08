@@ -23,8 +23,11 @@ jobs:
       - run: npm run build || echo "no build step"
         working-directory: api
 
+      - name: Create deployment package
+        run: cd api && zip -r ../api.zip .
+
       - uses: azure/webapps-deploy@v3
         with:
           app-name: Integrasource
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: api
+          package: api.zip
