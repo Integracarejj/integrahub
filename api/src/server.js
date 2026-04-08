@@ -1,5 +1,5 @@
 import express from "express";
-import { query, closePool } from "./db.js";
+import { query, closePool } from "./src/db.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";

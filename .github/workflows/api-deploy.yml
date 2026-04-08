@@ -27,17 +27,13 @@ jobs:
           npm ci
           npm run build
 
-      - name: Install API dependencies
-        run: npm ci
-        working-directory: api
-
       - name: Prepare deployment folder
         run: |
           mkdir -p deploy
           cp api/package.json deploy/
           cp api/package-lock.json deploy/
-          cp -r api/src deploy/
-          cp -r api/.deployment deploy/
+          cp api/src/server.js deploy/server.js
+          cp -r api/src deploy/src
           cp -r dist deploy/
 
       - name: Create deployment package

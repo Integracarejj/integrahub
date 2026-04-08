@@ -4,11 +4,11 @@
   "description": "CMDB API service",
   "type": "module",
   "engines": {
-    "node": "24.x"
+    "node": "22.x"
   },
   "scripts": {
     "dev": "node --watch --env-file=.env src/server.js",
-    "start": "node src/server.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "@azure/identity": "^4.0.0",
