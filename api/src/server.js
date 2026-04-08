@@ -40,7 +40,7 @@ app.get("/health/db", async (_req, res) => {
     }
 });
 
-app.get("*", (_req, res) => {
+app.get(/^\/(?!health(?:\/|$)).*/, (_req, res) => {
     const indexPath = path.join(distPath, "index.html");
     if (existsSync(indexPath)) {
         res.sendFile(indexPath);
