@@ -111,10 +111,13 @@ export function searchApplications(
     return apps.filter((app) => {
         const capabilityName = getCapabilityName(app.capabilityId);
 
+        const purpose = (app as { purpose?: string }).purpose ?? app.businessContext.purpose;
+
         const searchableText = [
             app.name,
+            app.description ?? "",
             capabilityName,
-            app.businessContext.purpose,
+            purpose,
             app.businessContext.impactIfDown,
             app.businessContext.businessCriticality,
             ...app.businessContext.businessFunctions,

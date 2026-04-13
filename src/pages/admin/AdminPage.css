@@ -1,0 +1,194 @@
+.admin-page {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    max-width: 800px;
+    padding: 32px 40px;
+    background: #fff;
+    border-radius: 8px;
+}
+
+.admin-page .page-header h1 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.admin-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.admin-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 24px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+}
+
+.admin-card h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #111827;
+}
+
+.admin-card p {
+    margin: 0;
+    font-size: 14px;
+    color: #6b7280;
+    line-height: 1.5;
+}
+
+.admin-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #fff;
+    background: #2563eb;
+    border-radius: 6px;
+    text-decoration: none;
+    margin-top: auto;
+}
+
+.admin-btn:hover {
+    background: #1d4ed8;
+}
+
+.admin-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.admin-section h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #111827;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.admin-table th,
+.admin-table td {
+    padding: 12px 14px;
+    text-align: left;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.admin-table th {
+    font-size: 11px;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: #fafafa;
+}
+
+.admin-table td {
+    font-size: 14px;
+    color: #374151;
+}
+
+.admin-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.admin-table tbody tr:hover {
+    background: #fafafa;
+}
+
+.admin-table td:last-child {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.admin-link {
+    font-size: 13px;
+    color: #2563eb;
+    text-decoration: none;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+.admin-link:hover {
+    text-decoration: underline;
+}
+
+.admin-link.danger {
+    color: #dc2626;
+}
+
+.admin-link:disabled {
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+.collapsible-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+}
+
+.collapsible-icon {
+    font-size: 18px;
+    font-weight: 600;
+    color: #6b7280;
+    width: 20px;
+}
+
+.collapsible-header h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #111827;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e5e7eb;
+    flex: 1;
+}
+
+.collapsible-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.edit-select,
+.edit-input {
+    padding: 6px 8px;
+    font-size: 13px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    margin-right: 8px;
+    margin-bottom: 4px;
+}
+
+.edit-input {
+    width: 100px;
+}

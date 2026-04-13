@@ -1,5 +1,9 @@
+import "dotenv/config";
 import express from "express";
-import { query, closePool } from "./src/db.js";
+import { query, closePool } from "./db.js";
+import applicationsRouter from "./routes/applications.js";
+import capabilitiesRouter from "./routes/capabilities.js";
+import integrationsRouter from "./routes/integrations.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
@@ -39,6 +43,10 @@ app.get("/health/db", async (_req, res) => {
         res.status(500).json({ ok: false, db: false, error: sanitized });
     }
 });
+
+app.use("/api/applications", applicationsRouter);
+app.use("/api/capabilities", capabilitiesRouter);
+app.use("/api/integrations", integrationsRouter);
 
 app.use((req, res, next) => {
     if (req.path.startsWith("/health")) return next();

@@ -1,6 +1,9 @@
 /* src/components/TopNav.css */
 
 .top-nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
     background-color: #ffffff;
     border-bottom: 1px solid #e3e6eb;
 }
@@ -15,7 +18,20 @@
 .brand {
     font-size: 16px;
     font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.logo-integra {
     color: #1f2937;
+}
+
+.logo-source {
+    color: #6b7280;
+}
+
+.brand:hover .logo-source {
+    color: #9ca3af;
 }
 
 .nav-links {

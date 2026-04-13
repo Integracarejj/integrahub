@@ -14,5 +14,17 @@
     {
         "id": "cap-it",
         "name": "IT Operations"
+    },
+    {
+        "id": "cap-learning",
+        "name": "Learning & Development"
+    },
+    {
+        "id": "cap-clinical",
+        "name": "Clinical"
+    },
+    {
+        "id": "cap-analytics",
+        "name": "Analytics"
     }
 ]

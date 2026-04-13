@@ -1,59 +1,71 @@
 import sql from "mssql";
-import { ClientSecretCredential } from "@azure/identity";
 
 let pool = null;
+let initializing = false;
+let initPromise = null;
 
 export async function getPool() {
-    if (pool) {
+    if (pool && pool.connected) {
         return pool;
     }
 
-    const tenantId = process.env.AZURE_TENANT_ID;
-    const clientId = process.env.AZURE_CLIENT_ID;
-    const clientSecret = process.env.AZURE_CLIENT_SECRET;
+    if (initPromise) {
+        return initPromise;
+    }
+
+    const dbUser = process.env.DB_USER;
+    const dbPass = process.env.DB_PASS;
     const server = process.env.AZURE_SQL_SERVER;
     const database = process.env.AZURE_SQL_DATABASE;
 
-    if (!tenantId || !clientId || !clientSecret || !server || !database) {
-        throw new Error("Missing Azure AD configuration: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_SQL_SERVER, AZURE_SQL_DATABASE must be set");
+    if (!dbUser || !dbPass || !server || !database) {
+        throw new Error("Missing SQL configuration: DB_USER, DB_PASS, AZURE_SQL_SERVER, AZURE_SQL_DATABASE must be set");
     }
 
-    console.log("Attempting DB connection with Azure AD authentication...");
+    console.log("Connecting to database...");
 
-    try {
-        const credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+    initPromise = (async () => {
+        try {
+            if (pool) {
+                try { await pool.close(); } catch (_) {}
+                pool = null;
+            }
 
-        const tokenResponse = await credential.getToken("https://database.windows.net/.default");
-        const accessToken = tokenResponse.token;
-
-        pool = new sql.ConnectionPool({
-            server,
-            database,
-            authentication: {
-                type: "azure-active-directory-access-token",
+            pool = new sql.ConnectionPool({
+                server,
+                database,
+                user: dbUser,
+                password: dbPass,
                 options: {
-                    accessToken,
+                    encrypt: true,
+                    trustServerCertificate: false,
+                    connectionTimeout: 30000,
+                    idleTimeout: 300000,
                 },
-            },
-            options: {
-                encrypt: true,
-                trustServerCertificate: false,
-            },
-        });
+            });
 
-        await pool.connect();
-        console.log("DB connection successful");
-        return pool;
-    } catch (err) {
-        pool = null;
-        console.error("DB connection failed:", err.message);
-        throw err;
-    }
+            await pool.connect();
+            console.log("DB connection successful");
+            return pool;
+        } catch (err) {
+            pool = null;
+            console.error("DB connection failed:", err.message);
+            throw err;
+        } finally {
+            initPromise = null;
+        }
+    })();
+
+    return initPromise;
 }
 
-export async function query(statement) {
-    const p = await getPool();
-    const result = await p.request().query(statement);
+export async function query(statement, params = {}) {
+    const pool = await getPool();
+    const request = pool.request();
+    for (const [key, value] of Object.entries(params)) {
+        request.input(key, value);
+    }
+    const result = await request.query(statement);
     return result.recordset;
 }
 

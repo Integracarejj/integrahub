@@ -275,3 +275,148 @@
 .detail-relationships-table td a:hover {
     text-decoration: underline;
 }
+
+.section-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.detail-btn {
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #374151;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.detail-btn:hover {
+    background: #f9fafb;
+}
+
+.detail-btn.primary {
+    color: #fff;
+    background: #2563eb;
+    border-color: #2563eb;
+}
+
+.detail-btn.primary:hover {
+    background: #1d4ed8;
+}
+
+.detail-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.add-integration-form {
+    display: flex;
+    gap: 12px;
+    padding: 16px;
+    background: #f9fafb;
+    border-radius: 6px;
+    margin-bottom: 16px;
+}
+
+.add-integration-form select,
+.add-integration-form input {
+    padding: 8px 12px;
+    font-size: 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+}
+
+.add-integration-form select {
+    min-width: 200px;
+}
+
+.detail-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.detail-section-header .detail-section-title {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.primary-action-btn {
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    background: #2563eb;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-bottom: 16px;
+}
+
+.primary-action-btn:hover {
+    background: #1d4ed8;
+}
+
+.add-integration-modal {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    padding: 20px;
+    background: #f9fafb;
+    border-radius: 8px;
+    margin-bottom: 24px;
+}
+
+.add-integration-modal .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.add-integration-modal .form-group.full-width {
+    grid-column: span 2;
+}
+
+.add-integration-modal .form-group label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+}
+
+.add-integration-modal .form-group select,
+.add-integration-modal .form-group input {
+    padding: 8px 12px;
+    font-size: 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+}
+
+.add-integration-modal .field-helper {
+    font-size: 12px;
+    color: #9ca3af;
+    font-style: italic;
+}
+
+.add-integration-modal .form-actions {
+    grid-column: span 2;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.integrations-list {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+.integration-group h3 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+}
