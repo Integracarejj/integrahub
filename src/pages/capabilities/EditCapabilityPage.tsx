@@ -1,10 +1,23 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { usePermissions, isPlatformAdmin } from "../../hooks/usePermissions";
+import { getAuthHeaders } from "../../utils/authHeaders";
 import "../applications/CreateApplicationPage.css";
 
 export default function EditCapabilityPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const permissions = usePermissions();
+
+    if (!isPlatformAdmin(permissions)) {
+        return (
+            <div className="create-application-page" style={{ padding: "40px", textAlign: "center" }}>
+                <h1>Access Denied</h1>
+                <p>You do not have access to this page.</p>
+                <Link to="/" className="create-btn">Go to Home</Link>
+            </div>
+        );
+    }
 
     const [name, setName] = useState("");
     const [loading, setLoading] = useState(true);
@@ -43,7 +56,7 @@ export default function EditCapabilityPage() {
         try {
             const res = await fetch(`/api/capabilities/${id}`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({ name }),
             });
 

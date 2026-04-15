@@ -1,6 +1,7 @@
 // src/pages/applications/ApplicationsListPage.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { usePermissions, isPlatformAdmin } from "../../hooks/usePermissions";
 import "./ApplicationsListPage.css";
 
 interface ApiApplication {
@@ -63,6 +64,9 @@ export default function ApplicationsListPage() {
     const [capabilities, setCapabilities] = useState<Capability[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    const permissions = usePermissions();
+    const isAdmin = isPlatformAdmin(permissions);
 
     useEffect(() => {
         fetch("/api/capabilities")
@@ -144,7 +148,7 @@ export default function ApplicationsListPage() {
             <header className="page-header">
                 <h1>Applications</h1>
                 <div className="header-actions">
-                    <Link to="/admin" className="create-btn secondary">Admin</Link>
+                    {isAdmin && <Link to="/admin" className="create-btn secondary">Admin</Link>}
                     <Link to="/applications/new" className="create-btn">Create Application</Link>
                 </div>
             </header>
@@ -218,39 +222,28 @@ export default function ApplicationsListPage() {
                 <thead>
                     <tr>
                         <th>Name</th>
-                        <th>Description</th>
-                        <th>Purpose</th>
-                        <th>Vendor</th>
                         <th>Capability</th>
-                        <th>Criticality</th>
-                        <th>Impact If Down</th>
-                        <th>Owner</th>
                         <th>Status</th>
+                        <th>Criticality</th>
+                        <th>Owner</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {filteredApps.map((app) => {
-                        const purpose = app.purpose ?? app.businessContext.purpose;
-                        return (
+                    {filteredApps.map((app) => (
                         <tr key={app.id}>
                             <td>
                                 <Link to={`/applications/${app.id}`}>{app.name}</Link>
                             </td>
-                            <td>{app.description || "—"}</td>
-                            <td>{purpose || "—"}</td>
-                            <td>{app.vendor || "—"}</td>
                             <td><Link to={`/capabilities/${app.capabilityId}`}>{app.capabilityName}</Link></td>
-                            <td>{app.businessContext.businessCriticality}</td>
-                            <td>{app.businessContext.impactIfDown}</td>
-                            <td>{app.ownership.businessOwner}</td>
                             <td>{app.status}</td>
+                            <td>{app.businessContext.businessCriticality}</td>
+                            <td>{app.ownership.businessOwner}</td>
                         </tr>
-                        );
-                    })}
+                    ))}
 
                     {filteredApps.length === 0 && (
                         <tr>
-                            <td colSpan={9} className="empty">
+                            <td colSpan={5} className="empty">
                                 No applications match your filters.
                             </td>
                         </tr>

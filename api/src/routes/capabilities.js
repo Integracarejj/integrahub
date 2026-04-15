@@ -1,10 +1,16 @@
 import { Router } from "express";
 import { query } from "../db.js";
+import { canCreateApplication, forbidden } from "../auth/applicationPermissions.js";
 
 const router = Router();
 
 router.post("/", async (req, res) => {
     console.log("POST /api/capabilities called");
+
+    if (!(await canCreateApplication(req.user))) {
+        return forbidden(res);
+    }
+
     try {
         const { name } = req.body;
 
@@ -66,8 +72,8 @@ router.get("/:id", async (req, res) => {
         const capabilityRows = await query(`
             SELECT id, name
             FROM cmdb.Capabilities
-            WHERE id = '${id}'
-        `);
+            WHERE id = @id
+        `, { id });
 
         if (capabilityRows.length === 0) {
             return res.status(404).json({ error: "Capability not found" });
@@ -80,9 +86,9 @@ router.get("/:id", async (req, res) => {
                 a.status,
                 a.businessOwner
             FROM cmdb.Applications a
-            WHERE a.capabilityId = '${id}'
+            WHERE a.capabilityId = @id
             ORDER BY a.name
-        `);
+        `, { id });
 
         const applications = applicationRows.map(row => ({
             id: row.id,
@@ -108,6 +114,11 @@ router.get("/:id", async (req, res) => {
 
 router.put("/:id", async (req, res) => {
     console.log(`PUT /api/capabilities/${req.params.id} called`);
+
+    if (!(await canCreateApplication(req.user))) {
+        return forbidden(res);
+    }
+
     try {
         const { name } = req.body;
         const id = req.params.id.replace(/[^a-zA-Z0-9_-]/g, "");
@@ -151,6 +162,11 @@ router.put("/:id", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
     console.log(`DELETE /api/capabilities/${req.params.id} called`);
+
+    if (!(await canCreateApplication(req.user))) {
+        return forbidden(res);
+    }
+
     try {
         const id = req.params.id.replace(/[^a-zA-Z0-9_-]/g, "");
 

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { query } from "../db.js";
+import { canCreateApplication, canEditApplication, forbidden } from "../auth/applicationPermissions.js";
 
 const router = Router();
 
@@ -13,6 +14,11 @@ function normalizeName(name) {
 
 router.post("/", async (req, res) => {
     console.log("POST /api/applications called");
+
+    if (!(await canCreateApplication(req.user))) {
+        return forbidden(res);
+    }
+
     try {
         const { name, capabilityId, status, type, businessOwner, businessCriticality, impactIfDown } = req.body;
 
@@ -87,9 +93,14 @@ router.post("/", async (req, res) => {
 
 router.put("/:id", async (req, res) => {
     console.log(`PUT /api/applications/${req.params.id} called`);
+    const id = req.params.id.replace(/[^a-zA-Z0-9_-]/g, "");
+
+    if (!(await canEditApplication(req.user, id))) {
+        return forbidden(res);
+    }
+
     try {
         const { name, capabilityId, status, type, businessOwner, businessCriticality, impactIfDown } = req.body;
-        const id = req.params.id.replace(/[^a-zA-Z0-9_-]/g, "");
 
         if (!name) {
             return res.status(400).json({ error: "name is required" });
@@ -236,8 +247,8 @@ router.get("/:id", async (req, res) => {
             FROM cmdb.Applications a
             INNER JOIN cmdb.Capabilities c
                 ON a.capabilityId = c.id
-            WHERE a.id = '${id}'
-        `);
+            WHERE a.id = @id
+        `, { id });
 
         if (rows.length === 0) {
             return res.status(404).json({ error: "Application not found" });
@@ -253,9 +264,9 @@ router.get("/:id", async (req, res) => {
                 ta.name AS targetApplicationName
             FROM cmdb.ApplicationIntegrations i
             INNER JOIN cmdb.Applications ta ON i.targetApplicationId = ta.id
-            WHERE i.sourceApplicationId = '${id}'
+            WHERE i.sourceApplicationId = @id
             ORDER BY ta.name
-        `);
+        `, { id });
 
         const integrations = integrationRows.map(row => ({
             id: row.id,
@@ -275,9 +286,9 @@ router.get("/:id", async (req, res) => {
                 sa.name AS sourceApplicationName
             FROM cmdb.ApplicationIntegrations i
             INNER JOIN cmdb.Applications sa ON i.sourceApplicationId = sa.id
-            WHERE i.targetApplicationId = '${id}'
+            WHERE i.targetApplicationId = @id
             ORDER BY sa.name
-        `);
+        `, { id });
 
         const inboundIntegrations = inboundRows.map(row => ({
             id: row.id,
@@ -322,9 +333,13 @@ router.get("/:id", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
     console.log(`DELETE /api/applications/${req.params.id} called`);
+    const id = req.params.id.replace(/[^a-zA-Z0-9_-]/g, "");
+
+    if (!(await canEditApplication(req.user, id))) {
+        return forbidden(res);
+    }
+
     try {
-        const id = req.params.id.replace(/[^a-zA-Z0-9_-]/g, "");
-        
         const existing = await query(
             "SELECT id FROM cmdb.Applications WHERE id = @id",
             { id }
@@ -334,7 +349,7 @@ router.delete("/:id", async (req, res) => {
         }
 
         await query("DELETE FROM cmdb.Applications WHERE id = @id", { id });
-        
+
         res.status(200).json({ success: true });
     } catch (err) {
         console.error(`DELETE /api/applications/${req.params.id} failed:`, err);

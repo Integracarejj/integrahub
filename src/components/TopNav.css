@@ -55,3 +55,16 @@
     font-weight: 500;
     border-bottom: 2px solid #2563eb;
 }
+
+.dev-user-select {
+    padding: 4px 8px;
+    font-size: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    background: #f9fafb;
+    cursor: pointer;
+}
+
+.dev-user-select:hover {
+    background: #f3f4f6;
+}

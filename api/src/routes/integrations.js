@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { query } from "../db.js";
+import { canManageIntegration } from "../auth/integrationPermissions.js";
+import { forbidden } from "../auth/applicationPermissions.js";
 
 const router = Router();
 
@@ -43,16 +45,20 @@ router.get("/", async (_req, res) => {
 
 router.post("/", async (req, res) => {
     console.log("POST /api/integrations called");
+    const { sourceApplicationId, targetApplicationId, integrationType, notes } = req.body;
+
+    if (!sourceApplicationId) {
+        return res.status(400).json({ error: "sourceApplicationId is required" });
+    }
+    if (!targetApplicationId) {
+        return res.status(400).json({ error: "targetApplicationId is required" });
+    }
+
+    if (!(await canManageIntegration(req.user, sourceApplicationId))) {
+        return forbidden(res);
+    }
+
     try {
-        const { sourceApplicationId, targetApplicationId, integrationType, notes } = req.body;
-
-        if (!sourceApplicationId) {
-            return res.status(400).json({ error: "sourceApplicationId is required" });
-        }
-        if (!targetApplicationId) {
-            return res.status(400).json({ error: "targetApplicationId is required" });
-        }
-
         const sourceCheck = await query(
             "SELECT id FROM cmdb.Applications WHERE id = @id",
             { id: sourceApplicationId }
@@ -95,19 +101,26 @@ router.post("/", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
     console.log(`DELETE /api/integrations/${req.params.id} called`);
-    try {
-        const id = req.params.id.replace(/[^a-zA-Z0-9_-]/g, "");
-        
-        const existing = await query(
-            "SELECT id FROM cmdb.ApplicationIntegrations WHERE id = @id",
-            { id }
-        );
-        if (existing.length === 0) {
-            return res.status(404).json({ error: "Integration not found" });
-        }
+    const id = req.params.id.replace(/[^a-zA-Z0-9_-]/g, "");
 
+    const existing = await query(
+        "SELECT sourceApplicationId FROM cmdb.ApplicationIntegrations WHERE id = @id",
+        { id }
+    );
+
+    if (existing.length === 0) {
+        return res.status(404).json({ error: "Integration not found" });
+    }
+
+    const sourceApplicationId = existing[0].sourceApplicationId;
+
+    if (!(await canManageIntegration(req.user, sourceApplicationId))) {
+        return forbidden(res);
+    }
+
+    try {
         await query("DELETE FROM cmdb.ApplicationIntegrations WHERE id = @id", { id });
-        
+
         res.status(200).json({ success: true });
     } catch (err) {
         console.error(`DELETE /api/integrations/${req.params.id} failed:`, err);
@@ -120,18 +133,26 @@ router.delete("/:id", async (req, res) => {
 
 router.put("/:id", async (req, res) => {
     console.log(`PUT /api/integrations/${req.params.id} called`);
+    const id = req.params.id.replace(/[^a-zA-Z0-9_-]/g, "");
+    const { sourceApplicationId, targetApplicationId, integrationType, notes } = req.body;
+
+    const existing = await query(
+        "SELECT sourceApplicationId FROM cmdb.ApplicationIntegrations WHERE id = @id",
+        { id }
+    );
+
+    if (existing.length === 0) {
+        return res.status(404).json({ error: "Integration not found" });
+    }
+
+    const currentSourceId = existing[0].sourceApplicationId;
+    const sourceToCheck = sourceApplicationId || currentSourceId;
+
+    if (!(await canManageIntegration(req.user, sourceToCheck))) {
+        return forbidden(res);
+    }
+
     try {
-        const id = req.params.id.replace(/[^a-zA-Z0-9_-]/g, "");
-        const { sourceApplicationId, targetApplicationId, integrationType, notes } = req.body;
-
-        const existing = await query(
-            "SELECT id FROM cmdb.ApplicationIntegrations WHERE id = @id",
-            { id }
-        );
-        if (existing.length === 0) {
-            return res.status(404).json({ error: "Integration not found" });
-        }
-
         if (sourceApplicationId) {
             const sourceCheck = await query(
                 "SELECT id FROM cmdb.Applications WHERE id = @id",

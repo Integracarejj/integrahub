@@ -4,6 +4,8 @@ import { query, closePool } from "./db.js";
 import applicationsRouter from "./routes/applications.js";
 import capabilitiesRouter from "./routes/capabilities.js";
 import integrationsRouter from "./routes/integrations.js";
+import meRouter from "./routes/me.js";
+import { resolveCurrentUser } from "./middleware/resolveCurrentUser.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
@@ -27,6 +29,8 @@ if (existsSync(distPath)) {
 
 app.use(express.json());
 
+app.use(resolveCurrentUser);
+
 app.get("/health", (_req, res) => {
     res.json({ ok: true });
 });
@@ -47,6 +51,7 @@ app.get("/health/db", async (_req, res) => {
 app.use("/api/applications", applicationsRouter);
 app.use("/api/capabilities", capabilitiesRouter);
 app.use("/api/integrations", integrationsRouter);
+app.use("/api/me", meRouter);
 
 app.use((req, res, next) => {
     if (req.path.startsWith("/health")) return next();

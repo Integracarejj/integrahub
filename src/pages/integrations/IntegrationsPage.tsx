@@ -7,7 +7,6 @@ import "./IntegrationsPage.css";
 export default function IntegrationsPage() {
     const [rows, setRows] = useState<IntegrationView[]>([]);
     const [query, setQuery] = useState("");
-    const [showInactive, setShowInactive] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -31,17 +30,16 @@ export default function IntegrationsPage() {
         const q = query.trim().toLowerCase();
 
         return rows.filter((r) => {
-            if (!showInactive && r.status !== "Active") return false;
             if (!q) return true;
 
             return (
                 r.fromApplicationName.toLowerCase().includes(q) ||
                 r.toApplicationName.toLowerCase().includes(q) ||
-                r.integrationType.toLowerCase().includes(q) ||
+                r.integrationType?.toLowerCase().includes(q) ||
                 (r.description ?? "").toLowerCase().includes(q)
             );
         });
-    }, [rows, query, showInactive]);
+    }, [rows, query]);
 
     return (
         <div className="integrations-page">
@@ -60,15 +58,6 @@ export default function IntegrationsPage() {
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                     />
-
-                    <label className="toggle">
-                        <input
-                            type="checkbox"
-                            checked={showInactive}
-                            onChange={(e) => setShowInactive(e.target.checked)}
-                        />
-                        Show inactive
-                    </label>
                 </div>
             </header>
 
@@ -84,16 +73,12 @@ export default function IntegrationsPage() {
                             <th />
                             <th>To</th>
                             <th>Type</th>
-                            <th>Status</th>
-                            <th>Description</th>
+                            <th>Notes</th>
                         </tr>
                     </thead>
                     <tbody>
                         {filtered.map((r) => (
-                            <tr
-                                key={r.id}
-                                className={r.status !== "Active" ? "inactive" : ""}
-                            >
+                            <tr key={r.id}>
                                 <td>
                                     <Link to={`/applications/${r.fromApplicationId}`}>
                                         {r.fromApplicationName}
@@ -105,9 +90,8 @@ export default function IntegrationsPage() {
                                         {r.toApplicationName}
                                     </Link>
                                 </td>
-                                <td>{r.integrationType}</td>
-                                <td>{r.status}</td>
-                                <td>{r.description ?? "—"}</td>
+                                <td>{r.integrationType || "—"}</td>
+                                <td>{r.description || "—"}</td>
                             </tr>
                         ))}
                     </tbody>

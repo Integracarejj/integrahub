@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { usePermissions, isPlatformAdmin } from "../../hooks/usePermissions";
+import { getAuthHeaders } from "../../utils/authHeaders";
 import "./AdminPage.css";
 
 interface Capability {
@@ -23,6 +25,7 @@ interface Integration {
 }
 
 export default function AdminPage() {
+    const permissions = usePermissions();
     const [capabilities, setCapabilities] = useState<Capability[]>([]);
     const [applications, setApplications] = useState<Application[]>([]);
     const [integrations, setIntegrations] = useState<Integration[]>([]);
@@ -31,18 +34,24 @@ export default function AdminPage() {
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
     const [editingIntegrationId, setEditingIntegrationId] = useState<string | null>(null);
-    const [editForm, setEditForm] = useState({ connectedAppId: "", direction: "", integrationType: "", notes: "" });
+    const [editForm, setEditForm] = useState({ sourceApplicationId: "", targetApplicationId: "", integrationType: "", notes: "" });
     const [savingId, setSavingId] = useState<string | null>(null);
 
     const INTEGRATION_TYPES = ["API", "File Transfer", "SSO", "Manual Import", "Webhook", "Database Sync", "Other"];
-    const DIRECTION_OPTIONS = [
-        { value: "from", label: "From this application" },
-        { value: "into", label: "Into this application" },
-    ];
 
     useEffect(() => {
         loadData();
     }, []);
+
+    if (!isPlatformAdmin(permissions)) {
+        return (
+            <div className="admin-page" style={{ padding: "40px", textAlign: "center" }}>
+                <h1>Access Denied</h1>
+                <p>You do not have access to this page.</p>
+                <Link to="/" className="create-btn">Go to Home</Link>
+            </div>
+        );
+    }
 
     function loadData() {
         setLoading(true);
@@ -73,6 +82,7 @@ export default function AdminPage() {
         try {
             const res = await fetch(`/api/capabilities/${id}`, {
                 method: "DELETE",
+                headers: getAuthHeaders(),
             });
 
             if (!res.ok) {
@@ -100,6 +110,7 @@ export default function AdminPage() {
         try {
             const res = await fetch(`/api/applications/${id}`, {
                 method: "DELETE",
+                headers: getAuthHeaders(),
             });
 
             if (!res.ok) {
@@ -127,6 +138,7 @@ export default function AdminPage() {
         try {
             const res = await fetch(`/api/integrations/${id}`, {
                 method: "DELETE",
+                headers: getAuthHeaders(),
             });
 
             if (!res.ok) {
@@ -144,13 +156,10 @@ export default function AdminPage() {
     }
 
     function startEditIntegration(int: Integration) {
-        const direction = int.sourceApplicationId === applications.find((a) => a.id === int.targetApplicationId)?.id 
-            ? "into" 
-            : "from";
         setEditingIntegrationId(int.id);
         setEditForm({
-            connectedAppId: direction === "from" ? int.targetApplicationId : int.sourceApplicationId,
-            direction,
+            sourceApplicationId: int.sourceApplicationId,
+            targetApplicationId: int.targetApplicationId,
             integrationType: int.integrationType,
             notes: int.notes,
         });
@@ -158,11 +167,11 @@ export default function AdminPage() {
 
     function cancelEditIntegration() {
         setEditingIntegrationId(null);
-        setEditForm({ connectedAppId: "", direction: "", integrationType: "", notes: "" });
+        setEditForm({ sourceApplicationId: "", targetApplicationId: "", integrationType: "", notes: "" });
     }
 
     async function saveEditIntegration(id: string) {
-        if (!editForm.connectedAppId || !editForm.direction) {
+        if (!editForm.sourceApplicationId || !editForm.targetApplicationId) {
             return;
         }
 
@@ -170,26 +179,12 @@ export default function AdminPage() {
         setDeleteError(null);
 
         try {
-            const currentInt = integrations.find((i) => i.id === id);
-            if (!currentInt) return;
-
-            let sourceApplicationId: string;
-            let targetApplicationId: string;
-
-            if (editForm.direction === "from") {
-                sourceApplicationId = currentInt.sourceApplicationId;
-                targetApplicationId = editForm.connectedAppId;
-            } else {
-                sourceApplicationId = editForm.connectedAppId;
-                targetApplicationId = currentInt.targetApplicationId;
-            }
-
             const res = await fetch(`/api/integrations/${id}`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({
-                    sourceApplicationId,
-                    targetApplicationId,
+                    sourceApplicationId: editForm.sourceApplicationId,
+                    targetApplicationId: editForm.targetApplicationId,
                     integrationType: editForm.integrationType,
                     notes: editForm.notes,
                 }),
@@ -353,25 +348,27 @@ export default function AdminPage() {
                                 <tr key={int.id}>
                                     {editingIntegrationId === int.id ? (
                                         <>
-                                            <td colSpan={2}>
+                                            <td>
                                                 <select
-                                                    value={editForm.connectedAppId}
-                                                    onChange={(e) => setEditForm({ ...editForm, connectedAppId: e.target.value })}
+                                                    value={editForm.sourceApplicationId}
+                                                    onChange={(e) => setEditForm({ ...editForm, sourceApplicationId: e.target.value })}
                                                     className="edit-select"
                                                 >
-                                                    <option value="">Select Application</option>
+                                                    <option value="">Select Source</option>
                                                     {applications.map((app) => (
                                                         <option key={app.id} value={app.id}>{app.name}</option>
                                                     ))}
                                                 </select>
+                                            </td>
+                                            <td>
                                                 <select
-                                                    value={editForm.direction}
-                                                    onChange={(e) => setEditForm({ ...editForm, direction: e.target.value })}
+                                                    value={editForm.targetApplicationId}
+                                                    onChange={(e) => setEditForm({ ...editForm, targetApplicationId: e.target.value })}
                                                     className="edit-select"
                                                 >
-                                                    <option value="">Select Direction</option>
-                                                    {DIRECTION_OPTIONS.map((opt) => (
-                                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                    <option value="">Select Target</option>
+                                                    {applications.map((app) => (
+                                                        <option key={app.id} value={app.id}>{app.name}</option>
                                                     ))}
                                                 </select>
                                             </td>

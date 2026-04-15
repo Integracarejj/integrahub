@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { getAuthHeaders } from "../../utils/authHeaders";
 import "./ApplicationDetailPage.css";
 
 type RouteParams = {
@@ -44,6 +45,15 @@ interface ApplicationOption {
     name: string;
 }
 
+interface PermissionInfo {
+    userId: string;
+    globalRole: string;
+    assignments: Array<{
+        applicationId: string;
+        role: string;
+    }>;
+}
+
 export default function ApplicationDetailPage() {
     const { applicationId, id } = useParams<RouteParams>();
     const appId = applicationId ?? id;
@@ -56,6 +66,7 @@ export default function ApplicationDetailPage() {
     const [showAddIntegration, setShowAddIntegration] = useState(false);
     const [adding, setAdding] = useState(false);
     const [newIntegration, setNewIntegration] = useState({ connectedAppId: "", direction: "", integrationType: "", notes: "" });
+    const [permissions, setPermissions] = useState<PermissionInfo | null>(null);
 
     const INTEGRATION_TYPES = ["API", "File Transfer", "SSO", "Manual Import", "Webhook", "Database Sync", "Other"];
     const DIRECTION_OPTIONS = [
@@ -103,6 +114,64 @@ export default function ApplicationDetailPage() {
             .catch(() => setApplications([]));
     }, []);
 
+    useEffect(() => {
+        const devUserEmail = localStorage.getItem("devUserEmail");
+        const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+        };
+        if (devUserEmail) {
+            headers["x-dev-user-email"] = devUserEmail;
+        }
+        fetch("/api/me/permissions", { headers })
+            .then((res) => res.ok ? res.json() : null)
+            .then((data) => {
+                if (data) {
+                    setPermissions({
+                        userId: data.user?.id ?? "",
+                        globalRole: data.permissions?.globalRole ?? "Viewer",
+                        assignments: data.permissions?.assignments ?? [],
+                    });
+                }
+            })
+            .catch(() => setPermissions(null));
+    }, []);
+
+    // DEV ONLY: Listen for dev user changes
+    useEffect(() => {
+        const handleStorage = () => {
+            const devUserEmail = localStorage.getItem("devUserEmail");
+            const headers: Record<string, string> = {
+                "Content-Type": "application/json",
+            };
+            if (devUserEmail) {
+                headers["x-dev-user-email"] = devUserEmail;
+            }
+            fetch("/api/me/permissions", { headers })
+                .then((res) => res.ok ? res.json() : null)
+                .then((data) => {
+                    if (data) {
+                        setPermissions({
+                            userId: data.user?.id ?? "",
+                            globalRole: data.permissions?.globalRole ?? "Viewer",
+                            assignments: data.permissions?.assignments ?? [],
+                        });
+                    }
+                })
+                .catch(() => setPermissions(null));
+        };
+        window.addEventListener("storage", handleStorage);
+        return () => window.removeEventListener("storage", handleStorage);
+    }, []);
+
+    function canEditApp(): boolean {
+        if (!permissions) return false;
+        if (permissions.globalRole === "PlatformAdmin") return true;
+        const appAssignment = permissions.assignments.find(
+            (a) => a.applicationId === appId && (a.role === "AppOwner" || a.role === "AppAdmin")
+        );
+        return !!appAssignment;
+    }
+
     async function handleAddIntegration() {
         if (!newIntegration.connectedAppId || !newIntegration.direction) {
             return;
@@ -113,7 +182,7 @@ export default function ApplicationDetailPage() {
             if (newIntegration.direction === "both") {
                 await fetch("/api/integrations", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({
                         sourceApplicationId: appId,
                         targetApplicationId: newIntegration.connectedAppId,
@@ -123,7 +192,7 @@ export default function ApplicationDetailPage() {
                 });
                 await fetch("/api/integrations", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({
                         sourceApplicationId: newIntegration.connectedAppId,
                         targetApplicationId: appId,
@@ -134,7 +203,7 @@ export default function ApplicationDetailPage() {
             } else if (newIntegration.direction === "from") {
                 await fetch("/api/integrations", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({
                         sourceApplicationId: appId,
                         targetApplicationId: newIntegration.connectedAppId,
@@ -145,7 +214,7 @@ export default function ApplicationDetailPage() {
             } else {
                 await fetch("/api/integrations", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({
                         sourceApplicationId: newIntegration.connectedAppId,
                         targetApplicationId: appId,
@@ -179,7 +248,9 @@ export default function ApplicationDetailPage() {
                         <h1>{application.name}</h1>
                         <span className="detail-status">{application.status}</span>
                     </div>
-                    <Link to={`/applications/${appId}/edit`} className="detail-edit-btn">Edit</Link>
+                    {canEditApp() && (
+                        <Link to={`/applications/${appId}/edit`} className="detail-edit-btn">Edit</Link>
+                    )}
                 </div>
             </header>
 
@@ -234,10 +305,14 @@ export default function ApplicationDetailPage() {
             </section>
 
             <section className="detail-section">
-                <h2 className="detail-section-title">Integrations</h2>
-                <button className="primary-action-btn" onClick={() => setShowAddIntegration(!showAddIntegration)}>
-                    {showAddIntegration ? "Cancel" : "+ Add Integration"}
-                </button>
+                <div className="detail-section-header">
+                    <h2 className="detail-section-title">Integrations</h2>
+                    {canEditApp() && (
+                        <button className={showAddIntegration ? "secondary-action-btn" : "primary-action-btn"} onClick={() => setShowAddIntegration(!showAddIntegration)}>
+                            {showAddIntegration ? "Cancel" : "+ Add Integration"}
+                        </button>
+                    )}
+                </div>
 
                 {showAddIntegration && (
                     <div className="add-integration-modal">

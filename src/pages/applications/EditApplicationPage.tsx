@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { getAuthHeaders } from "../../utils/authHeaders";
 import "./CreateApplicationPage.css";
 
 interface Capability {
@@ -98,7 +99,7 @@ export default function EditApplicationPage() {
         try {
             const res = await fetch(`/api/applications/${applicationId}`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
+                headers: getAuthHeaders(),
                 body: JSON.stringify(form),
             });
 
