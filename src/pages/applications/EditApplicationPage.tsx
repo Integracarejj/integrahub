@@ -8,16 +8,7 @@ interface Capability {
     name: string;
 }
 
-interface ApplicationData {
-    id: string;
-    name: string;
-    capabilityId: string;
-    status: string;
-    type: string;
-    businessOwner: string;
-    businessCriticality: string;
-    impactIfDown: string;
-}
+
 
 export default function EditApplicationPage() {
     const { applicationId } = useParams<{ applicationId: string }>();
