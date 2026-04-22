@@ -3,6 +3,65 @@ import { query } from "../db.js";
 
 const router = Router();
 
+const DEV_USER_HEADER = "x-dev-user-email";
+const AZURE_CLIENT_PRINCIPAL_ID = "x-ms-client-principal-id";
+const AZURE_CLIENT_PRINCIPAL_NAME = "x-ms-client-principal-name";
+const ENTRA_OBJECT_ID_HEADER = "x-entra-object-id";
+
+function getAuthSource(req) {
+    if (req.headers[DEV_USER_HEADER]) return "dev";
+    if (req.headers[AZURE_CLIENT_PRINCIPAL_ID] || req.headers[ENTRA_OBJECT_ID_HEADER]) return "azure";
+    return "none";
+}
+
+function getPrincipalId(req) {
+    return req.headers[AZURE_CLIENT_PRINCIPAL_ID] || req.headers[ENTRA_OBJECT_ID_HEADER] || null;
+}
+
+function getPrincipalName(req) {
+    return req.headers[AZURE_CLIENT_PRINCIPAL_NAME] || null;
+}
+
+function getResolvedEmail(req) {
+    if (req.user) return req.user.email;
+    if (req.headers[DEV_USER_HEADER]) return req.headers[DEV_USER_HEADER];
+    if (req.headers[AZURE_CLIENT_PRINCIPAL_NAME]) return req.headers[AZURE_CLIENT_PRINCIPAL_NAME];
+    return null;
+}
+
+router.get("/", async (req, res) => {
+    const authSource = getAuthSource(req);
+    const principalId = getPrincipalId(req);
+    const principalName = getPrincipalName(req);
+    const resolvedEmail = getResolvedEmail(req);
+
+    let userRecord = null;
+    if (req.user) {
+        const rows = await query(
+            "SELECT id, entraObjectId, email, displayName, role FROM cmdb.Users WHERE id = @id",
+            { id: req.user.id }
+        );
+        if (rows[0]) {
+            userRecord = {
+                id: rows[0].id,
+                entraObjectId: rows[0].entraObjectId,
+                email: rows[0].email,
+                displayName: rows[0].displayName,
+                role: rows[0].role,
+            };
+        }
+    }
+
+    return res.json({
+        isAuthenticated: !!req.user,
+        authSource,
+        principalId,
+        principalName,
+        resolvedEmail,
+        userRecord,
+    });
+});
+
 router.get("/permissions", async (req, res) => {
     console.log("GET /api/me/permissions called");
 

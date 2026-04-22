@@ -28,6 +28,17 @@ export default function EditApplicationPage() {
         businessOwner: "",
         businessCriticality: "",
         impactIfDown: "",
+        websiteUrl: "",
+        loginUrl: "",
+        backupOwner: "",
+        ssoSupported: "",
+        ssoEnabled: "",
+        mfaSupported: "",
+        mfaEnabled: "",
+        dataClassification: "",
+        userCountBand: "",
+        lastReviewedAt: "",
+        notes: "",
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -50,6 +61,17 @@ export default function EditApplicationPage() {
                     businessOwner: appData.ownership?.businessOwner || "",
                     businessCriticality: appData.businessContext?.businessCriticality || "",
                     impactIfDown: appData.businessContext?.impactIfDown || "",
+                    websiteUrl: appData.security?.websiteUrl || "",
+                    loginUrl: appData.security?.loginUrl || "",
+                    backupOwner: appData.security?.backupOwner || "",
+                    ssoSupported: appData.security?.ssoSupported || "",
+                    ssoEnabled: appData.security?.ssoEnabled || "",
+                    mfaSupported: appData.security?.mfaSupported || "",
+                    mfaEnabled: appData.security?.mfaEnabled || "",
+                    dataClassification: appData.security?.dataClassification || "",
+                    userCountBand: appData.userCountBand || "",
+                    lastReviewedAt: appData.lastReviewedAt || "",
+                    notes: appData.notes || "",
                 });
                 setLoadingCapabilities(false);
                 setLoadingApp(false);
@@ -227,6 +249,163 @@ export default function EditApplicationPage() {
                         rows={3}
                         disabled={submitting}
                     />
+                </div>
+
+                <div className="form-section-title">Security & Access</div>
+
+                <div className="form-field">
+                    <label htmlFor="websiteUrl">Website URL</label>
+                    <input
+                        id="websiteUrl"
+                        type="text"
+                        value={form.websiteUrl}
+                        onChange={(e) => handleChange("websiteUrl", e.target.value)}
+                        placeholder="https://..."
+                        disabled={submitting}
+                    />
+                </div>
+
+                <div className="form-field">
+                    <label htmlFor="loginUrl">Login URL</label>
+                    <input
+                        id="loginUrl"
+                        type="text"
+                        value={form.loginUrl}
+                        onChange={(e) => handleChange("loginUrl", e.target.value)}
+                        placeholder="https://..."
+                        disabled={submitting}
+                    />
+                </div>
+
+                <div className="form-field">
+                    <label htmlFor="backupOwner">Backup Owner</label>
+                    <input
+                        id="backupOwner"
+                        type="text"
+                        value={form.backupOwner}
+                        onChange={(e) => handleChange("backupOwner", e.target.value)}
+                        placeholder="e.g., IT Manager"
+                        disabled={submitting}
+                    />
+                </div>
+
+                <div className="form-field">
+                    <label htmlFor="ssoSupported">SSO Supported</label>
+                    <select
+                        id="ssoSupported"
+                        value={form.ssoSupported}
+                        onChange={(e) => handleChange("ssoSupported", e.target.value)}
+                        disabled={submitting}
+                    >
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                        <option value="Unknown">Unknown</option>
+                    </select>
+                </div>
+
+                <div className="form-field">
+                    <label htmlFor="ssoEnabled">SSO Enabled</label>
+                    <select
+                        id="ssoEnabled"
+                        value={form.ssoEnabled}
+                        onChange={(e) => handleChange("ssoEnabled", e.target.value)}
+                        disabled={submitting}
+                    >
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                        <option value="Unknown">Unknown</option>
+                    </select>
+                </div>
+
+                <div className="form-field">
+                    <label htmlFor="mfaSupported">MFA Supported</label>
+                    <select
+                        id="mfaSupported"
+                        value={form.mfaSupported}
+                        onChange={(e) => handleChange("mfaSupported", e.target.value)}
+                        disabled={submitting}
+                    >
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                        <option value="Unknown">Unknown</option>
+                    </select>
+                </div>
+
+                <div className="form-field">
+                    <label htmlFor="mfaEnabled">MFA Enabled</label>
+                    <select
+                        id="mfaEnabled"
+                        value={form.mfaEnabled}
+                        onChange={(e) => handleChange("mfaEnabled", e.target.value)}
+                        disabled={submitting}
+                    >
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                        <option value="Unknown">Unknown</option>
+                    </select>
+                </div>
+
+                <div className="form-field">
+                    <label htmlFor="dataClassification">Data Classification</label>
+                    <select
+                        id="dataClassification"
+                        value={form.dataClassification}
+                        onChange={(e) => handleChange("dataClassification", e.target.value)}
+                        disabled={submitting}
+                    >
+                        <option value="">Select</option>
+                        <option value="Public">Public</option>
+                        <option value="General">General</option>
+                        <option value="Confidential">Confidential</option>
+                        <option value="Restricted">Restricted</option>
+                        <option value="Unknown">Unknown</option>
+                    </select>
+                </div>
+
+                <div className="form-field">
+                    <label htmlFor="userCountBand">User Count</label>
+                    <select
+                        id="userCountBand"
+                        value={form.userCountBand}
+                        onChange={(e) => handleChange("userCountBand", e.target.value)}
+                        disabled={submitting}
+                    >
+                        <option value="">Select</option>
+                        <option value="1_10">1-10</option>
+                        <option value="11_30">11-30</option>
+                        <option value="31_60">31-60</option>
+                        <option value="61_plus">61+</option>
+                        <option value="Unknown">Unknown</option>
+                    </select>
+                </div>
+
+                <div className="form-field">
+                    <label htmlFor="lastReviewedAt">Last Reviewed</label>
+                    <input
+                        id="lastReviewedAt"
+                        type="date"
+                        value={form.lastReviewedAt}
+                        onChange={(e) => handleChange("lastReviewedAt", e.target.value)}
+                        disabled={submitting}
+                    />
+                </div>
+
+                <div className="form-field">
+                    <label htmlFor="notes">Notes</label>
+                    <textarea
+                        id="notes"
+                        value={form.notes}
+                        onChange={(e) => handleChange("notes", e.target.value)}
+                        placeholder="Additional notes..."
+                        rows={4}
+                        maxLength={1000}
+                        disabled={submitting}
+                    />
+                    <span className="field-hint">Max 1000 characters</span>
                 </div>
 
                 <div className="form-actions">

@@ -36,6 +36,19 @@ interface ApiApplication {
     ownership: {
         businessOwner: string;
     };
+    security: {
+        websiteUrl: string;
+        loginUrl: string;
+        backupOwner: string;
+        ssoSupported: string;
+        ssoEnabled: string;
+        mfaSupported: string;
+        mfaEnabled: string;
+        dataClassification: string;
+    };
+    userCountBand: string;
+    lastReviewedAt: string;
+    notes: string;
     integrations: ApiIntegration[];
     inboundIntegrations: ApiIntegration[];
 }
@@ -254,198 +267,244 @@ export default function ApplicationDetailPage() {
                 </div>
             </header>
 
-            <section className="detail-section">
-                <h2 className="detail-section-title">Overview</h2>
-                <dl className="detail-definition-list">
-                    <div className="detail-definition-item">
-                        <dt>Type</dt>
-                        <dd>{application.type || "—"}</dd>
-                    </div>
-                    <div className="detail-definition-item">
-                        <dt>Description</dt>
-                        <dd>{application.description || "—"}</dd>
-                    </div>
-                    <div className="detail-definition-item">
-                        <dt>Purpose</dt>
-                        <dd>{(application.purpose ?? application.businessContext.purpose) || "—"}</dd>
-                    </div>
-                    <div className="detail-definition-item">
-                        <dt>Vendor</dt>
-                        <dd>{application.vendor || "—"}</dd>
-                    </div>
-                    <div className="detail-definition-item">
-                        <dt>Capability</dt>
-                        <dd>{application.capabilityName}</dd>
-                    </div>
-                </dl>
-            </section>
+            <div className="detail-main-grid">
+                <div className="detail-column">
+                    <section className="detail-section">
+                        <h2 className="detail-section-title">Overview</h2>
+                        <dl className="detail-definition-list">
+                            <div className="detail-definition-item">
+                                <dt>Type</dt>
+                                <dd>{application.type || "—"}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>Description</dt>
+                                <dd>{application.description || "—"}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>Vendor</dt>
+                                <dd>{application.vendor || "—"}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>Purpose</dt>
+                                <dd>{(application.purpose ?? application.businessContext.purpose) || "—"}</dd>
+                            </div>
+                            <div className="detail-definition-item full-width">
+                                <dt>Capability</dt>
+                                <dd>{application.capabilityName}</dd>
+                            </div>
+                        </dl>
+                    </section>
 
-            <section className="detail-section">
-                <h2 className="detail-section-title">Ownership</h2>
-                <dl className="detail-definition-list">
-                    <div className="detail-definition-item">
-                        <dt>Business Owner</dt>
-                        <dd>{application.ownership.businessOwner || "—"}</dd>
-                    </div>
-                </dl>
-            </section>
-
-            <section className="detail-section">
-                <h2 className="detail-section-title">Business Context</h2>
-                <dl className="detail-definition-list">
-                    <div className="detail-definition-item">
-                        <dt>Business Criticality</dt>
-                        <dd>{application.businessContext.businessCriticality}</dd>
-                    </div>
-                    <div className="detail-definition-item">
-                        <dt>Impact If Down</dt>
-                        <dd>{application.businessContext.impactIfDown || "—"}</dd>
-                    </div>
-                </dl>
-            </section>
-
-            <section className="detail-section">
-                <div className="detail-section-header">
-                    <h2 className="detail-section-title">Integrations</h2>
-                    {canEditApp() && (
-                        <button className={showAddIntegration ? "secondary-action-btn" : "primary-action-btn"} onClick={() => setShowAddIntegration(!showAddIntegration)}>
-                            {showAddIntegration ? "Cancel" : "+ Add Integration"}
-                        </button>
-                    )}
+                    <section className="detail-section">
+                        <h2 className="detail-section-title">Business Context</h2>
+                        <dl className="detail-definition-list">
+                            <div className="detail-definition-item">
+                                <dt>Business Criticality</dt>
+                                <dd>{application.businessContext.businessCriticality}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>Impact If Down</dt>
+                                <dd>{application.businessContext.impactIfDown || "—"}</dd>
+                            </div>
+                        </dl>
+                    </section>
                 </div>
 
-                {showAddIntegration && (
-                    <div className="add-integration-modal">
-                        <div className="form-group">
-                            <label>Connected Application</label>
-                            <select
-                                value={newIntegration.connectedAppId}
-                                onChange={(e) => setNewIntegration({ ...newIntegration, connectedAppId: e.target.value })}
-                            >
-                                <option value="">Select Application</option>
-                                {applications
-                                    .filter((a) => a.id !== appId)
-                                    .map((a) => (
-                                        <option key={a.id} value={a.id}>
-                                            {a.name}
-                                        </option>
-                                    ))}
-                            </select>
-                        </div>
-                        <div className="form-group">
-                            <label>Direction</label>
-                            <select
-                                value={newIntegration.direction}
-                                onChange={(e) => setNewIntegration({ ...newIntegration, direction: e.target.value })}
-                            >
-                                <option value="">Select Direction</option>
-                                {DIRECTION_OPTIONS.map((opt) => (
-                                    <option key={opt.value} value={opt.value}>
-                                        {opt.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="form-group">
-                            <label>Integration Type (optional)</label>
-                            <select
-                                value={newIntegration.integrationType}
-                                onChange={(e) => setNewIntegration({ ...newIntegration, integrationType: e.target.value })}
-                            >
-                                <option value="">Select Type</option>
-                                {INTEGRATION_TYPES.map((type) => (
-                                    <option key={type} value={type}>
-                                        {type}
-                                    </option>
-                                ))}
-                            </select>
-                            <span className="field-helper">e.g. API, SSO, File Transfer</span>
-                        </div>
-                        <div className="form-group full-width">
-                            <label>Notes (optional)</label>
-                            <input
-                                type="text"
-                                placeholder="Add notes..."
-                                value={newIntegration.notes}
-                                onChange={(e) => setNewIntegration({ ...newIntegration, notes: e.target.value })}
-                            />
-                        </div>
-                        <div className="form-actions">
-                            <button className="detail-btn primary" onClick={handleAddIntegration} disabled={adding}>
-                                {adding ? "Adding..." : "Add Integration"}
+                <div className="detail-column">
+                    <section className="detail-section">
+                        <h2 className="detail-section-title">Ownership</h2>
+                        <dl className="detail-definition-list">
+                            <div className="detail-definition-item">
+                                <dt>Business Owner</dt>
+                                <dd>{application.ownership.businessOwner || "—"}</dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    <section className="detail-section">
+                        <h2 className="detail-section-title">Security & Access</h2>
+                        <dl className="detail-definition-list">
+                            <div className="detail-definition-item">
+                                <dt>Website</dt>
+                                <dd>{application.security?.websiteUrl ? <a href={application.security.websiteUrl} target="_blank" rel="noopener noreferrer">{application.security.websiteUrl}</a> : "—"}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>Login URL</dt>
+                                <dd>{application.security?.loginUrl ? <a href={application.security.loginUrl} target="_blank" rel="noopener noreferrer">{application.security.loginUrl}</a> : "—"}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>Backup Owner</dt>
+                                <dd>{application.security?.backupOwner || "—"}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>SSO</dt>
+                                <dd>{application.security?.ssoSupported ? `Supported: ${application.security.ssoSupported}` : "—"} {application.security?.ssoEnabled ? ` | Enabled: ${application.security.ssoEnabled}` : ""}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>MFA</dt>
+                                <dd>{application.security?.mfaSupported ? `Supported: ${application.security.mfaSupported}` : "—"} {application.security?.mfaEnabled ? ` | Enabled: ${application.security.mfaEnabled}` : ""}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>Data Classification</dt>
+                                <dd>{application.security?.dataClassification || "—"}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>User Count</dt>
+                                <dd>{application.userCountBand ? application.userCountBand.replace("_", "-") : "—"}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>Last Reviewed</dt>
+                                <dd>{application.lastReviewedAt ? new Date(application.lastReviewedAt).toLocaleDateString() : "—"}</dd>
+                            </div>
+                            <div className="detail-definition-item full-width">
+                                <dt>Notes</dt>
+                                <dd>{application.notes || "—"}</dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    <section className="detail-section integrations-section">
+                        <h2 className="detail-section-title">Integrations</h2>
+                        {canEditApp() && (
+                            <button className={showAddIntegration ? "secondary-action-btn" : "primary-action-btn"} onClick={() => setShowAddIntegration(!showAddIntegration)}>
+                                {showAddIntegration ? "Cancel" : "+ Add Integration"}
                             </button>
-                        </div>
-                    </div>
-                )}
+                        )}
 
-                {(() => {
-                    const outbound = application.integrations || [];
-                    const inbound = application.inboundIntegrations || [];
-                    
-                    const outboundMap = new Map(outbound.map(i => [i.targetApplicationId, i]));
-                    const inboundMap = new Map(inbound.map(i => [i.sourceApplicationId, i]));
-                    
-                    const allAppIds = new Set([...outboundMap.keys(), ...inboundMap.keys()]);
-                    
-                    const displayIntegrations = Array.from(allAppIds).map(appId => {
-                        const out = outboundMap.get(appId);
-                        const inb = inboundMap.get(appId);
-                        
-                        const name = out?.targetApplicationName || inb?.sourceApplicationName || "Unknown";
-                        const type = out?.integrationType || inb?.integrationType || "";
-                        const notes = out?.notes || inb?.notes || "";
-                        
-                        let direction = "Outbound";
-                        if (out && inb) {
-                            direction = "Bidirectional";
-                        } else if (inb) {
-                            direction = "Inbound";
-                        }
-                        
-                        return {
-                            id: out?.id || inb?.id,
-                            appId,
-                            name,
-                            direction,
-                            type,
-                            notes,
-                        };
-                    }).sort((a, b) => a.name.localeCompare(b.name));
-
-                    return (
-                        <div className="integrations-list">
-                            {displayIntegrations.length === 0 ? (
-                                <p className="detail-empty">None</p>
-                            ) : (
-                                <table className="detail-relationships-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Connected Application</th>
-                                            <th>Direction</th>
-                                            <th>Type</th>
-                                            <th>Notes</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {displayIntegrations.map((i) => (
-                                            <tr key={i.id}>
-                                                <td>
-                                                    <Link to={`/applications/${i.appId}`}>
-                                                        {i.name}
-                                                    </Link>
-                                                </td>
-                                                <td>{i.direction}</td>
-                                                <td>{i.type || "—"}</td>
-                                                <td>{i.notes || "—"}</td>
-                                            </tr>
+                        {showAddIntegration && (
+                            <div className="add-integration-modal">
+                                <div className="form-group">
+                                    <label>Connected Application</label>
+                                    <select
+                                        value={newIntegration.connectedAppId}
+                                        onChange={(e) => setNewIntegration({ ...newIntegration, connectedAppId: e.target.value })}
+                                    >
+                                        <option value="">Select Application</option>
+                                        {applications
+                                            .filter((a) => a.id !== appId)
+                                            .map((a) => (
+                                                <option key={a.id} value={a.id}>
+                                                    {a.name}
+                                                </option>
+                                            ))}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label>Direction</label>
+                                    <select
+                                        value={newIntegration.direction}
+                                        onChange={(e) => setNewIntegration({ ...newIntegration, direction: e.target.value })}
+                                    >
+                                        <option value="">Select Direction</option>
+                                        {DIRECTION_OPTIONS.map((opt) => (
+                                            <option key={opt.value} value={opt.value}>
+                                                {opt.label}
+                                            </option>
                                         ))}
-                                    </tbody>
-                                </table>
-                            )}
-                        </div>
-                    );
-                })()}
-            </section>
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label>Integration Type (optional)</label>
+                                    <select
+                                        value={newIntegration.integrationType}
+                                        onChange={(e) => setNewIntegration({ ...newIntegration, integrationType: e.target.value })}
+                                    >
+                                        <option value="">Select Type</option>
+                                        {INTEGRATION_TYPES.map((type) => (
+                                            <option key={type} value={type}>
+                                                {type}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <span className="field-helper">e.g. API, SSO, File Transfer</span>
+                                </div>
+                                <div className="form-group full-width">
+                                    <label>Notes (optional)</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Add notes..."
+                                        value={newIntegration.notes}
+                                        onChange={(e) => setNewIntegration({ ...newIntegration, notes: e.target.value })}
+                                    />
+                                </div>
+                                <div className="form-actions">
+                                    <button className="detail-btn primary" onClick={handleAddIntegration} disabled={adding}>
+                                        {adding ? "Adding..." : "Add Integration"}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {(() => {
+                            const outbound = application.integrations || [];
+                            const inbound = application.inboundIntegrations || [];
+                            
+                            const outboundMap = new Map(outbound.map(i => [i.targetApplicationId, i]));
+                            const inboundMap = new Map(inbound.map(i => [i.sourceApplicationId, i]));
+                            
+                            const allAppIds = new Set([...outboundMap.keys(), ...inboundMap.keys()]);
+                            
+                            const displayIntegrations = Array.from(allAppIds).map(appId => {
+                                const out = outboundMap.get(appId);
+                                const inb = inboundMap.get(appId);
+                                
+                                const name = out?.targetApplicationName || inb?.sourceApplicationName || "Unknown";
+                                const type = out?.integrationType || inb?.integrationType || "";
+                                const notes = out?.notes || inb?.notes || "";
+                                
+                                let direction = "Outbound";
+                                if (out && inb) {
+                                    direction = "Bidirectional";
+                                } else if (inb) {
+                                    direction = "Inbound";
+                                }
+                                
+                                return {
+                                    id: out?.id || inb?.id,
+                                    appId,
+                                    name,
+                                    direction,
+                                    type,
+                                    notes,
+                                };
+                            }).sort((a, b) => a.name.localeCompare(b.name));
+
+                            return (
+                                <div className="integrations-list">
+                                    {displayIntegrations.length === 0 ? (
+                                        <p className="detail-empty">None</p>
+                                    ) : (
+                                        <table className="detail-relationships-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Connected Application</th>
+                                                    <th>Direction</th>
+                                                    <th>Type</th>
+                                                    <th>Notes</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {displayIntegrations.map((i) => (
+                                                    <tr key={i.id}>
+                                                        <td>
+                                                            <Link to={`/applications/${i.appId}`}>
+                                                                {i.name}
+                                                            </Link>
+                                                        </td>
+                                                        <td>{i.direction}</td>
+                                                        <td>{i.type || "—"}</td>
+                                                        <td>{i.notes || "—"}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                </div>
+                            );
+                        })()}
+                    </section>
+                </div>
+            </div>
         </div>
     );
 }

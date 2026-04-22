@@ -7,6 +7,11 @@ const router = Router();
 const VALID_CRITICALITY = ["Low", "Medium", "High", "Critical"];
 const VALID_STATUS = ["Active", "Planned", "Retired"];
 const VALID_TYPE = ["Standard", "Platform", "SaaS"];
+const VALID_SSO = ["Yes", "No", "Unknown"];
+const VALID_MFA = ["Yes", "No", "Unknown"];
+const VALID_DATA_CLASSIFICATION = ["Public", "General", "Confidential", "Restricted", "Unknown"];
+const VALID_USER_COUNT_BAND = ["1_10", "11_30", "31_60", "61_plus", "Unknown"];
+const MAX_NOTES_LENGTH = 1000;
 
 function normalizeName(name) {
     return name.trim().replace(/\s+/g, " ");
@@ -20,7 +25,26 @@ router.post("/", async (req, res) => {
     }
 
     try {
-        const { name, capabilityId, status, type, businessOwner, businessCriticality, impactIfDown } = req.body;
+        const {
+            name,
+            capabilityId,
+            status,
+            type,
+            businessOwner,
+            businessCriticality,
+            impactIfDown,
+            websiteUrl,
+            loginUrl,
+            backupOwner,
+            ssoSupported,
+            ssoEnabled,
+            mfaSupported,
+            mfaEnabled,
+            dataClassification,
+            userCountBand,
+            lastReviewedAt,
+            notes,
+        } = req.body;
 
         if (!name) {
             return res.status(400).json({ error: "name is required" });
@@ -36,6 +60,27 @@ router.post("/", async (req, res) => {
         }
         if (businessCriticality && !VALID_CRITICALITY.includes(businessCriticality)) {
             return res.status(400).json({ error: "businessCriticality must be Low, Medium, High, or Critical" });
+        }
+        if (ssoSupported && !VALID_SSO.includes(ssoSupported)) {
+            return res.status(400).json({ error: "ssoSupported must be Yes, No, or Unknown" });
+        }
+        if (ssoEnabled && !VALID_SSO.includes(ssoEnabled)) {
+            return res.status(400).json({ error: "ssoEnabled must be Yes, No, or Unknown" });
+        }
+        if (mfaSupported && !VALID_MFA.includes(mfaSupported)) {
+            return res.status(400).json({ error: "mfaSupported must be Yes, No, or Unknown" });
+        }
+        if (mfaEnabled && !VALID_MFA.includes(mfaEnabled)) {
+            return res.status(400).json({ error: "mfaEnabled must be Yes, No, or Unknown" });
+        }
+        if (dataClassification && !VALID_DATA_CLASSIFICATION.includes(dataClassification)) {
+            return res.status(400).json({ error: "dataClassification must be Public, General, Confidential, Restricted, or Unknown" });
+        }
+        if (userCountBand && !VALID_USER_COUNT_BAND.includes(userCountBand)) {
+            return res.status(400).json({ error: "userCountBand must be 1_10, 11_30, 31_60, 61_plus, or Unknown" });
+        }
+        if (notes && notes.length > MAX_NOTES_LENGTH) {
+            return res.status(400).json({ error: `notes must be ${MAX_NOTES_LENGTH} characters or less` });
         }
 
         const normalizedName = normalizeName(name);
@@ -67,8 +112,8 @@ router.post("/", async (req, res) => {
         }
 
         await query(
-            `INSERT INTO cmdb.Applications (id, name, capabilityId, status, type, businessOwner, businessCriticality, impactIfDown)
-             VALUES (@id, @name, @capabilityId, @status, @type, @businessOwner, @businessCriticality, @impactIfDown)`,
+            `INSERT INTO cmdb.Applications (id, name, capabilityId, status, type, businessOwner, businessCriticality, impactIfDown, websiteUrl, loginUrl, backupOwner, ssoSupported, ssoEnabled, mfaSupported, mfaEnabled, dataClassification, userCountBand, lastReviewedAt, notes)
+             VALUES (@id, @name, @capabilityId, @status, @type, @businessOwner, @businessCriticality, @impactIfDown, @websiteUrl, @loginUrl, @backupOwner, @ssoSupported, @ssoEnabled, @mfaSupported, @mfaEnabled, @dataClassification, @userCountBand, @lastReviewedAt, @notes)`,
             {
                 id: generatedId,
                 name: normalizedName,
@@ -78,10 +123,41 @@ router.post("/", async (req, res) => {
                 businessOwner: businessOwner || "",
                 businessCriticality: businessCriticality || "",
                 impactIfDown: impactIfDown || "",
+                websiteUrl: websiteUrl || "",
+                loginUrl: loginUrl || "",
+                backupOwner: backupOwner || "",
+                ssoSupported: ssoSupported || "",
+                ssoEnabled: ssoEnabled || "",
+                mfaSupported: mfaSupported || "",
+                mfaEnabled: mfaEnabled || "",
+                dataClassification: dataClassification || "",
+                userCountBand: userCountBand || "",
+                lastReviewedAt: lastReviewedAt || "",
+                notes: notes || "",
             }
         );
 
-        res.status(201).json({ id: generatedId, name: normalizedName, capabilityId, status: status || '', type: type || '', businessOwner: businessOwner || '', businessCriticality: businessCriticality || '', impactIfDown: impactIfDown || '' });
+        res.status(201).json({
+            id: generatedId,
+            name: normalizedName,
+            capabilityId,
+            status: status || "",
+            type: type || "",
+            businessOwner: businessOwner || "",
+            businessCriticality: businessCriticality || "",
+            impactIfDown: impactIfDown || "",
+            websiteUrl: websiteUrl || "",
+            loginUrl: loginUrl || "",
+            backupOwner: backupOwner || "",
+            ssoSupported: ssoSupported || "",
+            ssoEnabled: ssoEnabled || "",
+            mfaSupported: mfaSupported || "",
+            mfaEnabled: mfaEnabled || "",
+            dataClassification: dataClassification || "",
+            userCountBand: userCountBand || "",
+            lastReviewedAt: lastReviewedAt || "",
+            notes: notes || "",
+        });
     } catch (err) {
         console.error("POST /api/applications failed:", err);
         res.status(500).json({
@@ -100,7 +176,26 @@ router.put("/:id", async (req, res) => {
     }
 
     try {
-        const { name, capabilityId, status, type, businessOwner, businessCriticality, impactIfDown } = req.body;
+        const {
+            name,
+            capabilityId,
+            status,
+            type,
+            businessOwner,
+            businessCriticality,
+            impactIfDown,
+            websiteUrl,
+            loginUrl,
+            backupOwner,
+            ssoSupported,
+            ssoEnabled,
+            mfaSupported,
+            mfaEnabled,
+            dataClassification,
+            userCountBand,
+            lastReviewedAt,
+            notes,
+        } = req.body;
 
         if (!name) {
             return res.status(400).json({ error: "name is required" });
@@ -116,6 +211,27 @@ router.put("/:id", async (req, res) => {
         }
         if (businessCriticality && !VALID_CRITICALITY.includes(businessCriticality)) {
             return res.status(400).json({ error: "businessCriticality must be Low, Medium, High, or Critical" });
+        }
+        if (ssoSupported && !VALID_SSO.includes(ssoSupported)) {
+            return res.status(400).json({ error: "ssoSupported must be Yes, No, or Unknown" });
+        }
+        if (ssoEnabled && !VALID_SSO.includes(ssoEnabled)) {
+            return res.status(400).json({ error: "ssoEnabled must be Yes, No, or Unknown" });
+        }
+        if (mfaSupported && !VALID_MFA.includes(mfaSupported)) {
+            return res.status(400).json({ error: "mfaSupported must be Yes, No, or Unknown" });
+        }
+        if (mfaEnabled && !VALID_MFA.includes(mfaEnabled)) {
+            return res.status(400).json({ error: "mfaEnabled must be Yes, No, or Unknown" });
+        }
+        if (dataClassification && !VALID_DATA_CLASSIFICATION.includes(dataClassification)) {
+            return res.status(400).json({ error: "dataClassification must be Public, General, Confidential, Restricted, or Unknown" });
+        }
+        if (userCountBand && !VALID_USER_COUNT_BAND.includes(userCountBand)) {
+            return res.status(400).json({ error: "userCountBand must be 1_10, 11_30, 31_60, 61_plus, or Unknown" });
+        }
+        if (notes && notes.length > MAX_NOTES_LENGTH) {
+            return res.status(400).json({ error: `notes must be ${MAX_NOTES_LENGTH} characters or less` });
         }
 
         const existing = await query(
@@ -147,7 +263,12 @@ router.put("/:id", async (req, res) => {
         await query(
             `UPDATE cmdb.Applications
              SET name = @name, capabilityId = @capabilityId, status = @status, type = @type,
-                 businessOwner = @businessOwner, businessCriticality = @businessCriticality, impactIfDown = @impactIfDown
+                 businessOwner = @businessOwner, businessCriticality = @businessCriticality, impactIfDown = @impactIfDown,
+                 websiteUrl = @websiteUrl, loginUrl = @loginUrl, backupOwner = @backupOwner,
+                 ssoSupported = @ssoSupported, ssoEnabled = @ssoEnabled,
+                 mfaSupported = @mfaSupported, mfaEnabled = @mfaEnabled,
+                 dataClassification = @dataClassification, userCountBand = @userCountBand,
+                 lastReviewedAt = @lastReviewedAt, notes = @notes
              WHERE id = @id`,
             {
                 id,
@@ -158,10 +279,41 @@ router.put("/:id", async (req, res) => {
                 businessOwner: businessOwner || "",
                 businessCriticality: businessCriticality || "",
                 impactIfDown: impactIfDown || "",
+                websiteUrl: websiteUrl || "",
+                loginUrl: loginUrl || "",
+                backupOwner: backupOwner || "",
+                ssoSupported: ssoSupported || "",
+                ssoEnabled: ssoEnabled || "",
+                mfaSupported: mfaSupported || "",
+                mfaEnabled: mfaEnabled || "",
+                dataClassification: dataClassification || "",
+                userCountBand: userCountBand || "",
+                lastReviewedAt: lastReviewedAt || "",
+                notes: notes || "",
             }
         );
 
-        res.status(200).json({ id, name: normalizedName, capabilityId, status: status || '', type: type || '', businessOwner: businessOwner || '', businessCriticality: businessCriticality || '', impactIfDown: impactIfDown || '' });
+        res.status(200).json({
+            id,
+            name: normalizedName,
+            capabilityId,
+            status: status || "",
+            type: type || "",
+            businessOwner: businessOwner || "",
+            businessCriticality: businessCriticality || "",
+            impactIfDown: impactIfDown || "",
+            websiteUrl: websiteUrl || "",
+            loginUrl: loginUrl || "",
+            backupOwner: backupOwner || "",
+            ssoSupported: ssoSupported || "",
+            ssoEnabled: ssoEnabled || "",
+            mfaSupported: mfaSupported || "",
+            mfaEnabled: mfaEnabled || "",
+            dataClassification: dataClassification || "",
+            userCountBand: userCountBand || "",
+            lastReviewedAt: lastReviewedAt || "",
+            notes: notes || "",
+        });
     } catch (err) {
         console.error(`PUT /api/applications/${req.params.id} failed:`, err);
         res.status(500).json({
@@ -188,7 +340,18 @@ router.get("/", async (_req, res) => {
                 a.purpose,
                 a.businessCriticality,
                 a.impactIfDown,
-                a.businessOwner
+                a.businessOwner,
+                a.websiteUrl,
+                a.loginUrl,
+                a.backupOwner,
+                a.ssoSupported,
+                a.ssoEnabled,
+                a.mfaSupported,
+                a.mfaEnabled,
+                a.dataClassification,
+                a.userCountBand,
+                a.lastReviewedAt,
+                a.notes
             FROM cmdb.Applications a
             INNER JOIN cmdb.Capabilities c
                 ON a.capabilityId = c.id
@@ -213,6 +376,19 @@ router.get("/", async (_req, res) => {
             ownership: {
                 businessOwner: row.businessOwner,
             },
+            security: {
+                websiteUrl: row.websiteUrl,
+                loginUrl: row.loginUrl,
+                backupOwner: row.backupOwner,
+                ssoSupported: row.ssoSupported,
+                ssoEnabled: row.ssoEnabled,
+                mfaSupported: row.mfaSupported,
+                mfaEnabled: row.mfaEnabled,
+                dataClassification: row.dataClassification,
+            },
+            userCountBand: row.userCountBand,
+            lastReviewedAt: row.lastReviewedAt,
+            notes: row.notes,
         }));
 
         res.json(applications);
@@ -243,7 +419,18 @@ router.get("/:id", async (req, res) => {
                 a.purpose,
                 a.businessCriticality,
                 a.impactIfDown,
-                a.businessOwner
+                a.businessOwner,
+                a.websiteUrl,
+                a.loginUrl,
+                a.backupOwner,
+                a.ssoSupported,
+                a.ssoEnabled,
+                a.mfaSupported,
+                a.mfaEnabled,
+                a.dataClassification,
+                a.userCountBand,
+                a.lastReviewedAt,
+                a.notes
             FROM cmdb.Applications a
             INNER JOIN cmdb.Capabilities c
                 ON a.capabilityId = c.id
@@ -317,6 +504,19 @@ router.get("/:id", async (req, res) => {
             ownership: {
                 businessOwner: row.businessOwner,
             },
+            security: {
+                websiteUrl: row.websiteUrl,
+                loginUrl: row.loginUrl,
+                backupOwner: row.backupOwner,
+                ssoSupported: row.ssoSupported,
+                ssoEnabled: row.ssoEnabled,
+                mfaSupported: row.mfaSupported,
+                mfaEnabled: row.mfaEnabled,
+                dataClassification: row.dataClassification,
+            },
+            userCountBand: row.userCountBand,
+            lastReviewedAt: row.lastReviewedAt,
+            notes: row.notes,
             integrations,
             inboundIntegrations,
         };
