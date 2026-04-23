@@ -53,8 +53,8 @@ app.use("/api/capabilities", capabilitiesRouter);
 app.use("/api/integrations", integrationsRouter);
 app.use("/api/me", meRouter);
 
-app.use((req, res, next) => {
-    if (req.path.startsWith("/health")) return next();
+app.use((req, res, _next) => {
+    if (req.path.startsWith("/health") || req.path.startsWith("/api")) return res.status(404).json({ error: "Not found" });
 
     const indexPath = path.join(distPath, "index.html");
     if (existsSync(indexPath)) {
