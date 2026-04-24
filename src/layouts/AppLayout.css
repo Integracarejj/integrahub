@@ -11,3 +11,33 @@
     flex: 1;
     padding: 24px 32px;
 }
+
+.no-access-screen,
+.loading-screen,
+.error-screen,
+.signed-out-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    text-align: center;
+    gap: 12px;
+}
+
+.no-access-screen h2,
+.loading-screen h2,
+.error-screen h2,
+.signed-out-screen h2 {
+    color: #1f2937;
+    margin: 0;
+}
+
+.no-access-screen p,
+.loading-screen p,
+.error-screen p,
+.signed-out-screen p {
+    color: #6b7280;
+    margin: 0;
+    max-width: 400px;
+}

@@ -1,7 +1,8 @@
 // src/components/TopNav.tsx
 import { Link, NavLink } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { usePermissions, isPlatformAdmin } from "../hooks/usePermissions";
+import { useCurrentUser } from "../hooks/useCurrentUser";
 import "./TopNav.css";
 
 const DEV_USERS = [
@@ -11,15 +12,27 @@ const DEV_USERS = [
     { email: "test.user@example.com", label: "Test User" },
 ];
 
+function getDevUserEmail(): string {
+    return localStorage.getItem("devUserEmail") || "";
+}
+
 export default function TopNav() {
-    const [devUserEmail, setDevUserEmail] = useState(() => localStorage.getItem("devUserEmail") || "");
+    const [devUserEmail, setDevUserEmail] = useState(getDevUserEmail);
     const permissions = usePermissions();
+    const { user: currentUser } = useCurrentUser();
     const isAdmin = isPlatformAdmin(permissions);
 
-    useEffect(() => {
-        localStorage.setItem("devUserEmail", devUserEmail);
-        window.dispatchEvent(new StorageEvent("storage", { key: "devUserEmail" }));
-    }, [devUserEmail]);
+    const isDevMode = import.meta.env.DEV;
+
+    function handleDevUserChange(email: string) {
+        setDevUserEmail(email);
+        localStorage.setItem("devUserEmail", email);
+    }
+
+    const displayName = currentUser?.userRecord?.displayName 
+        || currentUser?.principalName 
+        || "Signed In";
+    const displayRole = currentUser?.userRecord?.role || "Viewer";
 
     return (
         <header className="top-nav">
@@ -69,16 +82,23 @@ export default function TopNav() {
                     )}
                 </nav>
 
-                <select
-                    className="dev-user-select"
-                    value={devUserEmail}
-                    onChange={(e) => setDevUserEmail(e.target.value)}
-                    title="DEV ONLY: Switch test user"
-                >
-                    {DEV_USERS.map((u) => (
-                        <option key={u.email} value={u.email}>{u.label}</option>
-                    ))}
-                </select>
+                <div className="user-profile">
+                    <span className="user-name">{displayName}</span>
+                    <span className="user-role">{displayRole}</span>
+                </div>
+
+                {isDevMode && (
+                    <select
+                        className="dev-user-select"
+                        value={devUserEmail}
+                        onChange={(e) => handleDevUserChange(e.target.value)}
+                        title="DEV ONLY: Switch test user"
+                    >
+                        {DEV_USERS.map((u) => (
+                            <option key={u.email} value={u.email}>{u.label}</option>
+                        ))}
+                    </select>
+                )}
             </div>
         </header>
     );
