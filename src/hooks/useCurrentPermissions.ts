@@ -1,18 +1,9 @@
-import { usePermissions, isPlatformAdmin } from "../hooks/usePermissions";
+import { usePermissions, isPlatformAdmin, type PermissionInfo } from "../hooks/usePermissions";
 import { useCurrentUser } from "../hooks/useCurrentUser";
-
-export interface PermissionInfo {
-    userId: string;
-    globalRole: string;
-    assignments: Array<{
-        applicationId: string;
-        role: string;
-    }>;
-}
 
 export function useCurrentPermissions(): PermissionInfo | null {
     const { user: currentUser } = useCurrentUser();
-    const backendPermissions = usePermissions();
+    const { permissions } = usePermissions();
 
     if (!currentUser?.isAuthenticated) {
         return null;
@@ -26,7 +17,7 @@ export function useCurrentPermissions(): PermissionInfo | null {
         };
     }
 
-    return backendPermissions;
+    return permissions;
 }
 
 export { usePermissions, isPlatformAdmin };

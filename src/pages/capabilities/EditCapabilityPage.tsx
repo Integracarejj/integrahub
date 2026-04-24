@@ -7,7 +7,7 @@ import "../applications/CreateApplicationPage.css";
 export default function EditCapabilityPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const permissions = usePermissions();
+    const { permissions, loading: permissionsLoading } = usePermissions();
 
     const [name, setName] = useState("");
     const [loading, setLoading] = useState(true);
@@ -30,6 +30,10 @@ export default function EditCapabilityPage() {
                 setLoading(false);
             });
     }, [id]);
+
+    if (permissionsLoading) {
+        return <div className="create-application-page"><p>Loading...</p></div>;
+    }
 
     if (!isPlatformAdmin(permissions)) {
         return (

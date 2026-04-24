@@ -25,7 +25,7 @@ interface Integration {
 }
 
 export default function AdminPage() {
-    const permissions = usePermissions();
+    const { permissions, loading: permissionsLoading } = usePermissions();
     const [capabilities, setCapabilities] = useState<Capability[]>([]);
     const [applications, setApplications] = useState<Application[]>([]);
     const [integrations, setIntegrations] = useState<Integration[]>([]);
@@ -42,6 +42,10 @@ export default function AdminPage() {
     useEffect(() => {
         loadData();
     }, []);
+
+    if (permissionsLoading) {
+        return <div className="admin-page" style={{ padding: "40px", textAlign: "center" }}><p>Loading...</p></div>;
+    }
 
     if (!isPlatformAdmin(permissions)) {
         return (

@@ -65,7 +65,7 @@ export default function ApplicationsListPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const permissions = usePermissions();
+    const { permissions } = usePermissions();
     const isAdmin = isPlatformAdmin(permissions);
 
     useEffect(() => {

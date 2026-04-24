@@ -18,7 +18,7 @@ function getDevUserEmail(): string {
 
 export default function TopNav() {
     const [devUserEmail, setDevUserEmail] = useState(getDevUserEmail);
-    const permissions = usePermissions();
+    const { permissions } = usePermissions();
     const { user: currentUser } = useCurrentUser();
     const isAdmin = isPlatformAdmin(permissions);
 

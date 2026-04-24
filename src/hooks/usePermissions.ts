@@ -1,6 +1,3 @@
-// DEV ONLY: Hook for accessing current user permissions
-// TODO: Replace with real auth hook when SSO is implemented
-
 import { useEffect, useState } from "react";
 
 export interface PermissionInfo {
@@ -55,13 +52,17 @@ function fetchPermissions(devUserEmail: string | null): Promise<PermissionInfo |
 
 export function usePermissions() {
     const [permissions, setPermissions] = useState<PermissionInfo | null>(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const devUserEmail = localStorage.getItem("devUserEmail");
-        fetchPermissions(devUserEmail).then(setPermissions);
+        fetchPermissions(devUserEmail).then((perms) => {
+            setPermissions(perms);
+            setLoading(false);
+        });
     }, []);
 
-    return permissions;
+    return { permissions, loading };
 }
 
 export function isPlatformAdmin(permissions: PermissionInfo | null): boolean {
