@@ -263,7 +263,7 @@ router.put("/:id", async (req, res) => {
         await query(
             `UPDATE cmdb.Applications
              SET name = @name, capabilityId = @capabilityId, status = @status, type = @type,
-                 businessOwner = @businessOwner, businessCriticality = @businessCriticality, impactIfDown = @impactIfDown,
+                 businessOwner = @businessOwner, technicalOwner = @technicalOwner, businessCriticality = @businessCriticality, impactIfDown = @impactIfDown,
                  websiteUrl = @websiteUrl, loginUrl = @loginUrl, backupOwner = @backupOwner,
                  ssoSupported = @ssoSupported, ssoEnabled = @ssoEnabled,
                  mfaSupported = @mfaSupported, mfaEnabled = @mfaEnabled,
@@ -274,6 +274,7 @@ router.put("/:id", async (req, res) => {
                 id,
                 name: normalizedName,
                 capabilityId,
+                technicalOwner: technicalOwner || null,
                 status: status || "",
                 type: type || "",
                 businessOwner: businessOwner || "",

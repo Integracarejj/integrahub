@@ -88,8 +88,12 @@ function sortApplications(apps: ApiApplication[]): ApiApplication[] {
 export default function ApplicationsListPage() {
     const [applications, setApplications] = useState<ApiApplication[]>([]);
     const [capabilities, setCapabilities] = useState<Capability[]>([]);
+    const [users, setUsers] = useState<{ id: string; displayName: string; email: string; isActive: boolean }[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [editingOwnerId, setEditingOwnerId] = useState<string | null>(null);
+    const [selectedOwner, setSelectedOwner] = useState("");
+    const [savingOwner, setSavingOwner] = useState(false);
 
     const { permissions } = usePermissions();
     const isAdmin = isPlatformAdmin(permissions);
@@ -99,6 +103,13 @@ export default function ApplicationsListPage() {
             .then((res) => res.ok ? res.json() : [])
             .then((data) => setCapabilities(data))
             .catch(() => setCapabilities([]));
+    }, []);
+
+    useEffect(() => {
+        fetch("/api/admin/users", { headers: { "Content-Type": "application/json" } })
+            .then((res) => res.ok ? res.json() : [])
+            .then((data) => setUsers(data.filter((u: { isActive: boolean }) => u.isActive)))
+            .catch(() => setUsers([]));
     }, []);
 
     useEffect(() => {
@@ -159,6 +170,35 @@ export default function ApplicationsListPage() {
 
         return sortApplications(result);
     }, [applications, search, capabilityFilter, statusFilter, criticalityFilter, showInactive]);
+
+    async function handleSaveOwner(appId: string) {
+        if (!selectedOwner) return;
+        setSavingOwner(true);
+        try {
+            const res = await fetch(`/api/applications/${appId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: applications.find((a) => a.id === appId)?.name,
+                    capabilityId: applications.find((a) => a.id === appId)?.capabilityId,
+                    technicalOwner: selectedOwner,
+                }),
+            });
+            if (res.ok) {
+                setApplications((prev) =>
+                    prev.map((app) =>
+                        app.id === appId
+                            ? { ...app, ownership: { ...app.ownership, technicalOwner: selectedOwner } }
+                            : app
+                    )
+                );
+                setEditingOwnerId(null);
+                setSelectedOwner("");
+            }
+        } finally {
+            setSavingOwner(false);
+        }
+    }
 
     if (loading) {
         return <div className="applications-page">Loading applications...</div>;
@@ -288,9 +328,50 @@ export default function ApplicationsListPage() {
                                 <td>{app.ownership.businessOwner || "—"}</td>
                                 <td>
                                     {missingOwner ? (
-                                        <span className="owner-missing">
-                                            Needs owner
-                                        </span>
+                                        <>
+                                            {editingOwnerId === app.id ? (
+                                                <div className="owner-edit">
+                                                    <select
+                                                        value={selectedOwner}
+                                                        onChange={(e) => setSelectedOwner(e.target.value)}
+                                                        className="owner-select"
+                                                    >
+                                                        <option value="">Select owner...</option>
+                                                        {users.map((u) => (
+                                                            <option key={u.id} value={u.displayName}>
+                                                                {u.displayName}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <button
+                                                        className="owner-save-btn"
+                                                        onClick={() => handleSaveOwner(app.id)}
+                                                        disabled={savingOwner || !selectedOwner}
+                                                    >
+                                                        {savingOwner ? "..." : "Save"}
+                                                    </button>
+                                                    <button
+                                                        className="owner-cancel-btn"
+                                                        onClick={() => {
+                                                            setEditingOwnerId(null);
+                                                            setSelectedOwner("");
+                                                        }}
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    className="owner-missing"
+                                                    onClick={() => {
+                                                        setEditingOwnerId(app.id);
+                                                        setSelectedOwner("");
+                                                    }}
+                                                >
+                                                    + Assign
+                                                </button>
+                                            )}
+                                        </>
                                     ) : (
                                         app.ownership.technicalOwner
                                     )}
