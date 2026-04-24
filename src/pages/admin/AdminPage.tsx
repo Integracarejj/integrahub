@@ -24,24 +24,12 @@ interface Integration {
     notes: string;
 }
 
-interface AdminUser {
-    id: string;
-    entraObjectId: string | null;
-    email: string;
-    displayName: string;
-    role: string;
-    isActive: boolean;
-    updatedAt: string | null;
-}
-
 export default function AdminPage() {
     const { permissions, loading: permissionsLoading } = usePermissions();
     const [capabilities, setCapabilities] = useState<Capability[]>([]);
     const [applications, setApplications] = useState<Application[]>([]);
     const [integrations, setIntegrations] = useState<Integration[]>([]);
-    const [users, setUsers] = useState<AdminUser[]>([]);
     const [loading, setLoading] = useState(true);
-    const [usersLoading, setUsersLoading] = useState(true);
     const [deleteError, setDeleteError] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
@@ -49,15 +37,10 @@ export default function AdminPage() {
     const [editForm, setEditForm] = useState({ sourceApplicationId: "", targetApplicationId: "", integrationType: "", notes: "" });
     const [savingId, setSavingId] = useState<string | null>(null);
 
-    const [newUserEmail, setNewUserEmail] = useState("");
-    const [newUserRole, setNewUserRole] = useState("Viewer");
-    const [addingUser, setAddingUser] = useState(false);
-
     const INTEGRATION_TYPES = ["API", "File Transfer", "SSO", "Manual Import", "Webhook", "Database Sync", "Other"];
 
     useEffect(() => {
         loadData();
-        loadUsers();
     }, []);
 
     if (permissionsLoading) {
@@ -74,7 +57,7 @@ export default function AdminPage() {
         );
     }
 
-    function loadData() {
+function loadData() {
         setLoading(true);
         Promise.all([
             fetch("/api/capabilities").then((res) => res.json()),
@@ -92,100 +75,12 @@ export default function AdminPage() {
             });
     }
 
-    function loadUsers() {
-        setUsersLoading(true);
-        fetch("/api/admin/users", { headers: getAuthHeaders() })
-            .then((res) => (res.ok ? res.json() : []))
-            .then((data) => setUsers(data))
-            .catch(() => setUsers([]))
-            .finally(() => setUsersLoading(false));
-    }
-
-    async function handleAddUser() {
-        if (!newUserEmail.trim()) return;
-        setAddingUser(true);
-        try {
-            const res = await fetch("/api/admin/users", {
-                method: "POST",
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ email: newUserEmail, role: newUserRole }),
-            });
-            if (res.ok) {
-                setNewUserEmail("");
-                setNewUserRole("Viewer");
-                loadUsers();
-            }
-        } finally {
-            setAddingUser(false);
-        }
-    }
-
-    async function handleUpdateUserRole(userId: string, role: string) {
-        setSavingId(userId);
-        try {
-            await fetch(`/api/admin/users/${userId}`, {
-                method: "PUT",
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ role }),
-            });
-            loadUsers();
-        } finally {
-            setSavingId(null);
-        }
-    }
-
-    async function handleToggleUserActive(userId: string, isActive: boolean) {
-        setSavingId(userId);
-        try {
-            await fetch(`/api/admin/users/${userId}`, {
-                method: "PUT",
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ isActive }),
-            });
-            loadUsers();
-        } finally {
-            setSavingId(null);
-        }
-    }
-
-    async function handleDeleteUser(userId: string) {
-        if (!window.confirm("Deactivate this user?")) return;
-        setSavingId(userId);
-        try {
-            await fetch(`/api/admin/users/${userId}`, {
-                method: "PUT",
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ isActive: false }),
-            });
-            loadUsers();
-        } finally {
-            setSavingId(null);
-        }
-    }
-
     async function handleDeleteCapability(id: string, name: string) {
-        if (!window.confirm(`Are you sure you want to delete "${name}"?`)) {
-            return;
-        }
-
+        if (!window.confirm(`Delete "${name}"?`)) return;
         setDeletingId(id);
-        setDeleteError(null);
-
         try {
-            const res = await fetch(`/api/capabilities/${id}`, {
-                method: "DELETE",
-                headers: getAuthHeaders(),
-            });
-
-            if (!res.ok) {
-                const data = await res.json();
-                setDeleteError(data.error || "Failed to delete capability");
-                return;
-            }
-
-            loadData();
-        } catch (err) {
-            setDeleteError("Failed to delete capability");
+            const res = await fetch(`/api/capabilities/${id}`, { method: "DELETE", headers: getAuthHeaders() });
+            if (res.ok) loadData();
         } finally {
             setDeletingId(null);
         }
@@ -343,6 +238,12 @@ export default function AdminPage() {
                     <h2>Create Capability</h2>
                     <p>Add a new capability to the catalog.</p>
                     <Link to="/capabilities/new" className="admin-btn">Create Capability</Link>
+                </div>
+
+                <div className="admin-card">
+                    <h2>Manage Users</h2>
+                    <p>Add, edit, or deactivate user accounts.</p>
+                    <Link to="/admin/users" className="admin-btn">Manage Users</Link>
                 </div>
             </div>
 
@@ -528,60 +429,6 @@ export default function AdminPage() {
                             ))}
                         </tbody>
                     </table>
-                )}
-            </CollapsibleSection>
-
-            <CollapsibleSection title="User Management" sectionKey="users">
-                {usersLoading ? (
-                    <p>Loading...</p>
-                ) : (
-                    <>
-                        <div className="add-user-form">
-                            <input type="email" placeholder="User email" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} className="edit-input" />
-                            <select value={newUserRole} onChange={(e) => setNewUserRole(e.target.value)} className="edit-select">
-                                <option value="Viewer">Viewer</option>
-                                <option value="Editor">Editor</option>
-                                <option value="PlatformAdmin">PlatformAdmin</option>
-                            </select>
-                            <button className="admin-btn" onClick={handleAddUser} disabled={addingUser || !newUserEmail.trim()}>
-                                {addingUser ? "Adding..." : "Add User"}
-                            </button>
-                        </div>
-                        <table className="admin-table">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Email</th>
-                                    <th>Role</th>
-                                    <th>Active</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {users.map((user) => (
-                                    <tr key={user.id}>
-                                        <td>{user.displayName || "—"}</td>
-                                        <td>{user.email}</td>
-                                        <td>
-                                            <select value={user.role} onChange={(e) => handleUpdateUserRole(user.id, e.target.value)} disabled={savingId === user.id} className="edit-select">
-                                                <option value="Viewer">Viewer</option>
-                                                <option value="Editor">Editor</option>
-                                                <option value="PlatformAdmin">PlatformAdmin</option>
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <input type="checkbox" checked={user.isActive} onChange={(e) => handleToggleUserActive(user.id, e.target.checked)} disabled={savingId === user.id} />
-                                        </td>
-                                        <td>
-                                            <button className="admin-link danger" onClick={() => handleDeleteUser(user.id)} disabled={savingId === user.id || !user.isActive}>
-                                                {savingId === user.id ? "Saving..." : "Deactivate"}
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </>
                 )}
             </CollapsibleSection>
         </div>

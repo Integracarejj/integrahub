@@ -192,3 +192,13 @@
 .edit-input {
     width: 100px;
 }
+
+.status-active {
+    color: #059669;
+    font-weight: 500;
+}
+
+.status-inactive {
+    color: #dc2626;
+    font-weight: 500;
+}
