@@ -141,3 +141,40 @@
 .clear-filters:hover {
     color: #374151;
 }
+
+.criticality-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 10px;
+    border: 1px solid;
+}
+
+.owner-missing {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #b45309;
+    font-size: 12px;
+}
+
+.owner-missing::before {
+    content: "⚠";
+    font-size: 10px;
+}
+
+.app-name {
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.action-link {
+    color: #2563eb !important;
+    font-weight: 400 !important;
+    font-size: 13px;
+}
+
+.action-link:hover {
+    text-decoration: underline;
+}

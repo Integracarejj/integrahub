@@ -20,6 +20,7 @@ interface ApiApplication {
     };
     ownership: {
         businessOwner: string;
+        technicalOwner?: string;
     };
 }
 
@@ -51,11 +52,36 @@ function filterApplications(
             app.vendor ?? "",
             app.businessContext.impactIfDown,
             app.businessContext.businessCriticality,
+            app.ownership.businessOwner,
+            app.ownership.technicalOwner ?? "",
         ]
             .join(" ")
             .toLowerCase();
 
         return terms.some((term) => searchableText.includes(term));
+    });
+}
+
+const CRITICALITY_ORDER: Record<string, number> = {
+    Critical: 1,
+    High: 2,
+    Medium: 3,
+    Low: 4,
+};
+
+const CRITICALITY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+    Critical: { bg: "#fef2f2", text: "#991b1b", border: "#fecaca" },
+    High: { bg: "#fff7ed", text: "#c2410c", border: "#fed7aa" },
+    Medium: { bg: "#fefce8", text: "#a16207", border: "#fde047" },
+    Low: { bg: "#f0fdf4", text: "#15803d", border: "#bbf7d0" },
+};
+
+function sortApplications(apps: ApiApplication[]): ApiApplication[] {
+    return [...apps].sort((a, b) => {
+        const critA = CRITICALITY_ORDER[a.businessContext.businessCriticality] ?? 99;
+        const critB = CRITICALITY_ORDER[b.businessContext.businessCriticality] ?? 99;
+        if (critA !== critB) return critA - critB;
+        return a.name.localeCompare(b.name);
     });
 }
 
@@ -116,7 +142,6 @@ export default function ApplicationsListPage() {
 
         result = result.filter((app) => {
             if (!showInactive && app.status !== "Active") return false;
-            // type filter bypassed - API doesn't return type field yet
             return true;
         });
 
@@ -132,7 +157,7 @@ export default function ApplicationsListPage() {
             result = result.filter((app) => app.businessContext.businessCriticality === criticalityFilter);
         }
 
-        return result;
+        return sortApplications(result);
     }, [applications, search, capabilityFilter, statusFilter, criticalityFilter, showInactive]);
 
     if (loading) {
@@ -156,7 +181,7 @@ export default function ApplicationsListPage() {
             <div className="filters">
                 <input
                     type="text"
-                    placeholder="Search by name, description, or purpose"
+                    placeholder="Search by name, owner, vendor, or description"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                 />
@@ -221,30 +246,72 @@ export default function ApplicationsListPage() {
             <table className="applications-table">
                 <thead>
                     <tr>
-                        <th>Name</th>
+                        <th>Application</th>
                         <th>Capability</th>
                         <th>Status</th>
                         <th>Criticality</th>
-                        <th>Owner</th>
+                        <th>Business Owner</th>
+                        <th>Technical Owner</th>
+                        <th>Vendor</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {filteredApps.map((app) => (
-                        <tr key={app.id}>
-                            <td>
-                                <Link to={`/applications/${app.id}`}>{app.name}</Link>
-                            </td>
-                            <td><Link to={`/capabilities/${app.capabilityId}`}>{app.capabilityName}</Link></td>
-                            <td>{app.status}</td>
-                            <td>{app.businessContext.businessCriticality}</td>
-                            <td>{app.ownership.businessOwner}</td>
-                        </tr>
-                    ))}
+                    {filteredApps.map((app) => {
+                        const colors = CRITICALITY_COLORS[app.businessContext.businessCriticality] || CRITICALITY_COLORS.Low;
+                        const missingOwner = !app.ownership.technicalOwner;
+                        return (
+                            <tr key={app.id}>
+                                <td>
+                                    <Link to={`/applications/${app.id}`} className="app-name">
+                                        {app.name}
+                                    </Link>
+                                </td>
+                                <td>
+                                    <Link to={`/capabilities/${app.capabilityId}`}>
+                                        {app.capabilityName}
+                                    </Link>
+                                </td>
+                                <td>{app.status}</td>
+                                <td>
+                                    <span
+                                        className="criticality-badge"
+                                        style={{
+                                            backgroundColor: colors.bg,
+                                            color: colors.text,
+                                            borderColor: colors.border,
+                                        }}
+                                    >
+                                        {app.businessContext.businessCriticality}
+                                    </span>
+                                </td>
+                                <td>{app.ownership.businessOwner || "—"}</td>
+                                <td>
+                                    {missingOwner ? (
+                                        <span className="owner-missing">
+                                            Needs owner
+                                        </span>
+                                    ) : (
+                                        app.ownership.technicalOwner
+                                    )}
+                                </td>
+                                <td>{app.vendor || "—"}</td>
+                                <td>
+                                    <Link
+                                        to={`/applications/${app.id}`}
+                                        className="action-link"
+                                    >
+                                        View
+                                    </Link>
+                                </td>
+                            </tr>
+                        );
+                    })}
 
                     {filteredApps.length === 0 && (
                         <tr>
-                            <td colSpan={5} className="empty">
-                                No applications match your filters.
+                            <td colSpan={8} className="empty">
+                                No applications match the current filters.
                             </td>
                         </tr>
                     )}
