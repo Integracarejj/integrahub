@@ -38,10 +38,30 @@ router.get("/", async (req, res) => {
 });
 
 router.post("/", async (req, res) => {
-    const { email, displayName, role } = req.body;
+    const { email: rawEmail, displayName, role } = req.body;
 
-    if (!email) {
-        return res.status(400).json({ error: "email is required" });
+    if (!rawEmail) {
+        return res.status(400).json({ error: "Email is required" });
+    }
+
+    const email = rawEmail.trim().toLowerCase();
+
+    if (!email.includes("@")) {
+        return res.status(400).json({ error: "Invalid email format" });
+    }
+
+    const allowedDomain = "@integracare.com";
+    if (!email.endsWith(allowedDomain)) {
+        return res.status(400).json({ error: `Only ${allowedDomain} emails are allowed` });
+    }
+
+    const existingRows = await query(
+        "SELECT id FROM cmdb.Users WHERE email = @email",
+        { email }
+    );
+
+    if (existingRows.length > 0) {
+        return res.status(400).json({ error: "A user with this email already exists" });
     }
 
     const validRoles = ["PlatformAdmin", "Editor", "Viewer"];
@@ -49,7 +69,7 @@ router.post("/", async (req, res) => {
 
     try {
         const newId = `user-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-        const name = displayName || email.split("@")[0];
+        const name = displayName?.trim() || email.split("@")[0];
 
         await query(`
             INSERT INTO cmdb.Users (id, entraObjectId, email, displayName, role, isActive, createdAt)

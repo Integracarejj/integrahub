@@ -15,6 +15,7 @@ interface AdminUser {
 }
 
 const ROLES = ["Viewer", "Editor", "PlatformAdmin"];
+type Filter = "active" | "inactive" | "all";
 
 export default function AdminUsersPage() {
     const { permissions, loading: permissionsLoading } = usePermissions();
@@ -22,11 +23,16 @@ export default function AdminUsersPage() {
     const [loading, setLoading] = useState(true);
     const [savingId, setSavingId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [filter, setFilter] = useState<Filter>("active");
 
     const [newEmail, setNewEmail] = useState("");
     const [newDisplayName, setNewDisplayName] = useState("");
     const [newRole, setNewRole] = useState("Viewer");
     const [adding, setAdding] = useState(false);
+
+    const activeUsers = users.filter((u) => u.isActive);
+    const inactiveUsers = users.filter((u) => !u.isActive);
+    const filteredUsers = filter === "all" ? users : filter === "active" ? activeUsers : inactiveUsers;
 
     useEffect(() => {
         loadUsers();
@@ -164,10 +170,29 @@ export default function AdminUsersPage() {
             </div>
 
             <div className="admin-section">
-                <h2>Users</h2>
+                <div className="user-filter-bar">
+                    <button
+                        className={`filter-btn ${filter === "active" ? "active" : ""}`}
+                        onClick={() => setFilter("active")}
+                    >
+                        Active ({activeUsers.length})
+                    </button>
+                    <button
+                        className={`filter-btn ${filter === "inactive" ? "active" : ""}`}
+                        onClick={() => setFilter("inactive")}
+                    >
+                        Inactive ({inactiveUsers.length})
+                    </button>
+                    <button
+                        className={`filter-btn ${filter === "all" ? "active" : ""}`}
+                        onClick={() => setFilter("all")}
+                    >
+                        All ({users.length})
+                    </button>
+                </div>
                 {loading ? (
                     <p>Loading...</p>
-                ) : users.length === 0 ? (
+                ) : filteredUsers.length === 0 ? (
                     <p>No users found.</p>
                 ) : (
                     <div className="user-table-container">
@@ -182,7 +207,7 @@ export default function AdminUsersPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {users.map((user) => (
+                                {filteredUsers.map((user) => (
                                     <tr key={user.id}>
                                         <td>{user.displayName || "—"}</td>
                                         <td>{user.email}</td>
