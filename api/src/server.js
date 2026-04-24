@@ -5,6 +5,7 @@ import applicationsRouter from "./routes/applications.js";
 import capabilitiesRouter from "./routes/capabilities.js";
 import integrationsRouter from "./routes/integrations.js";
 import meRouter from "./routes/me.js";
+import adminUsersRouter from "./routes/adminUsers.js";
 import { resolveCurrentUser } from "./middleware/resolveCurrentUser.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -52,6 +53,7 @@ app.use("/api/applications", applicationsRouter);
 app.use("/api/capabilities", capabilitiesRouter);
 app.use("/api/integrations", integrationsRouter);
 app.use("/api/me", meRouter);
+app.use("/api/admin/users", adminUsersRouter);
 
 app.use((req, res, _next) => {
     if (req.path.startsWith("/health") || req.path.startsWith("/api")) return res.status(404).json({ error: "Not found" });
