@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "node --watch --env-file=.env src/server.js",
-    "start": "node server.js"
+    "start": "node src/server.js"
   },
   "dependencies": {
     "@azure/identity": "^4.0.0",
