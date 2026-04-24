@@ -130,7 +130,7 @@ export default function AdminUsersPage() {
                             value={newEmail}
                             onChange={(e) => setNewEmail(e.target.value)}
                             placeholder="user@example.com"
-                            className="edit-input"
+                            className="user-input"
                         />
                     </div>
                     <div className="form-field">
@@ -141,7 +141,7 @@ export default function AdminUsersPage() {
                             value={newDisplayName}
                             onChange={(e) => setNewDisplayName(e.target.value)}
                             placeholder="Optional name"
-                            className="edit-input"
+                            className="user-input"
                         />
                     </div>
                     <div className="form-field">
@@ -150,7 +150,7 @@ export default function AdminUsersPage() {
                             id="newRole"
                             value={newRole}
                             onChange={(e) => setNewRole(e.target.value)}
-                            className="edit-select"
+                            className="user-select"
                         >
                             {ROLES.map((r) => (
                                 <option key={r} value={r}>{r}</option>
@@ -170,51 +170,53 @@ export default function AdminUsersPage() {
                 ) : users.length === 0 ? (
                     <p>No users found.</p>
                 ) : (
-                    <table className="admin-table user-table">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Email</th>
-                                <th>Role</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {users.map((user) => (
-                                <tr key={user.id}>
-                                    <td>{user.displayName || "—"}</td>
-                                    <td>{user.email}</td>
-                                    <td>
-                                        <select
-                                            value={user.role}
-                                            onChange={(e) => handleUpdateRole(user.id, e.target.value)}
-                                            disabled={savingId === user.id}
-                                            className="edit-select"
-                                        >
-                                            {ROLES.map((r) => (
-                                                <option key={r} value={r}>{r}</option>
-                                            ))}
-                                        </select>
-                                    </td>
-                                    <td>
-                                        <span className={user.isActive ? "status-active" : "status-inactive"}>
-                                            {user.isActive ? "Active" : "Inactive"}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <button
-                                            className={`user-table-btn ${user.isActive ? "outline-danger" : "outline-secondary"}`}
-                                            onClick={() => handleToggleActive(user.id, !user.isActive)}
-                                            disabled={savingId === user.id}
-                                        >
-                                            {savingId === user.id ? "Saving..." : user.isActive ? "Deactivate" : "Reactivate"}
-                                        </button>
-                                    </td>
+                    <div className="user-table-container">
+                        <table className="user-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {users.map((user) => (
+                                    <tr key={user.id}>
+                                        <td>{user.displayName || "—"}</td>
+                                        <td>{user.email}</td>
+                                        <td>
+                                            <select
+                                                value={user.role}
+                                                onChange={(e) => handleUpdateRole(user.id, e.target.value)}
+                                                disabled={savingId === user.id}
+                                                className="edit-select"
+                                            >
+                                                {ROLES.map((r) => (
+                                                    <option key={r} value={r}>{r}</option>
+                                                ))}
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <span className={user.isActive ? "status-active" : "status-inactive"}>
+                                                {user.isActive ? "Active" : "Inactive"}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button
+                                                className={`user-table-btn ${user.isActive ? "outline-danger" : "outline-secondary"}`}
+                                                onClick={() => handleToggleActive(user.id, !user.isActive)}
+                                                disabled={savingId === user.id}
+                                            >
+                                                {savingId === user.id ? "Saving..." : user.isActive ? "Deactivate" : "Reactivate"}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </div>
         </div>
