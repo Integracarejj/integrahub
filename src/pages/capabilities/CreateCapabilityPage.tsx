@@ -8,6 +8,11 @@ export default function CreateCapabilityPage() {
     const navigate = useNavigate();
     const permissions = usePermissions();
 
+    const [name, setName] = useState("");
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [validationError, setValidationError] = useState<string | null>(null);
+
     if (!isPlatformAdmin(permissions)) {
         return (
             <div className="create-application-page" style={{ padding: "40px", textAlign: "center" }}>
@@ -17,11 +22,6 @@ export default function CreateCapabilityPage() {
             </div>
         );
     }
-
-    const [name, setName] = useState("");
-    const [submitting, setSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [validationError, setValidationError] = useState<string | null>(null);
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();

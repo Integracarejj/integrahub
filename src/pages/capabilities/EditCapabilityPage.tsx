@@ -9,16 +9,6 @@ export default function EditCapabilityPage() {
     const navigate = useNavigate();
     const permissions = usePermissions();
 
-    if (!isPlatformAdmin(permissions)) {
-        return (
-            <div className="create-application-page" style={{ padding: "40px", textAlign: "center" }}>
-                <h1>Access Denied</h1>
-                <p>You do not have access to this page.</p>
-                <Link to="/" className="create-btn">Go to Home</Link>
-            </div>
-        );
-    }
-
     const [name, setName] = useState("");
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -40,6 +30,16 @@ export default function EditCapabilityPage() {
                 setLoading(false);
             });
     }, [id]);
+
+    if (!isPlatformAdmin(permissions)) {
+        return (
+            <div className="create-application-page" style={{ padding: "40px", textAlign: "center" }}>
+                <h1>Access Denied</h1>
+                <p>You do not have access to this page.</p>
+                <Link to="/" className="create-btn">Go to Home</Link>
+            </div>
+        );
+    }
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
