@@ -170,7 +170,7 @@ export default function AdminUsersPage() {
                 ) : users.length === 0 ? (
                     <p>No users found.</p>
                 ) : (
-                    <table className="admin-table">
+                    <table className="admin-table user-table">
                         <thead>
                             <tr>
                                 <th>Name</th>
@@ -204,7 +204,7 @@ export default function AdminUsersPage() {
                                     </td>
                                     <td>
                                         <button
-                                            className="admin-link danger"
+                                            className={`user-table-btn ${user.isActive ? "outline-danger" : "outline-secondary"}`}
                                             onClick={() => handleToggleActive(user.id, !user.isActive)}
                                             disabled={savingId === user.id}
                                         >
