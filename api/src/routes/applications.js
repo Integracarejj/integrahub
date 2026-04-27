@@ -317,9 +317,15 @@ router.put("/:id", async (req, res) => {
         });
     } catch (err) {
         console.error(`PUT /api/applications/${req.params.id} failed:`, err);
+        console.error("Request body:", JSON.stringify(req.body, null, 2));
+        console.error("Error message:", err.message);
+        console.error("Error stack:", err.stack);
+        if (err.number) console.error("Error number:", err.number);
+        if (err.code) console.error("Error code:", err.code);
+        if (err.originalError) console.error("Original error:", err.originalError);
         res.status(500).json({
             error: "Failed to update application",
-            details: err?.message || "Unknown error",
+            detail: err?.message || "Unknown error",
         });
     }
 });

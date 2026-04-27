@@ -206,7 +206,7 @@ export default function ApplicationsListPage() {
                 setSelectedOwner("");
             } else {
                 const data = await res.json();
-                setSaveError(data.error || "Failed to save");
+                setSaveError(data.detail || data.error || "Failed to save");
             }
         } catch {
             setSaveError("Failed to save");
