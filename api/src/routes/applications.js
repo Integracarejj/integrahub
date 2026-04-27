@@ -182,6 +182,7 @@ router.put("/:id", async (req, res) => {
             status,
             type,
             businessOwner,
+            technicalOwner,
             businessCriticality,
             impactIfDown,
             websiteUrl,
