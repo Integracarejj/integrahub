@@ -42,6 +42,93 @@
     border-color: #bbf7d0;
 }
 
+.owner-assign-btn,
+.owner-change-btn,
+.owner-clear-btn {
+    margin-left: 8px;
+    padding: 2px 8px;
+    font-size: 12px;
+    background: transparent;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #6b7280;
+}
+
+.owner-assign-btn {
+    color: #2563eb;
+    border-style: dashed;
+}
+
+.owner-assign-btn:hover,
+.owner-change-btn:hover {
+    background: #f9fafb;
+    color: #374151;
+}
+
+.owner-clear-btn {
+    border-color: #e5e7eb;
+    color: #9ca3af;
+}
+
+.owner-clear-btn:hover {
+    color: #6b7280;
+    border-color: #d1d5db;
+}
+
+.tech-owner-edit {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.tech-owner-edit .owner-select {
+    padding: 4px 6px;
+    font-size: 13px;
+    min-width: 140px;
+}
+
+.tech-owner-edit .owner-save-btn,
+.tech-owner-edit .owner-cancel-btn {
+    padding: 4px 10px;
+    font-size: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.tech-owner-edit .owner-save-btn {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+}
+
+.tech-owner-edit .owner-save-btn:hover {
+    background: #1d4ed8;
+}
+
+.tech-owner-edit .owner-save-btn:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+}
+
+.tech-owner-edit .owner-cancel-btn {
+    background: #fff;
+    border: 1px solid #d1d5db;
+}
+
+.tech-owner-edit .owner-cancel-btn:hover {
+    background: #f9fafb;
+}
+
+.owner-error {
+    display: block;
+    color: #dc2626;
+    font-size: 12px;
+    width: 100%;
+    margin-bottom: 4px;
+}
+
 .detail-header-top {
     display: flex;
     align-items: baseline;

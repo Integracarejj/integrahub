@@ -81,6 +81,11 @@ export default function ApplicationDetailPage() {
     const [adding, setAdding] = useState(false);
     const [newIntegration, setNewIntegration] = useState({ connectedAppId: "", direction: "", integrationType: "", notes: "" });
     const [permissions, setPermissions] = useState<PermissionInfo | null>(null);
+    const [users, setUsers] = useState<{ id: string; displayName: string }[]>([]);
+    const [editingTechOwner, setEditingTechOwner] = useState(false);
+    const [selectedTechOwner, setSelectedTechOwner] = useState("");
+    const [savingTechOwner, setSavingTechOwner] = useState(false);
+    const [techOwnerError, setTechOwnerError] = useState<string | null>(null);
 
     const INTEGRATION_TYPES = ["API", "File Transfer", "SSO", "Manual Import", "Webhook", "Database Sync", "Other"];
     const DIRECTION_OPTIONS = [
@@ -126,6 +131,13 @@ export default function ApplicationDetailPage() {
             .then((res) => res.json())
             .then((data) => setApplications(data))
             .catch(() => setApplications([]));
+    }, []);
+
+    useEffect(() => {
+        fetch("/api/admin/users", { headers: { "Content-Type": "application/json" } })
+            .then((res) => res.ok ? res.json() : [])
+            .then((data) => setUsers(data.filter((u: { isActive: boolean }) => u.isActive).map((u: { id: string; displayName: string }) => ({ id: u.id, displayName: u.displayName }))))
+            .catch(() => setUsers([]));
     }, []);
 
     useEffect(() => {
@@ -184,6 +196,76 @@ export default function ApplicationDetailPage() {
             (a) => a.applicationId === appId && (a.role === "AppOwner" || a.role === "AppAdmin")
         );
         return !!appAssignment;
+    }
+
+    async function handleSaveTechOwner() {
+        if (!application) return;
+        setSavingTechOwner(true);
+        setTechOwnerError(null);
+        try {
+            const res = await fetch(`/api/applications/${application.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: application.name,
+                    capabilityId: application.capabilityId,
+                    status: application.status || "Active",
+                    type: application.type || "Standard",
+                    businessOwner: application.ownership.businessOwner || "",
+                    businessCriticality: application.businessContext.businessCriticality || "Medium",
+                    impactIfDown: application.businessContext.impactIfDown || "",
+                    technicalOwner: selectedTechOwner,
+                }),
+            });
+            if (res.ok) {
+                setApplication((prev) =>
+                    prev ? { ...prev, ownership: { ...prev.ownership, technicalOwner: selectedTechOwner } } : null
+                );
+                setEditingTechOwner(false);
+                setSelectedTechOwner("");
+            } else {
+                const data = await res.json();
+                setTechOwnerError(data.detail || data.error || "Failed to save");
+            }
+        } catch {
+            setTechOwnerError("Failed to save");
+        } finally {
+            setSavingTechOwner(false);
+        }
+    }
+
+    async function handleClearTechOwner() {
+        if (!application || !window.confirm("Remove technical owner?")) return;
+        setSavingTechOwner(true);
+        setTechOwnerError(null);
+        try {
+            const res = await fetch(`/api/applications/${application.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: application.name,
+                    capabilityId: application.capabilityId,
+                    status: application.status || "Active",
+                    type: application.type || "Standard",
+                    businessOwner: application.ownership.businessOwner || "",
+                    businessCriticality: application.businessContext.businessCriticality || "Medium",
+                    impactIfDown: application.businessContext.impactIfDown || "",
+                    technicalOwner: "",
+                }),
+            });
+            if (res.ok) {
+                setApplication((prev) =>
+                    prev ? { ...prev, ownership: { ...prev.ownership, technicalOwner: "" } } : null
+                );
+            } else {
+                const data = await res.json();
+                setTechOwnerError(data.error || "Failed to clear");
+            }
+        } catch {
+            setTechOwnerError("Failed to clear");
+        } finally {
+            setSavingTechOwner(false);
+        }
     }
 
     async function handleAddIntegration() {
@@ -347,8 +429,72 @@ export default function ApplicationDetailPage() {
                             <div className="detail-definition-item">
                                 <dt>Technical Owner</dt>
                                 <dd>
-                                    {application.ownership.technicalOwner ? (
-                                        application.ownership.technicalOwner
+                                    {editingTechOwner ? (
+                                        <div className="tech-owner-edit">
+                                            {techOwnerError && <span className="owner-error">{techOwnerError}</span>}
+                                            <select
+                                                value={selectedTechOwner}
+                                                onChange={(e) => setSelectedTechOwner(e.target.value)}
+                                                className="owner-select"
+                                            >
+                                                <option value="">Select owner...</option>
+                                                {users.map((u) => (
+                                                    <option key={u.id} value={u.displayName}>
+                                                        {u.displayName}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <button
+                                                className="owner-save-btn"
+                                                onClick={handleSaveTechOwner}
+                                                disabled={savingTechOwner || !selectedTechOwner}
+                                            >
+                                                {savingTechOwner ? "..." : "Save"}
+                                            </button>
+                                            <button
+                                                className="owner-cancel-btn"
+                                                onClick={() => {
+                                                    setEditingTechOwner(false);
+                                                    setSelectedTechOwner("");
+                                                    setTechOwnerError(null);
+                                                }}
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    ) : application.ownership.technicalOwner ? (
+                                        <>
+                                            <span>{application.ownership.technicalOwner}</span>
+                                            {canEditApp() && (
+                                                <>
+                                                    <button
+                                                        className="owner-change-btn"
+                                                        onClick={() => {
+                                                            setEditingTechOwner(true);
+                                                            setSelectedTechOwner(application.ownership.technicalOwner || "");
+                                                        }}
+                                                    >
+                                                        Change
+                                                    </button>
+                                                    <button
+                                                        className="owner-clear-btn"
+                                                        onClick={handleClearTechOwner}
+                                                    >
+                                                        Clear
+                                                    </button>
+                                                </>
+                                            )}
+                                        </>
+                                    ) : canEditApp() ? (
+                                        <button
+                                            className="owner-assign-btn"
+                                            onClick={() => {
+                                                setEditingTechOwner(true);
+                                                setSelectedTechOwner("");
+                                            }}
+                                        >
+                                            + Assign
+                                        </button>
                                     ) : (
                                         <span className="owner-badge">Needs owner</span>
                                     )}
