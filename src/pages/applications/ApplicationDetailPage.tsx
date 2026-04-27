@@ -35,6 +35,7 @@ interface ApiApplication {
     };
     ownership: {
         businessOwner: string;
+        technicalOwner?: string;
     };
     security: {
         websiteUrl: string;
@@ -253,6 +254,15 @@ export default function ApplicationDetailPage() {
     if (notFound) return <p>Application not found.</p>;
     if (!application) return <p>Application not found.</p>;
 
+    const hasBusinessOwner = !!application.ownership.businessOwner;
+    const hasTechnicalOwner = !!application.ownership.technicalOwner;
+    const ownershipComplete = hasBusinessOwner && hasTechnicalOwner;
+    const isCritical = application.businessContext.businessCriticality === "Critical";
+    const missingOwners: string[] = [];
+    if (!hasBusinessOwner) missingOwners.push("business owner");
+    if (!hasTechnicalOwner) missingOwners.push("technical owner");
+    const ownershipAlert = missingOwners.length > 0 && (isCritical || missingOwners.length === 2);
+
     return (
         <div className="application-detail-page">
             <header className="detail-header">
@@ -266,6 +276,16 @@ export default function ApplicationDetailPage() {
                     )}
                 </div>
             </header>
+
+            {(missingOwners.length > 0 || ownershipAlert) && (
+                <div className={`ownership-alert ${isCritical && missingOwners.length > 0 ? "critical" : ownershipComplete ? "complete" : ""}`}>
+                    {ownershipComplete ? (
+                        <span>Ownership complete</span>
+                    ) : (
+                        <span>Ownership needs attention: Missing {missingOwners.join(" and ")}</span>
+                    )}
+                </div>
+            )}
 
             <div className="detail-main-grid">
                 <div className="detail-column">
@@ -316,7 +336,23 @@ export default function ApplicationDetailPage() {
                         <dl className="detail-definition-list">
                             <div className="detail-definition-item">
                                 <dt>Business Owner</dt>
-                                <dd>{application.ownership.businessOwner || "—"}</dd>
+                                <dd>
+                                    {application.ownership.businessOwner ? (
+                                        application.ownership.businessOwner
+                                    ) : (
+                                        <span className="owner-badge">Needs owner</span>
+                                    )}
+                                </dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>Technical Owner</dt>
+                                <dd>
+                                    {application.ownership.technicalOwner ? (
+                                        application.ownership.technicalOwner
+                                    ) : (
+                                        <span className="owner-badge">Needs owner</span>
+                                    )}
+                                </dd>
                             </div>
                         </dl>
                     </section>

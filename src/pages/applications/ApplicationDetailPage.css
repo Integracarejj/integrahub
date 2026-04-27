@@ -20,6 +20,28 @@
     justify-content: space-between;
 }
 
+.ownership-alert {
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+.ownership-alert.critical {
+    background: #fef2f2;
+    color: #991b1b;
+    border-color: #fecaca;
+}
+
+.ownership-alert.complete {
+    background: #f0fdf4;
+    color: #166534;
+    border-color: #bbf7d0;
+}
+
 .detail-header-top {
     display: flex;
     align-items: baseline;
