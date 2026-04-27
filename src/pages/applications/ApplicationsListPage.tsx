@@ -429,29 +429,31 @@ export default function ApplicationsListPage() {
                                             </button>
                                         ) : (
                                             <span className="owner-badge">Needs owner</span>
-                                        )}
-                                    ) : isAdmin ? (
-                                        <div className="owner-display">
-                                            <span>{app.ownership.technicalOwner}</span>
-                                            <button
-                                                className="owner-action-btn"
-                                                onClick={() => {
-                                                    setEditingOwnerId(app.id);
-                                                    setSelectedOwner(app.ownership.technicalOwner || "");
-                                                    setSaveError(null);
-                                                }}
-                                            >
-                                                Change
-                                            </button>
-                                            <button
-                                                className="owner-action-btn owner-clear-btn"
-                                                onClick={() => handleClearOwner(app.id)}
-                                            >
-                                                Clear
-                                            </button>
-                                        </div>
+                                        )
                                     ) : (
-                                        app.ownership.technicalOwner
+                                        isAdmin ? (
+                                            <div className="owner-display">
+                                                <span>{app.ownership.technicalOwner}</span>
+                                                <button
+                                                    className="owner-action-btn"
+                                                    onClick={() => {
+                                                        setEditingOwnerId(app.id);
+                                                        setSelectedOwner(app.ownership.technicalOwner || "");
+                                                        setSaveError(null);
+                                                    }}
+                                                >
+                                                    Change
+                                                </button>
+                                                <button
+                                                    className="owner-action-btn owner-clear-btn"
+                                                    onClick={() => handleClearOwner(app.id)}
+                                                >
+                                                    Clear
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            app.ownership.technicalOwner
+                                        )
                                     )}
                                 </td>
                                 <td>{app.vendor || "—"}</td>
