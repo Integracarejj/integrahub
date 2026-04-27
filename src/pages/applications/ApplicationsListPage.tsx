@@ -383,54 +383,53 @@ export default function ApplicationsListPage() {
                                 </td>
                                 <td>{app.ownership.businessOwner || "—"}</td>
                                 <td>
-                                    {missingOwner ? (
-                                        <>
-                                            {editingOwnerId === app.id ? (
-                                                <div className="owner-edit">
-                                                    {saveError && <span className="owner-error">{saveError}</span>}
-                                                    <select
-                                                        value={selectedOwner}
-                                                        onChange={(e) => setSelectedOwner(e.target.value)}
-                                                        className="owner-select"
-                                                    >
-                                                        <option value="">Select owner...</option>
-                                                        {users.map((u) => (
-                                                            <option key={u.id} value={u.displayName}>
-                                                                {u.displayName}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                    <button
-                                                        className="owner-save-btn"
-                                                        onClick={() => handleSaveOwner(app.id)}
-                                                        disabled={savingOwner || !selectedOwner}
-                                                    >
-                                                        {savingOwner ? "..." : "Save"}
-                                                    </button>
-                                                    <button
-                                                        className="owner-cancel-btn"
-                                                        onClick={() => {
-                                                            setEditingOwnerId(null);
-                                                            setSelectedOwner("");
-                                                        }}
-                                                    >
-                                                        Cancel
-                                                    </button>
-                                                </div>
-                                            ) : isAdmin ? (
-                                                <button
-                                                    className="owner-missing"
-                                                    onClick={() => {
-                                                        setEditingOwnerId(app.id);
-                                                        setSelectedOwner("");
-                                                    }}
-                                                >
-                                                    + Assign
-                                                </button>
-                                            ) : (
-                                                <span className="owner-badge">Needs owner</span>
-                                            )}
-                                        </>
+                                    {editingOwnerId === app.id ? (
+                                        <div className="owner-edit">
+                                            {saveError && <span className="owner-error">{saveError}</span>}
+                                            <select
+                                                value={selectedOwner}
+                                                onChange={(e) => setSelectedOwner(e.target.value)}
+                                                className="owner-select"
+                                            >
+                                                <option value="">Select owner...</option>
+                                                {users.map((u) => (
+                                                    <option key={u.id} value={u.displayName}>
+                                                        {u.displayName}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <button
+                                                className="owner-save-btn"
+                                                onClick={() => handleSaveOwner(app.id)}
+                                                disabled={savingOwner || !selectedOwner}
+                                            >
+                                                {savingOwner ? "..." : "Save"}
+                                            </button>
+                                            <button
+                                                className="owner-cancel-btn"
+                                                onClick={() => {
+                                                    setEditingOwnerId(null);
+                                                    setSelectedOwner("");
+                                                }}
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    ) : missingOwner ? (
+                                        isAdmin ? (
+                                            <button
+                                                className="owner-missing"
+                                                onClick={() => {
+                                                    setEditingOwnerId(app.id);
+                                                    setSelectedOwner("");
+                                                    setSaveError(null);
+                                                }}
+                                            >
+                                                + Assign
+                                            </button>
+                                        ) : (
+                                            <span className="owner-badge">Needs owner</span>
+                                        )}
                                     ) : isAdmin ? (
                                         <div className="owner-display">
                                             <span>{app.ownership.technicalOwner}</span>
@@ -439,6 +438,7 @@ export default function ApplicationsListPage() {
                                                 onClick={() => {
                                                     setEditingOwnerId(app.id);
                                                     setSelectedOwner(app.ownership.technicalOwner || "");
+                                                    setSaveError(null);
                                                 }}
                                             >
                                                 Change
