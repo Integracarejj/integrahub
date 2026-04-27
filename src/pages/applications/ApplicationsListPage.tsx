@@ -200,6 +200,33 @@ export default function ApplicationsListPage() {
         }
     }
 
+    async function handleClearOwner(appId: string) {
+        if (!window.confirm("Remove this Technical Owner?")) return;
+        setSavingOwner(true);
+        try {
+            const res = await fetch(`/api/applications/${appId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: applications.find((a) => a.id === appId)?.name,
+                    capabilityId: applications.find((a) => a.id === appId)?.capabilityId,
+                    technicalOwner: "",
+                }),
+            });
+            if (res.ok) {
+                setApplications((prev) =>
+                    prev.map((app) =>
+                        app.id === appId
+                            ? { ...app, ownership: { ...app.ownership, technicalOwner: "" } }
+                            : app
+                    )
+                );
+            }
+        } finally {
+            setSavingOwner(false);
+        }
+    }
+
     if (loading) {
         return <div className="applications-page">Loading applications...</div>;
     }
@@ -374,6 +401,25 @@ export default function ApplicationsListPage() {
                                                 <span className="owner-badge">Needs owner</span>
                                             )}
                                         </>
+                                    ) : isAdmin ? (
+                                        <div className="owner-display">
+                                            <span>{app.ownership.technicalOwner}</span>
+                                            <button
+                                                className="owner-action-btn"
+                                                onClick={() => {
+                                                    setEditingOwnerId(app.id);
+                                                    setSelectedOwner(app.ownership.technicalOwner || "");
+                                                }}
+                                            >
+                                                Change
+                                            </button>
+                                            <button
+                                                className="owner-action-btn owner-clear-btn"
+                                                onClick={() => handleClearOwner(app.id)}
+                                            >
+                                                Clear
+                                            </button>
+                                        </div>
                                     ) : (
                                         app.ownership.technicalOwner
                                     )}
