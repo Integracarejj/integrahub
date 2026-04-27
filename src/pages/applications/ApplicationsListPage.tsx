@@ -94,6 +94,7 @@ export default function ApplicationsListPage() {
     const [editingOwnerId, setEditingOwnerId] = useState<string | null>(null);
     const [selectedOwner, setSelectedOwner] = useState("");
     const [savingOwner, setSavingOwner] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
 
     const { permissions } = usePermissions();
     const isAdmin = isPlatformAdmin(permissions);
@@ -174,27 +175,41 @@ export default function ApplicationsListPage() {
     async function handleSaveOwner(appId: string) {
         if (!selectedOwner) return;
         setSavingOwner(true);
+        setSaveError(null);
         try {
+            const app = applications.find((a) => a.id === appId);
+            if (!app) return;
+
             const res = await fetch(`/api/applications/${appId}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    name: applications.find((a) => a.id === appId)?.name,
-                    capabilityId: applications.find((a) => a.id === appId)?.capabilityId,
+                    name: app.name,
+                    capabilityId: app.capabilityId,
+                    status: app.status || "Active",
+                    type: (app as { type?: string }).type || "Standard",
+                    businessOwner: app.ownership.businessOwner || "",
+                    businessCriticality: app.businessContext.businessCriticality || "Medium",
+                    impactIfDown: app.businessContext.impactIfDown || "",
                     technicalOwner: selectedOwner,
                 }),
             });
             if (res.ok) {
                 setApplications((prev) =>
-                    prev.map((app) =>
-                        app.id === appId
-                            ? { ...app, ownership: { ...app.ownership, technicalOwner: selectedOwner } }
-                            : app
+                    prev.map((a) =>
+                        a.id === appId
+                            ? { ...a, ownership: { ...a.ownership, technicalOwner: selectedOwner } }
+                            : a
                     )
                 );
                 setEditingOwnerId(null);
                 setSelectedOwner("");
+            } else {
+                const data = await res.json();
+                setSaveError(data.error || "Failed to save");
             }
+        } catch {
+            setSaveError("Failed to save");
         } finally {
             setSavingOwner(false);
         }
@@ -203,25 +218,39 @@ export default function ApplicationsListPage() {
     async function handleClearOwner(appId: string) {
         if (!window.confirm("Remove this Technical Owner?")) return;
         setSavingOwner(true);
+        setSaveError(null);
         try {
+            const app = applications.find((a) => a.id === appId);
+            if (!app) return;
+
             const res = await fetch(`/api/applications/${appId}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    name: applications.find((a) => a.id === appId)?.name,
-                    capabilityId: applications.find((a) => a.id === appId)?.capabilityId,
+                    name: app.name,
+                    capabilityId: app.capabilityId,
+                    status: app.status || "Active",
+                    type: (app as { type?: string }).type || "Standard",
+                    businessOwner: app.ownership.businessOwner || "",
+                    businessCriticality: app.businessContext.businessCriticality || "Medium",
+                    impactIfDown: app.businessContext.impactIfDown || "",
                     technicalOwner: "",
                 }),
             });
             if (res.ok) {
                 setApplications((prev) =>
-                    prev.map((app) =>
-                        app.id === appId
-                            ? { ...app, ownership: { ...app.ownership, technicalOwner: "" } }
-                            : app
+                    prev.map((a) =>
+                        a.id === appId
+                            ? { ...a, ownership: { ...a.ownership, technicalOwner: "" } }
+                            : a
                     )
                 );
+            } else {
+                const data = await res.json();
+                setSaveError(data.error || "Failed to clear");
             }
+        } catch {
+            setSaveError("Failed to clear");
         } finally {
             setSavingOwner(false);
         }
@@ -358,6 +387,7 @@ export default function ApplicationsListPage() {
                                         <>
                                             {editingOwnerId === app.id ? (
                                                 <div className="owner-edit">
+                                                    {saveError && <span className="owner-error">{saveError}</span>}
                                                     <select
                                                         value={selectedOwner}
                                                         onChange={(e) => setSelectedOwner(e.target.value)}

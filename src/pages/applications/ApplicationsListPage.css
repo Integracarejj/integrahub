@@ -161,6 +161,14 @@
     align-items: center;
 }
 
+.owner-error {
+    color: #dc2626;
+    font-size: 10px;
+    position: absolute;
+    margin-top: -16px;
+    white-space: nowrap;
+}
+
 .owner-select {
     padding: 4px 8px;
     font-size: 12px;
