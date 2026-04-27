@@ -64,6 +64,29 @@
     align-items: center;
 }
 
+.ownership-summary {
+    display: flex;
+    gap: 16px;
+    padding: 8px 12px;
+    background: #f9fafb;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    font-size: 13px;
+}
+
+.ownership-stat {
+    color: #6b7280;
+}
+
+.ownership-stat strong {
+    color: #1f2937;
+    margin-left: 4px;
+}
+
+.ownership-stat.critical strong {
+    color: #dc2626;
+}
+
 .applications-table {
     width: 100%;
     border-collapse: collapse;

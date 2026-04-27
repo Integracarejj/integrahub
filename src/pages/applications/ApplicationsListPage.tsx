@@ -138,7 +138,29 @@ export default function ApplicationsListPage() {
     const [capabilityFilter, setCapabilityFilter] = useState(initialCapability);
     const [statusFilter, setStatusFilter] = useState(initialStatus);
     const [criticalityFilter, setCriticalityFilter] = useState(initialCriticality);
+    const [ownershipFilter, setOwnershipFilter] = useState("");
     const [showInactive, setShowInactive] = useState(false);
+
+    const ownershipCounts = useMemo(() => {
+        const apps = applications;
+        const missingTech = apps.filter((a) => !a.ownership.technicalOwner).length;
+        const missingBiz = apps.filter((a) => !a.ownership.businessOwner).length;
+        const criticalMissingEither = apps.filter(
+            (a) =>
+                a.businessContext.businessCriticality === "Critical" &&
+                (!a.ownership.technicalOwner || !a.ownership.businessOwner)
+        ).length;
+        return { missingTech, missingBiz, criticalMissingEither };
+    }, [applications]);
+
+    function getMissingOwner(app: ApiApplication): "tech" | "business" | "both" | null {
+        const hasTech = !!app.ownership.technicalOwner;
+        const hasBiz = !!app.ownership.businessOwner;
+        if (!hasTech && !hasBiz) return "both";
+        if (!hasTech) return "tech";
+        if (!hasBiz) return "business";
+        return null;
+    }
 
     useEffect(() => {
         setSearch(searchParams.get("search") || "");
@@ -169,8 +191,29 @@ export default function ApplicationsListPage() {
             result = result.filter((app) => app.businessContext.businessCriticality === criticalityFilter);
         }
 
+        if (ownershipFilter) {
+            result = result.filter((app) => {
+                const missing = getMissingOwner(app);
+                switch (ownershipFilter) {
+                    case "missing-tech":
+                        return missing === "tech" || missing === "both";
+                    case "missing-biz":
+                        return missing === "business" || missing === "both";
+                    case "missing-either":
+                        return missing !== null;
+                    case "critical-missing":
+                        return (
+                            app.businessContext.businessCriticality === "Critical" &&
+                            missing !== null
+                        );
+                    default:
+                        return true;
+                }
+            });
+        }
+
         return sortApplications(result);
-    }, [applications, search, capabilityFilter, statusFilter, criticalityFilter, showInactive]);
+    }, [applications, search, capabilityFilter, statusFilter, criticalityFilter, ownershipFilter, showInactive]);
 
     async function handleSaveOwner(appId: string) {
         if (!selectedOwner) return;
@@ -315,6 +358,17 @@ export default function ApplicationsListPage() {
                     <option value="Low">Low</option>
                 </select>
 
+                <select
+                    value={ownershipFilter}
+                    onChange={(e) => setOwnershipFilter(e.target.value)}
+                >
+                    <option value="">All Ownership</option>
+                    <option value="missing-tech">Missing technical owner</option>
+                    <option value="missing-biz">Missing business owner</option>
+                    <option value="missing-either">Missing either owner</option>
+                    <option value="critical-missing">Critical + missing owner</option>
+                </select>
+
                 <label className="toggle">
                     <input
                         type="checkbox"
@@ -325,7 +379,7 @@ export default function ApplicationsListPage() {
                 </label>
             </div>
 
-            {(search || capabilityFilter || statusFilter || criticalityFilter) && (
+            {(search || capabilityFilter || statusFilter || criticalityFilter || ownershipFilter) && (
                 <div className="filter-summary">
                     {search && <span className="filter-tag">Search: {search}</span>}
                     {capabilityFilter && (
@@ -335,9 +389,22 @@ export default function ApplicationsListPage() {
                     )}
                     {statusFilter && <span className="filter-tag">Status: {statusFilter}</span>}
                     {criticalityFilter && <span className="filter-tag">Criticality: {criticalityFilter}</span>}
+                    {ownershipFilter && <span className="filter-tag">Ownership: {ownershipFilter}</span>}
                     <Link to="/applications" className="clear-filters">Clear filters</Link>
                 </div>
             )}
+
+            <div className="ownership-summary">
+                <span className="ownership-stat">
+                    Missing technical: <strong>{ownershipCounts.missingTech}</strong>
+                </span>
+                <span className="ownership-stat">
+                    Missing business: <strong>{ownershipCounts.missingBiz}</strong>
+                </span>
+                <span className="ownership-stat critical">
+                    Critical + missing: <strong>{ownershipCounts.criticalMissingEither}</strong>
+                </span>
+            </div>
 
             <table className="applications-table">
                 <thead>
@@ -381,7 +448,13 @@ export default function ApplicationsListPage() {
                                         {app.businessContext.businessCriticality}
                                     </span>
                                 </td>
-                                <td>{app.ownership.businessOwner || "—"}</td>
+                                <td>
+                                    {app.ownership.businessOwner ? (
+                                        app.ownership.businessOwner
+                                    ) : (
+                                        <span className="owner-badge">Needs owner</span>
+                                    )}
+                                </td>
                                 <td>
                                     {editingOwnerId === app.id ? (
                                         <div className="owner-edit">
