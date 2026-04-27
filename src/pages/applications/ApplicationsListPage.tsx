@@ -357,10 +357,10 @@ export default function ApplicationsListPage() {
                                                             setSelectedOwner("");
                                                         }}
                                                     >
-                                                        ✕
+                                                        Cancel
                                                     </button>
                                                 </div>
-                                            ) : (
+                                            ) : isAdmin ? (
                                                 <button
                                                     className="owner-missing"
                                                     onClick={() => {
@@ -370,6 +370,8 @@ export default function ApplicationsListPage() {
                                                 >
                                                     + Assign
                                                 </button>
+                                            ) : (
+                                                <span className="owner-badge">Needs owner</span>
                                             )}
                                         </>
                                     ) : (
