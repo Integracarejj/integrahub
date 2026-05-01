@@ -304,4 +304,241 @@ router.get("/sync/test-graph", async (req, res) => {
     }
 });
 
+async function getGraphToken(config) {
+    const tenantId = config.configSource.tenantId === "GRAPH_TENANT_ID"
+        ? process.env.GRAPH_TENANT_ID
+        : process.env.AZURE_TENANT_ID;
+    const clientId = config.configSource.clientId === "GRAPH_CLIENT_ID"
+        ? process.env.GRAPH_CLIENT_ID
+        : process.env.AZURE_CLIENT_ID;
+    const clientSecret = config.configSource.clientSecret === "GRAPH_CLIENT_SECRET"
+        ? process.env.GRAPH_CLIENT_SECRET
+        : process.env.AZURE_CLIENT_SECRET;
+
+    const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+    const tokenRes = await fetch(tokenUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+            client_id: clientId,
+            client_secret: clientSecret,
+            grant_type: "client_credentials",
+            scope: "https://graph.microsoft.com/.default",
+        }),
+    });
+
+    if (!tokenRes.ok) {
+        throw new Error(`Token request failed: ${tokenRes.status}`);
+    }
+
+    const tokenData = await tokenRes.json();
+    return tokenData.access_token;
+}
+
+async function fetchAllGraphUsers(accessToken, domainFilter) {
+    let graphUrl = `https://graph.microsoft.com/v1.0/users?$select=id,displayName,mail,userPrincipalName,jobTitle,department,officeLocation,accountEnabled`;
+    let graphUsers = [];
+    let pages = 0;
+
+    while (graphUrl && pages < 50) {  // Safety limit
+        const graphRes = await fetch(graphUrl, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+        });
+
+        if (!graphRes.ok) {
+            throw new Error(`Graph call failed: ${graphRes.status}`);
+        }
+
+        const graphData = await graphRes.json();
+        const users = (graphData.value || []).map((u) => {
+            const mail = (u.mail || "").toLowerCase();
+            const upn = (u.userPrincipalName || "").toLowerCase();
+            const isExt = upn.includes("#ext#");
+            const hasDomain = mail.endsWith(`@${domainFilter}`) || upn.endsWith(`@${domainFilter}`);
+
+            return {
+                graphId: u.id,
+                displayName: u.displayName || "",
+                mail: mail || null,
+                userPrincipalName: upn,
+                jobTitle: u.jobTitle || null,
+                department: u.department || null,
+                officeLocation: u.officeLocation || null,
+                accountEnabled: u.accountEnabled !== false,
+                normalizedEmail: mail || upn,
+                isExt,
+                hasDomain,
+            };
+        });
+
+        graphUsers = graphUsers.concat(users);
+        graphUrl = graphData["@odata.nextLink"] || null;
+        pages++;
+    }
+
+    return graphUsers;
+}
+
+router.get("/sync/dry-run", async (req, res) => {
+    const config = validateGraphConfig();
+
+    if (!config.graphConfigPresent) {
+        return res.json({
+            graphUsersProcessed: 0,
+            graphUsersAfterFilter: 0,
+            existingCmdbUsers: 0,
+            wouldCreateCount: 0,
+            wouldUpdateCount: 0,
+            wouldDeactivateCount: 0,
+            unchangedCount: 0,
+            skippedPlatformAdminCount: 0,
+            samples: {
+                wouldCreate: [],
+                wouldUpdate: [],
+                wouldDeactivate: [],
+                skippedPlatformAdmins: [],
+            },
+            error: `Missing config: ${config.missingConfigKeys.join(", ")}`,
+        });
+    }
+
+    try {
+        const accessToken = await getGraphToken(config);
+        const domainFilter = config.expectedDomainFilter;
+        const graphUsers = await fetchAllGraphUsers(accessToken, domainFilter);
+
+        const filteredGraphUsers = graphUsers.filter((u) => {
+            if (!u.accountEnabled) return false;
+            if (u.isExt) return false;
+            if (!u.hasDomain) return false;
+            if (!u.normalizedEmail) return false;
+            return true;
+        });
+
+        const existingUsers = await query(`
+            SELECT id, entraObjectId, email, displayName, role, isActive, jobTitle, department, officeLocation
+            FROM cmdb.Users
+        `);
+
+        const existingByEntraId = {};
+        const existingByEmail = {};
+        const platformAdminIds = new Set();
+
+        existingUsers.forEach((u) => {
+            if (u.entraObjectId) {
+                existingByEntraId[u.entraObjectId.toLowerCase()] = u;
+            }
+            if (u.email) {
+                existingByEmail[u.email.toLowerCase()] = u;
+            }
+            if (u.role === "PlatformAdmin") {
+                platformAdminIds.add(u.id);
+            }
+        });
+
+        const wouldCreate = [];
+        const wouldUpdate = [];
+        const wouldDeactivate = [];
+        const unchanged = [];
+        const skippedPlatformAdmins = [];
+
+        const processedEmails = new Set();
+
+        filteredGraphUsers.forEach((gu) => {
+            if (processedEmails.has(gu.normalizedEmail)) return;
+            processedEmails.add(gu.normalizedEmail);
+
+            let existing = null;
+            if (gu.graphId) {
+                existing = existingByEntraId[gu.graphId.toLowerCase()];
+            }
+            if (!existing && gu.normalizedEmail) {
+                existing = existingByEmail[gu.normalizedEmail];
+            }
+
+            if (!existing) {
+                wouldCreate.push({
+                    displayName: gu.displayName,
+                    email: gu.normalizedEmail,
+                    entraObjectId: gu.graphId,
+                    jobTitle: gu.jobTitle,
+                    department: gu.department,
+                    officeLocation: gu.officeLocation,
+                });
+            } else if (existing.isActive) {
+                const changes = {};
+                if (existing.displayName !== gu.displayName) changes.displayName = { from: existing.displayName, to: gu.displayName };
+                if ((existing.email || "").toLowerCase() !== gu.normalizedEmail) changes.email = { from: existing.email, to: gu.normalizedEmail };
+                if ((existing.entraObjectId || "").toLowerCase() !== (gu.graphId || "").toLowerCase()) changes.entraObjectId = { from: existing.entraObjectId, to: gu.graphId };
+                if (existing.jobTitle !== gu.jobTitle) changes.jobTitle = { from: existing.jobTitle, to: gu.jobTitle };
+                if (existing.department !== gu.department) changes.department = { from: existing.department, to: gu.department };
+                if (existing.officeLocation !== gu.officeLocation) changes.officeLocation = { from: existing.officeLocation, to: gu.officeLocation };
+
+                if (Object.keys(changes).length > 0) {
+                    wouldUpdate.push({
+                        id: existing.id,
+                        displayName: existing.displayName,
+                        changes,
+                    });
+                } else {
+                    unchanged.push({
+                        id: existing.id,
+                        displayName: existing.displayName,
+                    });
+                }
+            } else {
+                if (platformAdminIds.has(existing.id)) {
+                    skippedPlatformAdmins.push({
+                        id: existing.id,
+                        displayName: existing.displayName,
+                        reason: "PlatformAdmin is inactive in Graph but preserved",
+                    });
+                } else {
+                    wouldDeactivate.push({
+                        id: existing.id,
+                        displayName: existing.displayName,
+                        reason: "User exists in cmdb but not in filtered Graph results",
+                    });
+                }
+            }
+        });
+
+        return res.json({
+            graphUsersProcessed: graphUsers.length,
+            graphUsersAfterFilter: filteredGraphUsers.length,
+            existingCmdbUsers: existingUsers.length,
+            wouldCreateCount: wouldCreate.length,
+            wouldUpdateCount: wouldUpdate.length,
+            wouldDeactivateCount: wouldDeactivate.length,
+            unchangedCount: unchanged.length,
+            skippedPlatformAdminCount: skippedPlatformAdmins.length,
+            samples: {
+                wouldCreate: wouldCreate.slice(0, 10),
+                wouldUpdate: wouldUpdate.slice(0, 10),
+                wouldDeactivate: wouldDeactivate.slice(0, 10),
+                skippedPlatformAdmins: skippedPlatformAdmins.slice(0, 10),
+            },
+            error: null,
+        });
+    } catch (err) {
+        return res.json({
+            graphUsersProcessed: 0,
+            graphUsersAfterFilter: 0,
+            existingCmdbUsers: 0,
+            wouldCreateCount: 0,
+            wouldUpdateCount: 0,
+            wouldDeactivateCount: 0,
+            unchangedCount: 0,
+            skippedPlatformAdminCount: 0,
+            samples: {
+                wouldCreate: [],
+                wouldUpdate: [],
+                wouldDeactivate: [],
+                skippedPlatformAdmins: [],
+            },
+            error: `Dry-run failed: ${err.message}`,
+        });
+    }
+});
+
 export default router;
