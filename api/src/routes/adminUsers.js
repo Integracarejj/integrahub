@@ -152,15 +152,32 @@ router.put("/:id", async (req, res) => {
 });
 
 export function validateGraphConfig() {
-    const tenantId = process.env.GRAPH_TENANT_ID;
-    const clientId = process.env.GRAPH_CLIENT_ID;
-    const clientSecret = process.env.GRAPH_CLIENT_SECRET;
+    // Resolve tenantId: GRAPH_TENANT_ID first, then AZURE_TENANT_ID
+    const graphTenantId = process.env.GRAPH_TENANT_ID;
+    const azureTenantId = process.env.AZURE_TENANT_ID;
+    const tenantId = graphTenantId || azureTenantId;
+    const tenantIdSource = graphTenantId ? "GRAPH_TENANT_ID" : (azureTenantId ? "AZURE_TENANT_ID" : null);
+
+    // Resolve clientId: GRAPH_CLIENT_ID first, then AZURE_CLIENT_ID
+    const graphClientId = process.env.GRAPH_CLIENT_ID;
+    const azureClientId = process.env.AZURE_CLIENT_ID;
+    const clientId = graphClientId || azureClientId;
+    const clientIdSource = graphClientId ? "GRAPH_CLIENT_ID" : (azureClientId ? "AZURE_CLIENT_ID" : null);
+
+    // Resolve clientSecret: GRAPH_CLIENT_SECRET first, then AZURE_CLIENT_SECRET
+    const graphClientSecret = process.env.GRAPH_CLIENT_SECRET;
+    const azureClientSecret = process.env.AZURE_CLIENT_SECRET;
+    const clientSecret = graphClientSecret || azureClientSecret;
+    const clientSecretSource = graphClientSecret ? "GRAPH_CLIENT_SECRET" : (azureClientSecret ? "AZURE_CLIENT_SECRET" : null);
+
+    // Domain filter
     const domainFilter = process.env.GRAPH_USER_DOMAIN_FILTER || "integracare.com";
+    const domainFilterSource = process.env.GRAPH_USER_DOMAIN_FILTER ? "GRAPH_USER_DOMAIN_FILTER" : "default";
 
     const missingConfigKeys = [];
-    if (!tenantId) missingConfigKeys.push("GRAPH_TENANT_ID");
-    if (!clientId) missingConfigKeys.push("GRAPH_CLIENT_ID");
-    if (!clientSecret) missingConfigKeys.push("GRAPH_CLIENT_SECRET");
+    if (!tenantId) missingConfigKeys.push("tenantId");
+    if (!clientId) missingConfigKeys.push("clientId");
+    if (!clientSecret) missingConfigKeys.push("clientSecret");
 
     const graphConfigPresent = missingConfigKeys.length === 0;
 
@@ -168,6 +185,12 @@ export function validateGraphConfig() {
         graphConfigPresent,
         missingConfigKeys,
         expectedDomainFilter: domainFilter,
+        configSource: {
+            tenantId: tenantIdSource,
+            clientId: clientIdSource,
+            clientSecret: clientSecretSource,
+            domainFilter: domainFilterSource,
+        },
     };
 }
 
@@ -178,6 +201,7 @@ router.get("/sync/readiness", (req, res) => {
         graphConfigPresent: config.graphConfigPresent,
         missingConfigKeys: config.missingConfigKeys,
         expectedDomainFilter: config.expectedDomainFilter,
+        configSource: config.configSource,
         message: config.graphConfigPresent
             ? "Microsoft Graph sync is ready to configure. Ensure app permissions (User.Read.All or Directory.Read.All) and admin consent are granted."
             : `Missing Graph config: ${config.missingConfigKeys.join(", ")}. Add these to Azure App Service Configuration.`,
