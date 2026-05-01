@@ -174,6 +174,14 @@ export function validateGraphConfig() {
     const domainFilter = process.env.GRAPH_USER_DOMAIN_FILTER || "integracare.com";
     const domainFilterSource = process.env.GRAPH_USER_DOMAIN_FILTER ? "GRAPH_USER_DOMAIN_FILTER" : "default";
 
+    // Excluded emails
+    const excludedEmailsRaw = process.env.GRAPH_SYNC_EXCLUDED_EMAILS || "";
+    const excludedEmails = excludedEmailsRaw
+        .split(",")
+        .map((e) => e.trim().toLowerCase())
+        .filter((e) => e.length > 0);
+    const excludedEmailsCount = excludedEmails.length;
+
     const missingConfigKeys = [];
     if (!tenantId) missingConfigKeys.push("tenantId");
     if (!clientId) missingConfigKeys.push("clientId");
@@ -185,6 +193,8 @@ export function validateGraphConfig() {
         graphConfigPresent,
         missingConfigKeys,
         expectedDomainFilter: domainFilter,
+        excludedEmails,
+        excludedEmailsCount,
         configSource: {
             tenantId: tenantIdSource,
             clientId: clientIdSource,
@@ -201,6 +211,7 @@ router.get("/sync/readiness", (req, res) => {
         graphConfigPresent: config.graphConfigPresent,
         missingConfigKeys: config.missingConfigKeys,
         expectedDomainFilter: config.expectedDomainFilter,
+        excludedEmailsConfiguredCount: config.excludedEmailsCount,
         configSource: config.configSource,
         message: config.graphConfigPresent
             ? "Microsoft Graph sync is ready to configure. Ensure app permissions (User.Read.All or Directory.Read.All) and admin consent are granted."
@@ -335,7 +346,7 @@ async function getGraphToken(config) {
     return tokenData.access_token;
 }
 
-async function fetchAllGraphUsers(accessToken, domainFilter) {
+async function fetchAllGraphUsers(accessToken, domainFilter, excludedEmails = []) {
     let graphUrl = `https://graph.microsoft.com/v1.0/users?$select=id,displayName,mail,userPrincipalName,jobTitle,department,officeLocation,accountEnabled`;
     let graphUsers = [];
     let pages = 0;
@@ -386,6 +397,7 @@ router.get("/sync/dry-run", async (req, res) => {
         return res.json({
             graphUsersProcessed: 0,
             graphUsersAfterFilter: 0,
+            excludedByEmailCount: 0,
             existingCmdbUsers: 0,
             wouldCreateCount: 0,
             wouldUpdateCount: 0,
@@ -396,6 +408,7 @@ router.get("/sync/dry-run", async (req, res) => {
                 wouldCreate: [],
                 wouldUpdate: [],
                 wouldDeactivate: [],
+                excludedByEmail: [],
                 skippedPlatformAdmins: [],
             },
             error: `Missing config: ${config.missingConfigKeys.join(", ")}`,
@@ -405,7 +418,8 @@ router.get("/sync/dry-run", async (req, res) => {
     try {
         const accessToken = await getGraphToken(config);
         const domainFilter = config.expectedDomainFilter;
-        const graphUsers = await fetchAllGraphUsers(accessToken, domainFilter);
+        const excludedEmails = config.excludedEmails;
+        const graphUsers = await fetchAllGraphUsers(accessToken, domainFilter, excludedEmails);
 
         const filteredGraphUsers = graphUsers.filter((u) => {
             if (!u.accountEnabled) return false;
@@ -413,6 +427,10 @@ router.get("/sync/dry-run", async (req, res) => {
             if (!u.hasDomain) return false;
             if (!u.normalizedEmail) return false;
             return true;
+        });
+
+        const excludedByEmail = graphUsers.filter((u) => {
+            return excludedEmails.includes(u.normalizedEmail);
         });
 
         const existingUsers = await query(`
@@ -506,6 +524,7 @@ router.get("/sync/dry-run", async (req, res) => {
         return res.json({
             graphUsersProcessed: graphUsers.length,
             graphUsersAfterFilter: filteredGraphUsers.length,
+            excludedByEmailCount: excludedByEmail.length,
             existingCmdbUsers: existingUsers.length,
             wouldCreateCount: wouldCreate.length,
             wouldUpdateCount: wouldUpdate.length,
@@ -516,6 +535,10 @@ router.get("/sync/dry-run", async (req, res) => {
                 wouldCreate: wouldCreate.slice(0, 10),
                 wouldUpdate: wouldUpdate.slice(0, 10),
                 wouldDeactivate: wouldDeactivate.slice(0, 10),
+                excludedByEmail: excludedByEmail.slice(0, 10).map((u) => ({
+                    displayName: u.displayName,
+                    email: u.normalizedEmail,
+                })),
                 skippedPlatformAdmins: skippedPlatformAdmins.slice(0, 10),
             },
             error: null,
@@ -524,6 +547,7 @@ router.get("/sync/dry-run", async (req, res) => {
         return res.json({
             graphUsersProcessed: 0,
             graphUsersAfterFilter: 0,
+            excludedByEmailCount: 0,
             existingCmdbUsers: 0,
             wouldCreateCount: 0,
             wouldUpdateCount: 0,
@@ -534,6 +558,7 @@ router.get("/sync/dry-run", async (req, res) => {
                 wouldCreate: [],
                 wouldUpdate: [],
                 wouldDeactivate: [],
+                excludedByEmail: [],
                 skippedPlatformAdmins: [],
             },
             error: `Dry-run failed: ${err.message}`,
