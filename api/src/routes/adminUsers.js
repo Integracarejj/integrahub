@@ -421,16 +421,17 @@ router.get("/sync/dry-run", async (req, res) => {
         const excludedEmails = config.excludedEmails;
         const graphUsers = await fetchAllGraphUsers(accessToken, domainFilter, excludedEmails);
 
-        const filteredGraphUsers = graphUsers.filter((u) => {
+        const excludedByEmail = graphUsers.filter((u) => {
+            return excludedEmails.includes(u.normalizedEmail);
+        });
+
+        const syncCandidates = graphUsers.filter((u) => {
             if (!u.accountEnabled) return false;
             if (u.isExt) return false;
             if (!u.hasDomain) return false;
             if (!u.normalizedEmail) return false;
+            if (excludedEmails.includes(u.normalizedEmail)) return false;
             return true;
-        });
-
-        const excludedByEmail = graphUsers.filter((u) => {
-            return excludedEmails.includes(u.normalizedEmail);
         });
 
         const existingUsers = await query(`
@@ -462,7 +463,7 @@ router.get("/sync/dry-run", async (req, res) => {
 
         const processedEmails = new Set();
 
-        filteredGraphUsers.forEach((gu) => {
+        syncCandidates.forEach((gu) => {
             if (processedEmails.has(gu.normalizedEmail)) return;
             processedEmails.add(gu.normalizedEmail);
 
@@ -523,7 +524,8 @@ router.get("/sync/dry-run", async (req, res) => {
 
         return res.json({
             graphUsersProcessed: graphUsers.length,
-            graphUsersAfterFilter: filteredGraphUsers.length,
+            graphUsersAfterDomainFilter: graphUsers.filter((u) => u.hasDomain && !u.isExt).length,
+            graphUsersAfterExclusions: syncCandidates.length,
             excludedByEmailCount: excludedByEmail.length,
             existingCmdbUsers: existingUsers.length,
             wouldCreateCount: wouldCreate.length,
@@ -546,7 +548,8 @@ router.get("/sync/dry-run", async (req, res) => {
     } catch (err) {
         return res.json({
             graphUsersProcessed: 0,
-            graphUsersAfterFilter: 0,
+            graphUsersAfterDomainFilter: 0,
+            graphUsersAfterExclusions: 0,
             excludedByEmailCount: 0,
             existingCmdbUsers: 0,
             wouldCreateCount: 0,
