@@ -208,4 +208,100 @@ router.get("/sync/readiness", (req, res) => {
     });
 });
 
+router.get("/sync/test-graph", async (req, res) => {
+    const config = validateGraphConfig();
+
+    if (!config.graphConfigPresent) {
+        return res.json({
+            tokenSuccess: false,
+            graphCallSuccess: false,
+            userCountReturned: 0,
+            sampleUsers: [],
+            error: `Missing config: ${config.missingConfigKeys.join(", ")}`,
+        });
+    }
+
+    try {
+        const tenantId = config.configSource.tenantId === "GRAPH_TENANT_ID"
+            ? process.env.GRAPH_TENANT_ID
+            : process.env.AZURE_TENANT_ID;
+        const clientId = config.configSource.clientId === "GRAPH_CLIENT_ID"
+            ? process.env.GRAPH_CLIENT_ID
+            : process.env.AZURE_CLIENT_ID;
+        const clientSecret = config.configSource.clientSecret === "GRAPH_CLIENT_SECRET"
+            ? process.env.GRAPH_CLIENT_SECRET
+            : process.env.AZURE_CLIENT_SECRET;
+
+        const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+        const tokenRes = await fetch(tokenUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+                client_id: clientId,
+                client_secret: clientSecret,
+                grant_type: "client_credentials",
+                scope: "https://graph.microsoft.com/.default",
+            }),
+        });
+
+        if (!tokenRes.ok) {
+            const tokenError = await tokenRes.text();
+            return res.json({
+                tokenSuccess: false,
+                graphCallSuccess: false,
+                userCountReturned: 0,
+                sampleUsers: [],
+                error: `Token request failed: ${tokenRes.status}. Check client ID and secret.`,
+            });
+        }
+
+        const tokenData = await tokenRes.json();
+        const accessToken = tokenData.access_token;
+
+        const graphUrl = "https://graph.microsoft.com/v1.0/users?$top=3&$select=id,displayName,mail,userPrincipalName,jobTitle,department,officeLocation,accountEnabled";
+        const graphRes = await fetch(graphUrl, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+        });
+
+        if (!graphRes.ok) {
+            const graphError = await graphRes.text();
+            return res.json({
+                tokenSuccess: true,
+                graphCallSuccess: false,
+                userCountReturned: 0,
+                sampleUsers: [],
+                error: `Graph call failed: ${graphRes.status}. Ensure app permissions (User.Read.All or Directory.Read.All) and admin consent are granted.`,
+            });
+        }
+
+        const graphData = await graphRes.json();
+        const users = (graphData.value || []).slice(0, 3).map((u) => ({
+            id: u.id,
+            displayName: u.displayName,
+            mail: u.mail,
+            userPrincipalName: u.userPrincipalName,
+            jobTitle: u.jobTitle,
+            department: u.department,
+            officeLocation: u.officeLocation,
+            accountEnabled: u.accountEnabled,
+        }));
+
+        return res.json({
+            tokenSuccess: true,
+            graphCallSuccess: true,
+            userCountReturned: users.length,
+            sampleUsers: users,
+            error: null,
+        });
+    } catch (err) {
+        return res.json({
+            tokenSuccess: false,
+            graphCallSuccess: false,
+            userCountReturned: 0,
+            sampleUsers: [],
+            error: `Unexpected error: ${err.message}`,
+        });
+    }
+});
+
 export default router;
