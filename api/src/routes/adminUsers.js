@@ -390,13 +390,151 @@ async function fetchAllGraphUsers(accessToken, domainFilter, excludedEmails = []
     return graphUsers;
 }
 
+async function getSyncCandidates(config, accessToken) {
+    const domainFilter = config.expectedDomainFilter;
+    const excludedEmails = config.excludedEmails;
+
+    const graphUsers = await fetchAllGraphUsers(accessToken, domainFilter, excludedEmails);
+
+    const excludedByEmail = graphUsers.filter((u) => {
+        return excludedEmails.includes(u.normalizedEmail);
+    });
+
+    const graphUsersAfterDomainFilter = graphUsers.filter((u) => {
+        return u.hasDomain && !u.isExt;
+    }).length;
+
+    const syncCandidates = graphUsers.filter((u) => {
+        if (!u.accountEnabled) return false;
+        if (u.isExt) return false;
+        if (!u.hasDomain) return false;
+        if (!u.normalizedEmail) return false;
+        if (excludedEmails.includes(u.normalizedEmail)) return false;
+        return true;
+    });
+
+    return {
+        graphUsers,
+        excludedByEmail,
+        graphUsersAfterDomainFilter,
+        syncCandidates,
+    };
+}
+
+function compareWithCmdb(syncCandidates, existingUsers) {
+    const existingByEntraId = {};
+    const existingByEmail = {};
+    const platformAdminIds = new Set();
+
+    existingUsers.forEach((u) => {
+        if (u.entraObjectId) {
+            existingByEntraId[u.entraObjectId.toLowerCase()] = u;
+        }
+        if (u.email) {
+            existingByEmail[u.email.toLowerCase()] = u;
+        }
+        if (u.role === "PlatformAdmin") {
+            platformAdminIds.add(u.id);
+        }
+    });
+
+    const wouldCreate = [];
+    const wouldUpdate = [];
+    const wouldDeactivate = [];
+    const unchanged = [];
+    const skippedPlatformAdmins = [];
+
+    const processedEmails = new Set();
+
+    syncCandidates.forEach((gu) => {
+        if (processedEmails.has(gu.normalizedEmail)) return;
+        processedEmails.add(gu.normalizedEmail);
+
+        let existing = null;
+        if (gu.graphId) {
+            existing = existingByEntraId[gu.graphId.toLowerCase()];
+        }
+        if (!existing && gu.normalizedEmail) {
+            existing = existingByEmail[gu.normalizedEmail];
+        }
+
+        if (!existing) {
+            wouldCreate.push({
+                displayName: gu.displayName,
+                email: gu.normalizedEmail,
+                entraObjectId: gu.graphId,
+                jobTitle: gu.jobTitle,
+                department: gu.department,
+                officeLocation: gu.officeLocation,
+            });
+        } else if (existing.isActive) {
+            const changes = {};
+            if (existing.displayName !== gu.displayName) changes.displayName = { from: existing.displayName, to: gu.displayName };
+            if ((existing.email || "").toLowerCase() !== gu.normalizedEmail) changes.email = { from: existing.email, to: gu.normalizedEmail };
+            if ((existing.entraObjectId || "").toLowerCase() !== (gu.graphId || "").toLowerCase()) changes.entraObjectId = { from: existing.entraObjectId, to: gu.graphId };
+            if (existing.jobTitle !== gu.jobTitle) changes.jobTitle = { from: existing.jobTitle, to: gu.jobTitle };
+            if (existing.department !== gu.department) changes.department = { from: existing.department, to: gu.department };
+            if (existing.officeLocation !== gu.officeLocation) changes.officeLocation = { from: existing.officeLocation, to: gu.officeLocation };
+
+            if (Object.keys(changes).length > 0) {
+                wouldUpdate.push({
+                    id: existing.id,
+                    displayName: existing.displayName,
+                    changes,
+                });
+            } else {
+                unchanged.push({
+                    id: existing.id,
+                    displayName: existing.displayName,
+                });
+            }
+        }
+    });
+
+    // Find users to deactivate (in cmdb but not in syncCandidates)
+    const syncEmails = new Set(syncCandidates.map((u) => u.normalizedEmail));
+    const syncEntraIds = new Set(syncCandidates.filter((u) => u.graphId).map((u) => u.graphId.toLowerCase()));
+
+    existingUsers.forEach((eu) => {
+        if (!eu.isActive) return; // Already inactive
+        if (platformAdminIds.has(eu.id)) {
+            skippedPlatformAdmins.push({
+                id: eu.id,
+                displayName: eu.displayName,
+                reason: "PlatformAdmin preserved",
+            });
+            return;
+        }
+
+        const matchByEntra = eu.entraObjectId && syncEntraIds.has(eu.entraObjectId.toLowerCase());
+        const matchByEmail = eu.email && syncEmails.has(eu.email.toLowerCase());
+        if (!matchByEntra && !matchByEmail) {
+            wouldDeactivate.push({
+                id: eu.id,
+                displayName: eu.displayName,
+                reason: "Not found in Graph sync candidates",
+            });
+        }
+    });
+
+    return {
+        wouldCreate,
+        wouldUpdate,
+        wouldDeactivate,
+        unchanged,
+        skippedPlatformAdmins,
+        platformAdminIds,
+    };
+}
+
 router.get("/sync/dry-run", async (req, res) => {
     const config = validateGraphConfig();
 
     if (!config.graphConfigPresent) {
         return res.json({
             graphUsersProcessed: 0,
-            graphUsersAfterFilter: 0,
+            graphUsersAfterDomainFilter: 0,
+            graphUsersAfterExclusions: 0,
             excludedByEmailCount: 0,
             existingCmdbUsers: 0,
             wouldCreateCount: 0,
@@ -417,131 +555,35 @@ router.get("/sync/dry-run", async (req, res) => {
 
     try {
         const accessToken = await getGraphToken(config);
-        const domainFilter = config.expectedDomainFilter;
-        const excludedEmails = config.excludedEmails;
-        const graphUsers = await fetchAllGraphUsers(accessToken, domainFilter, excludedEmails);
-
-        const excludedByEmail = graphUsers.filter((u) => {
-            return excludedEmails.includes(u.normalizedEmail);
-        });
-
-        const syncCandidates = graphUsers.filter((u) => {
-            if (!u.accountEnabled) return false;
-            if (u.isExt) return false;
-            if (!u.hasDomain) return false;
-            if (!u.normalizedEmail) return false;
-            if (excludedEmails.includes(u.normalizedEmail)) return false;
-            return true;
-        });
+        const { graphUsers, excludedByEmail, graphUsersAfterDomainFilter, syncCandidates } = await getSyncCandidates(config, accessToken);
 
         const existingUsers = await query(`
             SELECT id, entraObjectId, email, displayName, role, isActive, jobTitle, department, officeLocation
             FROM cmdb.Users
         `);
 
-        const existingByEntraId = {};
-        const existingByEmail = {};
-        const platformAdminIds = new Set();
-
-        existingUsers.forEach((u) => {
-            if (u.entraObjectId) {
-                existingByEntraId[u.entraObjectId.toLowerCase()] = u;
-            }
-            if (u.email) {
-                existingByEmail[u.email.toLowerCase()] = u;
-            }
-            if (u.role === "PlatformAdmin") {
-                platformAdminIds.add(u.id);
-            }
-        });
-
-        const wouldCreate = [];
-        const wouldUpdate = [];
-        const wouldDeactivate = [];
-        const unchanged = [];
-        const skippedPlatformAdmins = [];
-
-        const processedEmails = new Set();
-
-        syncCandidates.forEach((gu) => {
-            if (processedEmails.has(gu.normalizedEmail)) return;
-            processedEmails.add(gu.normalizedEmail);
-
-            let existing = null;
-            if (gu.graphId) {
-                existing = existingByEntraId[gu.graphId.toLowerCase()];
-            }
-            if (!existing && gu.normalizedEmail) {
-                existing = existingByEmail[gu.normalizedEmail];
-            }
-
-            if (!existing) {
-                wouldCreate.push({
-                    displayName: gu.displayName,
-                    email: gu.normalizedEmail,
-                    entraObjectId: gu.graphId,
-                    jobTitle: gu.jobTitle,
-                    department: gu.department,
-                    officeLocation: gu.officeLocation,
-                });
-            } else if (existing.isActive) {
-                const changes = {};
-                if (existing.displayName !== gu.displayName) changes.displayName = { from: existing.displayName, to: gu.displayName };
-                if ((existing.email || "").toLowerCase() !== gu.normalizedEmail) changes.email = { from: existing.email, to: gu.normalizedEmail };
-                if ((existing.entraObjectId || "").toLowerCase() !== (gu.graphId || "").toLowerCase()) changes.entraObjectId = { from: existing.entraObjectId, to: gu.graphId };
-                if (existing.jobTitle !== gu.jobTitle) changes.jobTitle = { from: existing.jobTitle, to: gu.jobTitle };
-                if (existing.department !== gu.department) changes.department = { from: existing.department, to: gu.department };
-                if (existing.officeLocation !== gu.officeLocation) changes.officeLocation = { from: existing.officeLocation, to: gu.officeLocation };
-
-                if (Object.keys(changes).length > 0) {
-                    wouldUpdate.push({
-                        id: existing.id,
-                        displayName: existing.displayName,
-                        changes,
-                    });
-                } else {
-                    unchanged.push({
-                        id: existing.id,
-                        displayName: existing.displayName,
-                    });
-                }
-            } else {
-                if (platformAdminIds.has(existing.id)) {
-                    skippedPlatformAdmins.push({
-                        id: existing.id,
-                        displayName: existing.displayName,
-                        reason: "PlatformAdmin is inactive in Graph but preserved",
-                    });
-                } else {
-                    wouldDeactivate.push({
-                        id: existing.id,
-                        displayName: existing.displayName,
-                        reason: "User exists in cmdb but not in filtered Graph results",
-                    });
-                }
-            }
-        });
+        const comparison = compareWithCmdb(syncCandidates, existingUsers);
 
         return res.json({
             graphUsersProcessed: graphUsers.length,
-            graphUsersAfterDomainFilter: graphUsers.filter((u) => u.hasDomain && !u.isExt).length,
+            graphUsersAfterDomainFilter,
             graphUsersAfterExclusions: syncCandidates.length,
             excludedByEmailCount: excludedByEmail.length,
             existingCmdbUsers: existingUsers.length,
-            wouldCreateCount: wouldCreate.length,
-            wouldUpdateCount: wouldUpdate.length,
-            wouldDeactivateCount: wouldDeactivate.length,
-            unchangedCount: unchanged.length,
-            skippedPlatformAdminCount: skippedPlatformAdmins.length,
+            wouldCreateCount: comparison.wouldCreate.length,
+            wouldUpdateCount: comparison.wouldUpdate.length,
+            wouldDeactivateCount: comparison.wouldDeactivate.length,
+            unchangedCount: comparison.unchanged.length,
+            skippedPlatformAdminCount: comparison.skippedPlatformAdmins.length,
             samples: {
-                wouldCreate: wouldCreate.slice(0, 10),
-                wouldUpdate: wouldUpdate.slice(0, 10),
-                wouldDeactivate: wouldDeactivate.slice(0, 10),
+                wouldCreate: comparison.wouldCreate.slice(0, 10),
+                wouldUpdate: comparison.wouldUpdate.slice(0, 10),
+                wouldDeactivate: comparison.wouldDeactivate.slice(0, 10),
                 excludedByEmail: excludedByEmail.slice(0, 10).map((u) => ({
                     displayName: u.displayName,
                     email: u.normalizedEmail,
                 })),
-                skippedPlatformAdmins: skippedPlatformAdmins.slice(0, 10),
+                skippedPlatformAdmins: comparison.skippedPlatformAdmins.slice(0, 10),
             },
             error: null,
         });
@@ -569,4 +611,184 @@ router.get("/sync/dry-run", async (req, res) => {
     }
 });
 
+router.post("/sync/run", async (req, res) => {
+    const config = validateGraphConfig();
+
+    if (!config.graphConfigPresent) {
+        return res.status(400).json({
+            createdCount: 0,
+            updatedCount: 0,
+            deactivatedCount: 0,
+            skippedPlatformAdminCount: 0,
+            excludedByEmailCount: 0,
+            samples: {
+                created: [],
+                updated: [],
+                deactivated: [],
+                skippedPlatformAdmins: [],
+            },
+            error: `Missing config: ${config.missingConfigKeys.join(", ")}`,
+        });
+    }
+
+    try {
+        const accessToken = await getGraphToken(config);
+        const { graphUsers, excludedByEmail, syncCandidates } = await getSyncCandidates(config, accessToken);
+
+        const existingUsers = await query(`
+            SELECT id, entraObjectId, email, displayName, role, isActive, jobTitle, department, officeLocation
+            FROM cmdb.Users
+        `);
+
+        const comparison = compareWithCmdb(syncCandidates, existingUsers);
+
+        // Start transaction for all writes
+        const created = [];
+        const updated = [];
+        const deactivated = [];
+        const skippedPlatformAdmins = [...comparison.skippedPlatformAdmins];
+
+        await query(`BEGIN TRANSACTION`);
+
+        try {
+            // Create new users
+            for (const u of comparison.wouldCreate) {
+                const newId = u.entraObjectId || `user-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+                try {
+                    await query(`
+                        INSERT INTO cmdb.Users (id, entraObjectId, email, displayName, role, isActive, jobTitle, department, officeLocation, graphLastSyncedAt, createdAt)
+                        VALUES (@id, @entraObjectId, @email, @displayName, 'Viewer', 1, @jobTitle, @department, @officeLocation, GETUTCDATE(), GETUTCDATE())
+                    `, {
+                        id: newId,
+                        entraObjectId: u.entraObjectId,
+                        email: u.email,
+                        displayName: u.displayName,
+                        jobTitle: u.jobTitle,
+                        department: u.department,
+                        officeLocation: u.officeLocation,
+                    });
+                    created.push({
+                        id: newId,
+                        displayName: u.displayName,
+                        email: u.email,
+                    });
+                } catch (err) {
+                    throw new Error(`Failed to create user ${u.displayName}: ${err.message}`);
+                }
+            }
+
+            // Update existing users
+            for (const u of comparison.wouldUpdate) {
+                try {
+                    const existing = existingUsers.find((eu) => eu.id === u.id);
+                    if (!existing) continue;
+
+                    const updates = [];
+                    const params = { id: u.id };
+
+                    if (u.changes.displayName) {
+                        updates.push("displayName = @displayName");
+                        params.displayName = u.changes.displayName.to;
+                    }
+                    if (u.changes.email) {
+                        updates.push("email = @email");
+                        params.email = u.changes.email.to;
+                    }
+                    if (u.changes.entraObjectId) {
+                        updates.push("entraObjectId = @entraObjectId");
+                        params.entraObjectId = u.changes.entraObjectId.to;
+                    }
+                    if (u.changes.jobTitle) {
+                        updates.push("jobTitle = @jobTitle");
+                        params.jobTitle = u.changes.jobTitle.to;
+                    }
+                    if (u.changes.department) {
+                        updates.push("department = @department");
+                        params.department = u.changes.department.to;
+                    }
+                    if (u.changes.officeLocation) {
+                        updates.push("officeLocation = @officeLocation");
+                        params.officeLocation = u.changes.officeLocation.to;
+                    }
+
+                    updates.push("isActive = 1");
+                    updates.push("graphLastSyncedAt = GETUTCDATE()");
+
+                    await query(`
+                        UPDATE cmdb.Users SET ${updates.join(", ")} WHERE id = @id
+                    `, params);
+
+                    updated.push({
+                        id: u.id,
+                        displayName: u.displayName,
+                        changes: u.changes,
+                    });
+                } catch (err) {
+                    throw new Error(`Failed to update user ${u.displayName}: ${err.message}`);
+                }
+            }
+
+            // Deactivate users not in sync candidates (skip PlatformAdmins, skip already inactive)
+            const syncEmails = new Set(syncCandidates.map((u) => u.normalizedEmail));
+            const syncEntraIds = new Set(syncCandidates.filter((u) => u.graphId).map((u) => u.graphId.toLowerCase()));
+
+            for (const eu of existingUsers) {
+                if (!eu.isActive) continue; // Already inactive
+                if (comparison.platformAdminIds.has(eu.id)) continue; // Skip PlatformAdmins
+
+                const matchByEntra = eu.entraObjectId && syncEntraIds.has(eu.entraObjectId.toLowerCase());
+                const matchByEmail = eu.email && syncEmails.has(eu.email.toLowerCase());
+
+                if (!matchByEntra && !matchByEmail) {
+                    try {
+                        await query(`
+                            UPDATE cmdb.Users SET isActive = 0, graphLastSyncedAt = GETUTCDATE() WHERE id = @id
+                        `, { id: eu.id });
+                        deactivated.push({
+                            id: eu.id,
+                            displayName: eu.displayName,
+                        });
+                    } catch (err) {
+                        throw new Error(`Failed to deactivate user ${eu.displayName}: ${err.message}`);
+                    }
+                }
+            }
+
+            await query(`COMMIT TRANSACTION`);
+
+            return res.json({
+                createdCount: created.length,
+                updatedCount: updated.length,
+                deactivatedCount: deactivated.length,
+                skippedPlatformAdminCount: skippedPlatformAdmins.length,
+                excludedByEmailCount: excludedByEmail.length,
+                samples: {
+                    created: created.slice(0, 10),
+                    updated: updated.slice(0, 10),
+                    deactivated: deactivated.slice(0, 10),
+                    skippedPlatformAdmins: skippedPlatformAdmins.slice(0, 10),
+                },
+                error: null,
+            });
+        } catch (err) {
+            await query(`ROLLBACK TRANSACTION`);
+            throw err;
+        }
+    } catch (err) {
+        return res.status(500).json({
+            createdCount: 0,
+            updatedCount: 0,
+            deactivatedCount: 0,
+            skippedPlatformAdminCount: 0,
+            excludedByEmailCount: 0,
+            samples: {
+                created: [],
+                updated: [],
+                deactivated: [],
+                skippedPlatformAdmins: [],
+            },
+            error: `Sync failed: ${err.message}`,
+        });
+    }
+});
 export default router;
