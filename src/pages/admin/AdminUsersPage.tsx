@@ -14,6 +14,13 @@ interface AdminUser {
     updatedAt: string | null;
 }
 
+interface SyncReadiness {
+    graphConfigPresent: boolean;
+    missingConfigKeys: string[];
+    expectedDomainFilter: string;
+    message: string;
+}
+
 const ROLES = ["Viewer", "Editor", "PlatformAdmin"];
 type Filter = "active" | "inactive" | "all";
 
@@ -29,6 +36,7 @@ export default function AdminUsersPage() {
     const [newDisplayName, setNewDisplayName] = useState("");
     const [newRole, setNewRole] = useState("Viewer");
     const [adding, setAdding] = useState(false);
+    const [syncReadiness, setSyncReadiness] = useState<SyncReadiness | null>(null);
 
     const activeUsers = users.filter((u) => u.isActive);
     const inactiveUsers = users.filter((u) => !u.isActive);
@@ -37,6 +45,15 @@ export default function AdminUsersPage() {
     useEffect(() => {
         loadUsers();
     }, []);
+
+    useEffect(() => {
+        if (isPlatformAdmin(permissions)) {
+            fetch("/api/admin/users/sync/readiness", { headers: getAuthHeaders() })
+                .then((res) => res.ok ? res.json() : null)
+                .then((data) => setSyncReadiness(data))
+                .catch(() => setSyncReadiness(null));
+        }
+    }, [permissions]);
 
     function loadUsers() {
         setLoading(true);
@@ -167,6 +184,38 @@ export default function AdminUsersPage() {
                         {adding ? "Adding..." : "Add User"}
                     </button>
                 </div>
+            </div>
+
+            <div className="admin-section">
+                <h2>Entra User Sync</h2>
+                {syncReadiness ? (
+                    <div className={`sync-readiness ${syncReadiness.graphConfigPresent ? "ready" : "not-ready"}`}>
+                        <p><strong>Status:</strong> {syncReadiness.graphConfigPresent ? "Ready" : "Not configured"}</p>
+                        {!syncReadiness.graphConfigPresent && (
+                            <div className="sync-missing-config">
+                                <p>Missing configuration keys:</p>
+                                <ul>
+                                    {syncReadiness.missingConfigKeys.map((key) => (
+                                        <li key={key}><code>{key}</code></li>
+                                    ))}
+                                </ul>
+                                <p>Add these to Azure App Service Configuration (Application Settings).</p>
+                            </div>
+                        )}
+                        <p><strong>Domain filter:</strong> {syncReadiness.expectedDomainFilter}</p>
+                        <p className="sync-message">{syncReadiness.message}</p>
+                        <div className="sync-info">
+                            <p><strong>Required Microsoft Graph permissions:</strong></p>
+                            <ul>
+                                <li><code>User.Read.All</code> or <code>Directory.Read.All</code></li>
+                            </ul>
+                            <p>Admin consent is required for these permissions.</p>
+                            <p>Sync will be available in a future update.</p>
+                        </div>
+                    </div>
+                ) : (
+                    <p>Loading sync status...</p>
+                )}
             </div>
 
             <div className="admin-section">

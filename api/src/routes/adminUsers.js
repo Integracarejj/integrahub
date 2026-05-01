@@ -151,4 +151,37 @@ router.put("/:id", async (req, res) => {
     }
 });
 
+export function validateGraphConfig() {
+    const tenantId = process.env.GRAPH_TENANT_ID;
+    const clientId = process.env.GRAPH_CLIENT_ID;
+    const clientSecret = process.env.GRAPH_CLIENT_SECRET;
+    const domainFilter = process.env.GRAPH_USER_DOMAIN_FILTER || "integracare.com";
+
+    const missingConfigKeys = [];
+    if (!tenantId) missingConfigKeys.push("GRAPH_TENANT_ID");
+    if (!clientId) missingConfigKeys.push("GRAPH_CLIENT_ID");
+    if (!clientSecret) missingConfigKeys.push("GRAPH_CLIENT_SECRET");
+
+    const graphConfigPresent = missingConfigKeys.length === 0;
+
+    return {
+        graphConfigPresent,
+        missingConfigKeys,
+        expectedDomainFilter: domainFilter,
+    };
+}
+
+router.get("/sync/readiness", (req, res) => {
+    const config = validateGraphConfig();
+
+    return res.json({
+        graphConfigPresent: config.graphConfigPresent,
+        missingConfigKeys: config.missingConfigKeys,
+        expectedDomainFilter: config.expectedDomainFilter,
+        message: config.graphConfigPresent
+            ? "Microsoft Graph sync is ready to configure. Ensure app permissions (User.Read.All or Directory.Read.All) and admin consent are granted."
+            : `Missing Graph config: ${config.missingConfigKeys.join(", ")}. Add these to Azure App Service Configuration.`,
+    });
+});
+
 export default router;

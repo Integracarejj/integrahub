@@ -218,9 +218,8 @@ export default function ApplicationDetailPage() {
                 }),
             });
             if (res.ok) {
-                setApplication((prev) =>
-                    prev ? { ...prev, ownership: { ...prev.ownership, technicalOwner: selectedTechOwner } } : null
-                );
+                const updated = await fetch(`/api/applications/${application.id}`).then((r) => r.json());
+                setApplication(updated);
                 setEditingTechOwner(false);
                 setSelectedTechOwner("");
             } else {
@@ -254,9 +253,8 @@ export default function ApplicationDetailPage() {
                 }),
             });
             if (res.ok) {
-                setApplication((prev) =>
-                    prev ? { ...prev, ownership: { ...prev.ownership, technicalOwner: "" } } : null
-                );
+                const updated = await fetch(`/api/applications/${application.id}`).then((r) => r.json());
+                setApplication(updated);
             } else {
                 const data = await res.json();
                 setTechOwnerError(data.error || "Failed to clear");
