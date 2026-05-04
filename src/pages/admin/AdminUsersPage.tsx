@@ -37,6 +37,25 @@ export default function AdminUsersPage() {
     const [newRole, setNewRole] = useState("Viewer");
     const [adding, setAdding] = useState(false);
     const [syncReadiness, setSyncReadiness] = useState<SyncReadiness | null>(null);
+    const [dryRunResult, setDryRunResult] = useState<{
+        wouldCreateCount: number;
+        wouldUpdateCount: number;
+        wouldDeactivateCount: number;
+        skippedPlatformAdminCount: number;
+        excludedByEmailCount: number;
+        error: string | null;
+    } | null>(null);
+    const [syncRunResult, setSyncRunResult] = useState<{
+        createdCount: number;
+        updatedCount: number;
+        deactivatedCount: number;
+        skippedPlatformAdminCount: number;
+        excludedByEmailCount: number;
+        error: string | null;
+    } | null>(null);
+    const [syncPreviewLoading, setSyncPreviewLoading] = useState(false);
+    const [syncRunLoading, setSyncRunLoading] = useState(false);
+    const [syncError, setSyncError] = useState<string | null>(null);
 
     const activeUsers = users.filter((u) => u.isActive);
     const inactiveUsers = users.filter((u) => !u.isActive);
@@ -117,6 +136,58 @@ export default function AdminUsersPage() {
             loadUsers();
         } finally {
             setSavingId(null);
+        }
+    }
+
+    async function handlePreviewSync() {
+        setSyncPreviewLoading(true);
+        setSyncError(null);
+        setDryRunResult(null);
+        setSyncRunResult(null);
+        try {
+            const res = await fetch("/api/admin/users/sync/dry-run", { headers: getAuthHeaders() });
+            if (!res.ok) {
+                setSyncError("Failed to fetch dry-run data");
+                return;
+            }
+            const data = await res.json();
+            setDryRunResult(data);
+            if (data.error) {
+                setSyncError(data.error);
+            }
+        } catch {
+            setSyncError("Failed to preview sync");
+        } finally {
+            setSyncPreviewLoading(false);
+        }
+    }
+
+    async function handleRunSync() {
+        if (!confirm("This will update cmdb.Users from Entra. Continue?")) return;
+        setSyncRunLoading(true);
+        setSyncError(null);
+        setSyncRunResult(null);
+        setDryRunResult(null);
+        try {
+            const res = await fetch("/api/admin/users/sync/run", {
+                method: "POST",
+                headers: getAuthHeaders(),
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                setSyncError(data.error || "Sync failed");
+                return;
+            }
+            const data = await res.json();
+            setSyncRunResult(data);
+            if (data.error) {
+                setSyncError(data.error);
+            }
+            loadUsers();
+        } catch {
+            setSyncError("Failed to run sync");
+        } finally {
+            setSyncRunLoading(false);
         }
     }
 
@@ -210,8 +281,42 @@ export default function AdminUsersPage() {
                                 <li><code>User.Read.All</code> or <code>Directory.Read.All</code></li>
                             </ul>
                             <p>Admin consent is required for these permissions.</p>
-                            <p>Sync will be available in a future update.</p>
                         </div>
+                        {syncReadiness.graphConfigPresent && (
+                            <div className="sync-actions">
+                                <button className="admin-btn" onClick={handlePreviewSync} disabled={syncPreviewLoading}>
+                                    {syncPreviewLoading ? "Loading..." : "Preview Sync"}
+                                </button>
+                                <button className="admin-btn admin-btn-run-sync" onClick={handleRunSync} disabled={syncRunLoading}>
+                                    {syncRunLoading ? "Running..." : "Run Entra Sync"}
+                                </button>
+                            </div>
+                        )}
+                        {syncError && <div className="form-error sync-error">{syncError}</div>}
+                        {dryRunResult && !dryRunResult.error && (
+                            <div className="sync-summary">
+                                <h3>Preview Results</h3>
+                                <div className="sync-summary-grid">
+                                    <span>Would create:</span><strong>{dryRunResult.wouldCreateCount}</strong>
+                                    <span>Would update:</span><strong>{dryRunResult.wouldUpdateCount}</strong>
+                                    <span>Would deactivate:</span><strong>{dryRunResult.wouldDeactivateCount}</strong>
+                                    <span>Skipped PlatformAdmins:</span><strong>{dryRunResult.skippedPlatformAdminCount}</strong>
+                                    <span>Excluded by email:</span><strong>{dryRunResult.excludedByEmailCount}</strong>
+                                </div>
+                            </div>
+                        )}
+                        {syncRunResult && !syncRunResult.error && (
+                            <div className="sync-summary sync-summary-success">
+                                <h3>Sync Completed</h3>
+                                <div className="sync-summary-grid">
+                                    <span>Created:</span><strong>{syncRunResult.createdCount}</strong>
+                                    <span>Updated:</span><strong>{syncRunResult.updatedCount}</strong>
+                                    <span>Deactivated:</span><strong>{syncRunResult.deactivatedCount}</strong>
+                                    <span>Skipped PlatformAdmins:</span><strong>{syncRunResult.skippedPlatformAdminCount}</strong>
+                                    <span>Excluded by email:</span><strong>{syncRunResult.excludedByEmailCount}</strong>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <p>Loading sync status...</p>
