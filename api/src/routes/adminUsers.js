@@ -653,11 +653,11 @@ router.post("/sync/run", async (req, res) => {
 
         try {
             await transaction.begin();
-            const request = new sql.Request(transaction);
 
             for (const u of comparison.wouldCreate) {
                 const newId = u.entraObjectId || `user-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
                 try {
+                    const request = new sql.Request(transaction);
                     request.input("id", newId);
                     request.input("entraObjectId", u.entraObjectId);
                     request.input("email", u.email);
@@ -684,6 +684,7 @@ router.post("/sync/run", async (req, res) => {
                     const existing = existingUsers.find((eu) => eu.id === u.id);
                     if (!existing) continue;
 
+                    const request = new sql.Request(transaction);
                     request.input("id", u.id);
 
                     if (u.changes.displayName) {
@@ -742,6 +743,7 @@ router.post("/sync/run", async (req, res) => {
 
                 if (!matchByEntra && !matchByEmail) {
                     try {
+                        const request = new sql.Request(transaction);
                         request.input("id", eu.id);
                         await request.query(`
                             UPDATE cmdb.Users SET isActive = 0, graphLastSyncedAt = GETUTCDATE() WHERE id = @id
