@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { query } from "../db.js";
+import sql from "mssql";
+import { query, getPool } from "../db.js";
 
 const router = Router();
 
@@ -642,31 +643,32 @@ router.post("/sync/run", async (req, res) => {
 
         const comparison = compareWithCmdb(syncCandidates, existingUsers);
 
-        // Start transaction for all writes
         const created = [];
         const updated = [];
         const deactivated = [];
         const skippedPlatformAdmins = [...comparison.skippedPlatformAdmins];
 
-        await query(`BEGIN TRANSACTION`);
+        const pool = await getPool();
+        const transaction = new sql.Transaction(pool);
 
         try {
-            // Create new users
+            await transaction.begin();
+            const request = new sql.Request(transaction);
+
             for (const u of comparison.wouldCreate) {
                 const newId = u.entraObjectId || `user-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
                 try {
-                    await query(`
+                    request.input("id", newId);
+                    request.input("entraObjectId", u.entraObjectId);
+                    request.input("email", u.email);
+                    request.input("displayName", u.displayName);
+                    request.input("jobTitle", u.jobTitle);
+                    request.input("department", u.department);
+                    request.input("officeLocation", u.officeLocation);
+                    await request.query(`
                         INSERT INTO cmdb.Users (id, entraObjectId, email, displayName, role, isActive, jobTitle, department, officeLocation, graphLastSyncedAt, createdAt)
                         VALUES (@id, @entraObjectId, @email, @displayName, 'Viewer', 1, @jobTitle, @department, @officeLocation, GETUTCDATE(), GETUTCDATE())
-                    `, {
-                        id: newId,
-                        entraObjectId: u.entraObjectId,
-                        email: u.email,
-                        displayName: u.displayName,
-                        jobTitle: u.jobTitle,
-                        department: u.department,
-                        officeLocation: u.officeLocation,
-                    });
+                    `);
                     created.push({
                         id: newId,
                         displayName: u.displayName,
@@ -677,46 +679,46 @@ router.post("/sync/run", async (req, res) => {
                 }
             }
 
-            // Update existing users
             for (const u of comparison.wouldUpdate) {
                 try {
                     const existing = existingUsers.find((eu) => eu.id === u.id);
                     if (!existing) continue;
 
-                    const updates = [];
-                    const params = { id: u.id };
+                    request.input("id", u.id);
 
                     if (u.changes.displayName) {
-                        updates.push("displayName = @displayName");
-                        params.displayName = u.changes.displayName.to;
+                        request.input("displayName", u.changes.displayName.to);
                     }
                     if (u.changes.email) {
-                        updates.push("email = @email");
-                        params.email = u.changes.email.to;
+                        request.input("email", u.changes.email.to);
                     }
                     if (u.changes.entraObjectId) {
-                        updates.push("entraObjectId = @entraObjectId");
-                        params.entraObjectId = u.changes.entraObjectId.to;
+                        request.input("entraObjectId", u.changes.entraObjectId.to);
                     }
                     if (u.changes.jobTitle) {
-                        updates.push("jobTitle = @jobTitle");
-                        params.jobTitle = u.changes.jobTitle.to;
+                        request.input("jobTitle", u.changes.jobTitle.to);
                     }
                     if (u.changes.department) {
-                        updates.push("department = @department");
-                        params.department = u.changes.department.to;
+                        request.input("department", u.changes.department.to);
                     }
                     if (u.changes.officeLocation) {
-                        updates.push("officeLocation = @officeLocation");
-                        params.officeLocation = u.changes.officeLocation.to;
+                        request.input("officeLocation", u.changes.officeLocation.to);
                     }
+
+                    const updates = [];
+                    if (u.changes.displayName) updates.push("displayName = @displayName");
+                    if (u.changes.email) updates.push("email = @email");
+                    if (u.changes.entraObjectId) updates.push("entraObjectId = @entraObjectId");
+                    if (u.changes.jobTitle) updates.push("jobTitle = @jobTitle");
+                    if (u.changes.department) updates.push("department = @department");
+                    if (u.changes.officeLocation) updates.push("officeLocation = @officeLocation");
 
                     updates.push("isActive = 1");
                     updates.push("graphLastSyncedAt = GETUTCDATE()");
 
-                    await query(`
+                    await request.query(`
                         UPDATE cmdb.Users SET ${updates.join(", ")} WHERE id = @id
-                    `, params);
+                    `);
 
                     updated.push({
                         id: u.id,
@@ -728,22 +730,22 @@ router.post("/sync/run", async (req, res) => {
                 }
             }
 
-            // Deactivate users not in sync candidates (skip PlatformAdmins, skip already inactive)
             const syncEmails = new Set(syncCandidates.map((u) => u.normalizedEmail));
             const syncEntraIds = new Set(syncCandidates.filter((u) => u.graphId).map((u) => u.graphId.toLowerCase()));
 
             for (const eu of existingUsers) {
-                if (!eu.isActive) continue; // Already inactive
-                if (comparison.platformAdminIds.has(eu.id)) continue; // Skip PlatformAdmins
+                if (!eu.isActive) continue;
+                if (comparison.platformAdminIds.has(eu.id)) continue;
 
                 const matchByEntra = eu.entraObjectId && syncEntraIds.has(eu.entraObjectId.toLowerCase());
                 const matchByEmail = eu.email && syncEmails.has(eu.email.toLowerCase());
 
                 if (!matchByEntra && !matchByEmail) {
                     try {
-                        await query(`
+                        request.input("id", eu.id);
+                        await request.query(`
                             UPDATE cmdb.Users SET isActive = 0, graphLastSyncedAt = GETUTCDATE() WHERE id = @id
-                        `, { id: eu.id });
+                        `);
                         deactivated.push({
                             id: eu.id,
                             displayName: eu.displayName,
@@ -754,7 +756,7 @@ router.post("/sync/run", async (req, res) => {
                 }
             }
 
-            await query(`COMMIT TRANSACTION`);
+            await transaction.commit();
 
             return res.json({
                 createdCount: created.length,
@@ -771,7 +773,7 @@ router.post("/sync/run", async (req, res) => {
                 error: null,
             });
         } catch (err) {
-            await query(`ROLLBACK TRANSACTION`);
+            await transaction.rollback();
             throw err;
         }
     } catch (err) {
