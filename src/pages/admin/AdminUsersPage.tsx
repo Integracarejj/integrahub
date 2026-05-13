@@ -37,6 +37,7 @@ export default function AdminUsersPage() {
     const [newRole, setNewRole] = useState("Viewer");
     const [adding, setAdding] = useState(false);
     const [syncReadiness, setSyncReadiness] = useState<SyncReadiness | null>(null);
+    const [lastSync, setLastSync] = useState<string | null>(null);
     const [dryRunResult, setDryRunResult] = useState<{
         wouldCreateCount: number;
         wouldUpdateCount: number;
@@ -71,6 +72,20 @@ export default function AdminUsersPage() {
                 .then((res) => res.ok ? res.json() : null)
                 .then((data) => setSyncReadiness(data))
                 .catch(() => setSyncReadiness(null));
+            fetch("/api/admin/users/sync/last-sync", { headers: getAuthHeaders() })
+                .then((res) => res.ok ? res.json() : null)
+                .then((data) => {
+                    if (data?.lastSyncedAt) {
+                        const d = new Date(data.lastSyncedAt);
+                        setLastSync(d.toLocaleString("en-US", {
+                            month: "short", day: "numeric", year: "numeric",
+                            hour: "numeric", minute: "2-digit", hour12: true,
+                        }));
+                    } else {
+                        setLastSync(null);
+                    }
+                })
+                .catch(() => setLastSync(null));
         }
     }, [permissions]);
 
@@ -275,6 +290,7 @@ export default function AdminUsersPage() {
                         )}
                         <p><strong>Domain filter:</strong> {syncReadiness.expectedDomainFilter}</p>
                         <p className="sync-message">{syncReadiness.message}</p>
+                        <p className="sync-last-sync"><strong>Last Sync:</strong> {lastSync ?? "No sync has been run yet"}</p>
                         <div className="sync-info">
                             <p><strong>Required Microsoft Graph permissions:</strong></p>
                             <ul>

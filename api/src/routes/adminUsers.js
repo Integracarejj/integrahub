@@ -220,6 +220,20 @@ router.get("/sync/readiness", (req, res) => {
     });
 });
 
+router.get("/sync/last-sync", async (req, res) => {
+    try {
+        const rows = await query(`
+            SELECT MAX(graphLastSyncedAt) as lastSyncedAt
+            FROM cmdb.Users
+            WHERE graphLastSyncedAt IS NOT NULL
+        `);
+        return res.json({ lastSyncedAt: rows[0]?.lastSyncedAt || null });
+    } catch (err) {
+        console.error("GET /api/admin/users/sync/last-sync failed:", err);
+        return res.status(500).json({ error: "Failed to fetch last sync time" });
+    }
+});
+
 router.get("/sync/test-graph", async (req, res) => {
     const config = validateGraphConfig();
 
