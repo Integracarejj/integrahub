@@ -245,6 +245,12 @@ function loadData() {
                     <p>Add, edit, or deactivate user accounts.</p>
                     <Link to="/admin/users" className="admin-btn">Manage Users</Link>
                 </div>
+
+                <div className="admin-card">
+                    <h2>Application Import</h2>
+                    <p>Preview registry spreadsheet imports.</p>
+                    <Link to="/admin/application-import" className="admin-btn">Application Import</Link>
+                </div>
             </div>
 
             <CollapsibleSection title="Manage Capabilities" sectionKey="capabilities">
