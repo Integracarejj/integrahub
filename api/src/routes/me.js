@@ -24,6 +24,7 @@ function getPrincipalName(req) {
 
 function getResolvedEmail(req) {
     if (req.user) return req.user.email;
+    if (req.authInfo) return req.authInfo.resolvedEmail;
     if (req.headers[DEV_USER_HEADER]) return req.headers[DEV_USER_HEADER];
     if (req.headers[AZURE_CLIENT_PRINCIPAL_NAME]) return req.headers[AZURE_CLIENT_PRINCIPAL_NAME];
     return null;
@@ -35,8 +36,21 @@ router.get("/", async (req, res) => {
     const principalName = getPrincipalName(req);
     const resolvedEmail = getResolvedEmail(req);
 
-    let userRecord = null;
+    if (req.authInfo) {
+        return res.json({
+            isAuthenticated: true,
+            hasAppAccess: false,
+            authSource,
+            resolvedEmail,
+            principalId,
+            principalName,
+            userRecord: null,
+            accessReason: req.authInfo.reason,
+        });
+    }
+
     if (req.user) {
+        let userRecord = null;
         const rows = await query(
             "SELECT id, entraObjectId, email, displayName, role FROM cmdb.Users WHERE id = @id",
             { id: req.user.id }
@@ -50,15 +64,28 @@ router.get("/", async (req, res) => {
                 role: rows[0].role,
             };
         }
+
+        return res.json({
+            isAuthenticated: true,
+            hasAppAccess: true,
+            authSource,
+            resolvedEmail,
+            principalId,
+            principalName,
+            userRecord,
+            accessReason: null,
+        });
     }
 
     return res.json({
-        isAuthenticated: !!req.user,
+        isAuthenticated: false,
+        hasAppAccess: false,
         authSource,
+        resolvedEmail,
         principalId,
         principalName,
-        resolvedEmail,
-        userRecord,
+        userRecord: null,
+        accessReason: null,
     });
 });
 

@@ -10,11 +10,13 @@ export interface UserRecord {
 
 export interface CurrentUserResponse {
     isAuthenticated: boolean;
+    hasAppAccess: boolean;
     authSource: string;
     principalId: string;
     principalName: string;
     resolvedEmail: string;
     userRecord: UserRecord | null;
+    accessReason: string | null;
 }
 
 export interface CurrentUser {

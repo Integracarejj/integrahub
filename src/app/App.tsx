@@ -1,4 +1,4 @@
-// src/app/App.tsx
+import { useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { CurrentUserProvider, useCurrentUser } from "../hooks/useCurrentUser";
 import AppLayout from "../layouts/AppLayout";
@@ -17,11 +17,24 @@ import IntegrationsPage from "../pages/integrations/IntegrationsPage";
 import PlatformsPage from "../pages/platforms/PlatformsPage";
 
 function NoAccessScreen() {
+    const [showRequest, setShowRequest] = useState(false);
+
     return (
         <div className="no-access-screen">
-            <h2>Access Not Configured</h2>
-            <p>You are signed in, but your CMDB access has not been configured.</p>
-            <p>Please contact a PlatformAdmin to request access.</p>
+            <h2>You do not currently have access to IntegraSource.</h2>
+            <p>Your Microsoft account was verified, but access to this application has not been granted.</p>
+            <button
+                className="admin-btn"
+                onClick={() => setShowRequest(true)}
+                style={{ marginTop: 24 }}
+            >
+                Request Access
+            </button>
+            {showRequest && (
+                <p style={{ marginTop: 16, color: "#6b7280", fontSize: 14 }}>
+                    Access request workflow coming soon. Please contact your IntegraSource administrator.
+                </p>
+            )}
         </div>
     );
 }
@@ -59,7 +72,7 @@ function AuthAwareRouter() {
         );
     }
 
-    if (user.isAuthenticated && !user.userRecord) {
+    if (user.isAuthenticated && !user.hasAppAccess) {
         return <NoAccessScreen />;
     }
 
@@ -89,7 +102,6 @@ function AuthAwareRouter() {
                 <Route path="/integrations" element={<IntegrationsPage />} />
                 <Route path="/platforms" element={<PlatformsPage />} />
 
-                {/* Fallback */}
                 <Route path="*" element={<Navigate to="/applications" replace />} />
             </Route>
         </Routes>

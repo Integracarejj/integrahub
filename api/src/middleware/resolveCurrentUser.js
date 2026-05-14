@@ -16,7 +16,7 @@ export async function resolveCurrentUser(req, res, next) {
 
         if (devEmail) {
             const rows = await query(
-                "SELECT id, entraObjectId, email, displayName, role FROM cmdb.Users WHERE email = @email",
+                "SELECT id, entraObjectId, email, displayName, role, isActive, canAccess FROM cmdb.Users WHERE email = @email",
                 { email: devEmail }
             );
             user = rows[0];
@@ -28,14 +28,14 @@ export async function resolveCurrentUser(req, res, next) {
             }
         } else if (azureClientPrincipalId) {
             const rows = await query(
-                "SELECT id, entraObjectId, email, displayName, role FROM cmdb.Users WHERE entraObjectId = @entraObjectId",
+                "SELECT id, entraObjectId, email, displayName, role, isActive, canAccess FROM cmdb.Users WHERE entraObjectId = @entraObjectId",
                 { entraObjectId: azureClientPrincipalId }
             );
             user = rows[0];
 
             if (!user && azureClientPrincipalName) {
                 const fallbackRows = await query(
-                    "SELECT id, entraObjectId, email, displayName, role FROM cmdb.Users WHERE email = @email",
+                    "SELECT id, entraObjectId, email, displayName, role, isActive, canAccess FROM cmdb.Users WHERE email = @email",
                     { email: azureClientPrincipalName }
                 );
                 user = fallbackRows[0];
@@ -48,7 +48,7 @@ export async function resolveCurrentUser(req, res, next) {
             }
         } else if (entraObjectId) {
             const rows = await query(
-                "SELECT id, entraObjectId, email, displayName, role FROM cmdb.Users WHERE entraObjectId = @entraObjectId",
+                "SELECT id, entraObjectId, email, displayName, role, isActive, canAccess FROM cmdb.Users WHERE entraObjectId = @entraObjectId",
                 { entraObjectId }
             );
             user = rows[0];
@@ -59,6 +59,19 @@ export async function resolveCurrentUser(req, res, next) {
                 return next();
             }
         } else {
+            req.user = null;
+            return next();
+        }
+
+        const isActive = !!user.isActive;
+        const canAccess = !!user.canAccess;
+
+        if (!isActive || !canAccess) {
+            req.authInfo = {
+                resolvedEmail: user.email,
+                displayName: user.displayName,
+                reason: !isActive ? "User inactive" : "Access not granted",
+            };
             req.user = null;
             return next();
         }

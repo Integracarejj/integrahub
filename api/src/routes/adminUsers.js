@@ -16,7 +16,7 @@ router.use(requirePlatformAdmin);
 router.get("/", async (req, res) => {
     try {
         const rows = await query(`
-            SELECT id, entraObjectId, email, displayName, role, isActive, updatedAt
+            SELECT id, entraObjectId, email, displayName, role, isActive, canAccess, updatedAt
             FROM cmdb.Users
             ORDER BY displayName
         `);
@@ -28,6 +28,7 @@ router.get("/", async (req, res) => {
             displayName: row.displayName,
             role: row.role,
             isActive: !!row.isActive,
+            canAccess: !!row.canAccess,
             updatedAt: row.updatedAt,
         }));
 
@@ -129,7 +130,7 @@ router.put("/:id", async (req, res) => {
         `, params);
 
         const rows = await query(
-            "SELECT id, entraObjectId, email, displayName, role, isActive, updatedAt FROM cmdb.Users WHERE id = @id",
+            "SELECT id, entraObjectId, email, displayName, role, isActive, canAccess, updatedAt FROM cmdb.Users WHERE id = @id",
             { id }
         );
 
@@ -144,6 +145,7 @@ router.put("/:id", async (req, res) => {
             displayName: rows[0].displayName,
             role: rows[0].role,
             isActive: !!rows[0].isActive,
+            canAccess: !!rows[0].canAccess,
             updatedAt: rows[0].updatedAt,
         });
     } catch (err) {

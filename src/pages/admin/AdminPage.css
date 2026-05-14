@@ -301,13 +301,41 @@
 .user-table td:nth-child(4),
 .user-table th:nth-child(4),
 .user-table td:nth-child(5),
-.user-table th:nth-child(5) {
+.user-table th:nth-child(5),
+.user-table td:nth-child(6),
+.user-table th:nth-child(6) {
     text-align: center;
     width: 100px;
 }
 
 .user-table td:nth-child(3) {
     width: 140px;
+}
+
+.access-granted {
+    display: inline-block;
+    padding: 4px 12px;
+    background: #e8f5ee;
+    color: #166534;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 12px;
+    border: 1px solid #bbf7d0;
+    min-width: 70px;
+    text-align: center;
+}
+
+.access-denied {
+    display: inline-block;
+    padding: 4px 12px;
+    background: #fef2f2;
+    color: #991b1b;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 12px;
+    border: 1px solid #fecaca;
+    min-width: 70px;
+    text-align: center;
 }
 
 .add-user-form .form-field input.edit-input {

@@ -11,6 +11,7 @@ interface AdminUser {
     displayName: string;
     role: string;
     isActive: boolean;
+    canAccess: boolean;
     updatedAt: string | null;
 }
 
@@ -373,6 +374,7 @@ export default function AdminUsersPage() {
                                     <th>Email</th>
                                     <th>Role</th>
                                     <th>Status</th>
+                                    <th>Access</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -396,6 +398,11 @@ export default function AdminUsersPage() {
                                         <td>
                                             <span className={user.isActive ? "status-active" : "status-inactive"}>
                                                 {user.isActive ? "Active" : "Inactive"}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span className={user.canAccess ? "access-granted" : "access-denied"}>
+                                                {user.canAccess ? "Granted" : "Not Granted"}
                                             </span>
                                         </td>
                                         <td>
