@@ -145,6 +145,14 @@ export default function ApplicationsListPage() {
     const [ownershipFilter, setOwnershipFilter] = useState("");
     const [showInactive, setShowInactive] = useState(false);
 
+    const systemCategoryOptions = useMemo(() => {
+        const cats = new Set<string>();
+        for (const app of applications) {
+            if (app.systemCategory) cats.add(app.systemCategory);
+        }
+        return [...cats].sort((a, b) => a.localeCompare(b));
+    }, [applications]);
+
     const ownershipCounts = useMemo(() => {
         const apps = applications;
         const missingTech = apps.filter((a) => !a.ownership.technicalOwner).length;
@@ -373,27 +381,9 @@ export default function ApplicationsListPage() {
                     onChange={(e) => setSystemCategoryFilter(e.target.value)}
                 >
                     <option value="">All Categories</option>
-                    <option value="Enterprise System">Enterprise System</option>
-                    <option value="Identity & Access">Identity & Access</option>
-                    <option value="Analytics & Reporting">Analytics & Reporting</option>
-                    <option value="HR / Employee Engagement">HR / Employee Engagement</option>
-                    <option value="HR / Payroll">HR / Payroll</option>
-                    <option value="Marketing Tool">Marketing Tool</option>
-                    <option value="Sales / Marketing">Sales / Marketing</option>
-                    <option value="CRM / Sales">CRM / Sales</option>
-                    <option value="Workforce Management">Workforce Management</option>
-                    <option value="Learning Management">Learning Management</option>
-                    <option value="Clinical / Resident Care">Clinical / Resident Care</option>
-                    <option value="Clinical / Pharmacy">Clinical / Pharmacy</option>
-                    <option value="Clinical / eMAR">Clinical / eMAR</option>
-                    <option value="Clinical / Resident Safety">Clinical / Resident Safety</option>
-                    <option value="Clinical / Resident Engagement">Clinical / Resident Engagement</option>
-                    <option value="Collaboration / Document Management">Collaboration / Document Management</option>
-                    <option value="Financial / Accounting">Financial / Accounting</option>
-                    <option value="Vendor Portal">Vendor Portal</option>
-                    <option value="Utility / Admin Tool">Utility / Admin Tool</option>
-                    <option value="Infrastructure Platform">Infrastructure Platform</option>
-                    <option value="Other">Other</option>
+                    {systemCategoryOptions.map((cat) => (
+                        <option key={cat} value={cat}>{cat}</option>
+                    ))}
                 </select>
 
                 <select
