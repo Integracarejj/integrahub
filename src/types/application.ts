@@ -71,4 +71,9 @@ export interface Application {
     };
 
     description?: string;
+
+    primaryUseCases?: string | null;
+    departmentsSupported?: string | null;
+    accessRequestProcess?: string | null;
+    trainingDocumentationUrl?: string | null;
 }

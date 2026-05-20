@@ -51,6 +51,10 @@ interface ApiApplication {
     userCountBand: string;
     lastReviewedAt: string;
     notes: string;
+    primaryUseCases?: string | null;
+    departmentsSupported?: string | null;
+    accessRequestProcess?: string | null;
+    trainingDocumentationUrl?: string | null;
     integrations: ApiIntegration[];
     inboundIntegrations: ApiIntegration[];
 }
@@ -205,19 +209,9 @@ export default function ApplicationDetailPage() {
         setTechOwnerError(null);
         try {
             const res = await fetch(`/api/applications/${application.id}`, {
-                method: "PUT",
+                method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    name: application.name,
-                    capabilityId: application.capabilityId,
-                    status: application.status || "Active",
-                    type: application.type || "Standard",
-                    systemCategory: application.systemCategory || null,
-                    businessOwner: application.ownership.businessOwner || "",
-                    businessCriticality: application.businessContext.businessCriticality || "Medium",
-                    impactIfDown: application.businessContext.impactIfDown || "",
-                    technicalOwner: selectedTechOwner,
-                }),
+                body: JSON.stringify({ technicalOwner: selectedTechOwner }),
             });
             if (res.ok) {
                 const updated = await fetch(`/api/applications/${application.id}`).then((r) => r.json());
@@ -241,19 +235,9 @@ export default function ApplicationDetailPage() {
         setTechOwnerError(null);
         try {
             const res = await fetch(`/api/applications/${application.id}`, {
-                method: "PUT",
+                method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    name: application.name,
-                    capabilityId: application.capabilityId,
-                    status: application.status || "Active",
-                    type: application.type || "Standard",
-                    systemCategory: application.systemCategory || null,
-                    businessOwner: application.ownership.businessOwner || "",
-                    businessCriticality: application.businessContext.businessCriticality || "Medium",
-                    impactIfDown: application.businessContext.impactIfDown || "",
-                    technicalOwner: "",
-                }),
+                body: JSON.stringify({ technicalOwner: "" }),
             });
             if (res.ok) {
                 const updated = await fetch(`/api/applications/${application.id}`).then((r) => r.json());
@@ -546,6 +530,28 @@ export default function ApplicationDetailPage() {
                             <div className="detail-definition-item full-width">
                                 <dt>Notes</dt>
                                 <dd>{application.notes || "—"}</dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    <section className="detail-section">
+                        <h2 className="detail-section-title">Operational Context</h2>
+                        <dl className="detail-definition-list">
+                            <div className="detail-definition-item full-width">
+                                <dt>Primary Use Cases</dt>
+                                <dd>{application.primaryUseCases || "—"}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>Departments Supported</dt>
+                                <dd>{application.departmentsSupported || "—"}</dd>
+                            </div>
+                            <div className="detail-definition-item full-width">
+                                <dt>Access Request Process</dt>
+                                <dd>{application.accessRequestProcess || "—"}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>Training / Documentation</dt>
+                                <dd>{application.trainingDocumentationUrl ? <a href={application.trainingDocumentationUrl} target="_blank" rel="noopener noreferrer">{application.trainingDocumentationUrl}</a> : "—"}</dd>
                             </div>
                         </dl>
                     </section>

@@ -13,6 +13,11 @@ const VALID_DATA_CLASSIFICATION = ["Public", "General", "Confidential", "Restric
 const VALID_USER_COUNT_BAND = ["1_10", "11_30", "31_60", "61_plus", "Unknown"];
 const MAX_NOTES_LENGTH = 1000;
 
+function getUpdatedBy(user) {
+    if (!user) return "unknown";
+    return user.email || user.id || "unknown";
+}
+
 function normalizeName(name) {
     return name.trim().replace(/\s+/g, " ");
 }
@@ -45,6 +50,10 @@ router.post("/", async (req, res) => {
             userCountBand,
             lastReviewedAt,
             notes,
+            primaryUseCases,
+            departmentsSupported,
+            accessRequestProcess,
+            trainingDocumentationUrl,
         } = req.body;
 
         if (!name) {
@@ -113,8 +122,8 @@ router.post("/", async (req, res) => {
         }
 
         await query(
-            `INSERT INTO cmdb.Applications (id, name, capabilityId, status, type, systemCategory, businessOwner, businessCriticality, impactIfDown, websiteUrl, loginUrl, backupOwner, ssoSupported, ssoEnabled, mfaSupported, mfaEnabled, dataClassification, userCountBand, lastReviewedAt, notes)
-             VALUES (@id, @name, @capabilityId, @status, @type, @systemCategory, @businessOwner, @businessCriticality, @impactIfDown, @websiteUrl, @loginUrl, @backupOwner, @ssoSupported, @ssoEnabled, @mfaSupported, @mfaEnabled, @dataClassification, @userCountBand, @lastReviewedAt, @notes)`,
+            `INSERT INTO cmdb.Applications (id, name, capabilityId, status, type, systemCategory, businessOwner, businessCriticality, impactIfDown, websiteUrl, loginUrl, backupOwner, ssoSupported, ssoEnabled, mfaSupported, mfaEnabled, dataClassification, userCountBand, lastReviewedAt, notes, primaryUseCases, departmentsSupported, accessRequestProcess, trainingDocumentationUrl)
+             VALUES (@id, @name, @capabilityId, @status, @type, @systemCategory, @businessOwner, @businessCriticality, @impactIfDown, @websiteUrl, @loginUrl, @backupOwner, @ssoSupported, @ssoEnabled, @mfaSupported, @mfaEnabled, @dataClassification, @userCountBand, @lastReviewedAt, @notes, @primaryUseCases, @departmentsSupported, @accessRequestProcess, @trainingDocumentationUrl)`,
             {
                 id: generatedId,
                 name: normalizedName,
@@ -136,6 +145,10 @@ router.post("/", async (req, res) => {
                 userCountBand: userCountBand || "",
                 lastReviewedAt: lastReviewedAt || "",
                 notes: notes || "",
+                primaryUseCases: primaryUseCases || null,
+                departmentsSupported: departmentsSupported || null,
+                accessRequestProcess: accessRequestProcess || null,
+                trainingDocumentationUrl: trainingDocumentationUrl || null,
             }
         );
 
@@ -160,6 +173,10 @@ router.post("/", async (req, res) => {
             userCountBand: userCountBand || "",
             lastReviewedAt: lastReviewedAt || "",
             notes: notes || "",
+            primaryUseCases: primaryUseCases || null,
+            departmentsSupported: departmentsSupported || null,
+            accessRequestProcess: accessRequestProcess || null,
+            trainingDocumentationUrl: trainingDocumentationUrl || null,
         });
     } catch (err) {
         console.error("POST /api/applications failed:", err);
@@ -200,6 +217,10 @@ router.put("/:id", async (req, res) => {
             userCountBand,
             lastReviewedAt,
             notes,
+            primaryUseCases,
+            departmentsSupported,
+            accessRequestProcess,
+            trainingDocumentationUrl,
         } = req.body;
 
         if (!name) {
@@ -265,6 +286,8 @@ router.put("/:id", async (req, res) => {
             return res.status(400).json({ error: "capabilityId does not exist" });
         }
 
+        const updatedBy = getUpdatedBy(req.user);
+
         await query(
             `UPDATE cmdb.Applications
              SET name = @name, capabilityId = @capabilityId, status = @status, type = @type,
@@ -274,7 +297,10 @@ router.put("/:id", async (req, res) => {
                  ssoSupported = @ssoSupported, ssoEnabled = @ssoEnabled,
                  mfaSupported = @mfaSupported, mfaEnabled = @mfaEnabled,
                  dataClassification = @dataClassification, userCountBand = @userCountBand,
-                 lastReviewedAt = @lastReviewedAt, notes = @notes
+                 lastReviewedAt = @lastReviewedAt, notes = @notes,
+                 primaryUseCases = @primaryUseCases, departmentsSupported = @departmentsSupported,
+                 accessRequestProcess = @accessRequestProcess, trainingDocumentationUrl = @trainingDocumentationUrl,
+                 updatedBy = @updatedBy
              WHERE id = @id`,
             {
                 id,
@@ -298,6 +324,11 @@ router.put("/:id", async (req, res) => {
                 userCountBand: userCountBand || "",
                 lastReviewedAt: lastReviewedAt || "",
                 notes: notes || "",
+                primaryUseCases: primaryUseCases || null,
+                departmentsSupported: departmentsSupported || null,
+                accessRequestProcess: accessRequestProcess || null,
+                trainingDocumentationUrl: trainingDocumentationUrl || null,
+                updatedBy,
             }
         );
 
@@ -322,6 +353,10 @@ router.put("/:id", async (req, res) => {
             userCountBand: userCountBand || "",
             lastReviewedAt: lastReviewedAt || "",
             notes: notes || "",
+            primaryUseCases: primaryUseCases || null,
+            departmentsSupported: departmentsSupported || null,
+            accessRequestProcess: accessRequestProcess || null,
+            trainingDocumentationUrl: trainingDocumentationUrl || null,
         });
     } catch (err) {
         console.error(`PUT /api/applications/${req.params.id} failed:`, err);
@@ -331,6 +366,311 @@ router.put("/:id", async (req, res) => {
         if (err.number) console.error("Error number:", err.number);
         if (err.code) console.error("Error code:", err.code);
         if (err.originalError) console.error("Original error:", err.originalError);
+        res.status(500).json({
+            error: "Failed to update application",
+            detail: err?.message || "Unknown error",
+        });
+    }
+});
+
+router.patch("/:id", async (req, res) => {
+    console.log(`PATCH /api/applications/${req.params.id} called`);
+    const id = req.params.id.replace(/[^a-zA-Z0-9_-]/g, "");
+
+    if (!(await canEditApplication(req.user, id))) {
+        return forbidden(res);
+    }
+
+    try {
+        const existing = await query(
+            "SELECT * FROM cmdb.Applications WHERE id = @id",
+            { id }
+        );
+        if (existing.length === 0) {
+            return res.status(404).json({ error: "Application not found" });
+        }
+
+        const setClauses = [];
+        const params = { id };
+        const body = req.body;
+
+        if (body.name !== undefined) {
+            const v = body.name;
+            if (!v || !v.trim()) {
+                return res.status(400).json({ error: "name is required" });
+            }
+            const normalizedName = normalizeName(v);
+            const dup = await query(
+                "SELECT id FROM cmdb.Applications WHERE LOWER(name) = LOWER(@name) AND id != @id",
+                { name: normalizedName, id }
+            );
+            if (dup.length > 0) {
+                return res.status(409).json({ error: "An application with this name already exists" });
+            }
+            setClauses.push("name = @name");
+            params.name = normalizedName;
+        }
+
+        if (body.capabilityId !== undefined) {
+            const v = body.capabilityId;
+            if (!v) {
+                return res.status(400).json({ error: "capabilityId is required" });
+            }
+            const check = await query(
+                "SELECT id FROM cmdb.Capabilities WHERE id = @capabilityId",
+                { capabilityId: v }
+            );
+            if (check.length === 0) {
+                return res.status(400).json({ error: "capabilityId does not exist" });
+            }
+            setClauses.push("capabilityId = @capabilityId");
+            params.capabilityId = v;
+        }
+
+        if (body.status !== undefined) {
+            if (!VALID_STATUS.includes(body.status)) {
+                return res.status(400).json({ error: "status must be Active, Planned, or Retired" });
+            }
+            setClauses.push("status = @status");
+            params.status = body.status;
+        }
+
+        if (body.type !== undefined) {
+            if (!VALID_TYPE.includes(body.type)) {
+                return res.status(400).json({ error: "type must be Standard, SaaS, or Custom" });
+            }
+            setClauses.push("type = @type");
+            params.type = body.type;
+        }
+
+        if (body.systemCategory !== undefined) {
+            setClauses.push("systemCategory = @systemCategory");
+            params.systemCategory = body.systemCategory || null;
+        }
+
+        if (body.description !== undefined) {
+            setClauses.push("description = @description");
+            params.description = body.description || "";
+        }
+
+        if (body.vendor !== undefined) {
+            setClauses.push("vendor = @vendor");
+            params.vendor = body.vendor || "";
+        }
+
+        if (body.purpose !== undefined) {
+            setClauses.push("purpose = @purpose");
+            params.purpose = body.purpose || "";
+        }
+
+        if (body.technicalOwner !== undefined) {
+            setClauses.push("technicalOwner = @technicalOwner");
+            params.technicalOwner = body.technicalOwner || null;
+        }
+
+        if (body.businessOwner !== undefined) {
+            setClauses.push("businessOwner = @businessOwner");
+            params.businessOwner = body.businessOwner || "";
+        }
+
+        if (body.businessCriticality !== undefined) {
+            if (!VALID_CRITICALITY.includes(body.businessCriticality)) {
+                return res.status(400).json({ error: "businessCriticality must be Low, Medium, High, or Critical" });
+            }
+            setClauses.push("businessCriticality = @businessCriticality");
+            params.businessCriticality = body.businessCriticality;
+        }
+
+        if (body.impactIfDown !== undefined) {
+            setClauses.push("impactIfDown = @impactIfDown");
+            params.impactIfDown = body.impactIfDown || "";
+        }
+
+        if (body.websiteUrl !== undefined) {
+            setClauses.push("websiteUrl = @websiteUrl");
+            params.websiteUrl = body.websiteUrl || "";
+        }
+
+        if (body.loginUrl !== undefined) {
+            setClauses.push("loginUrl = @loginUrl");
+            params.loginUrl = body.loginUrl || "";
+        }
+
+        if (body.backupOwner !== undefined) {
+            setClauses.push("backupOwner = @backupOwner");
+            params.backupOwner = body.backupOwner || "";
+        }
+
+        if (body.ssoSupported !== undefined) {
+            if (!VALID_SSO.includes(body.ssoSupported)) {
+                return res.status(400).json({ error: "ssoSupported must be Yes, No, or Unknown" });
+            }
+            setClauses.push("ssoSupported = @ssoSupported");
+            params.ssoSupported = body.ssoSupported;
+        }
+
+        if (body.ssoEnabled !== undefined) {
+            if (!VALID_SSO.includes(body.ssoEnabled)) {
+                return res.status(400).json({ error: "ssoEnabled must be Yes, No, or Unknown" });
+            }
+            setClauses.push("ssoEnabled = @ssoEnabled");
+            params.ssoEnabled = body.ssoEnabled;
+        }
+
+        if (body.mfaSupported !== undefined) {
+            if (!VALID_MFA.includes(body.mfaSupported)) {
+                return res.status(400).json({ error: "mfaSupported must be Yes, No, or Unknown" });
+            }
+            setClauses.push("mfaSupported = @mfaSupported");
+            params.mfaSupported = body.mfaSupported;
+        }
+
+        if (body.mfaEnabled !== undefined) {
+            if (!VALID_MFA.includes(body.mfaEnabled)) {
+                return res.status(400).json({ error: "mfaEnabled must be Yes, No, or Unknown" });
+            }
+            setClauses.push("mfaEnabled = @mfaEnabled");
+            params.mfaEnabled = body.mfaEnabled;
+        }
+
+        if (body.dataClassification !== undefined) {
+            if (!VALID_DATA_CLASSIFICATION.includes(body.dataClassification)) {
+                return res.status(400).json({ error: "dataClassification must be Public, General, Confidential, Restricted, or Unknown" });
+            }
+            setClauses.push("dataClassification = @dataClassification");
+            params.dataClassification = body.dataClassification;
+        }
+
+        if (body.userCountBand !== undefined) {
+            if (!VALID_USER_COUNT_BAND.includes(body.userCountBand)) {
+                return res.status(400).json({ error: "userCountBand must be 1_10, 11_30, 31_60, 61_plus, or Unknown" });
+            }
+            setClauses.push("userCountBand = @userCountBand");
+            params.userCountBand = body.userCountBand;
+        }
+
+        if (body.lastReviewedAt !== undefined) {
+            setClauses.push("lastReviewedAt = @lastReviewedAt");
+            params.lastReviewedAt = body.lastReviewedAt || "";
+        }
+
+        if (body.notes !== undefined) {
+            if (body.notes && body.notes.length > MAX_NOTES_LENGTH) {
+                return res.status(400).json({ error: `notes must be ${MAX_NOTES_LENGTH} characters or less` });
+            }
+            setClauses.push("notes = @notes");
+            params.notes = body.notes || "";
+        }
+
+        if (body.primaryUseCases !== undefined) {
+            setClauses.push("primaryUseCases = @primaryUseCases");
+            params.primaryUseCases = body.primaryUseCases || null;
+        }
+
+        if (body.departmentsSupported !== undefined) {
+            setClauses.push("departmentsSupported = @departmentsSupported");
+            params.departmentsSupported = body.departmentsSupported || null;
+        }
+
+        if (body.accessRequestProcess !== undefined) {
+            setClauses.push("accessRequestProcess = @accessRequestProcess");
+            params.accessRequestProcess = body.accessRequestProcess || null;
+        }
+
+        if (body.trainingDocumentationUrl !== undefined) {
+            setClauses.push("trainingDocumentationUrl = @trainingDocumentationUrl");
+            params.trainingDocumentationUrl = body.trainingDocumentationUrl || null;
+        }
+
+        if (setClauses.length === 0) {
+            return res.status(400).json({ error: "No fields to update" });
+        }
+
+        setClauses.push("updatedBy = @updatedBy");
+        params.updatedBy = getUpdatedBy(req.user);
+
+        await query(
+            `UPDATE cmdb.Applications SET ${setClauses.join(", ")} WHERE id = @id`,
+            params
+        );
+
+        const updatedRows = await query(`
+            SELECT
+                a.id,
+                a.name,
+                a.capabilityId,
+                c.name AS capabilityName,
+                a.status,
+                a.type,
+                a.systemCategory,
+                a.description,
+                a.technicalOwner,
+                a.vendor,
+                a.purpose,
+                a.businessCriticality,
+                a.impactIfDown,
+                a.businessOwner,
+                a.websiteUrl,
+                a.loginUrl,
+                a.backupOwner,
+                a.ssoSupported,
+                a.ssoEnabled,
+                a.mfaSupported,
+                a.mfaEnabled,
+                a.dataClassification,
+                a.userCountBand,
+                a.lastReviewedAt,
+                a.notes,
+                a.primaryUseCases,
+                a.departmentsSupported,
+                a.accessRequestProcess,
+                a.trainingDocumentationUrl
+            FROM cmdb.Applications a
+            INNER JOIN cmdb.Capabilities c
+                ON a.capabilityId = c.id
+            WHERE a.id = @id
+        `, { id });
+
+        const row = updatedRows[0];
+        res.json({
+            id: row.id,
+            name: row.name,
+            capabilityId: row.capabilityId,
+            capabilityName: row.capabilityName,
+            status: row.status,
+            type: row.type,
+            systemCategory: row.systemCategory,
+            description: row.description,
+            technicalOwner: row.technicalOwner,
+            vendor: row.vendor,
+            purpose: row.purpose,
+            businessContext: {
+                businessCriticality: row.businessCriticality,
+                impactIfDown: row.impactIfDown,
+            },
+            ownership: {
+                businessOwner: row.businessOwner,
+            },
+            security: {
+                websiteUrl: row.websiteUrl,
+                loginUrl: row.loginUrl,
+                backupOwner: row.backupOwner,
+                ssoSupported: row.ssoSupported,
+                ssoEnabled: row.ssoEnabled,
+                mfaSupported: row.mfaSupported,
+                mfaEnabled: row.mfaEnabled,
+                dataClassification: row.dataClassification,
+            },
+            userCountBand: row.userCountBand,
+            lastReviewedAt: row.lastReviewedAt,
+            notes: row.notes,
+            primaryUseCases: row.primaryUseCases,
+            departmentsSupported: row.departmentsSupported,
+            accessRequestProcess: row.accessRequestProcess,
+            trainingDocumentationUrl: row.trainingDocumentationUrl,
+        });
+    } catch (err) {
+        console.error(`PATCH /api/applications/${req.params.id} failed:`, err);
         res.status(500).json({
             error: "Failed to update application",
             detail: err?.message || "Unknown error",
@@ -367,7 +707,11 @@ router.get("/", async (_req, res) => {
                 a.dataClassification,
                 a.userCountBand,
                 a.lastReviewedAt,
-                a.notes
+                a.notes,
+                a.primaryUseCases,
+                a.departmentsSupported,
+                a.accessRequestProcess,
+                a.trainingDocumentationUrl
             FROM cmdb.Applications a
             INNER JOIN cmdb.Capabilities c
                 ON a.capabilityId = c.id
@@ -406,6 +750,10 @@ router.get("/", async (_req, res) => {
             userCountBand: row.userCountBand,
             lastReviewedAt: row.lastReviewedAt,
             notes: row.notes,
+            primaryUseCases: row.primaryUseCases,
+            departmentsSupported: row.departmentsSupported,
+            accessRequestProcess: row.accessRequestProcess,
+            trainingDocumentationUrl: row.trainingDocumentationUrl,
         }));
 
         res.json(applications);
@@ -448,7 +796,11 @@ router.get("/:id", async (req, res) => {
                 a.dataClassification,
                 a.userCountBand,
                 a.lastReviewedAt,
-                a.notes
+                a.notes,
+                a.primaryUseCases,
+                a.departmentsSupported,
+                a.accessRequestProcess,
+                a.trainingDocumentationUrl
             FROM cmdb.Applications a
             INNER JOIN cmdb.Capabilities c
                 ON a.capabilityId = c.id
@@ -536,6 +888,10 @@ router.get("/:id", async (req, res) => {
             userCountBand: row.userCountBand,
             lastReviewedAt: row.lastReviewedAt,
             notes: row.notes,
+            primaryUseCases: row.primaryUseCases,
+            departmentsSupported: row.departmentsSupported,
+            accessRequestProcess: row.accessRequestProcess,
+            trainingDocumentationUrl: row.trainingDocumentationUrl,
             integrations,
             inboundIntegrations,
         };

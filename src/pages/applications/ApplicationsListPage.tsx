@@ -240,19 +240,9 @@ export default function ApplicationsListPage() {
             if (!app) return;
 
             const res = await fetch(`/api/applications/${appId}`, {
-                method: "PUT",
+                method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    name: app.name,
-                    capabilityId: app.capabilityId,
-                    status: app.status || "Active",
-                    type: (app as { type?: string }).type || "Standard",
-                    systemCategory: (app as { systemCategory?: string | null }).systemCategory || null,
-                    businessOwner: app.ownership.businessOwner || "",
-                    businessCriticality: app.businessContext.businessCriticality || "Medium",
-                    impactIfDown: app.businessContext.impactIfDown || "",
-                    technicalOwner: selectedOwner,
-                }),
+                body: JSON.stringify({ technicalOwner: selectedOwner }),
             });
             if (res.ok) {
                 setApplications((prev) =>
@@ -284,19 +274,9 @@ export default function ApplicationsListPage() {
             if (!app) return;
 
             const res = await fetch(`/api/applications/${appId}`, {
-                method: "PUT",
+                method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    name: app.name,
-                    capabilityId: app.capabilityId,
-                    status: app.status || "Active",
-                    type: (app as { type?: string }).type || "Standard",
-                    systemCategory: (app as { systemCategory?: string | null }).systemCategory || null,
-                    businessOwner: app.ownership.businessOwner || "",
-                    businessCriticality: app.businessContext.businessCriticality || "Medium",
-                    impactIfDown: app.businessContext.impactIfDown || "",
-                    technicalOwner: "",
-                }),
+                body: JSON.stringify({ technicalOwner: "" }),
             });
             if (res.ok) {
                 setApplications((prev) =>

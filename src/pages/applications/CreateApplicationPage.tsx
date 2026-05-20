@@ -46,6 +46,10 @@ export default function CreateApplicationPage() {
         userCountBand: "",
         lastReviewedAt: "",
         notes: "",
+        primaryUseCases: "",
+        departmentsSupported: "",
+        accessRequestProcess: "",
+        trainingDocumentationUrl: "",
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -398,6 +402,56 @@ export default function CreateApplicationPage() {
                         disabled={submitting}
                     />
                     <span className="field-hint">Max 1000 characters</span>
+                </div>
+
+                <div className="form-section-title">Operational Context</div>
+
+                <div className="form-field full-width">
+                    <label htmlFor="primaryUseCases">Primary Use Cases</label>
+                    <textarea
+                        id="primaryUseCases"
+                        value={form.primaryUseCases}
+                        onChange={(e) => handleChange("primaryUseCases", e.target.value)}
+                        placeholder="Describe the primary use cases for this application..."
+                        rows={3}
+                        disabled={submitting}
+                    />
+                </div>
+
+                <div className="form-field">
+                    <label htmlFor="departmentsSupported">Departments Supported</label>
+                    <input
+                        id="departmentsSupported"
+                        type="text"
+                        value={form.departmentsSupported}
+                        onChange={(e) => handleChange("departmentsSupported", e.target.value)}
+                        placeholder="e.g., HR, Finance, Clinical Operations"
+                        disabled={submitting}
+                    />
+                </div>
+
+                <div className="form-field full-width">
+                    <label htmlFor="accessRequestProcess">Access Request Process</label>
+                    <textarea
+                        id="accessRequestProcess"
+                        value={form.accessRequestProcess}
+                        onChange={(e) => handleChange("accessRequestProcess", e.target.value)}
+                        placeholder="Describe how access requests are handled for this application..."
+                        rows={3}
+                        disabled={submitting}
+                    />
+                </div>
+
+                <div className="form-field">
+                    <label htmlFor="trainingDocumentationUrl">Training / Documentation URL</label>
+                    <input
+                        id="trainingDocumentationUrl"
+                        type="url"
+                        value={form.trainingDocumentationUrl}
+                        onChange={(e) => handleChange("trainingDocumentationUrl", e.target.value)}
+                        placeholder="https://..."
+                        disabled={submitting}
+                    />
                 </div>
 
                 <div className="form-actions">
