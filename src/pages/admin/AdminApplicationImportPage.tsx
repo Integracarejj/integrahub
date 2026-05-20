@@ -27,6 +27,7 @@ interface RegistryFields {
     businessOwner: string;
     status: string;
     type: string;
+    systemCategory: string | null;
     businessCriticality: string;
     impactIfDown: string;
     backupOwner: string;
@@ -362,6 +363,7 @@ export default function AdminApplicationImportPage() {
                                         <tr>
                                             <th>Application</th>
                                             <th>Suggested Capability</th>
+                                            <th>Suggested Category</th>
                                             <th>Criticality</th>
                                             <th>Owner</th>
                                             <th>Vendor</th>
@@ -372,6 +374,7 @@ export default function AdminApplicationImportPage() {
                                             <tr key={i}>
                                                 <td>{c.registryRow.name}</td>
                                                 <td>{c.suggestedCapability?.name || "—"}</td>
+                                                <td>{c.registryRow.systemCategory || "—"}</td>
                                                 <td>{c.registryRow.businessCriticality || "—"}</td>
                                                 <td>{c.registryRow.businessOwner || "—"}</td>
                                                 <td>{c.registryRow.vendor || "—"}</td>

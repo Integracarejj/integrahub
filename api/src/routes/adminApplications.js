@@ -101,6 +101,54 @@ function suggestType(row) {
     return "Standard";
 }
 
+const SYSTEM_CATEGORY_MAP = {
+    "hr": "HR / Employee Engagement",
+    "payroll": "HR / Payroll",
+    "learning": "Learning Management",
+    "lms": "Learning Management",
+    "crm": "CRM / Sales",
+    "sales": "Sales / Marketing",
+    "marketing": "Marketing Tool",
+    "financial": "Financial / Accounting",
+    "accounting": "Financial / Accounting",
+    "clinical": "Clinical / Resident Care",
+    "pharmacy": "Clinical / Pharmacy",
+    "emar": "Clinical / eMAR",
+    "safety": "Clinical / Resident Safety",
+    "wellness": "Clinical / Resident Engagement",
+    "resident": "Clinical / Resident Care",
+    "workforce": "Workforce Management",
+    "identity": "Identity & Access",
+    "analytics": "Analytics & Reporting",
+    "reporting": "Analytics & Reporting",
+    "collaboration": "Collaboration / Document Management",
+    "document": "Collaboration / Document Management",
+    "vendor": "Vendor Portal",
+    "portal": "Vendor Portal",
+    "infrastructure": "Infrastructure Platform",
+    "platform": "Infrastructure Platform",
+    "utility": "Utility / Admin Tool",
+    "admin": "Utility / Admin Tool",
+    "enterprise": "Enterprise System",
+};
+
+function suggestSystemCategory(row) {
+    const category = (row.category || "").toLowerCase().trim();
+    const name = (row.application || "").toLowerCase().trim();
+
+    if (category && SYSTEM_CATEGORY_MAP[category]) {
+        return SYSTEM_CATEGORY_MAP[category];
+    }
+
+    for (const [keyword, categoryName] of Object.entries(SYSTEM_CATEGORY_MAP)) {
+        if (name.includes(keyword)) {
+            return categoryName;
+        }
+    }
+
+    return null;
+}
+
 router.post("/import-preview", async (req, res) => {
     try {
         const rows = req.body;
@@ -145,6 +193,8 @@ router.post("/import-preview", async (req, res) => {
             const normalizedRegistryName = normalizeName(registryName);
             const suggestedCap = suggestCapability(row.category, capabilities);
 
+            const suggestedSysCat = suggestSystemCategory(row);
+
             const fields = {
                 name: registryName,
                 vendor: row.vendor || "",
@@ -152,6 +202,7 @@ router.post("/import-preview", async (req, res) => {
                 businessOwner: row.owner || "",
                 status: "Active",
                 type: suggestType(row),
+                systemCategory: suggestedSysCat,
                 businessCriticality: computeBusinessCriticality(row),
                 impactIfDown: computeImpactIfDown(row),
                 backupOwner: row.ownerBackup || "",

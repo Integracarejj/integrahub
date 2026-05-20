@@ -11,6 +11,8 @@ interface ApiApplication {
     capabilityId: string;
     capabilityName: string;
     status: string;
+    type?: string;
+    systemCategory?: string | null;
     purpose?: string;
     vendor?: string;
     businessContext: {
@@ -50,6 +52,7 @@ function filterApplications(
             app.description ?? "",
             purpose ?? "",
             app.vendor ?? "",
+            app.systemCategory ?? "",
             app.businessContext.impactIfDown,
             app.businessContext.businessCriticality,
             app.ownership.businessOwner,
@@ -138,6 +141,7 @@ export default function ApplicationsListPage() {
     const [capabilityFilter, setCapabilityFilter] = useState(initialCapability);
     const [statusFilter, setStatusFilter] = useState(initialStatus);
     const [criticalityFilter, setCriticalityFilter] = useState(initialCriticality);
+    const [systemCategoryFilter, setSystemCategoryFilter] = useState("");
     const [ownershipFilter, setOwnershipFilter] = useState("");
     const [showInactive, setShowInactive] = useState(false);
 
@@ -191,6 +195,10 @@ export default function ApplicationsListPage() {
             result = result.filter((app) => app.businessContext.businessCriticality === criticalityFilter);
         }
 
+        if (systemCategoryFilter) {
+            result = result.filter((app) => (app.systemCategory || "") === systemCategoryFilter);
+        }
+
         if (ownershipFilter) {
             result = result.filter((app) => {
                 const missing = getMissingOwner(app);
@@ -213,7 +221,7 @@ export default function ApplicationsListPage() {
         }
 
         return sortApplications(result);
-    }, [applications, search, capabilityFilter, statusFilter, criticalityFilter, ownershipFilter, showInactive]);
+    }, [applications, search, capabilityFilter, statusFilter, criticalityFilter, systemCategoryFilter, ownershipFilter, showInactive]);
 
     async function handleSaveOwner(appId: string) {
         if (!selectedOwner) return;
@@ -231,6 +239,7 @@ export default function ApplicationsListPage() {
                     capabilityId: app.capabilityId,
                     status: app.status || "Active",
                     type: (app as { type?: string }).type || "Standard",
+                    systemCategory: (app as { systemCategory?: string | null }).systemCategory || null,
                     businessOwner: app.ownership.businessOwner || "",
                     businessCriticality: app.businessContext.businessCriticality || "Medium",
                     impactIfDown: app.businessContext.impactIfDown || "",
@@ -274,6 +283,7 @@ export default function ApplicationsListPage() {
                     capabilityId: app.capabilityId,
                     status: app.status || "Active",
                     type: (app as { type?: string }).type || "Standard",
+                    systemCategory: (app as { systemCategory?: string | null }).systemCategory || null,
                     businessOwner: app.ownership.businessOwner || "",
                     businessCriticality: app.businessContext.businessCriticality || "Medium",
                     impactIfDown: app.businessContext.impactIfDown || "",
@@ -359,6 +369,34 @@ export default function ApplicationsListPage() {
                 </select>
 
                 <select
+                    value={systemCategoryFilter}
+                    onChange={(e) => setSystemCategoryFilter(e.target.value)}
+                >
+                    <option value="">All Categories</option>
+                    <option value="Enterprise System">Enterprise System</option>
+                    <option value="Identity & Access">Identity & Access</option>
+                    <option value="Analytics & Reporting">Analytics & Reporting</option>
+                    <option value="HR / Employee Engagement">HR / Employee Engagement</option>
+                    <option value="HR / Payroll">HR / Payroll</option>
+                    <option value="Marketing Tool">Marketing Tool</option>
+                    <option value="Sales / Marketing">Sales / Marketing</option>
+                    <option value="CRM / Sales">CRM / Sales</option>
+                    <option value="Workforce Management">Workforce Management</option>
+                    <option value="Learning Management">Learning Management</option>
+                    <option value="Clinical / Resident Care">Clinical / Resident Care</option>
+                    <option value="Clinical / Pharmacy">Clinical / Pharmacy</option>
+                    <option value="Clinical / eMAR">Clinical / eMAR</option>
+                    <option value="Clinical / Resident Safety">Clinical / Resident Safety</option>
+                    <option value="Clinical / Resident Engagement">Clinical / Resident Engagement</option>
+                    <option value="Collaboration / Document Management">Collaboration / Document Management</option>
+                    <option value="Financial / Accounting">Financial / Accounting</option>
+                    <option value="Vendor Portal">Vendor Portal</option>
+                    <option value="Utility / Admin Tool">Utility / Admin Tool</option>
+                    <option value="Infrastructure Platform">Infrastructure Platform</option>
+                    <option value="Other">Other</option>
+                </select>
+
+                <select
                     value={ownershipFilter}
                     onChange={(e) => setOwnershipFilter(e.target.value)}
                 >
@@ -379,7 +417,7 @@ export default function ApplicationsListPage() {
                 </label>
             </div>
 
-            {(search || capabilityFilter || statusFilter || criticalityFilter || ownershipFilter) && (
+            {(search || capabilityFilter || statusFilter || criticalityFilter || systemCategoryFilter || ownershipFilter) && (
                 <div className="filter-summary">
                     {search && <span className="filter-tag">Search: {search}</span>}
                     {capabilityFilter && (
@@ -389,6 +427,7 @@ export default function ApplicationsListPage() {
                     )}
                     {statusFilter && <span className="filter-tag">Status: {statusFilter}</span>}
                     {criticalityFilter && <span className="filter-tag">Criticality: {criticalityFilter}</span>}
+                    {systemCategoryFilter && <span className="filter-tag">Category: {systemCategoryFilter}</span>}
                     {ownershipFilter && <span className="filter-tag">Ownership: {ownershipFilter}</span>}
                     <Link to="/applications" className="clear-filters">Clear filters</Link>
                 </div>

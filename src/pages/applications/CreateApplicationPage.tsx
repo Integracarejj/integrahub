@@ -16,11 +16,22 @@ export default function CreateApplicationPage() {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    const SYSTEM_CATEGORIES = [
+        "Enterprise System", "Identity & Access", "Analytics & Reporting",
+        "HR / Employee Engagement", "HR / Payroll", "Marketing Tool",
+        "Sales / Marketing", "CRM / Sales", "Workforce Management",
+        "Learning Management", "Clinical / Resident Care", "Clinical / Pharmacy",
+        "Clinical / eMAR", "Clinical / Resident Safety", "Clinical / Resident Engagement",
+        "Collaboration / Document Management", "Financial / Accounting",
+        "Vendor Portal", "Utility / Admin Tool", "Infrastructure Platform", "Other",
+    ];
+
     const [form, setForm] = useState({
         name: "",
         capabilityId: "",
         status: "Active",
         type: "",
+        systemCategory: "",
         businessOwner: "",
         businessCriticality: "",
         impactIfDown: "",
@@ -174,6 +185,21 @@ export default function CreateApplicationPage() {
                         <option value="Standard">Standard</option>
                         <option value="Platform">Platform</option>
                         <option value="SaaS">SaaS</option>
+                    </select>
+                </div>
+
+                <div className="form-field">
+                    <label htmlFor="systemCategory">System Category</label>
+                    <select
+                        id="systemCategory"
+                        value={form.systemCategory}
+                        onChange={(e) => handleChange("systemCategory", e.target.value)}
+                        disabled={submitting}
+                    >
+                        <option value="">Select category</option>
+                        {SYSTEM_CATEGORIES.map((cat) => (
+                            <option key={cat} value={cat}>{cat}</option>
+                        ))}
                     </select>
                 </div>
 

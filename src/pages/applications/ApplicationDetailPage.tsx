@@ -22,6 +22,7 @@ interface ApiApplication {
     id: string;
     name: string;
     type?: string;
+    systemCategory?: string | null;
     description?: string;
     purpose?: string;
     vendor?: string;
@@ -211,6 +212,7 @@ export default function ApplicationDetailPage() {
                     capabilityId: application.capabilityId,
                     status: application.status || "Active",
                     type: application.type || "Standard",
+                    systemCategory: application.systemCategory || null,
                     businessOwner: application.ownership.businessOwner || "",
                     businessCriticality: application.businessContext.businessCriticality || "Medium",
                     impactIfDown: application.businessContext.impactIfDown || "",
@@ -246,6 +248,7 @@ export default function ApplicationDetailPage() {
                     capabilityId: application.capabilityId,
                     status: application.status || "Active",
                     type: application.type || "Standard",
+                    systemCategory: application.systemCategory || null,
                     businessOwner: application.ownership.businessOwner || "",
                     businessCriticality: application.businessContext.businessCriticality || "Medium",
                     impactIfDown: application.businessContext.impactIfDown || "",
@@ -375,6 +378,10 @@ export default function ApplicationDetailPage() {
                             <div className="detail-definition-item">
                                 <dt>Type</dt>
                                 <dd>{application.type || "—"}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>System Category</dt>
+                                <dd>{application.systemCategory || "—"}</dd>
                             </div>
                             <div className="detail-definition-item">
                                 <dt>Description</dt>

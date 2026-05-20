@@ -30,6 +30,7 @@ router.post("/", async (req, res) => {
             capabilityId,
             status,
             type,
+            systemCategory,
             businessOwner,
             businessCriticality,
             impactIfDown,
@@ -112,14 +113,15 @@ router.post("/", async (req, res) => {
         }
 
         await query(
-            `INSERT INTO cmdb.Applications (id, name, capabilityId, status, type, businessOwner, businessCriticality, impactIfDown, websiteUrl, loginUrl, backupOwner, ssoSupported, ssoEnabled, mfaSupported, mfaEnabled, dataClassification, userCountBand, lastReviewedAt, notes)
-             VALUES (@id, @name, @capabilityId, @status, @type, @businessOwner, @businessCriticality, @impactIfDown, @websiteUrl, @loginUrl, @backupOwner, @ssoSupported, @ssoEnabled, @mfaSupported, @mfaEnabled, @dataClassification, @userCountBand, @lastReviewedAt, @notes)`,
+            `INSERT INTO cmdb.Applications (id, name, capabilityId, status, type, systemCategory, businessOwner, businessCriticality, impactIfDown, websiteUrl, loginUrl, backupOwner, ssoSupported, ssoEnabled, mfaSupported, mfaEnabled, dataClassification, userCountBand, lastReviewedAt, notes)
+             VALUES (@id, @name, @capabilityId, @status, @type, @systemCategory, @businessOwner, @businessCriticality, @impactIfDown, @websiteUrl, @loginUrl, @backupOwner, @ssoSupported, @ssoEnabled, @mfaSupported, @mfaEnabled, @dataClassification, @userCountBand, @lastReviewedAt, @notes)`,
             {
                 id: generatedId,
                 name: normalizedName,
                 capabilityId,
                 status: status || "",
                 type: type || "",
+                systemCategory: systemCategory || null,
                 businessOwner: businessOwner || "",
                 businessCriticality: businessCriticality || "",
                 impactIfDown: impactIfDown || "",
@@ -143,6 +145,7 @@ router.post("/", async (req, res) => {
             capabilityId,
             status: status || "",
             type: type || "",
+            systemCategory: systemCategory || null,
             businessOwner: businessOwner || "",
             businessCriticality: businessCriticality || "",
             impactIfDown: impactIfDown || "",
@@ -181,6 +184,7 @@ router.put("/:id", async (req, res) => {
             capabilityId,
             status,
             type,
+            systemCategory,
             businessOwner,
             technicalOwner,
             businessCriticality,
@@ -264,6 +268,7 @@ router.put("/:id", async (req, res) => {
         await query(
             `UPDATE cmdb.Applications
              SET name = @name, capabilityId = @capabilityId, status = @status, type = @type,
+                 systemCategory = @systemCategory,
                  businessOwner = @businessOwner, technicalOwner = @technicalOwner, businessCriticality = @businessCriticality, impactIfDown = @impactIfDown,
                  websiteUrl = @websiteUrl, loginUrl = @loginUrl, backupOwner = @backupOwner,
                  ssoSupported = @ssoSupported, ssoEnabled = @ssoEnabled,
@@ -278,6 +283,7 @@ router.put("/:id", async (req, res) => {
                 technicalOwner: technicalOwner || null,
                 status: status || "",
                 type: type || "",
+                systemCategory: systemCategory || null,
                 businessOwner: businessOwner || "",
                 businessCriticality: businessCriticality || "",
                 impactIfDown: impactIfDown || "",
@@ -301,6 +307,7 @@ router.put("/:id", async (req, res) => {
             capabilityId,
             status: status || "",
             type: type || "",
+            systemCategory: systemCategory || null,
             businessOwner: businessOwner || "",
             businessCriticality: businessCriticality || "",
             impactIfDown: impactIfDown || "",
@@ -342,6 +349,7 @@ router.get("/", async (_req, res) => {
                 c.name AS capabilityName,
                 a.status,
                 a.type,
+                a.systemCategory,
                 a.description,
                 a.technicalOwner,
                 a.vendor,
@@ -373,6 +381,7 @@ router.get("/", async (_req, res) => {
             capabilityName: row.capabilityName,
             status: row.status,
             type: row.type,
+            systemCategory: row.systemCategory,
             description: row.description,
             technicalOwner: row.technicalOwner,
             vendor: row.vendor,
@@ -421,6 +430,7 @@ router.get("/:id", async (req, res) => {
                 c.name AS capabilityName,
                 a.status,
                 a.type,
+                a.systemCategory,
                 a.description,
                 a.technicalOwner,
                 a.vendor,
@@ -501,6 +511,7 @@ router.get("/:id", async (req, res) => {
             capabilityName: row.capabilityName,
             status: row.status,
             type: row.type,
+            systemCategory: row.systemCategory,
             description: row.description,
             technicalOwner: row.technicalOwner,
             vendor: row.vendor,
