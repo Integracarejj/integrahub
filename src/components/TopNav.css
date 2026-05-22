@@ -12,7 +12,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 32px;
+    padding: 10px 32px;
 }
 
 .brand {
@@ -34,26 +34,10 @@
     color: #9ca3af;
 }
 
-.nav-links {
+.top-nav-right {
     display: flex;
-    gap: 20px;
-}
-
-.nav-link {
-    text-decoration: none;
-    font-size: 14px;
-    color: #4b5563;
-    padding-bottom: 4px;
-}
-
-.nav-link:hover {
-    color: #111827;
-}
-
-.nav-link.active {
-    color: #111827;
-    font-weight: 500;
-    border-bottom: 2px solid #2563eb;
+    align-items: center;
+    gap: 16px;
 }
 
 .dev-user-select {

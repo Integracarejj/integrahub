@@ -1,7 +1,5 @@
-// src/components/TopNav.tsx
-import { Link, NavLink } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useState } from "react";
-import { usePermissions, isPlatformAdmin } from "../hooks/usePermissions";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import "./TopNav.css";
 
@@ -18,9 +16,7 @@ function getDevUserEmail(): string {
 
 export default function TopNav() {
     const [devUserEmail, setDevUserEmail] = useState(getDevUserEmail);
-    const { permissions } = usePermissions();
     const { user: currentUser } = useCurrentUser();
-    const isAdmin = isPlatformAdmin(permissions);
 
     const isDevMode = import.meta.env.DEV;
 
@@ -42,63 +38,25 @@ export default function TopNav() {
                     <span className="logo-source">Source</span>
                 </Link>
 
-                <nav className="nav-links">
-                    <NavLink
-                        to="/applications"
-                        className={({ isActive }) =>
-                            isActive ? "nav-link active" : "nav-link"
-                        }
-                    >
-                        Applications
-                    </NavLink>
+                <div className="top-nav-right">
+                    <div className="user-profile">
+                        <span className="user-name">{displayName}</span>
+                        <span className="user-role">{displayRole}</span>
+                    </div>
 
-                    <NavLink
-                        to="/integrations"
-                        className={({ isActive }) =>
-                            isActive ? "nav-link active" : "nav-link"
-                        }
-                    >
-                        Integrations
-                    </NavLink>
-
-                    <NavLink
-                        to="/platforms"
-                        className={({ isActive }) =>
-                            isActive ? "nav-link active" : "nav-link"
-                        }
-                    >
-                        Platforms
-                    </NavLink>
-
-                    {isAdmin && (
-                        <NavLink
-                            to="/admin"
-                            className={({ isActive }) =>
-                                isActive ? "nav-link active" : "nav-link"
-                            }
+                    {isDevMode && (
+                        <select
+                            className="dev-user-select"
+                            value={devUserEmail}
+                            onChange={(e) => handleDevUserChange(e.target.value)}
+                            title="DEV ONLY: Switch test user"
                         >
-                            Admin
-                        </NavLink>
+                            {DEV_USERS.map((u) => (
+                                <option key={u.email} value={u.email}>{u.label}</option>
+                            ))}
+                        </select>
                     )}
-                </nav>
-
-                <div className="user-profile">
-                    <span className="user-name">{displayName}</span>
-                    <span className="user-role">{displayRole}</span>
                 </div>
-
-                {isDevMode && (
-                    <select
-                        className="dev-user-select"
-                        value={devUserEmail}
-                        onChange={(e) => handleDevUserChange(e.target.value)}
-                        title="DEV ONLY: Switch test user"
-                    >
-                        {DEV_USERS.map((u) => (
-                            <option key={u.email} value={u.email}>{u.label}</option>
-                        ))}
-                    </select>
-                )}
             </div>
         </header>
     );
