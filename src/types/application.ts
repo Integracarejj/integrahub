@@ -11,6 +11,25 @@ export interface ApplicationCapability {
     description?: string;
 }
 
+export type IntegrationMethod =
+    | "API"
+    | "SFTP"
+    | "CSV Import"
+    | "Manual"
+    | "Database Sync"
+    | "Webhook"
+    | "Vendor Managed"
+    | "Unknown";
+
+export type IntegrationFrequency =
+    | "Real-time"
+    | "Daily"
+    | "Weekly"
+    | "Monthly"
+    | "Manual"
+    | "As needed"
+    | "Unknown";
+
 export interface ApplicationIntegration {
     integrationId: string;
     direction: "Inbound" | "Outbound";
@@ -18,24 +37,6 @@ export interface ApplicationIntegration {
     frequency: IntegrationFrequency;
     dataType?: string;
 }
-
-export type IntegrationMethod =
-    | "API"
-    | "File Transfer"
-    | "CSV Export"
-    | "Webhook"
-    | "Manual"
-    | "SSO"
-    | "Database"
-    | "Other";
-
-export type IntegrationFrequency =
-    | "Real-time"
-    | "Daily"
-    | "Weekly"
-    | "Monthly"
-    | "Ad-hoc"
-    | "On-demand";
 
 export interface Application {
     id: string;

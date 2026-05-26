@@ -14,10 +14,11 @@ export async function getIntegrationViews(): Promise<IntegrationView[]> {
         fromApplicationName: i.sourceApplicationName,
         toApplicationName: i.targetApplicationName,
         integrationType: i.integrationType,
-        status: "Active",
-        direction: "Outbound",
-        method: "API",
-        frequency: "Real-time",
-        description: i.notes,
+        status: i.status || "Unknown",
+        method: i.method || "Unknown",
+        frequency: i.frequency || "Unknown",
+        businessPurpose: i.businessPurpose || null,
+        dataExchanged: i.dataExchanged || null,
+        notes: i.notes || null,
     }));
 }

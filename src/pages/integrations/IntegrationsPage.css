@@ -103,3 +103,45 @@
 .empty {
     color: #666;
 }
+
+.integration-status {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 10px;
+    border: 1px solid;
+}
+
+.status-active {
+    background-color: #f0fdf4;
+    color: #166534;
+    border-color: #bbf7d0;
+}
+
+.status-planned {
+    background-color: #fffbeb;
+    color: #92400e;
+    border-color: #fde68a;
+}
+
+.status-retired {
+    background-color: #f3f4f6;
+    color: #6b7280;
+    border-color: #e5e7eb;
+}
+
+.status-unknown {
+    background-color: #f8fafc;
+    color: #94a3b8;
+    border-color: #e2e8f0;
+}
+
+.context-cell {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #6b7280;
+    font-size: 13px;
+}

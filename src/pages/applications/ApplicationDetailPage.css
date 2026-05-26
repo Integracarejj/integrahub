@@ -618,6 +618,15 @@
     color: #374151;
 }
 
+.context-cell {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #6b7280;
+    font-size: 13px;
+}
+
 @media (max-width: 899px) {
     .application-detail-page {
         padding: 20px;

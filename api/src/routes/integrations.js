@@ -3,6 +3,10 @@ import { query } from "../db.js";
 import { canManageIntegration } from "../auth/integrationPermissions.js";
 import { forbidden } from "../auth/applicationPermissions.js";
 
+const VALID_STATUSES = ["Active", "Planned", "Retired", "Unknown"];
+const VALID_FREQUENCIES = ["Real-time", "Daily", "Weekly", "Monthly", "Manual", "As needed", "Unknown"];
+const VALID_METHODS = ["API", "SFTP", "CSV Import", "Manual", "Database Sync", "Webhook", "Vendor Managed", "Unknown"];
+
 const router = Router();
 
 router.get("/", async (_req, res) => {
@@ -15,6 +19,11 @@ router.get("/", async (_req, res) => {
                 i.targetApplicationId,
                 i.integrationType,
                 i.notes,
+                i.status,
+                i.businessPurpose,
+                i.dataExchanged,
+                i.frequency,
+                i.method,
                 sa.name AS sourceApplicationName,
                 ta.name AS targetApplicationName
             FROM cmdb.ApplicationIntegrations i
@@ -31,6 +40,11 @@ router.get("/", async (_req, res) => {
             targetApplicationName: row.targetApplicationName,
             integrationType: row.integrationType,
             notes: row.notes,
+            status: row.status,
+            businessPurpose: row.businessPurpose,
+            dataExchanged: row.dataExchanged,
+            frequency: row.frequency,
+            method: row.method,
         }));
 
         res.json(integrations);
@@ -45,13 +59,23 @@ router.get("/", async (_req, res) => {
 
 router.post("/", async (req, res) => {
     console.log("POST /api/integrations called");
-    const { sourceApplicationId, targetApplicationId, integrationType, notes } = req.body;
+    const { sourceApplicationId, targetApplicationId, integrationType, notes, status, businessPurpose, dataExchanged, frequency, method } = req.body;
 
     if (!sourceApplicationId) {
         return res.status(400).json({ error: "sourceApplicationId is required" });
     }
     if (!targetApplicationId) {
         return res.status(400).json({ error: "targetApplicationId is required" });
+    }
+
+    if (status && !VALID_STATUSES.includes(status)) {
+        return res.status(400).json({ error: "status must be Active, Planned, Retired, or Unknown" });
+    }
+    if (frequency && !VALID_FREQUENCIES.includes(frequency)) {
+        return res.status(400).json({ error: "frequency must be Real-time, Daily, Weekly, Monthly, Manual, As needed, or Unknown" });
+    }
+    if (method && !VALID_METHODS.includes(method)) {
+        return res.status(400).json({ error: "method must be API, SFTP, CSV Import, Manual, Database Sync, Webhook, Vendor Managed, or Unknown" });
     }
 
     if (!(await canManageIntegration(req.user, sourceApplicationId))) {
@@ -78,18 +102,23 @@ router.post("/", async (req, res) => {
         const integrationId = "int-" + Date.now();
 
         await query(
-            `INSERT INTO cmdb.ApplicationIntegrations (id, sourceApplicationId, targetApplicationId, integrationType, notes)
-             VALUES (@id, @sourceApplicationId, @targetApplicationId, @integrationType, @notes)`,
+            `INSERT INTO cmdb.ApplicationIntegrations (id, sourceApplicationId, targetApplicationId, integrationType, notes, status, businessPurpose, dataExchanged, frequency, method)
+             VALUES (@id, @sourceApplicationId, @targetApplicationId, @integrationType, @notes, @status, @businessPurpose, @dataExchanged, @frequency, @method)`,
             {
                 id: integrationId,
                 sourceApplicationId,
                 targetApplicationId,
                 integrationType: integrationType || "",
                 notes: notes || "",
+                status: status || "Active",
+                businessPurpose: businessPurpose || null,
+                dataExchanged: dataExchanged || null,
+                frequency: frequency || "Unknown",
+                method: method || "Unknown",
             }
         );
 
-        res.status(201).json({ id: integrationId, sourceApplicationId, targetApplicationId, integrationType, notes });
+        res.status(201).json({ id: integrationId, sourceApplicationId, targetApplicationId, integrationType, notes, status: status || "Active", businessPurpose: businessPurpose || null, dataExchanged: dataExchanged || null, frequency: frequency || "Unknown", method: method || "Unknown" });
     } catch (err) {
         console.error("POST /api/integrations failed:", err);
         res.status(500).json({
@@ -134,7 +163,17 @@ router.delete("/:id", async (req, res) => {
 router.put("/:id", async (req, res) => {
     console.log(`PUT /api/integrations/${req.params.id} called`);
     const id = req.params.id.replace(/[^a-zA-Z0-9_-]/g, "");
-    const { sourceApplicationId, targetApplicationId, integrationType, notes } = req.body;
+    const { sourceApplicationId, targetApplicationId, integrationType, notes, status, businessPurpose, dataExchanged, frequency, method } = req.body;
+
+    if (status && !VALID_STATUSES.includes(status)) {
+        return res.status(400).json({ error: "status must be Active, Planned, Retired, or Unknown" });
+    }
+    if (frequency && !VALID_FREQUENCIES.includes(frequency)) {
+        return res.status(400).json({ error: "frequency must be Real-time, Daily, Weekly, Monthly, Manual, As needed, or Unknown" });
+    }
+    if (method && !VALID_METHODS.includes(method)) {
+        return res.status(400).json({ error: "method must be API, SFTP, CSV Import, Manual, Database Sync, Webhook, Vendor Managed, or Unknown" });
+    }
 
     const existing = await query(
         "SELECT sourceApplicationId FROM cmdb.ApplicationIntegrations WHERE id = @id",
@@ -191,6 +230,26 @@ router.put("/:id", async (req, res) => {
         if (notes !== undefined) {
             updateFields.push("notes = @notes");
             params.notes = notes || "";
+        }
+        if (status !== undefined) {
+            updateFields.push("status = @status");
+            params.status = status;
+        }
+        if (businessPurpose !== undefined) {
+            updateFields.push("businessPurpose = @businessPurpose");
+            params.businessPurpose = businessPurpose || null;
+        }
+        if (dataExchanged !== undefined) {
+            updateFields.push("dataExchanged = @dataExchanged");
+            params.dataExchanged = dataExchanged || null;
+        }
+        if (frequency !== undefined) {
+            updateFields.push("frequency = @frequency");
+            params.frequency = frequency;
+        }
+        if (method !== undefined) {
+            updateFields.push("method = @method");
+            params.method = method;
         }
 
         if (updateFields.length === 0) {

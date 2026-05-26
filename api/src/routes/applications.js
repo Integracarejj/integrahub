@@ -818,6 +818,11 @@ router.get("/:id", async (req, res) => {
                 i.targetApplicationId,
                 i.integrationType,
                 i.notes,
+                i.status,
+                i.businessPurpose,
+                i.dataExchanged,
+                i.frequency,
+                i.method,
                 ta.name AS targetApplicationName
             FROM cmdb.ApplicationIntegrations i
             INNER JOIN cmdb.Applications ta ON i.targetApplicationId = ta.id
@@ -831,6 +836,11 @@ router.get("/:id", async (req, res) => {
             targetApplicationName: row.targetApplicationName,
             integrationType: row.integrationType,
             notes: row.notes,
+            status: row.status,
+            businessPurpose: row.businessPurpose,
+            dataExchanged: row.dataExchanged,
+            frequency: row.frequency,
+            method: row.method,
         }));
 
         const inboundRows = await query(`
@@ -840,6 +850,11 @@ router.get("/:id", async (req, res) => {
                 i.targetApplicationId,
                 i.integrationType,
                 i.notes,
+                i.status,
+                i.businessPurpose,
+                i.dataExchanged,
+                i.frequency,
+                i.method,
                 sa.name AS sourceApplicationName
             FROM cmdb.ApplicationIntegrations i
             INNER JOIN cmdb.Applications sa ON i.sourceApplicationId = sa.id
@@ -853,6 +868,11 @@ router.get("/:id", async (req, res) => {
             sourceApplicationName: row.sourceApplicationName,
             integrationType: row.integrationType,
             notes: row.notes,
+            status: row.status,
+            businessPurpose: row.businessPurpose,
+            dataExchanged: row.dataExchanged,
+            frequency: row.frequency,
+            method: row.method,
         }));
 
         const row = rows[0];

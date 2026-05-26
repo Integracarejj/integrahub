@@ -1,36 +1,35 @@
-export type IntegrationStatus = "Active" | "Inactive";
-
-export type IntegrationDirection = "Inbound" | "Outbound";
+export type IntegrationStatus = "Active" | "Planned" | "Retired" | "Unknown";
 
 export type IntegrationMethod =
     | "API"
-    | "File Transfer"
-    | "CSV Export"
-    | "Webhook"
+    | "SFTP"
+    | "CSV Import"
     | "Manual"
-    | "SSO"
-    | "Database"
-    | "Other";
+    | "Database Sync"
+    | "Webhook"
+    | "Vendor Managed"
+    | "Unknown";
 
 export type IntegrationFrequency =
     | "Real-time"
     | "Daily"
     | "Weekly"
     | "Monthly"
-    | "Ad-hoc"
-    | "On-demand";
+    | "Manual"
+    | "As needed"
+    | "Unknown";
 
 export interface Integration {
     id: string;
     fromApplicationId: string;
     toApplicationId: string;
-    integrationType: IntegrationMethod;
-    direction: IntegrationDirection;
+    integrationType: string;
+    status: IntegrationStatus;
     method: IntegrationMethod;
     frequency: IntegrationFrequency;
-    dataType?: string;
-    status: IntegrationStatus;
-    description?: string;
+    businessPurpose?: string | null;
+    dataExchanged?: string | null;
+    notes?: string | null;
 }
 
 export interface IntegrationView extends Integration {

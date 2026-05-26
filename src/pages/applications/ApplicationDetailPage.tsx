@@ -16,6 +16,11 @@ interface ApiIntegration {
     sourceApplicationName?: string;
     integrationType: string;
     notes: string | null;
+    status?: string | null;
+    businessPurpose?: string | null;
+    dataExchanged?: string | null;
+    frequency?: string | null;
+    method?: string | null;
 }
 
 interface ApiApplication {
@@ -84,7 +89,7 @@ export default function ApplicationDetailPage() {
     const [notFound, setNotFound] = useState(false);
     const [showAddIntegration, setShowAddIntegration] = useState(false);
     const [adding, setAdding] = useState(false);
-    const [newIntegration, setNewIntegration] = useState({ connectedAppId: "", direction: "", integrationType: "", notes: "" });
+    const [newIntegration, setNewIntegration] = useState({ connectedAppId: "", direction: "", integrationType: "", notes: "", status: "Active", businessPurpose: "", dataExchanged: "", frequency: "", method: "" });
     const [permissions, setPermissions] = useState<PermissionInfo | null>(null);
     const [users, setUsers] = useState<{ id: string; displayName: string }[]>([]);
     const [editingTechOwner, setEditingTechOwner] = useState(false);
@@ -98,6 +103,9 @@ export default function ApplicationDetailPage() {
         { value: "into", label: "Into this application" },
         { value: "both", label: "Bidirectional" },
     ];
+    const STATUS_OPTIONS = ["Active", "Planned", "Retired", "Unknown"];
+    const FREQUENCY_OPTIONS = ["Real-time", "Daily", "Weekly", "Monthly", "Manual", "As needed", "Unknown"];
+    const METHOD_OPTIONS = ["API", "SFTP", "CSV Import", "Manual", "Database Sync", "Webhook", "Vendor Managed", "Unknown"];
 
     useEffect(() => {
         let mounted = true;
@@ -258,57 +266,47 @@ export default function ApplicationDetailPage() {
             return;
         }
 
+        const body = {
+            integrationType: newIntegration.integrationType,
+            notes: newIntegration.notes,
+            status: newIntegration.status || "Active",
+            businessPurpose: newIntegration.businessPurpose || null,
+            dataExchanged: newIntegration.dataExchanged || null,
+            frequency: newIntegration.frequency || "Unknown",
+            method: newIntegration.method || "Unknown",
+        };
+
         setAdding(true);
         try {
             if (newIntegration.direction === "both") {
                 await fetch("/api/integrations", {
                     method: "POST",
                     headers: getAuthHeaders(),
-                    body: JSON.stringify({
-                        sourceApplicationId: appId,
-                        targetApplicationId: newIntegration.connectedAppId,
-                        integrationType: newIntegration.integrationType,
-                        notes: newIntegration.notes,
-                    }),
+                    body: JSON.stringify({ sourceApplicationId: appId, targetApplicationId: newIntegration.connectedAppId, ...body }),
                 });
                 await fetch("/api/integrations", {
                     method: "POST",
                     headers: getAuthHeaders(),
-                    body: JSON.stringify({
-                        sourceApplicationId: newIntegration.connectedAppId,
-                        targetApplicationId: appId,
-                        integrationType: newIntegration.integrationType,
-                        notes: newIntegration.notes,
-                    }),
+                    body: JSON.stringify({ sourceApplicationId: newIntegration.connectedAppId, targetApplicationId: appId, ...body }),
                 });
             } else if (newIntegration.direction === "from") {
                 await fetch("/api/integrations", {
                     method: "POST",
                     headers: getAuthHeaders(),
-                    body: JSON.stringify({
-                        sourceApplicationId: appId,
-                        targetApplicationId: newIntegration.connectedAppId,
-                        integrationType: newIntegration.integrationType,
-                        notes: newIntegration.notes,
-                    }),
+                    body: JSON.stringify({ sourceApplicationId: appId, targetApplicationId: newIntegration.connectedAppId, ...body }),
                 });
             } else {
                 await fetch("/api/integrations", {
                     method: "POST",
                     headers: getAuthHeaders(),
-                    body: JSON.stringify({
-                        sourceApplicationId: newIntegration.connectedAppId,
-                        targetApplicationId: appId,
-                        integrationType: newIntegration.integrationType,
-                        notes: newIntegration.notes,
-                    }),
+                    body: JSON.stringify({ sourceApplicationId: newIntegration.connectedAppId, targetApplicationId: appId, ...body }),
                 });
             }
 
             const updated = await fetch(`/api/applications/${appId}`).then((r) => r.json());
             setApplication(updated);
             setShowAddIntegration(false);
-            setNewIntegration({ connectedAppId: "", direction: "", integrationType: "", notes: "" });
+            setNewIntegration({ connectedAppId: "", direction: "", integrationType: "", notes: "", status: "Active", businessPurpose: "", dataExchanged: "", frequency: "", method: "" });
         } catch (err) {
             setLoadError("Failed to add integration");
         } finally {
@@ -597,6 +595,41 @@ export default function ApplicationDetailPage() {
                                     </select>
                                 </div>
                                 <div className="form-group">
+                                    <label>Status</label>
+                                    <select
+                                        value={newIntegration.status}
+                                        onChange={(e) => setNewIntegration({ ...newIntegration, status: e.target.value })}
+                                    >
+                                        {STATUS_OPTIONS.map((opt) => (
+                                            <option key={opt} value={opt}>{opt}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label>Method</label>
+                                    <select
+                                        value={newIntegration.method}
+                                        onChange={(e) => setNewIntegration({ ...newIntegration, method: e.target.value })}
+                                    >
+                                        <option value="">Select Method</option>
+                                        {METHOD_OPTIONS.map((opt) => (
+                                            <option key={opt} value={opt}>{opt}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label>Frequency</label>
+                                    <select
+                                        value={newIntegration.frequency}
+                                        onChange={(e) => setNewIntegration({ ...newIntegration, frequency: e.target.value })}
+                                    >
+                                        <option value="">Select Frequency</option>
+                                        {FREQUENCY_OPTIONS.map((opt) => (
+                                            <option key={opt} value={opt}>{opt}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-group">
                                     <label>Integration Type (optional)</label>
                                     <select
                                         value={newIntegration.integrationType}
@@ -609,7 +642,24 @@ export default function ApplicationDetailPage() {
                                             </option>
                                         ))}
                                     </select>
-                                    <span className="field-helper">e.g. API, SSO, File Transfer</span>
+                                </div>
+                                <div className="form-group full-width">
+                                    <label>Business Purpose</label>
+                                    <textarea
+                                        placeholder="Why does this integration exist?"
+                                        value={newIntegration.businessPurpose}
+                                        onChange={(e) => setNewIntegration({ ...newIntegration, businessPurpose: e.target.value })}
+                                        rows={2}
+                                    />
+                                </div>
+                                <div className="form-group full-width">
+                                    <label>Data Exchanged</label>
+                                    <textarea
+                                        placeholder="What data is exchanged?"
+                                        value={newIntegration.dataExchanged}
+                                        onChange={(e) => setNewIntegration({ ...newIntegration, dataExchanged: e.target.value })}
+                                        rows={2}
+                                    />
                                 </div>
                                 <div className="form-group full-width">
                                     <label>Notes (optional)</label>
@@ -644,6 +694,10 @@ export default function ApplicationDetailPage() {
                                 const name = out?.targetApplicationName || inb?.sourceApplicationName || "Unknown";
                                 const type = out?.integrationType || inb?.integrationType || "";
                                 const notes = out?.notes || inb?.notes || "";
+                                const status = out?.status || inb?.status || null;
+                                const method = out?.method || inb?.method || null;
+                                const frequency = out?.frequency || inb?.frequency || null;
+                                const businessPurpose = out?.businessPurpose || inb?.businessPurpose || null;
                                 
                                 let direction = "Outbound";
                                 if (out && inb) {
@@ -659,6 +713,10 @@ export default function ApplicationDetailPage() {
                                     direction,
                                     type,
                                     notes,
+                                    status,
+                                    method,
+                                    frequency,
+                                    businessPurpose,
                                 };
                             }).sort((a, b) => a.name.localeCompare(b.name));
 
@@ -673,7 +731,9 @@ export default function ApplicationDetailPage() {
                                                     <th>Connected Application</th>
                                                     <th>Direction</th>
                                                     <th>Type</th>
-                                                    <th>Notes</th>
+                                                    <th>Status</th>
+                                                    <th>Method / Frequency</th>
+                                                    <th>Business Purpose</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -686,7 +746,9 @@ export default function ApplicationDetailPage() {
                                                         </td>
                                                         <td>{i.direction}</td>
                                                         <td>{i.type || "—"}</td>
-                                                        <td>{i.notes || "—"}</td>
+                                                        <td>{i.status || "—"}</td>
+                                                        <td>{[i.method, i.frequency].filter(Boolean).join(" / ") || "—"}</td>
+                                                        <td className="context-cell">{i.businessPurpose || i.notes || "—"}</td>
                                                     </tr>
                                                 ))}
                                             </tbody>

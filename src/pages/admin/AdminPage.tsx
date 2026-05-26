@@ -22,6 +22,11 @@ interface Integration {
     targetApplicationName: string;
     integrationType: string;
     notes: string;
+    status?: string | null;
+    businessPurpose?: string | null;
+    dataExchanged?: string | null;
+    frequency?: string | null;
+    method?: string | null;
 }
 
 export default function AdminPage() {
@@ -34,10 +39,13 @@ export default function AdminPage() {
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
     const [editingIntegrationId, setEditingIntegrationId] = useState<string | null>(null);
-    const [editForm, setEditForm] = useState({ sourceApplicationId: "", targetApplicationId: "", integrationType: "", notes: "" });
+    const [editForm, setEditForm] = useState({ sourceApplicationId: "", targetApplicationId: "", integrationType: "", notes: "", status: "", businessPurpose: "", dataExchanged: "", frequency: "", method: "" });
     const [savingId, setSavingId] = useState<string | null>(null);
 
     const INTEGRATION_TYPES = ["API", "File Transfer", "SSO", "Manual Import", "Webhook", "Database Sync", "Other"];
+    const STATUS_OPTIONS = ["Active", "Planned", "Retired", "Unknown"];
+    const FREQUENCY_OPTIONS = ["Real-time", "Daily", "Weekly", "Monthly", "Manual", "As needed", "Unknown"];
+    const METHOD_OPTIONS = ["API", "SFTP", "CSV Import", "Manual", "Database Sync", "Webhook", "Vendor Managed", "Unknown"];
 
     useEffect(() => {
         loadData();
@@ -149,12 +157,17 @@ function loadData() {
             targetApplicationId: int.targetApplicationId,
             integrationType: int.integrationType,
             notes: int.notes,
+            status: int.status || "",
+            businessPurpose: int.businessPurpose || "",
+            dataExchanged: int.dataExchanged || "",
+            frequency: int.frequency || "",
+            method: int.method || "",
         });
     }
 
     function cancelEditIntegration() {
         setEditingIntegrationId(null);
-        setEditForm({ sourceApplicationId: "", targetApplicationId: "", integrationType: "", notes: "" });
+        setEditForm({ sourceApplicationId: "", targetApplicationId: "", integrationType: "", notes: "", status: "", businessPurpose: "", dataExchanged: "", frequency: "", method: "" });
     }
 
     async function saveEditIntegration(id: string) {
@@ -174,6 +187,11 @@ function loadData() {
                     targetApplicationId: editForm.targetApplicationId,
                     integrationType: editForm.integrationType,
                     notes: editForm.notes,
+                    status: editForm.status || undefined,
+                    businessPurpose: editForm.businessPurpose || null,
+                    dataExchanged: editForm.dataExchanged || null,
+                    frequency: editForm.frequency || undefined,
+                    method: editForm.method || undefined,
                 }),
             });
 
@@ -335,10 +353,13 @@ function loadData() {
                     <table className="admin-table">
                         <thead>
                             <tr>
-                                <th>Source Application</th>
-                                <th>Target Application</th>
+                                <th>Source</th>
+                                <th>Target</th>
                                 <th>Type</th>
-                                <th>Notes</th>
+                                <th>Status</th>
+                                <th>Method</th>
+                                <th>Frequency</th>
+                                <th>Purpose / Notes</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -384,6 +405,50 @@ function loadData() {
                                                 </select>
                                             </td>
                                             <td>
+                                                <select
+                                                    value={editForm.status}
+                                                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                                                    className="edit-select"
+                                                >
+                                                    <option value="">Select Status</option>
+                                                    {STATUS_OPTIONS.map((opt) => (
+                                                        <option key={opt} value={opt}>{opt}</option>
+                                                    ))}
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <select
+                                                    value={editForm.method}
+                                                    onChange={(e) => setEditForm({ ...editForm, method: e.target.value })}
+                                                    className="edit-select"
+                                                >
+                                                    <option value="">Select Method</option>
+                                                    {METHOD_OPTIONS.map((opt) => (
+                                                        <option key={opt} value={opt}>{opt}</option>
+                                                    ))}
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <select
+                                                    value={editForm.frequency}
+                                                    onChange={(e) => setEditForm({ ...editForm, frequency: e.target.value })}
+                                                    className="edit-select"
+                                                >
+                                                    <option value="">Select Frequency</option>
+                                                    {FREQUENCY_OPTIONS.map((opt) => (
+                                                        <option key={opt} value={opt}>{opt}</option>
+                                                    ))}
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <input
+                                                    type="text"
+                                                    value={editForm.businessPurpose || editForm.notes}
+                                                    onChange={(e) => setEditForm({ ...editForm, businessPurpose: e.target.value })}
+                                                    className="edit-input"
+                                                    placeholder="Business purpose"
+                                                    style={{ width: 140 }}
+                                                />
                                                 <input
                                                     type="text"
                                                     value={editForm.notes}
@@ -413,7 +478,10 @@ function loadData() {
                                             <td>{int.sourceApplicationName}</td>
                                             <td>{int.targetApplicationName}</td>
                                             <td>{int.integrationType || "—"}</td>
-                                            <td>{int.notes || "—"}</td>
+                                            <td>{int.status || "—"}</td>
+                                            <td>{int.method || "—"}</td>
+                                            <td>{int.frequency || "—"}</td>
+                                            <td className="context-cell">{int.businessPurpose || int.notes || "—"}</td>
                                             <td>
                                                 <button
                                                     className="admin-link"

@@ -36,7 +36,8 @@ export default function IntegrationsPage() {
                 r.fromApplicationName.toLowerCase().includes(q) ||
                 r.toApplicationName.toLowerCase().includes(q) ||
                 r.integrationType?.toLowerCase().includes(q) ||
-                (r.description ?? "").toLowerCase().includes(q)
+                (r.businessPurpose ?? "").toLowerCase().includes(q) ||
+                (r.notes ?? "").toLowerCase().includes(q)
             );
         });
     }, [rows, query]);
@@ -73,12 +74,15 @@ export default function IntegrationsPage() {
                             <th />
                             <th>To</th>
                             <th>Type</th>
-                            <th>Notes</th>
+                            <th>Status</th>
+                            <th>Method</th>
+                            <th>Frequency</th>
+                            <th>Business Purpose</th>
                         </tr>
                     </thead>
                     <tbody>
                         {filtered.map((r) => (
-                            <tr key={r.id}>
+                            <tr key={r.id} className={r.status !== "Active" ? "inactive" : ""}>
                                 <td>
                                     <Link to={`/applications/${r.fromApplicationId}`}>
                                         {r.fromApplicationName}
@@ -91,7 +95,14 @@ export default function IntegrationsPage() {
                                     </Link>
                                 </td>
                                 <td>{r.integrationType || "—"}</td>
-                                <td>{r.description || "—"}</td>
+                                <td>
+                                    <span className={`integration-status status-${(r.status || "").toLowerCase()}`}>
+                                        {r.status || "—"}
+                                    </span>
+                                </td>
+                                <td>{r.method || "—"}</td>
+                                <td>{r.frequency || "—"}</td>
+                                <td className="context-cell">{r.businessPurpose || r.notes || "—"}</td>
                             </tr>
                         ))}
                     </tbody>

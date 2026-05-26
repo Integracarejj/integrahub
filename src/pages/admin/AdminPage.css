@@ -525,3 +525,12 @@
     border-radius: 6px;
     font-size: 13px;
 }
+
+.context-cell {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #6b7280;
+    font-size: 13px;
+}
