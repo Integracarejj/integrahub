@@ -21,26 +21,6 @@
     font-size: 14px;
 }
 
-.controls {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.controls input[type="text"] {
-    padding: 8px 10px;
-    font-size: 14px;
-    border-radius: 6px;
-    border: 1px solid #ccc;
-}
-
-.toggle {
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
 .integrations-table {
     width: 100%;
     border-collapse: collapse;
@@ -253,6 +233,80 @@
 .btn-primary:disabled {
     background: #93c5fd;
     cursor: not-allowed;
+}
+
+/* ── View switcher ── */
+.view-switcher {
+    display: flex;
+    gap: 0;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    overflow: hidden;
+    align-self: flex-start;
+}
+
+.view-switcher-btn {
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    background: #fff;
+    color: #374151;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    border-right: 1px solid #e5e7eb;
+}
+
+.view-switcher-btn:last-child {
+    border-right: none;
+}
+
+.view-switcher-btn:hover {
+    background: #f9fafb;
+}
+
+.view-switcher-btn.active {
+    background: #2563eb;
+    color: #fff;
+}
+
+/* ── Table controls ── */
+.table-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.table-controls input[type="text"] {
+    padding: 8px 10px;
+    font-size: 14px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+
+/* ── Placeholder cards ── */
+.placeholder-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 48px 32px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.placeholder-card h2 {
+    margin: 0 0 12px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+}
+
+.placeholder-card p {
+    margin: 0 auto;
+    max-width: 480px;
+    font-size: 14px;
+    color: #6b7280;
+    line-height: 1.6;
 }
 
 /* ── Message banner ── */

@@ -7,6 +7,14 @@ import {
 import type { IntegrationView } from "../../types/integration";
 import "./IntegrationsPage.css";
 
+type View = "table" | "map" | "workflow";
+
+const VIEWS: { key: View; label: string }[] = [
+    { key: "table", label: "Table View" },
+    { key: "map", label: "Map View" },
+    { key: "workflow", label: "Workflow View" },
+];
+
 interface ApplicationOption {
     id: string;
     name: string;
@@ -72,6 +80,7 @@ const EMPTY_FORM: FormData = {
 export default function IntegrationsPage() {
     const [rows, setRows] = useState<IntegrationView[]>([]);
     const [query, setQuery] = useState("");
+    const [view, setView] = useState<View>("table");
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState<FormData>({ ...EMPTY_FORM });
@@ -234,22 +243,26 @@ export default function IntegrationsPage() {
                 <div>
                     <h1>Integrations</h1>
                     <p className="subtitle">
-                        Directional relationships between applications
+                        Manage and understand how systems connect and exchange data.
                     </p>
                 </div>
 
-                <div className="controls">
-                    <input
-                        type="text"
-                        placeholder="Search integrations…"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                    />
-                    <button className="btn btn-primary" onClick={toggleForm}>
-                        {showForm ? "Cancel" : "+ Add Integration"}
-                    </button>
-                </div>
+                <button className="btn btn-primary" onClick={toggleForm}>
+                    {showForm ? "Cancel" : "+ Add Integration"}
+                </button>
             </header>
+
+            <nav className="view-switcher">
+                {VIEWS.map((v) => (
+                    <button
+                        key={v.key}
+                        className={`view-switcher-btn${view === v.key ? " active" : ""}`}
+                        onClick={() => setView(v.key)}
+                    >
+                        {v.label}
+                    </button>
+                ))}
+            </nav>
 
             {message && (
                 <div className={`msg msg-${message.type}`}>{message.text}</div>
@@ -443,51 +456,86 @@ export default function IntegrationsPage() {
                 </form>
             )}
 
-            {loading ? (
-                <p>Loading…</p>
-            ) : filtered.length === 0 ? (
-                <p className="empty">No integrations found.</p>
-            ) : (
-                <table className="integrations-table">
-                    <thead>
-                        <tr>
-                            <th>From</th>
-                            <th />
-                            <th>To</th>
-                            <th>Type</th>
-                            <th>Status</th>
-                            <th>Method</th>
-                            <th>Frequency</th>
-                            <th>Business Purpose</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filtered.map((r) => (
-                            <tr key={r.id} className={r.status !== "Active" ? "inactive" : ""}>
-                                <td>
-                                    <Link to={`/applications/${r.fromApplicationId}`}>
-                                        {r.fromApplicationName}
-                                    </Link>
-                                </td>
-                                <td className="arrow">→</td>
-                                <td>
-                                    <Link to={`/applications/${r.toApplicationId}`}>
-                                        {r.toApplicationName}
-                                    </Link>
-                                </td>
-                                <td>{r.integrationType || "—"}</td>
-                                <td>
-                                    <span className={`integration-status status-${(r.status || "").toLowerCase()}`}>
-                                        {r.status || "—"}
-                                    </span>
-                                </td>
-                                <td>{r.method || "—"}</td>
-                                <td>{r.frequency || "—"}</td>
-                                <td className="context-cell">{r.businessPurpose || r.notes || "—"}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+            {view === "table" && (
+                <>
+                    <div className="table-controls">
+                        <input
+                            type="text"
+                            placeholder="Search integrations…"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                        />
+                    </div>
+
+                    {loading ? (
+                        <p>Loading…</p>
+                    ) : filtered.length === 0 ? (
+                        <p className="empty">No integrations found.</p>
+                    ) : (
+                        <table className="integrations-table">
+                            <thead>
+                                <tr>
+                                    <th>From</th>
+                                    <th />
+                                    <th>To</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                    <th>Method</th>
+                                    <th>Frequency</th>
+                                    <th>Business Purpose</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filtered.map((r) => (
+                                    <tr key={r.id} className={r.status !== "Active" ? "inactive" : ""}>
+                                        <td>
+                                            <Link to={`/applications/${r.fromApplicationId}`}>
+                                                {r.fromApplicationName}
+                                            </Link>
+                                        </td>
+                                        <td className="arrow">→</td>
+                                        <td>
+                                            <Link to={`/applications/${r.toApplicationId}`}>
+                                                {r.toApplicationName}
+                                            </Link>
+                                        </td>
+                                        <td>{r.integrationType || "—"}</td>
+                                        <td>
+                                            <span className={`integration-status status-${(r.status || "").toLowerCase()}`}>
+                                                {r.status || "—"}
+                                            </span>
+                                        </td>
+                                        <td>{r.method || "—"}</td>
+                                        <td>{r.frequency || "—"}</td>
+                                        <td className="context-cell">{r.businessPurpose || r.notes || "—"}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </>
+            )}
+
+            {view === "map" && (
+                <div className="placeholder-card">
+                    <h2>Map View coming soon</h2>
+                    <p>
+                        This view will show selected systems and their connected
+                        integrations in an interactive map, helping you visualize
+                        the relationships between applications.
+                    </p>
+                </div>
+            )}
+
+            {view === "workflow" && (
+                <div className="placeholder-card">
+                    <h2>Workflow View coming soon</h2>
+                    <p>
+                        This view will show upstream and downstream data movement
+                        between systems, making it easier to trace how information
+                        flows through your application landscape.
+                    </p>
+                </div>
             )}
         </div>
     );
