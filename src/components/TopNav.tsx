@@ -14,7 +14,11 @@ function getDevUserEmail(): string {
     return localStorage.getItem("devUserEmail") || "";
 }
 
-export default function TopNav() {
+interface TopNavProps {
+    onToggleSidebar?: () => void;
+}
+
+export default function TopNav({ onToggleSidebar }: TopNavProps) {
     const [devUserEmail, setDevUserEmail] = useState(getDevUserEmail);
     const { user: currentUser } = useCurrentUser();
 
@@ -33,10 +37,15 @@ export default function TopNav() {
     return (
         <header className="top-nav">
             <div className="top-nav-inner">
-                <Link to="/" className="brand">
-                    <span className="logo-integra">Integra</span>
-                    <span className="logo-source">Source</span>
-                </Link>
+                <div className="top-nav-left">
+                    <button className="sidebar-toggle" onClick={onToggleSidebar} aria-label="Toggle navigation">
+                        <span className="hamburger-icon" />
+                    </button>
+                    <Link to="/" className="brand">
+                        <span className="logo-integra">Integra</span>
+                        <span className="logo-source">Source</span>
+                    </Link>
+                </div>
 
                 <div className="top-nav-right">
                     <div className="user-profile">

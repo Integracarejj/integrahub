@@ -2,12 +2,21 @@ import { NavLink } from "react-router-dom";
 import { usePermissions, isPlatformAdmin } from "../hooks/usePermissions";
 import "./Sidebar.css";
 
-export default function Sidebar() {
+interface SidebarProps {
+    open: boolean;
+    onClose: () => void;
+}
+
+export default function Sidebar({ open, onClose }: SidebarProps) {
     const { permissions } = usePermissions();
     const isAdmin = isPlatformAdmin(permissions);
 
+    function handleNavClick() {
+        onClose();
+    }
+
     return (
-        <aside className="sidebar">
+        <aside className={`sidebar ${open ? "sidebar--open" : ""}`}>
             <nav className="sidebar-nav">
                 <NavLink
                     to="/"
@@ -15,6 +24,7 @@ export default function Sidebar() {
                     className={({ isActive }) =>
                         isActive ? "sidebar-link active" : "sidebar-link"
                     }
+                    onClick={handleNavClick}
                 >
                     Dashboard
                 </NavLink>
@@ -24,6 +34,7 @@ export default function Sidebar() {
                     className={({ isActive }) =>
                         isActive ? "sidebar-link active" : "sidebar-link"
                     }
+                    onClick={handleNavClick}
                 >
                     Applications
                 </NavLink>
@@ -33,6 +44,7 @@ export default function Sidebar() {
                     className={({ isActive }) =>
                         isActive ? "sidebar-link active" : "sidebar-link"
                     }
+                    onClick={handleNavClick}
                 >
                     Integrations
                 </NavLink>
@@ -42,6 +54,7 @@ export default function Sidebar() {
                     className={({ isActive }) =>
                         isActive ? "sidebar-link active" : "sidebar-link"
                     }
+                    onClick={handleNavClick}
                 >
                     Platforms
                 </NavLink>
@@ -52,6 +65,7 @@ export default function Sidebar() {
                         className={({ isActive }) =>
                             isActive ? "sidebar-link active" : "sidebar-link"
                         }
+                        onClick={handleNavClick}
                     >
                         Admin
                     </NavLink>
