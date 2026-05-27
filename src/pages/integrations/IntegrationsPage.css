@@ -145,3 +145,142 @@
     color: #6b7280;
     font-size: 13px;
 }
+
+/* ── Add Integration card ── */
+.add-integration-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 24px 28px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.add-integration-card h2 {
+    margin: 0 0 18px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #111827;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.add-integration-card .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px 28px;
+}
+
+.add-integration-card .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.add-integration-card .form-field.full-width {
+    grid-column: 1 / -1;
+}
+
+.add-integration-card .form-field label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.add-integration-card .form-field .required {
+    color: #dc2626;
+}
+
+.add-integration-card .form-field input,
+.add-integration-card .form-field select,
+.add-integration-card .form-field textarea {
+    padding: 10px 12px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #111827;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+
+.add-integration-card .form-field input:focus,
+.add-integration-card .form-field select:focus,
+.add-integration-card .form-field textarea:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.add-integration-card .form-field textarea {
+    resize: vertical;
+    line-height: 1.5;
+}
+
+.add-integration-card .field-error {
+    font-size: 12px;
+    color: #dc2626;
+}
+
+.add-integration-card .form-actions {
+    display: flex;
+    gap: 12px;
+    padding-top: 16px;
+}
+
+/* ── Buttons ── */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+}
+
+.btn-primary {
+    color: #fff;
+    background: #2563eb;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #1d4ed8;
+}
+
+.btn-primary:disabled {
+    background: #93c5fd;
+    cursor: not-allowed;
+}
+
+/* ── Message banner ── */
+.msg {
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.msg-success {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+}
+
+.msg-error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+}
+
+@media (max-width: 768px) {
+    .add-integration-card .form-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .add-integration-card {
+        padding: 20px 16px;
+    }
+}
