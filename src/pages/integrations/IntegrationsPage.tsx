@@ -80,6 +80,7 @@ const EMPTY_FORM: FormData = {
 export default function IntegrationsPage() {
     const [rows, setRows] = useState<IntegrationView[]>([]);
     const [query, setQuery] = useState("");
+    const [focusSystemId, setFocusSystemId] = useState<string>("");
     const [view, setView] = useState<View>("table");
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -142,6 +143,35 @@ export default function IntegrationsPage() {
             );
         });
     }, [rows, query]);
+
+    const focusApps = useMemo(() => {
+        const map = new Map<string, string>();
+        rows.forEach((r) => {
+            if (r.fromApplicationId && r.fromApplicationName)
+                map.set(r.fromApplicationId, r.fromApplicationName);
+            if (r.toApplicationId && r.toApplicationName)
+                map.set(r.toApplicationId, r.toApplicationName);
+        });
+        return Array.from(map.entries())
+            .map(([id, name]) => ({ id, name }))
+            .sort((a, b) => a.name.localeCompare(b.name));
+    }, [rows]);
+
+    const inbound = useMemo(
+        () => rows.filter((r) => r.toApplicationId === focusSystemId),
+        [rows, focusSystemId],
+    );
+
+    const outbound = useMemo(
+        () => rows.filter((r) => r.fromApplicationId === focusSystemId),
+        [rows, focusSystemId],
+    );
+
+    useEffect(() => {
+        if (focusApps.length > 0 && !focusApps.some((a) => a.id === focusSystemId)) {
+            setFocusSystemId(focusApps[0].id);
+        }
+    }, [focusApps]);
 
     function handleChange(field: keyof FormData, value: string) {
         setForm((prev) => ({ ...prev, [field]: value }));
@@ -528,13 +558,140 @@ export default function IntegrationsPage() {
             )}
 
             {view === "workflow" && (
-                <div className="placeholder-card">
-                    <h2>Workflow View coming soon</h2>
-                    <p>
-                        This view will show upstream and downstream data movement
-                        between systems, making it easier to trace how information
-                        flows through your application landscape.
-                    </p>
+                <div className="workflow-view">
+                    {focusApps.length === 0 ? (
+                        <div className="placeholder-card">
+                            <h2>No integrations yet</h2>
+                            <p>Add integrations to see the workflow view.</p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="workflow-controls">
+                                <label htmlFor="focus-select">Focus System:</label>
+                                <select
+                                    id="focus-select"
+                                    value={focusSystemId}
+                                    onChange={(e) => setFocusSystemId(e.target.value)}
+                                >
+                                    {focusApps.map((a) => (
+                                        <option key={a.id} value={a.id}>
+                                            {a.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="workflow-layout">
+                                <div className="workflow-column">
+                                    <h3 className="wf-column-header">Upstream</h3>
+                                    {inbound.length === 0 && (
+                                        <p className="wf-empty">No upstream integrations</p>
+                                    )}
+                                    {inbound.map((int) => (
+                                        <div key={int.id} className="wf-card">
+                                            <button
+                                                className="wf-card-app"
+                                                onClick={() => setFocusSystemId(int.fromApplicationId)}
+                                                title={`Show workflow for ${int.fromApplicationName}`}
+                                            >
+                                                {int.fromApplicationName}
+                                            </button>
+                                            <div className="wf-card-meta">
+                                                <span
+                                                    className={`integration-status status-${(int.status || "").toLowerCase()}`}
+                                                >
+                                                    {int.status || "—"}
+                                                </span>
+                                                <span className="wf-detail">
+                                                    {int.integrationType || "—"}
+                                                </span>
+                                                <span className="wf-detail">
+                                                    {int.method || "—"}
+                                                </span>
+                                                <span className="wf-detail">
+                                                    {int.frequency || "—"}
+                                                </span>
+                                                {(int.businessPurpose || int.dataExchanged) && (
+                                                    <span className="wf-detail wf-purpose">
+                                                        {int.businessPurpose || int.dataExchanged}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="wf-arrow-col">
+                                    <span>→</span>
+                                </div>
+
+                                <div className="workflow-column focus-col">
+                                    <div className="wf-card wf-focus-card">
+                                        <span className="wf-focus-label">Focus System</span>
+                                        <span className="wf-focus-name">
+                                            {focusApps.find((a) => a.id === focusSystemId)?.name ||
+                                                ""}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="wf-arrow-col">
+                                    <span>→</span>
+                                </div>
+
+                                <div className="workflow-column">
+                                    <h3 className="wf-column-header">Downstream</h3>
+                                    {outbound.length === 0 && (
+                                        <p className="wf-empty">No downstream integrations</p>
+                                    )}
+                                    {outbound.map((int) => (
+                                        <div key={int.id} className="wf-card">
+                                            <button
+                                                className="wf-card-app"
+                                                onClick={() => setFocusSystemId(int.toApplicationId)}
+                                                title={`Show workflow for ${int.toApplicationName}`}
+                                            >
+                                                {int.toApplicationName}
+                                            </button>
+                                            <div className="wf-card-meta">
+                                                <span
+                                                    className={`integration-status status-${(int.status || "").toLowerCase()}`}
+                                                >
+                                                    {int.status || "—"}
+                                                </span>
+                                                <span className="wf-detail">
+                                                    {int.integrationType || "—"}
+                                                </span>
+                                                <span className="wf-detail">
+                                                    {int.method || "—"}
+                                                </span>
+                                                <span className="wf-detail">
+                                                    {int.frequency || "—"}
+                                                </span>
+                                                {(int.businessPurpose || int.dataExchanged) && (
+                                                    <span className="wf-detail wf-purpose">
+                                                        {int.businessPurpose || int.dataExchanged}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="workflow-summary">
+                                <span className="wf-summary-item">
+                                    <strong>{inbound.length}</strong> inbound
+                                </span>
+                                <span className="wf-summary-item">
+                                    <strong>{outbound.length}</strong> outbound
+                                </span>
+                                <span className="wf-summary-item">
+                                    <strong>{inbound.length + outbound.length}</strong> total related
+                                </span>
+                            </div>
+                        </>
+                    )}
                 </div>
             )}
         </div>
