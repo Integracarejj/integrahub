@@ -35,12 +35,15 @@ interface FormData {
 
 const INTEGRATION_TYPES = [
     "API",
-    "File Transfer",
-    "SSO",
-    "Manual Import",
-    "Webhook",
+    "Authentication",
+    "Reporting Feed",
+    "File Exchange",
+    "Manual Process",
     "Database Sync",
-    "Other",
+    "ETL / Data Pipeline",
+    "Document Distribution",
+    "Data Export",
+    "Data Import",
 ];
 
 const STATUS_OPTIONS = ["Active", "Planned", "Retired", "Unknown"];

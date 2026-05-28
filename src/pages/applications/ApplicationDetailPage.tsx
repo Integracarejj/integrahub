@@ -97,7 +97,7 @@ export default function ApplicationDetailPage() {
     const [savingTechOwner, setSavingTechOwner] = useState(false);
     const [techOwnerError, setTechOwnerError] = useState<string | null>(null);
 
-    const INTEGRATION_TYPES = ["API", "File Transfer", "SSO", "Manual Import", "Webhook", "Database Sync", "Other"];
+    const INTEGRATION_TYPES = ["API", "Authentication", "Reporting Feed", "File Exchange", "Manual Process", "Database Sync", "ETL / Data Pipeline", "Document Distribution", "Data Export", "Data Import"];
     const DIRECTION_OPTIONS = [
         { value: "from", label: "From this application" },
         { value: "into", label: "Into this application" },

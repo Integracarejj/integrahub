@@ -42,7 +42,7 @@ export default function AdminPage() {
     const [editForm, setEditForm] = useState({ sourceApplicationId: "", targetApplicationId: "", integrationType: "", notes: "", status: "", businessPurpose: "", dataExchanged: "", frequency: "", method: "" });
     const [savingId, setSavingId] = useState<string | null>(null);
 
-    const INTEGRATION_TYPES = ["API", "File Transfer", "SSO", "Manual Import", "Webhook", "Database Sync", "Other"];
+    const INTEGRATION_TYPES = ["API", "Authentication", "Reporting Feed", "File Exchange", "Manual Process", "Database Sync", "ETL / Data Pipeline", "Document Distribution", "Data Export", "Data Import"];
     const STATUS_OPTIONS = ["Active", "Planned", "Retired", "Unknown"];
     const FREQUENCY_OPTIONS = ["Real-time", "Daily", "Weekly", "Monthly", "Manual", "As needed", "Unknown"];
     const METHOD_OPTIONS = ["API", "SFTP", "CSV Import", "Manual", "Database Sync", "Webhook", "Vendor Managed", "Unknown"];
