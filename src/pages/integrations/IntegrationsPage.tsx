@@ -84,6 +84,10 @@ export default function IntegrationsPage() {
     const [rows, setRows] = useState<IntegrationView[]>([]);
     const [query, setQuery] = useState("");
     const [focusSystemId, setFocusSystemId] = useState<string>("");
+    const [detail, setDetail] = useState<{
+        kind: "integration";
+        integration: IntegrationView;
+    } | { kind: "focus"; applicationId: string } | null>(null);
     const [view, setView] = useState<View>("table");
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -170,11 +174,54 @@ export default function IntegrationsPage() {
         [rows, focusSystemId],
     );
 
+    const continuationInfo = useMemo(() => {
+        const moreDownstream = new Map<string, { count: number; names: string[] }>();
+        const moreUpstream = new Map<string, { count: number; names: string[] }>();
+
+        rows.forEach((r) => {
+            if (r.toApplicationId !== focusSystemId) {
+                const entry = moreDownstream.get(r.fromApplicationId);
+                if (entry) {
+                    if (!entry.names.includes(r.toApplicationName)) {
+                        entry.names.push(r.toApplicationName);
+                        entry.count++;
+                    }
+                } else {
+                    moreDownstream.set(r.fromApplicationId, {
+                        count: 1,
+                        names: [r.toApplicationName],
+                    });
+                }
+            }
+
+            if (r.fromApplicationId !== focusSystemId) {
+                const entry = moreUpstream.get(r.toApplicationId);
+                if (entry) {
+                    if (!entry.names.includes(r.fromApplicationName)) {
+                        entry.names.push(r.fromApplicationName);
+                        entry.count++;
+                    }
+                } else {
+                    moreUpstream.set(r.toApplicationId, {
+                        count: 1,
+                        names: [r.fromApplicationName],
+                    });
+                }
+            }
+        });
+
+        return { moreDownstream, moreUpstream };
+    }, [rows, focusSystemId]);
+
     useEffect(() => {
         if (focusApps.length > 0 && !focusApps.some((a) => a.id === focusSystemId)) {
             setFocusSystemId(focusApps[0].id);
         }
     }, [focusApps]);
+
+    useEffect(() => {
+        setDetail(null);
+    }, [focusSystemId]);
 
     function handleChange(field: keyof FormData, value: string) {
         setForm((prev) => ({ ...prev, [field]: value }));
@@ -582,6 +629,10 @@ export default function IntegrationsPage() {
                                         </option>
                                     ))}
                                 </select>
+                                <span className="wf-helper-text">
+                                    Select a system to see its immediate upstream and downstream
+                                    connections. Click connected systems to follow the workflow.
+                                </span>
                             </div>
 
                             <div className="workflow-layout">
@@ -590,38 +641,70 @@ export default function IntegrationsPage() {
                                     {inbound.length === 0 && (
                                         <p className="wf-empty">No upstream integrations</p>
                                     )}
-                                    {inbound.map((int) => (
-                                        <div key={int.id} className="wf-card">
-                                            <button
-                                                className="wf-card-app"
-                                                onClick={() => setFocusSystemId(int.fromApplicationId)}
-                                                title={`Show workflow for ${int.fromApplicationName}`}
-                                            >
-                                                {int.fromApplicationName}
-                                            </button>
-                                            <div className="wf-card-meta">
-                                                <span
-                                                    className={`integration-status status-${(int.status || "").toLowerCase()}`}
-                                                >
-                                                    {int.status || "—"}
-                                                </span>
-                                                <span className="wf-detail">
-                                                    {int.integrationType || "—"}
-                                                </span>
-                                                <span className="wf-detail">
-                                                    {int.method || "—"}
-                                                </span>
-                                                <span className="wf-detail">
-                                                    {int.frequency || "—"}
-                                                </span>
-                                                {(int.businessPurpose || int.dataExchanged) && (
-                                                    <span className="wf-detail wf-purpose">
-                                                        {int.businessPurpose || int.dataExchanged}
+                                    {inbound.map((int) => {
+                                        const moreDst = continuationInfo.moreDownstream.get(int.fromApplicationId);
+                                        return (
+                                            <div key={int.id} className="wf-card">
+                                                <div className="wf-card-top">
+                                                    <button
+                                                        className="wf-card-app"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setFocusSystemId(int.fromApplicationId);
+                                                        }}
+                                                        title={`Show workflow for ${int.fromApplicationName}`}
+                                                    >
+                                                        {int.fromApplicationName}
+                                                    </button>
+                                                    <button
+                                                        className="wf-card-detail-btn"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setDetail(
+                                                                detail?.kind === "integration" &&
+                                                                    detail.integration.id === int.id
+                                                                    ? null
+                                                                    : { kind: "integration", integration: int },
+                                                            );
+                                                        }}
+                                                        title="View integration details"
+                                                    >
+                                                        ⋯
+                                                    </button>
+                                                </div>
+                                                <div className="wf-card-meta">
+                                                    <span
+                                                        className={`integration-status status-${(int.status || "").toLowerCase()}`}
+                                                    >
+                                                        {int.status || "—"}
+                                                    </span>
+                                                    <span className="wf-detail">
+                                                        {int.integrationType || "—"}
+                                                    </span>
+                                                    <span className="wf-detail">
+                                                        {int.method || "—"}
+                                                    </span>
+                                                    <span className="wf-detail">
+                                                        {int.frequency || "—"}
+                                                    </span>
+                                                    {(int.businessPurpose || int.dataExchanged) && (
+                                                        <span
+                                                            className="wf-detail wf-purpose"
+                                                            title={int.businessPurpose || int.dataExchanged || ""}
+                                                        >
+                                                            {int.businessPurpose || int.dataExchanged}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {moreDst && (
+                                                    <span className="wf-continuation">
+                                                        Continues to {moreDst.count}{" "}
+                                                        {moreDst.count === 1 ? "system" : "systems"}
                                                     </span>
                                                 )}
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
 
                                 <div className="wf-arrow-col">
@@ -629,7 +712,17 @@ export default function IntegrationsPage() {
                                 </div>
 
                                 <div className="workflow-column focus-col">
-                                    <div className="wf-card wf-focus-card">
+                                    <div
+                                        className="wf-card wf-focus-card wf-card-clickable"
+                                        onClick={() =>
+                                            setDetail(
+                                                detail?.kind === "focus"
+                                                    ? null
+                                                    : { kind: "focus", applicationId: focusSystemId },
+                                            )
+                                        }
+                                        title="Click for system details"
+                                    >
                                         <span className="wf-focus-label">Focus System</span>
                                         <span className="wf-focus-name">
                                             {focusApps.find((a) => a.id === focusSystemId)?.name ||
@@ -647,40 +740,176 @@ export default function IntegrationsPage() {
                                     {outbound.length === 0 && (
                                         <p className="wf-empty">No downstream integrations</p>
                                     )}
-                                    {outbound.map((int) => (
-                                        <div key={int.id} className="wf-card">
-                                            <button
-                                                className="wf-card-app"
-                                                onClick={() => setFocusSystemId(int.toApplicationId)}
-                                                title={`Show workflow for ${int.toApplicationName}`}
-                                            >
-                                                {int.toApplicationName}
-                                            </button>
-                                            <div className="wf-card-meta">
-                                                <span
-                                                    className={`integration-status status-${(int.status || "").toLowerCase()}`}
-                                                >
-                                                    {int.status || "—"}
-                                                </span>
-                                                <span className="wf-detail">
-                                                    {int.integrationType || "—"}
-                                                </span>
-                                                <span className="wf-detail">
-                                                    {int.method || "—"}
-                                                </span>
-                                                <span className="wf-detail">
-                                                    {int.frequency || "—"}
-                                                </span>
-                                                {(int.businessPurpose || int.dataExchanged) && (
-                                                    <span className="wf-detail wf-purpose">
-                                                        {int.businessPurpose || int.dataExchanged}
+                                    {outbound.map((int) => {
+                                        const moreSrc = continuationInfo.moreUpstream.get(int.toApplicationId);
+                                        return (
+                                            <div key={int.id} className="wf-card">
+                                                <div className="wf-card-top">
+                                                    <button
+                                                        className="wf-card-app"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setFocusSystemId(int.toApplicationId);
+                                                        }}
+                                                        title={`Show workflow for ${int.toApplicationName}`}
+                                                    >
+                                                        {int.toApplicationName}
+                                                    </button>
+                                                    <button
+                                                        className="wf-card-detail-btn"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setDetail(
+                                                                detail?.kind === "integration" &&
+                                                                    detail.integration.id === int.id
+                                                                    ? null
+                                                                    : { kind: "integration", integration: int },
+                                                            );
+                                                        }}
+                                                        title="View integration details"
+                                                    >
+                                                        ⋯
+                                                    </button>
+                                                </div>
+                                                <div className="wf-card-meta">
+                                                    <span
+                                                        className={`integration-status status-${(int.status || "").toLowerCase()}`}
+                                                    >
+                                                        {int.status || "—"}
+                                                    </span>
+                                                    <span className="wf-detail">
+                                                        {int.integrationType || "—"}
+                                                    </span>
+                                                    <span className="wf-detail">
+                                                        {int.method || "—"}
+                                                    </span>
+                                                    <span className="wf-detail">
+                                                        {int.frequency || "—"}
+                                                    </span>
+                                                    {(int.businessPurpose || int.dataExchanged) && (
+                                                        <span
+                                                            className="wf-detail wf-purpose"
+                                                            title={int.businessPurpose || int.dataExchanged || ""}
+                                                        >
+                                                            {int.businessPurpose || int.dataExchanged}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {moreSrc && (
+                                                    <span className="wf-continuation">
+                                                        Has upstream from {moreSrc.count}{" "}
+                                                        {moreSrc.count === 1 ? "source" : "sources"}
                                                     </span>
                                                 )}
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
+
+                            {detail && (
+                                <div className="wf-detail-panel">
+                                    <div className="wf-detail-header">
+                                        <h3>
+                                            {detail.kind === "focus"
+                                                ? "System Detail"
+                                                : "Integration Detail"}
+                                        </h3>
+                                        <button
+                                            className="wf-detail-close"
+                                            onClick={() => setDetail(null)}
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                    {detail.kind === "focus" ? (
+                                        <div className="wf-detail-grid">
+                                            <div className="wf-detail-field">
+                                                <span className="wf-detail-label">Name</span>
+                                                <span className="wf-detail-value">
+                                                    {focusApps.find((a) => a.id === detail.applicationId)
+                                                        ?.name || ""}
+                                                </span>
+                                            </div>
+                                            <p className="wf-detail-note">
+                                                More system details available from the Applications
+                                                page.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="wf-detail-grid">
+                                            <div className="wf-detail-field">
+                                                <span className="wf-detail-label">
+                                                    Connected System
+                                                </span>
+                                                <span className="wf-detail-value">
+                                                    {detail.integration.fromApplicationId ===
+                                                    focusSystemId
+                                                        ? detail.integration.toApplicationName
+                                                        : detail.integration.fromApplicationName}
+                                                </span>
+                                            </div>
+                                            <div className="wf-detail-field">
+                                                <span className="wf-detail-label">Direction</span>
+                                                <span className="wf-detail-value">
+                                                    {detail.integration.fromApplicationId ===
+                                                    focusSystemId
+                                                        ? "Outbound"
+                                                        : "Inbound"}
+                                                </span>
+                                            </div>
+                                            <div className="wf-detail-field">
+                                                <span className="wf-detail-label">Type</span>
+                                                <span className="wf-detail-value">
+                                                    {detail.integration.integrationType || "—"}
+                                                </span>
+                                            </div>
+                                            <div className="wf-detail-field">
+                                                <span className="wf-detail-label">Status</span>
+                                                <span className="wf-detail-value">
+                                                    {detail.integration.status || "—"}
+                                                </span>
+                                            </div>
+                                            <div className="wf-detail-field">
+                                                <span className="wf-detail-label">Method</span>
+                                                <span className="wf-detail-value">
+                                                    {detail.integration.method || "—"}
+                                                </span>
+                                            </div>
+                                            <div className="wf-detail-field">
+                                                <span className="wf-detail-label">Frequency</span>
+                                                <span className="wf-detail-value">
+                                                    {detail.integration.frequency || "—"}
+                                                </span>
+                                            </div>
+                                            <div className="wf-detail-field wf-detail-field-full">
+                                                <span className="wf-detail-label">
+                                                    Business Purpose
+                                                </span>
+                                                <span className="wf-detail-value">
+                                                    {detail.integration.businessPurpose || "—"}
+                                                </span>
+                                            </div>
+                                            <div className="wf-detail-field wf-detail-field-full">
+                                                <span className="wf-detail-label">
+                                                    Data Exchanged
+                                                </span>
+                                                <span className="wf-detail-value">
+                                                    {detail.integration.dataExchanged || "—"}
+                                                </span>
+                                            </div>
+                                            {detail.integration.notes && (
+                                                <div className="wf-detail-field wf-detail-field-full">
+                                                    <span className="wf-detail-label">Notes</span>
+                                                    <span className="wf-detail-value">
+                                                        {detail.integration.notes}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="workflow-summary">
                                 <span className="wf-summary-item">
