@@ -866,7 +866,7 @@ export default function IntegrationsPage() {
 
                             <div className="workflow-chain">
                                 {(contextUpstreamSystems.length > 0 || upstreamSystems.length > 0 || showUserEntry) && (
-                                    <div className="wf-section-label">Feeds Into</div>
+                                    <div className="wf-section-label">Sources</div>
                                 )}
 
                                 {contextUpstreamSystems.length > 0 && (
@@ -928,7 +928,7 @@ export default function IntegrationsPage() {
                                 {downstreamSystems.length > 0 && (
                                     <>
                                         <div className="wf-chain-arrow">↓</div>
-                                        <div className="wf-section-label">Feeds Out To</div>
+                                        <div className="wf-section-label">Populates</div>
                                         <div className="wf-node-row">
                                             {downstreamSystems.map((sys) => {
                                                 const preview = continuationInfo.moreDownstream.get(sys.id);
