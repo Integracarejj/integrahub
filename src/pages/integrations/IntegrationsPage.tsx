@@ -726,7 +726,29 @@ export default function IntegrationsPage() {
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                         />
+                        {query && (
+                            <button
+                                className="btn-clear-search"
+                                onClick={() => setQuery("")}
+                                title="Clear search"
+                            >
+                                ×
+                            </button>
+                        )}
                     </div>
+
+                    {!loading && (
+                        <div className="table-summary-row">
+                            <span className="table-summary-text">
+                                Showing {filtered.length} of {rows.length} integrations
+                                {query.trim() ? (
+                                    <> · Filtered by search: "<strong>{query}</strong>"</>
+                                ) : (
+                                    <> · Table View shows <strong>all</strong> integrations. Use Workflow View to explore one focused system.</>
+                                )}
+                            </span>
+                        </div>
+                    )}
 
                     {loading ? (
                         <p>Loading…</p>
