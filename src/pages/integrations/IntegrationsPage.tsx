@@ -486,6 +486,14 @@ export default function IntegrationsPage() {
         });
     }
 
+    function handleViewChange(newView: View) {
+        setView(newView);
+        if (newView === "table") {
+            setFocusSystemId("");
+            setDetail(null);
+        }
+    }
+
     const appOptions = applications
         .filter((a) => a.id && a.name)
         .sort((a, b) => a.name.localeCompare(b.name));
@@ -510,7 +518,7 @@ export default function IntegrationsPage() {
                     <button
                         key={v.key}
                         className={`view-switcher-btn${view === v.key ? " active" : ""}`}
-                        onClick={() => setView(v.key)}
+                        onClick={() => handleViewChange(v.key)}
                     >
                         {v.label}
                     </button>
