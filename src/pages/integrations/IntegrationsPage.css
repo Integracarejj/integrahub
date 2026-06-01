@@ -447,17 +447,13 @@
     border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
-.wf-legend-swatch.wf-node-user { background: #9ca3af; }
-.wf-legend-swatch.wf-node-saas { background: #14b8a6; }
-.wf-legend-swatch.wf-node-platform { background: #8b5cf6; }
-.wf-legend-swatch.wf-node-database { background: #22c55e; }
+.wf-legend-swatch.wf-node-people-manual { background: #9ca3af; }
+.wf-legend-swatch.wf-node-applications { background: #14b8a6; }
+.wf-legend-swatch.wf-node-platforms { background: #8b5cf6; }
+.wf-legend-swatch.wf-node-data { background: #22c55e; }
 .wf-legend-swatch.wf-node-reporting { background: #f59e0b; }
-.wf-legend-swatch.wf-node-identity-provider { background: #06b6d4; }
-.wf-legend-swatch.wf-node-file-repository { background: #64748b; }
-.wf-legend-swatch.wf-node-integration-layer { background: #6366f1; }
-.wf-legend-swatch.wf-node-internal { background: #6b7280; }
-.wf-legend-swatch.wf-node-external-vendor { background: #ec4899; }
-.wf-legend-swatch.wf-node-manual-process { background: #a78bfa; }
+.wf-legend-swatch.wf-node-identity { background: #06b6d4; }
+.wf-legend-swatch.wf-node-unknown { background: #d1d5db; }
 
 /* ── Workflow Chain ── */
 .workflow-chain {
@@ -509,13 +505,23 @@
     background: #fafbff;
 }
 
-/* Node type color accents — more distinct */
-.wf-node-saas {
+/* Node type color accents — simplified display categories */
+.wf-node-people-manual {
+    border-left: 4px solid #9ca3af;
+    background: #fafafa;
+}
+
+.wf-node-applications {
     border-left: 4px solid #14b8a6;
     background: #f7fdfc;
 }
 
-.wf-node-database {
+.wf-node-platforms {
+    border-left: 4px solid #8b5cf6;
+    background: #faf8ff;
+}
+
+.wf-node-data {
     border-left: 4px solid #22c55e;
     background: #f8fef9;
 }
@@ -525,47 +531,12 @@
     background: #fffcf5;
 }
 
-.wf-node-platform {
-    border-left: 4px solid #8b5cf6;
-    background: #faf8ff;
-}
-
-.wf-node-identity-provider {
+.wf-node-identity {
     border-left: 4px solid #06b6d4;
     background: #f7fdfe;
 }
 
-.wf-node-file-repository {
-    border-left: 4px solid #64748b;
-    background: #f8fafc;
-}
-
-.wf-node-integration-layer {
-    border-left: 4px solid #6366f1;
-    background: #f8f8ff;
-}
-
-.wf-node-internal {
-    border-left: 4px solid #6b7280;
-    background: #fafafa;
-}
-
-.wf-node-external-vendor {
-    border-left: 4px solid #ec4899;
-    background: #fef8fb;
-}
-
-.wf-node-manual-process {
-    border-left: 4px solid #a78bfa;
-    background: #faf8ff;
-}
-
-.wf-node-user {
-    border-left: 4px solid #9ca3af;
-    background: #fafafa;
-}
-
-.wf-node-default {
+.wf-node-unknown {
     border-left: 4px solid #d1d5db;
 }
 

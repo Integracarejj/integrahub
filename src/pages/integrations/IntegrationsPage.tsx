@@ -287,33 +287,49 @@ export default function IntegrationsPage() {
 
     const focusName = focusApps.find((a) => a.id === focusSystemId)?.name || "";
 
+    function getNodeDisplayCategory(architectureType?: string): string {
+        const t = (architectureType || "").toLowerCase();
+        if (!t || t === "unknown") return "Unknown";
+        switch (t) {
+            case "manual process": return "People / Manual";
+            case "saas":
+            case "internal application":
+            case "external vendor": return "Applications";
+            case "platform":
+            case "integration layer": return "Platforms";
+            case "database":
+            case "file repository": return "Data";
+            case "reporting": return "Reporting";
+            case "identity provider": return "Identity";
+            default: return "Unknown";
+        }
+    }
+
     function getNodeColorClass(id: string, name: string): string {
-        if (id === "__user__") return "wf-node-user";
+        if (id === "__user__") return "wf-node-people-manual";
         const app = appData.get(id);
         const archType = app?.architectureType;
         if (archType) {
-            switch (archType) {
-                case "SaaS": return "wf-node-saas";
-                case "Database": return "wf-node-database";
-                case "Platform": return "wf-node-platform";
+            const category = getNodeDisplayCategory(archType);
+            switch (category) {
+                case "People / Manual": return "wf-node-people-manual";
+                case "Applications": return "wf-node-applications";
+                case "Platforms": return "wf-node-platforms";
+                case "Data": return "wf-node-data";
                 case "Reporting": return "wf-node-reporting";
-                case "Identity Provider": return "wf-node-identity-provider";
-                case "File Repository": return "wf-node-file-repository";
-                case "Integration Layer": return "wf-node-integration-layer";
-                case "Internal Application": return "wf-node-internal";
-                case "External Vendor": return "wf-node-external-vendor";
-                case "Manual Process": return "wf-node-manual-process";
+                case "Identity": return "wf-node-identity";
+                default: return "wf-node-unknown";
             }
         }
         const type = app?.type || "";
         const category = app?.systemCategory || "";
         const lower = name.toLowerCase();
-        if (category?.toLowerCase().includes("identity") || category?.toLowerCase().includes("iam") || category?.toLowerCase().includes("sso") || category?.toLowerCase().includes("auth") || lower.includes("identity") || lower.includes("okta") || lower.includes("sso") || lower.includes("azure ad") || lower.includes("active directory")) return "wf-node-identity-provider";
+        if (category?.toLowerCase().includes("identity") || category?.toLowerCase().includes("iam") || category?.toLowerCase().includes("sso") || category?.toLowerCase().includes("auth") || lower.includes("identity") || lower.includes("okta") || lower.includes("sso") || lower.includes("azure ad") || lower.includes("active directory")) return "wf-node-identity";
         if (category?.toLowerCase().includes("reporting") || category?.toLowerCase().includes("analytics") || lower.includes("analytics") || lower.includes("bi ") || lower.includes("reporting")) return "wf-node-reporting";
-        if (type === "Platform" || category?.toLowerCase().includes("platform")) return "wf-node-platform";
-        if (category?.toLowerCase().includes("database") || category?.toLowerCase().includes("data") || lower.includes("database") || lower.includes("sql") || lower.includes("data warehouse")) return "wf-node-database";
-        if (type === "SaaS" || type === "Standard" || category?.toLowerCase().includes("saas")) return "wf-node-saas";
-        return "wf-node-default";
+        if (type === "Platform" || category?.toLowerCase().includes("platform")) return "wf-node-platforms";
+        if (category?.toLowerCase().includes("database") || category?.toLowerCase().includes("data") || lower.includes("database") || lower.includes("sql") || lower.includes("data warehouse")) return "wf-node-data";
+        if (type === "SaaS" || type === "Standard" || category?.toLowerCase().includes("saas")) return "wf-node-applications";
+        return "wf-node-unknown";
     }
 
     function NodeCard({
@@ -770,7 +786,7 @@ export default function IntegrationsPage() {
                             </thead>
                             <tbody>
                                 {filtered.map((r) => (
-                                    <tr key={r.id} className={r.status !== "Active" ? "inactive" : ""}>
+                                    <tr key={r.id}>
                                         <td>
                                             <Link to={`/applications/${r.fromApplicationId}`}>
                                                 {r.fromApplicationName}
@@ -940,17 +956,13 @@ export default function IntegrationsPage() {
                             <div className="wf-legend">
                                 <span className="wf-legend-title">Node Types</span>
                             <div className="wf-legend-items">
-                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-user" />User</span>
-                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-saas" />SaaS</span>
-                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-platform" />Platform</span>
-                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-database" />Database</span>
+                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-people-manual" />People / Manual</span>
+                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-applications" />Applications</span>
+                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-platforms" />Platforms</span>
+                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-data" />Data</span>
                                 <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-reporting" />Reporting</span>
-                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-identity-provider" />Identity Provider</span>
-                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-file-repository" />File Repository</span>
-                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-integration-layer" />Integration Layer</span>
-                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-internal" />Internal App</span>
-                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-external-vendor" />External Vendor</span>
-                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-manual-process" />Manual Process</span>
+                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-identity" />Identity</span>
+                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-unknown" />Unknown</span>
                             </div>
                             </div>
 
