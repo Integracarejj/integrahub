@@ -463,18 +463,14 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
     text-align: center;
-    padding: 16px 0 8px;
+    padding: 8px 0;
     width: 100%;
 }
 
 .wf-section-label-preview {
-    padding: 8px 0 4px;
+    padding: 4px 0;
     font-size: 9px;
     color: #b0b7c3;
-}
-
-.wf-section-label:first-child {
-    padding-top: 4px;
 }
 
 /* Connection label near arrows */
@@ -492,6 +488,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    line-height: 1.3;
 }
 
 /* Wrapper for a node card + its connection label */
@@ -515,32 +512,29 @@
     flex-direction: row;
     justify-content: center;
     align-items: flex-start;
-    gap: 28px;
+    gap: 24px;
     flex-wrap: wrap;
     width: 100%;
 }
 
 .wf-node-row-focus {
-    margin: 10px 0;
+    margin: 4px 0;
 }
 
 .wf-downstream-branch {
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-top: 28px;
-    gap: 4px;
+    gap: 0;
 }
 
 .wf-node-card {
     background: #fff;
     border: 1px solid #d1d5db;
     border-radius: 8px;
-    padding: 8px 16px;
+    padding: 6px 14px;
     width: 220px;
-    min-width: 220px;
-    max-width: 220px;
-    min-height: 96px;
+    height: 92px;
     flex: 0 0 220px;
     text-align: center;
     cursor: pointer;
@@ -596,11 +590,7 @@
 .wf-node-context-card {
     opacity: 0.55;
     padding: 6px 12px;
-    width: 220px;
-    min-width: 220px;
-    max-width: 220px;
-    min-height: 96px;
-    flex: 0 0 220px;
+    height: 76px;
     cursor: default;
 }
 
@@ -637,12 +627,10 @@
     background: #eff6ff;
     border-color: #60a5fa;
     border-width: 2px;
-    padding: 16px 28px;
-    width: 260px;
-    min-width: 260px;
-    max-width: 260px;
-    min-height: 130px;
-    flex: 0 0 260px;
+    padding: 10px 20px;
+    width: 240px;
+    height: 110px;
+    flex: 0 0 240px;
     box-shadow: 0 4px 14px rgba(37, 99, 235, 0.15);
 }
 
@@ -760,17 +748,17 @@
 }
 
 .wf-chain-arrow {
-    font-size: 20px;
+    font-size: 16px;
     color: #9ca3af;
-    padding: 12px 0;
+    padding: 4px 0;
     line-height: 1;
     user-select: none;
 }
 
 .wf-chain-arrow-preview {
-    font-size: 16px;
+    font-size: 12px;
     color: #d1d5db;
-    padding: 8px 0;
+    padding: 2px 0;
 }
 
 .wf-empty {
@@ -1005,33 +993,25 @@
     }
 
     .wf-node-row {
-        gap: 14px;
+        gap: 12px;
     }
 
     .wf-node-card {
         width: 160px;
-        min-width: 160px;
-        max-width: 160px;
+        height: 80px;
         flex: 0 0 160px;
-        min-height: 80px;
-        padding: 6px 10px;
+        padding: 5px 10px;
     }
 
     .wf-node-focus-card {
-        padding: 10px 16px;
-        width: 190px;
-        min-width: 190px;
-        max-width: 190px;
-        flex: 0 0 190px;
-        min-height: 110px;
+        padding: 8px 14px;
+        width: 180px;
+        height: 96px;
+        flex: 0 0 180px;
     }
 
     .wf-node-context-card {
-        width: 160px;
-        min-width: 160px;
-        max-width: 160px;
-        flex: 0 0 160px;
-        min-height: 80px;
+        height: 68px;
         padding: 5px 8px;
     }
 
