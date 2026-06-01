@@ -259,25 +259,17 @@ export default function IntegrationsPage() {
     const contextUpstreamSystems = useMemo(() => {
         const result: { id: string; name: string }[] = [];
         const seen = new Set<string>();
-        let hasGeneratedUser = false;
 
         upstreamSystems.forEach((us) => {
             const feeders = rows.filter(
                 (r) => r.toApplicationId === us.id && r.fromApplicationId !== focusSystemId,
             );
-            if (feeders.length === 0) {
-                if (!hasGeneratedUser) {
-                    result.push({ id: "__user__", name: getUserEntryName(us.name) });
-                    hasGeneratedUser = true;
+            feeders.forEach((r) => {
+                if (!seen.has(r.fromApplicationId)) {
+                    seen.add(r.fromApplicationId);
+                    result.push({ id: r.fromApplicationId, name: r.fromApplicationName });
                 }
-            } else {
-                feeders.forEach((r) => {
-                    if (!seen.has(r.fromApplicationId)) {
-                        seen.add(r.fromApplicationId);
-                        result.push({ id: r.fromApplicationId, name: r.fromApplicationName });
-                    }
-                });
-            }
+            });
         });
 
         return result;
@@ -877,7 +869,6 @@ export default function IntegrationsPage() {
                                                     id={sys.id}
                                                     name={sys.name}
                                                     faded
-                                                    generated={sys.id === "__user__"}
                                                 />
                                             </div>
                                         ))}
