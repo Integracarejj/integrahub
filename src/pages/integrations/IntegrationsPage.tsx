@@ -175,8 +175,8 @@ export default function IntegrationsPage() {
     );
 
     const continuationInfo = useMemo(() => {
-        const moreDownstream = new Map<string, { count: number; names: string[] }>();
-        const moreUpstream = new Map<string, { count: number; names: string[] }>();
+        const moreDownstream = new Map<string, { count: number; names: string[]; ids: string[] }>();
+        const moreUpstream = new Map<string, { count: number; names: string[]; ids: string[] }>();
 
         rows.forEach((r) => {
             if (r.toApplicationId !== focusSystemId) {
@@ -184,12 +184,14 @@ export default function IntegrationsPage() {
                 if (entry) {
                     if (!entry.names.includes(r.toApplicationName)) {
                         entry.names.push(r.toApplicationName);
+                        entry.ids.push(r.toApplicationId);
                         entry.count++;
                     }
                 } else {
                     moreDownstream.set(r.fromApplicationId, {
                         count: 1,
                         names: [r.toApplicationName],
+                        ids: [r.toApplicationId],
                     });
                 }
             }
@@ -199,12 +201,14 @@ export default function IntegrationsPage() {
                 if (entry) {
                     if (!entry.names.includes(r.fromApplicationName)) {
                         entry.names.push(r.fromApplicationName);
+                        entry.ids.push(r.fromApplicationId);
                         entry.count++;
                     }
                 } else {
                     moreUpstream.set(r.toApplicationId, {
                         count: 1,
                         names: [r.fromApplicationName],
+                        ids: [r.fromApplicationId],
                     });
                 }
             }
@@ -630,8 +634,8 @@ export default function IntegrationsPage() {
                                     ))}
                                 </select>
                                 <span className="wf-helper-text">
-                                    Select a system to see its immediate upstream and downstream
-                                    connections. Click connected systems to follow the workflow.
+                                    Workflow shows immediate connections. Continuation hints show
+                                    where the chain continues.
                                 </span>
                             </div>
 
@@ -698,8 +702,24 @@ export default function IntegrationsPage() {
                                                 </div>
                                                 {moreDst && (
                                                     <span className="wf-continuation">
-                                                        Continues to {moreDst.count}{" "}
-                                                        {moreDst.count === 1 ? "system" : "systems"}
+                                                        <span className="wf-cont-arrow">↳</span>{" "}
+                                                        Continues to{" "}
+                                                        <button
+                                                            className="wf-cont-link"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setFocusSystemId(moreDst.ids[0]);
+                                                            }}
+                                                            title={`Show workflow for ${moreDst.names[0]}`}
+                                                        >
+                                                            {moreDst.names[0]}
+                                                        </button>
+                                                        {moreDst.count > 1 && (
+                                                            <span className="wf-cont-more">
+                                                                {" "}
+                                                                +{moreDst.count - 1} more
+                                                            </span>
+                                                        )}
                                                     </span>
                                                 )}
                                             </div>
@@ -797,8 +817,24 @@ export default function IntegrationsPage() {
                                                 </div>
                                                 {moreSrc && (
                                                     <span className="wf-continuation">
-                                                        Has upstream from {moreSrc.count}{" "}
-                                                        {moreSrc.count === 1 ? "source" : "sources"}
+                                                        <span className="wf-cont-arrow">↳</span>{" "}
+                                                        Receives from:{" "}
+                                                        <button
+                                                            className="wf-cont-link"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setFocusSystemId(moreSrc.ids[0]);
+                                                            }}
+                                                            title={`Show workflow for ${moreSrc.names[0]}`}
+                                                        >
+                                                            {moreSrc.names[0]}
+                                                        </button>
+                                                        {moreSrc.count > 1 && (
+                                                            <span className="wf-cont-more">
+                                                                {" "}
+                                                                +{moreSrc.count - 1} more
+                                                            </span>
+                                                        )}
                                                     </span>
                                                 )}
                                             </div>
