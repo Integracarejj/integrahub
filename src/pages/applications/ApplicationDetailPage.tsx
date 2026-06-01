@@ -28,6 +28,7 @@ interface ApiApplication {
     name: string;
     type?: string;
     systemCategory?: string | null;
+    architectureType?: string | null;
     description?: string;
     purpose?: string;
     vendor?: string;
@@ -364,6 +365,10 @@ export default function ApplicationDetailPage() {
                             <div className="detail-definition-item">
                                 <dt>System Category</dt>
                                 <dd>{application.systemCategory || "—"}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>Architecture Type</dt>
+                                <dd>{application.architectureType || "—"}</dd>
                             </div>
                             <div className="detail-definition-item">
                                 <dt>Description</dt>

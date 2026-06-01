@@ -26,12 +26,19 @@ export default function CreateApplicationPage() {
         "Vendor Portal", "Utility / Admin Tool", "Infrastructure Platform", "Other",
     ];
 
+    const ARCHITECTURE_TYPES = [
+        "SaaS", "Database", "Platform", "Identity Provider", "Reporting",
+        "File Repository", "Integration Layer", "Internal Application",
+        "External Vendor", "Manual Process", "Unknown",
+    ];
+
     const [form, setForm] = useState({
         name: "",
         capabilityId: "",
         status: "Active",
         type: "",
         systemCategory: "",
+        architectureType: "",
         businessOwner: "",
         businessCriticality: "",
         impactIfDown: "",
@@ -118,8 +125,8 @@ export default function CreateApplicationPage() {
     return (
         <div className="create-application-page">
             <header className="page-header">
-                <h1>Create Application</h1>
-                <Link to="/applications" className="back-link">Back to Applications</Link>
+                <h1>Create System</h1>
+                <Link to="/applications" className="back-link">Back to Systems</Link>
             </header>
 
             {error && <div className="form-error">{error}</div>}
@@ -206,6 +213,21 @@ export default function CreateApplicationPage() {
                                 <option value="">Select category</option>
                                 {SYSTEM_CATEGORIES.map((cat) => (
                                     <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="form-field">
+                            <label htmlFor="architectureType">Architecture Type</label>
+                            <select
+                                id="architectureType"
+                                value={form.architectureType}
+                                onChange={(e) => handleChange("architectureType", e.target.value)}
+                                disabled={submitting}
+                            >
+                                <option value="">Select architecture type</option>
+                                {ARCHITECTURE_TYPES.map((t) => (
+                                    <option key={t} value={t}>{t}</option>
                                 ))}
                             </select>
                         </div>
@@ -483,7 +505,7 @@ export default function CreateApplicationPage() {
                 <div className="form-actions">
                     <Link to="/applications" className="btn-cancel">Cancel</Link>
                     <button type="submit" className="btn-submit" disabled={submitting}>
-                        {submitting ? "Creating..." : "Create Application"}
+                        {submitting ? "Creating..." : "Create System"}
                     </button>
                 </div>
             </form>

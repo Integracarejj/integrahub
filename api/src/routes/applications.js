@@ -11,6 +11,11 @@ const VALID_SSO = ["Yes", "No", "Unknown"];
 const VALID_MFA = ["Yes", "No", "Unknown"];
 const VALID_DATA_CLASSIFICATION = ["Public", "General", "Confidential", "Restricted", "Unknown"];
 const VALID_USER_COUNT_BAND = ["1_10", "11_30", "31_60", "61_plus", "Unknown"];
+const VALID_ARCHITECTURE_TYPES = [
+    "SaaS", "Database", "Platform", "Identity Provider", "Reporting",
+    "File Repository", "Integration Layer", "Internal Application",
+    "External Vendor", "Manual Process", "Unknown",
+];
 const MAX_NOTES_LENGTH = 1000;
 
 function getUpdatedBy(user) {
@@ -54,6 +59,7 @@ router.post("/", async (req, res) => {
             departmentsSupported,
             accessRequestProcess,
             trainingDocumentationUrl,
+            architectureType,
         } = req.body;
 
         if (!name) {
@@ -92,6 +98,9 @@ router.post("/", async (req, res) => {
         if (notes && notes.length > MAX_NOTES_LENGTH) {
             return res.status(400).json({ error: `notes must be ${MAX_NOTES_LENGTH} characters or less` });
         }
+        if (architectureType && !VALID_ARCHITECTURE_TYPES.includes(architectureType)) {
+            return res.status(400).json({ error: `architectureType must be one of: ${VALID_ARCHITECTURE_TYPES.join(", ")}` });
+        }
 
         const normalizedName = normalizeName(name);
 
@@ -122,8 +131,8 @@ router.post("/", async (req, res) => {
         }
 
         await query(
-            `INSERT INTO cmdb.Applications (id, name, capabilityId, status, type, systemCategory, businessOwner, businessCriticality, impactIfDown, websiteUrl, loginUrl, backupOwner, ssoSupported, ssoEnabled, mfaSupported, mfaEnabled, dataClassification, userCountBand, lastReviewedAt, notes, primaryUseCases, departmentsSupported, accessRequestProcess, trainingDocumentationUrl)
-             VALUES (@id, @name, @capabilityId, @status, @type, @systemCategory, @businessOwner, @businessCriticality, @impactIfDown, @websiteUrl, @loginUrl, @backupOwner, @ssoSupported, @ssoEnabled, @mfaSupported, @mfaEnabled, @dataClassification, @userCountBand, @lastReviewedAt, @notes, @primaryUseCases, @departmentsSupported, @accessRequestProcess, @trainingDocumentationUrl)`,
+            `INSERT INTO cmdb.Applications (id, name, capabilityId, status, type, systemCategory, architectureType, businessOwner, businessCriticality, impactIfDown, websiteUrl, loginUrl, backupOwner, ssoSupported, ssoEnabled, mfaSupported, mfaEnabled, dataClassification, userCountBand, lastReviewedAt, notes, primaryUseCases, departmentsSupported, accessRequestProcess, trainingDocumentationUrl)
+             VALUES (@id, @name, @capabilityId, @status, @type, @systemCategory, @architectureType, @businessOwner, @businessCriticality, @impactIfDown, @websiteUrl, @loginUrl, @backupOwner, @ssoSupported, @ssoEnabled, @mfaSupported, @mfaEnabled, @dataClassification, @userCountBand, @lastReviewedAt, @notes, @primaryUseCases, @departmentsSupported, @accessRequestProcess, @trainingDocumentationUrl)`,
             {
                 id: generatedId,
                 name: normalizedName,
@@ -131,6 +140,7 @@ router.post("/", async (req, res) => {
                 status: status || "",
                 type: type || "",
                 systemCategory: systemCategory || null,
+                architectureType: architectureType || null,
                 businessOwner: businessOwner || "",
                 businessCriticality: businessCriticality || "",
                 impactIfDown: impactIfDown || "",
@@ -159,6 +169,7 @@ router.post("/", async (req, res) => {
             status: status || "",
             type: type || "",
             systemCategory: systemCategory || null,
+            architectureType: architectureType || null,
             businessOwner: businessOwner || "",
             businessCriticality: businessCriticality || "",
             impactIfDown: impactIfDown || "",
@@ -221,6 +232,7 @@ router.put("/:id", async (req, res) => {
             departmentsSupported,
             accessRequestProcess,
             trainingDocumentationUrl,
+            architectureType,
         } = req.body;
 
         if (!name) {
@@ -259,6 +271,9 @@ router.put("/:id", async (req, res) => {
         if (notes && notes.length > MAX_NOTES_LENGTH) {
             return res.status(400).json({ error: `notes must be ${MAX_NOTES_LENGTH} characters or less` });
         }
+        if (architectureType && !VALID_ARCHITECTURE_TYPES.includes(architectureType)) {
+            return res.status(400).json({ error: `architectureType must be one of: ${VALID_ARCHITECTURE_TYPES.join(", ")}` });
+        }
 
         const existing = await query(
             "SELECT id FROM cmdb.Applications WHERE id = @id",
@@ -292,6 +307,7 @@ router.put("/:id", async (req, res) => {
             `UPDATE cmdb.Applications
              SET name = @name, capabilityId = @capabilityId, status = @status, type = @type,
                  systemCategory = @systemCategory,
+                 architectureType = @architectureType,
                  businessOwner = @businessOwner, technicalOwner = @technicalOwner, businessCriticality = @businessCriticality, impactIfDown = @impactIfDown,
                  websiteUrl = @websiteUrl, loginUrl = @loginUrl, backupOwner = @backupOwner,
                  ssoSupported = @ssoSupported, ssoEnabled = @ssoEnabled,
@@ -310,6 +326,7 @@ router.put("/:id", async (req, res) => {
                 status: status || "",
                 type: type || "",
                 systemCategory: systemCategory || null,
+                architectureType: architectureType || null,
                 businessOwner: businessOwner || "",
                 businessCriticality: businessCriticality || "",
                 impactIfDown: impactIfDown || "",
@@ -339,6 +356,7 @@ router.put("/:id", async (req, res) => {
             status: status || "",
             type: type || "",
             systemCategory: systemCategory || null,
+            architectureType: architectureType || null,
             businessOwner: businessOwner || "",
             businessCriticality: businessCriticality || "",
             impactIfDown: impactIfDown || "",
@@ -446,6 +464,14 @@ router.patch("/:id", async (req, res) => {
         if (body.systemCategory !== undefined) {
             setClauses.push("systemCategory = @systemCategory");
             params.systemCategory = body.systemCategory || null;
+        }
+
+        if (body.architectureType !== undefined) {
+            if (body.architectureType && !VALID_ARCHITECTURE_TYPES.includes(body.architectureType)) {
+                return res.status(400).json({ error: `architectureType must be one of: ${VALID_ARCHITECTURE_TYPES.join(", ")}` });
+            }
+            setClauses.push("architectureType = @architectureType");
+            params.architectureType = body.architectureType || null;
         }
 
         if (body.description !== undefined) {
@@ -603,6 +629,7 @@ router.patch("/:id", async (req, res) => {
                 a.status,
                 a.type,
                 a.systemCategory,
+                a.architectureType,
                 a.description,
                 a.technicalOwner,
                 a.vendor,
@@ -640,6 +667,7 @@ router.patch("/:id", async (req, res) => {
             status: row.status,
             type: row.type,
             systemCategory: row.systemCategory,
+            architectureType: row.architectureType,
             description: row.description,
             technicalOwner: row.technicalOwner,
             vendor: row.vendor,
@@ -690,6 +718,7 @@ router.get("/", async (_req, res) => {
                 a.status,
                 a.type,
                 a.systemCategory,
+                a.architectureType,
                 a.description,
                 a.technicalOwner,
                 a.vendor,
@@ -726,6 +755,7 @@ router.get("/", async (_req, res) => {
             status: row.status,
             type: row.type,
             systemCategory: row.systemCategory,
+            architectureType: row.architectureType,
             description: row.description,
             technicalOwner: row.technicalOwner,
             vendor: row.vendor,
@@ -779,6 +809,7 @@ router.get("/:id", async (req, res) => {
                 a.status,
                 a.type,
                 a.systemCategory,
+                a.architectureType,
                 a.description,
                 a.technicalOwner,
                 a.vendor,
@@ -884,6 +915,7 @@ router.get("/:id", async (req, res) => {
             status: row.status,
             type: row.type,
             systemCategory: row.systemCategory,
+            architectureType: row.architectureType,
             description: row.description,
             technicalOwner: row.technicalOwner,
             vendor: row.vendor,

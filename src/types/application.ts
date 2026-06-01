@@ -44,6 +44,7 @@ export interface Application {
     status: ApplicationStatus;
     type: ApplicationType;
     systemCategory?: string | null;
+    architectureType?: string | null;
 
     businessContext: {
         purpose: string;

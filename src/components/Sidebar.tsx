@@ -36,7 +36,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     }
                     onClick={handleNavClick}
                 >
-                    Applications
+                    Systems
                 </NavLink>
 
                 <NavLink
@@ -46,17 +46,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     }
                     onClick={handleNavClick}
                 >
-                    Integrations
-                </NavLink>
-
-                <NavLink
-                    to="/platforms"
-                    className={({ isActive }) =>
-                        isActive ? "sidebar-link active" : "sidebar-link"
-                    }
-                    onClick={handleNavClick}
-                >
-                    Platforms
+                    Explore
                 </NavLink>
 
                 {isAdmin && (

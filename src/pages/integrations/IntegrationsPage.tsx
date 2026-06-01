@@ -20,6 +20,7 @@ interface ApplicationOption {
     name: string;
     type?: string;
     systemCategory?: string;
+    architectureType?: string;
     status?: string;
     description?: string;
     purpose?: string;
@@ -289,10 +290,25 @@ export default function IntegrationsPage() {
     function getNodeColorClass(id: string, name: string): string {
         if (id === "__user__") return "wf-node-user";
         const app = appData.get(id);
+        const archType = app?.architectureType;
+        if (archType) {
+            switch (archType) {
+                case "SaaS": return "wf-node-saas";
+                case "Database": return "wf-node-database";
+                case "Platform": return "wf-node-platform";
+                case "Reporting": return "wf-node-reporting";
+                case "Identity Provider": return "wf-node-identity-provider";
+                case "File Repository": return "wf-node-file-repository";
+                case "Integration Layer": return "wf-node-integration-layer";
+                case "Internal Application": return "wf-node-internal";
+                case "External Vendor": return "wf-node-external-vendor";
+                case "Manual Process": return "wf-node-manual-process";
+            }
+        }
         const type = app?.type || "";
         const category = app?.systemCategory || "";
         const lower = name.toLowerCase();
-        if (category?.toLowerCase().includes("identity") || category?.toLowerCase().includes("iam") || category?.toLowerCase().includes("sso") || category?.toLowerCase().includes("auth") || lower.includes("identity") || lower.includes("okta") || lower.includes("sso") || lower.includes("azure ad") || lower.includes("active directory")) return "wf-node-identity";
+        if (category?.toLowerCase().includes("identity") || category?.toLowerCase().includes("iam") || category?.toLowerCase().includes("sso") || category?.toLowerCase().includes("auth") || lower.includes("identity") || lower.includes("okta") || lower.includes("sso") || lower.includes("azure ad") || lower.includes("active directory")) return "wf-node-identity-provider";
         if (category?.toLowerCase().includes("reporting") || category?.toLowerCase().includes("analytics") || lower.includes("analytics") || lower.includes("bi ") || lower.includes("reporting")) return "wf-node-reporting";
         if (type === "Platform" || category?.toLowerCase().includes("platform")) return "wf-node-platform";
         if (category?.toLowerCase().includes("database") || category?.toLowerCase().includes("data") || lower.includes("database") || lower.includes("sql") || lower.includes("data warehouse")) return "wf-node-database";
@@ -356,7 +372,7 @@ export default function IntegrationsPage() {
                 <span className="wf-node-name">{name}</span>
                 {!generated && (
                     <div className="wf-node-badges">
-                        {app?.type && <span className="wf-node-type-badge">{app.type}</span>}
+                        {app?.architectureType && <span className="wf-node-arch-badge">{app.architectureType}</span>}
                         {app?.systemCategory && <span className="wf-node-cat-badge">{app.systemCategory}</span>}
                         {app?.status && (
                             <span className={`wf-node-status-badge ${(app.status || "").toLowerCase()}`}>
@@ -478,9 +494,9 @@ export default function IntegrationsPage() {
         <div className="integrations-page">
             <header className="integrations-header">
                 <div>
-                    <h1>Integrations</h1>
+                    <h1>Explore</h1>
                     <p className="subtitle">
-                        Manage and understand how systems connect and exchange data.
+                        Explore system relationships, workflows, and data movement.
                     </p>
                 </div>
 
@@ -893,14 +909,19 @@ export default function IntegrationsPage() {
 
                             <div className="wf-legend">
                                 <span className="wf-legend-title">Node Types</span>
-                                <div className="wf-legend-items">
-                                    <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-user" />User</span>
-                                    <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-saas" />SaaS</span>
-                                    <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-platform" />Platform</span>
-                                    <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-database" />Database</span>
-                                    <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-reporting" />Reporting</span>
-                                    <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-identity" />Identity</span>
-                                </div>
+                            <div className="wf-legend-items">
+                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-user" />User</span>
+                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-saas" />SaaS</span>
+                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-platform" />Platform</span>
+                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-database" />Database</span>
+                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-reporting" />Reporting</span>
+                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-identity-provider" />Identity Provider</span>
+                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-file-repository" />File Repository</span>
+                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-integration-layer" />Integration Layer</span>
+                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-internal" />Internal App</span>
+                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-external-vendor" />External Vendor</span>
+                                <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-manual-process" />Manual Process</span>
+                            </div>
                             </div>
 
                             {detail && detail.kind === "focus" && (

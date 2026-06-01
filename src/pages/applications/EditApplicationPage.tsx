@@ -30,12 +30,19 @@ export default function EditApplicationPage() {
         "Vendor Portal", "Utility / Admin Tool", "Infrastructure Platform", "Other",
     ];
 
+    const ARCHITECTURE_TYPES = [
+        "SaaS", "Database", "Platform", "Identity Provider", "Reporting",
+        "File Repository", "Integration Layer", "Internal Application",
+        "External Vendor", "Manual Process", "Unknown",
+    ];
+
     const [form, setForm] = useState({
         name: "",
         capabilityId: "",
         status: "Active",
         type: "",
         systemCategory: "",
+        architectureType: "",
         businessOwner: "",
         businessCriticality: "",
         impactIfDown: "",
@@ -74,6 +81,7 @@ export default function EditApplicationPage() {
                     status: appData.status || "Active",
                     type: appData.type || "",
                     systemCategory: appData.systemCategory || "",
+                    architectureType: appData.architectureType || "",
                     businessOwner: appData.ownership?.businessOwner || "",
                     businessCriticality: appData.businessContext?.businessCriticality || "",
                     impactIfDown: appData.businessContext?.impactIfDown || "",
@@ -162,8 +170,8 @@ export default function EditApplicationPage() {
     return (
         <div className="create-application-page">
             <header className="page-header">
-                <h1>Edit Application</h1>
-                <Link to={`/applications/${applicationId}`} className="back-link">Back to Application</Link>
+                <h1>Edit System</h1>
+                <Link to={`/applications/${applicationId}`} className="back-link">Back to System</Link>
             </header>
 
             {error && !loadingApp && <div className="form-error">{error}</div>}
@@ -247,6 +255,21 @@ export default function EditApplicationPage() {
                                 <option value="">Select category</option>
                                 {SYSTEM_CATEGORIES.map((cat) => (
                                     <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="form-field">
+                            <label htmlFor="architectureType">Architecture Type</label>
+                            <select
+                                id="architectureType"
+                                value={form.architectureType}
+                                onChange={(e) => handleChange("architectureType", e.target.value)}
+                                disabled={submitting}
+                            >
+                                <option value="">Select architecture type</option>
+                                {ARCHITECTURE_TYPES.map((t) => (
+                                    <option key={t} value={t}>{t}</option>
                                 ))}
                             </select>
                         </div>

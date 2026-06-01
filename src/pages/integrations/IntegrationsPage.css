@@ -417,11 +417,16 @@
 }
 
 .wf-legend-swatch.wf-node-user { background: #9ca3af; }
-.wf-legend-swatch.wf-node-saas { background: #3b82f6; }
+.wf-legend-swatch.wf-node-saas { background: #14b8a6; }
 .wf-legend-swatch.wf-node-platform { background: #8b5cf6; }
 .wf-legend-swatch.wf-node-database { background: #22c55e; }
 .wf-legend-swatch.wf-node-reporting { background: #f59e0b; }
-.wf-legend-swatch.wf-node-identity { background: #14b8a6; }
+.wf-legend-swatch.wf-node-identity-provider { background: #06b6d4; }
+.wf-legend-swatch.wf-node-file-repository { background: #64748b; }
+.wf-legend-swatch.wf-node-integration-layer { background: #6366f1; }
+.wf-legend-swatch.wf-node-internal { background: #6b7280; }
+.wf-legend-swatch.wf-node-external-vendor { background: #ec4899; }
+.wf-legend-swatch.wf-node-manual-process { background: #a78bfa; }
 
 /* ── Workflow Chain ── */
 .workflow-chain {
@@ -475,8 +480,8 @@
 
 /* Node type color accents — more distinct */
 .wf-node-saas {
-    border-left: 4px solid #3b82f6;
-    background: #f8faff;
+    border-left: 4px solid #14b8a6;
+    background: #f7fdfc;
 }
 
 .wf-node-database {
@@ -494,9 +499,34 @@
     background: #faf8ff;
 }
 
-.wf-node-identity {
-    border-left: 4px solid #14b8a6;
-    background: #f7fdfc;
+.wf-node-identity-provider {
+    border-left: 4px solid #06b6d4;
+    background: #f7fdfe;
+}
+
+.wf-node-file-repository {
+    border-left: 4px solid #64748b;
+    background: #f8fafc;
+}
+
+.wf-node-integration-layer {
+    border-left: 4px solid #6366f1;
+    background: #f8f8ff;
+}
+
+.wf-node-internal {
+    border-left: 4px solid #6b7280;
+    background: #fafafa;
+}
+
+.wf-node-external-vendor {
+    border-left: 4px solid #ec4899;
+    background: #fef8fb;
+}
+
+.wf-node-manual-process {
+    border-left: 4px solid #a78bfa;
+    background: #faf8ff;
 }
 
 .wf-node-user {
@@ -598,6 +628,17 @@
     font-weight: 500;
     color: #6b7280;
     background: #f0f5ff;
+    padding: 1px 6px;
+    border-radius: 3px;
+}
+
+/* Architecture type badge */
+.wf-node-arch-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 600;
+    color: #1e3a5f;
+    background: #e0f2fe;
     padding: 1px 6px;
     border-radius: 3px;
 }

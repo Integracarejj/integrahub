@@ -13,6 +13,7 @@ interface ApiApplication {
     status: string;
     type?: string;
     systemCategory?: string | null;
+    architectureType?: string | null;
     purpose?: string;
     vendor?: string;
     businessContext: {
@@ -53,6 +54,7 @@ function filterApplications(
             purpose ?? "",
             app.vendor ?? "",
             app.systemCategory ?? "",
+            app.architectureType ?? "",
             app.businessContext.impactIfDown,
             app.businessContext.businessCriticality,
             app.ownership.businessOwner,
@@ -308,10 +310,10 @@ export default function ApplicationsListPage() {
     return (
         <div className="applications-page">
             <header className="page-header">
-                <h1>Applications</h1>
+                <h1>Systems</h1>
                 <div className="header-actions">
                     {isAdmin && <Link to="/admin" className="create-btn secondary">Admin</Link>}
-                    <Link to="/applications/new" className="create-btn">Create Application</Link>
+                    <Link to="/applications/new" className="create-btn">Create System</Link>
                 </div>
             </header>
 
@@ -418,9 +420,10 @@ export default function ApplicationsListPage() {
             <table className="applications-table">
                 <thead>
                     <tr>
-                        <th>Application</th>
+                        <th>System</th>
                         <th>Capability</th>
                         <th>Status</th>
+                        <th>Architecture</th>
                         <th>Criticality</th>
                         <th>Business Owner</th>
                         <th>Technical Owner</th>
@@ -445,6 +448,7 @@ export default function ApplicationsListPage() {
                                     </Link>
                                 </td>
                                 <td>{app.status}</td>
+                                <td>{app.architectureType || "—"}</td>
                                 <td>
                                     <span
                                         className="criticality-badge"
@@ -553,7 +557,7 @@ export default function ApplicationsListPage() {
 
                     {filteredApps.length === 0 && (
                         <tr>
-                            <td colSpan={8} className="empty">
+                            <td colSpan={9} className="empty">
                                 No applications match the current filters.
                             </td>
                         </tr>
