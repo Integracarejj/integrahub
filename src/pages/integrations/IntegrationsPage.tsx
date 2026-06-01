@@ -18,6 +18,18 @@ const VIEWS: { key: View; label: string }[] = [
 interface ApplicationOption {
     id: string;
     name: string;
+    type?: string;
+    systemCategory?: string;
+    status?: string;
+    description?: string;
+    purpose?: string;
+    businessOwner?: string;
+    technicalOwner?: string;
+    businessCriticality?: string;
+    primaryUseCases?: string;
+    capabilityName?: string;
+    ownership?: { businessOwner?: string; technicalOwner?: string };
+    businessContext?: { purpose?: string; businessCriticality?: string; impactIfDown?: string };
 }
 
 interface FormData {
@@ -66,6 +78,14 @@ const FREQUENCY_OPTIONS = [
     "As needed",
     "Unknown",
 ];
+
+function getUserEntryName(systemName: string): string {
+    const lower = systemName.toLowerCase();
+    if (lower.includes("talent") || lower.includes("learning") || lower.includes("lms")) return "Users / Employees";
+    if (lower.includes("welcome") || lower.includes("home") || lower.includes("resident") || lower.includes("guest")) return "Users / Staff";
+    if (lower.includes("paycor") || lower.includes("payroll")) return "Employees";
+    return "End Users";
+}
 
 const EMPTY_FORM: FormData = {
     sourceApplicationId: "",
@@ -228,6 +248,117 @@ export default function IntegrationsPage() {
 
         return { moreDownstream, moreUpstream };
     }, [rows, focusSystemId]);
+
+    const appData = useMemo(() => {
+        const map = new Map<string, ApplicationOption>();
+        applications.forEach((a) => map.set(a.id, a));
+        return map;
+    }, [applications]);
+
+    const contextUpstreamSystems = useMemo(() => {
+        const result: { id: string; name: string }[] = [];
+        const seen = new Set<string>();
+        let hasGeneratedUser = false;
+
+        upstreamSystems.forEach((us) => {
+            const feeders = rows.filter(
+                (r) => r.toApplicationId === us.id && r.fromApplicationId !== focusSystemId,
+            );
+            if (feeders.length === 0) {
+                if (!hasGeneratedUser) {
+                    result.push({ id: "__user__", name: getUserEntryName(us.name) });
+                    hasGeneratedUser = true;
+                }
+            } else {
+                feeders.forEach((r) => {
+                    if (!seen.has(r.fromApplicationId)) {
+                        seen.add(r.fromApplicationId);
+                        result.push({ id: r.fromApplicationId, name: r.fromApplicationName });
+                    }
+                });
+            }
+        });
+
+        return result;
+    }, [rows, upstreamSystems, focusSystemId]);
+
+    const showUserEntry = upstreamSystems.length === 0;
+
+    const focusName = focusApps.find((a) => a.id === focusSystemId)?.name || "";
+
+    function getNodeColorClass(id: string, name: string): string {
+        if (id === "__user__") return "wf-node-user";
+        const app = appData.get(id);
+        const type = app?.type || "";
+        const category = app?.systemCategory || "";
+        const lower = name.toLowerCase();
+        if (category?.toLowerCase().includes("reporting") || category?.toLowerCase().includes("analytics") || lower.includes("analytics") || lower.includes("bi ") || lower.includes("reporting")) return "wf-node-reporting";
+        if (type === "Platform" || category?.toLowerCase().includes("platform") || lower.includes("azure ad") || lower.includes("active directory")) return "wf-node-platform";
+        if (category?.toLowerCase().includes("database") || category?.toLowerCase().includes("data") || lower.includes("database") || lower.includes("sql") || lower.includes("data warehouse")) return "wf-node-database";
+        if (type === "SaaS" || type === "Standard" || category?.toLowerCase().includes("saas")) return "wf-node-saas";
+        return "wf-node-default";
+    }
+
+    function NodeCard({
+        id,
+        name,
+        isFocus,
+        faded,
+        generated,
+    }: {
+        id: string;
+        name: string;
+        isFocus?: boolean;
+        faded?: boolean;
+        generated?: boolean;
+    }) {
+        const app = appData.get(id);
+        const colorClass = getNodeColorClass(id, name);
+        const typeOrCat = !generated ? app?.type || app?.systemCategory || "" : "";
+
+        const cardClass = [
+            "wf-node-card",
+            isFocus ? "wf-node-focus-card" : "",
+            faded || generated ? "wf-node-context-card" : "",
+            colorClass,
+        ]
+            .filter(Boolean)
+            .join(" ");
+
+        const handleClick =
+            generated || id === "__user__"
+                ? undefined
+                : () => {
+                      if (isFocus) {
+                          setDetail(
+                              detail?.kind === "focus"
+                                  ? null
+                                  : { kind: "focus", applicationId: id },
+                          );
+                      } else {
+                          setFocusSystemId(id);
+                      }
+                  };
+
+        return (
+            <div
+                className={cardClass}
+                onClick={handleClick}
+                title={
+                    generated || id === "__user__"
+                        ? undefined
+                        : isFocus
+                          ? "Click for system details"
+                          : `Show workflow for ${name}`
+                }
+            >
+                {generated && <span className="wf-node-gen-label">User Entry</span>}
+                <span className="wf-node-name">{name}</span>
+                {typeOrCat && <span className="wf-node-type-badge">{typeOrCat}</span>}
+                {isFocus && <span className="wf-focus-label">Focus System</span>}
+            </div>
+        );
+    }
 
     useEffect(() => {
         if (focusApps.length > 0 && !focusApps.some((a) => a.id === focusSystemId)) {
@@ -646,49 +777,60 @@ export default function IntegrationsPage() {
                                     ))}
                                 </select>
                                 <span className="wf-helper-text">
-                                    Workflow shows immediate connections. Continuation hints show
-                                    where the chain continues.
+                                    Workflow shows immediate connections plus one layer of
+                                    surrounding context. Click any system to follow the chain.
                                 </span>
                             </div>
 
                             <div className="workflow-chain">
-                                {upstreamSystems.length === 0 && (
+                                {contextUpstreamSystems.length > 0 && (
+                                    <>
+                                        <div className="wf-node-row">
+                                            {contextUpstreamSystems.map((sys) => (
+                                                <NodeCard
+                                                    key={sys.id}
+                                                    id={sys.id}
+                                                    name={sys.name}
+                                                    faded
+                                                    generated={sys.id === "__user__"}
+                                                />
+                                            ))}
+                                        </div>
+                                        <div className="wf-chain-arrow">↓</div>
+                                    </>
+                                )}
+
+                                {showUserEntry && (
+                                    <>
+                                        <div className="wf-node-row">
+                                            <NodeCard
+                                                id="__user__"
+                                                name={getUserEntryName(focusName)}
+                                                generated
+                                            />
+                                        </div>
+                                        <div className="wf-chain-arrow">↓</div>
+                                    </>
+                                )}
+
+                                {upstreamSystems.length > 0 && (
+                                    <div className="wf-node-row">
+                                        {upstreamSystems.map((sys) => (
+                                            <NodeCard key={sys.id} id={sys.id} name={sys.name} />
+                                        ))}
+                                    </div>
+                                )}
+
+                                {upstreamSystems.length === 0 && !showUserEntry && contextUpstreamSystems.length === 0 && (
                                     <p className="wf-empty">No upstream integrations</p>
                                 )}
-                                {upstreamSystems.map((sys) => (
-                                    <div key={sys.id} className="wf-chain-node">
-                                        <div
-                                            className="wf-node-card"
-                                            onClick={() => setFocusSystemId(sys.id)}
-                                            title={`Show workflow for ${sys.name}`}
-                                        >
-                                            <span className="wf-node-name">{sys.name}</span>
-                                        </div>
-                                    </div>
-                                ))}
 
                                 {upstreamSystems.length > 0 && (
                                     <div className="wf-chain-arrow">↓</div>
                                 )}
 
-                                <div className="wf-chain-node wf-chain-focus">
-                                    <div
-                                        className="wf-node-card wf-node-focus-card"
-                                        onClick={() =>
-                                            setDetail(
-                                                detail?.kind === "focus"
-                                                    ? null
-                                                    : { kind: "focus", applicationId: focusSystemId },
-                                            )
-                                        }
-                                        title="Click for system details"
-                                    >
-                                        <span className="wf-focus-label">Focus System</span>
-                                        <span className="wf-node-name wf-node-focus-name">
-                                            {focusApps.find((a) => a.id === focusSystemId)?.name ||
-                                                ""}
-                                        </span>
-                                    </div>
+                                <div className="wf-node-row wf-node-row-focus">
+                                    <NodeCard id={focusSystemId} name={focusName} isFocus />
                                 </div>
 
                                 {downstreamSystems.length > 0 && (
@@ -699,66 +841,50 @@ export default function IntegrationsPage() {
                                     <p className="wf-empty">No downstream integrations</p>
                                 )}
 
-                                {downstreamSystems.map((sys) => {
-                                    const preview = continuationInfo.moreDownstream.get(sys.id);
-                                    return (
-                                        <div key={sys.id} className="wf-chain-branch">
-                                            <div className="wf-chain-node">
-                                                <div
-                                                    className="wf-node-card"
-                                                    onClick={() => setFocusSystemId(sys.id)}
-                                                    title={`Show workflow for ${sys.name}`}
-                                                >
-                                                    <span className="wf-node-name">
-                                                        {sys.name}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            {preview && (
-                                                <>
-                                                    <div className="wf-chain-arrow wf-chain-arrow-preview">
-                                                        ↓
-                                                    </div>
-                                                    {preview.names
-                                                        .slice(0, 2)
-                                                        .map((name, i) => (
-                                                            <div
-                                                                key={preview.ids[i]}
-                                                                className="wf-chain-node"
-                                                            >
-                                                                <div
-                                                                    className="wf-node-card wf-node-preview-card"
-                                                                    onClick={() =>
-                                                                        setFocusSystemId(
-                                                                            preview.ids[i],
-                                                                        )
-                                                                    }
-                                                                    title={`Show workflow for ${name}`}
-                                                                >
-                                                                    <span className="wf-node-name">
-                                                                        {name}
-                                                                    </span>
-                                                                </div>
+                                {downstreamSystems.length > 0 && (
+                                    <div className="wf-node-row">
+                                        {downstreamSystems.map((sys) => {
+                                            const preview =
+                                                continuationInfo.moreDownstream.get(sys.id);
+                                            return (
+                                                <div key={sys.id} className="wf-downstream-branch">
+                                                    <NodeCard
+                                                        id={sys.id}
+                                                        name={sys.name}
+                                                    />
+                                                    {preview && (
+                                                        <>
+                                                            <div className="wf-chain-arrow wf-chain-arrow-preview">
+                                                                ↓
                                                             </div>
-                                                        ))}
-                                                    {preview.count > 2 && (
-                                                        <div className="wf-chain-node">
-                                                            <span className="wf-node-preview-more">
-                                                                +{preview.count - 2} more
-                                                            </span>
-                                                        </div>
+                                                            {preview.names
+                                                                .slice(0, 2)
+                                                                .map((name, i) => (
+                                                                    <NodeCard
+                                                                        key={preview.ids[i]}
+                                                                        id={preview.ids[i]}
+                                                                        name={name}
+                                                                        faded
+                                                                    />
+                                                                ))}
+                                                            {preview.count > 2 && (
+                                                                <span className="wf-node-preview-more">
+                                                                    +{preview.count - 2} more
+                                                                </span>
+                                                            )}
+                                                        </>
                                                     )}
-                                                </>
-                                            )}
-                                        </div>
-                                    );
-                                })}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
 
                             {detail && detail.kind === "focus" && (
                                 <div className="wf-detail-panel">
                                     <div className="wf-detail-header">
-                                        <h3>System Detail</h3>
+                                        <h3>{focusName}</h3>
                                         <button
                                             className="wf-detail-close"
                                             onClick={() => setDetail(null)}
@@ -767,13 +893,114 @@ export default function IntegrationsPage() {
                                         </button>
                                     </div>
                                     <div className="wf-detail-grid">
-                                        <div className="wf-detail-field wf-detail-field-full">
-                                            <span className="wf-detail-label">Name</span>
-                                            <span className="wf-detail-value">
-                                                {focusApps.find((a) => a.id === detail.applicationId)
-                                                    ?.name || ""}
-                                            </span>
-                                        </div>
+                                        {(() => {
+                                            const app = appData.get(detail.applicationId);
+                                            if (app) {
+                                                const fields: { label: string; value?: string }[] =
+                                                    [];
+                                                fields.push({
+                                                    label: "Name",
+                                                    value: focusName,
+                                                });
+                                                if (app.type)
+                                                    fields.push({
+                                                        label: "Type",
+                                                        value: app.type,
+                                                    });
+                                                if (app.systemCategory)
+                                                    fields.push({
+                                                        label: "System Category",
+                                                        value: app.systemCategory,
+                                                    });
+                                                if (app.status)
+                                                    fields.push({
+                                                        label: "Status",
+                                                        value: app.status,
+                                                    });
+                                                const purpose =
+                                                    app.purpose ||
+                                                    (
+                                                        app.businessContext as
+                                                            | { purpose?: string }
+                                                            | undefined
+                                                    )?.purpose;
+                                                if (purpose)
+                                                    fields.push({
+                                                        label: "Purpose",
+                                                        value: purpose,
+                                                    });
+                                                const bizOwner =
+                                                    app.businessOwner ||
+                                                    (
+                                                        app.ownership as
+                                                            | { businessOwner?: string }
+                                                            | undefined
+                                                    )?.businessOwner;
+                                                if (bizOwner)
+                                                    fields.push({
+                                                        label: "Business Owner",
+                                                        value: bizOwner,
+                                                    });
+                                                const techOwner =
+                                                    app.technicalOwner ||
+                                                    (
+                                                        app.ownership as
+                                                            | { technicalOwner?: string }
+                                                            | undefined
+                                                    )?.technicalOwner;
+                                                if (techOwner)
+                                                    fields.push({
+                                                        label: "Technical Owner",
+                                                        value: techOwner,
+                                                    });
+                                                const crit =
+                                                    app.businessCriticality ||
+                                                    (
+                                                        app.businessContext as
+                                                            | { businessCriticality?: string }
+                                                            | undefined
+                                                    )?.businessCriticality;
+                                                if (crit)
+                                                    fields.push({
+                                                        label: "Business Criticality",
+                                                        value: crit,
+                                                    });
+                                                if (app.primaryUseCases)
+                                                    fields.push({
+                                                        label: "Primary Use Cases",
+                                                        value: app.primaryUseCases,
+                                                    });
+                                                if (app.capabilityName)
+                                                    fields.push({
+                                                        label: "Capability",
+                                                        value: app.capabilityName,
+                                                    });
+
+                                                return fields.map((f) => (
+                                                    <div
+                                                        key={f.label}
+                                                        className="wf-detail-field wf-detail-field-full"
+                                                    >
+                                                        <span className="wf-detail-label">
+                                                            {f.label}
+                                                        </span>
+                                                        <span className="wf-detail-value">
+                                                            {f.value}
+                                                        </span>
+                                                    </div>
+                                                ));
+                                            }
+                                            return (
+                                                <div className="wf-detail-field wf-detail-field-full">
+                                                    <span className="wf-detail-label">
+                                                        Name
+                                                    </span>
+                                                    <span className="wf-detail-value">
+                                                        {focusName}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })()}
 
                                         {inbound.length > 0 && (
                                             <div className="wf-detail-field wf-detail-field-full">
@@ -838,11 +1065,6 @@ export default function IntegrationsPage() {
                                                 </div>
                                             </div>
                                         )}
-
-                                        <p className="wf-detail-note">
-                                            More system details available from the Applications
-                                            page.
-                                        </p>
                                     </div>
                                 </div>
                             )}
