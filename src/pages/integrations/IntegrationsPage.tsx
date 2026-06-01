@@ -292,8 +292,9 @@ export default function IntegrationsPage() {
         const type = app?.type || "";
         const category = app?.systemCategory || "";
         const lower = name.toLowerCase();
+        if (category?.toLowerCase().includes("identity") || category?.toLowerCase().includes("iam") || category?.toLowerCase().includes("sso") || category?.toLowerCase().includes("auth") || lower.includes("identity") || lower.includes("okta") || lower.includes("sso") || lower.includes("azure ad") || lower.includes("active directory")) return "wf-node-identity";
         if (category?.toLowerCase().includes("reporting") || category?.toLowerCase().includes("analytics") || lower.includes("analytics") || lower.includes("bi ") || lower.includes("reporting")) return "wf-node-reporting";
-        if (type === "Platform" || category?.toLowerCase().includes("platform") || lower.includes("azure ad") || lower.includes("active directory")) return "wf-node-platform";
+        if (type === "Platform" || category?.toLowerCase().includes("platform")) return "wf-node-platform";
         if (category?.toLowerCase().includes("database") || category?.toLowerCase().includes("data") || lower.includes("database") || lower.includes("sql") || lower.includes("data warehouse")) return "wf-node-database";
         if (type === "SaaS" || type === "Standard" || category?.toLowerCase().includes("saas")) return "wf-node-saas";
         return "wf-node-default";
@@ -314,7 +315,6 @@ export default function IntegrationsPage() {
     }) {
         const app = appData.get(id);
         const colorClass = getNodeColorClass(id, name);
-        const typeOrCat = !generated ? app?.type || app?.systemCategory || "" : "";
 
         const cardClass = [
             "wf-node-card",
@@ -354,7 +354,17 @@ export default function IntegrationsPage() {
             >
                 {generated && <span className="wf-node-gen-label">User Entry</span>}
                 <span className="wf-node-name">{name}</span>
-                {typeOrCat && <span className="wf-node-type-badge">{typeOrCat}</span>}
+                {!generated && (
+                    <div className="wf-node-badges">
+                        {app?.type && <span className="wf-node-type-badge">{app.type}</span>}
+                        {app?.systemCategory && <span className="wf-node-cat-badge">{app.systemCategory}</span>}
+                        {app?.status && (
+                            <span className={`wf-node-status-badge ${(app.status || "").toLowerCase()}`}>
+                                {app.status}
+                            </span>
+                        )}
+                    </div>
+                )}
                 {isFocus && <span className="wf-focus-label">Focus System</span>}
             </div>
         );
@@ -881,6 +891,18 @@ export default function IntegrationsPage() {
                                 )}
                             </div>
 
+                            <div className="wf-legend">
+                                <span className="wf-legend-title">Node Types</span>
+                                <div className="wf-legend-items">
+                                    <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-user" />User</span>
+                                    <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-saas" />SaaS</span>
+                                    <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-platform" />Platform</span>
+                                    <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-database" />Database</span>
+                                    <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-reporting" />Reporting</span>
+                                    <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-identity" />Identity</span>
+                                </div>
+                            </div>
+
                             {detail && detail.kind === "focus" && (
                                 <div className="wf-detail-panel">
                                     <div className="wf-detail-header">
@@ -892,179 +914,245 @@ export default function IntegrationsPage() {
                                             ×
                                         </button>
                                     </div>
-                                    <div className="wf-detail-grid">
+                                    <div className="wf-detail-sections">
                                         {(() => {
                                             const app = appData.get(detail.applicationId);
-                                            if (app) {
-                                                const fields: { label: string; value?: string }[] =
-                                                    [];
-                                                fields.push({
-                                                    label: "Name",
-                                                    value: focusName,
-                                                });
-                                                if (app.type)
-                                                    fields.push({
-                                                        label: "Type",
-                                                        value: app.type,
-                                                    });
-                                                if (app.systemCategory)
-                                                    fields.push({
-                                                        label: "System Category",
-                                                        value: app.systemCategory,
-                                                    });
-                                                if (app.status)
-                                                    fields.push({
-                                                        label: "Status",
-                                                        value: app.status,
-                                                    });
-                                                const purpose =
-                                                    app.purpose ||
-                                                    (
-                                                        app.businessContext as
-                                                            | { purpose?: string }
-                                                            | undefined
-                                                    )?.purpose;
-                                                if (purpose)
-                                                    fields.push({
-                                                        label: "Purpose",
-                                                        value: purpose,
-                                                    });
-                                                const bizOwner =
-                                                    app.businessOwner ||
-                                                    (
-                                                        app.ownership as
-                                                            | { businessOwner?: string }
-                                                            | undefined
-                                                    )?.businessOwner;
-                                                if (bizOwner)
-                                                    fields.push({
-                                                        label: "Business Owner",
-                                                        value: bizOwner,
-                                                    });
-                                                const techOwner =
-                                                    app.technicalOwner ||
-                                                    (
-                                                        app.ownership as
-                                                            | { technicalOwner?: string }
-                                                            | undefined
-                                                    )?.technicalOwner;
-                                                if (techOwner)
-                                                    fields.push({
-                                                        label: "Technical Owner",
-                                                        value: techOwner,
-                                                    });
-                                                const crit =
-                                                    app.businessCriticality ||
-                                                    (
-                                                        app.businessContext as
-                                                            | { businessCriticality?: string }
-                                                            | undefined
-                                                    )?.businessCriticality;
-                                                if (crit)
-                                                    fields.push({
-                                                        label: "Business Criticality",
-                                                        value: crit,
-                                                    });
-                                                if (app.primaryUseCases)
-                                                    fields.push({
-                                                        label: "Primary Use Cases",
-                                                        value: app.primaryUseCases,
-                                                    });
-                                                if (app.capabilityName)
-                                                    fields.push({
-                                                        label: "Capability",
-                                                        value: app.capabilityName,
-                                                    });
-
-                                                return fields.map((f) => (
-                                                    <div
-                                                        key={f.label}
-                                                        className="wf-detail-field wf-detail-field-full"
-                                                    >
-                                                        <span className="wf-detail-label">
-                                                            {f.label}
-                                                        </span>
-                                                        <span className="wf-detail-value">
-                                                            {f.value}
-                                                        </span>
+                                            if (!app) {
+                                                return (
+                                                    <div className="wf-detail-section wf-detail-section-full">
+                                                        <h4 className="wf-detail-section-title">Overview</h4>
+                                                        <div className="wf-detail-field">
+                                                            <span className="wf-detail-label">Name</span>
+                                                            <span className="wf-detail-value">{focusName}</span>
+                                                        </div>
                                                     </div>
-                                                ));
+                                                );
                                             }
+                                            const purpose = app.purpose || (app.businessContext as { purpose?: string } | undefined)?.purpose;
+                                            const bizOwner = app.businessOwner || (app.ownership as { businessOwner?: string } | undefined)?.businessOwner;
+                                            const techOwner = app.technicalOwner || (app.ownership as { technicalOwner?: string } | undefined)?.technicalOwner;
+                                            const crit = app.businessCriticality || (app.businessContext as { businessCriticality?: string } | undefined)?.businessCriticality;
+                                            const impactDown = (app.businessContext as { impactIfDown?: string } | undefined)?.impactIfDown;
+
                                             return (
-                                                <div className="wf-detail-field wf-detail-field-full">
-                                                    <span className="wf-detail-label">
-                                                        Name
-                                                    </span>
-                                                    <span className="wf-detail-value">
-                                                        {focusName}
-                                                    </span>
-                                                </div>
+                                                <>
+                                                    <div className="wf-detail-section">
+                                                        <h4 className="wf-detail-section-title">Overview</h4>
+                                                        {app.description && (
+                                                            <div className="wf-detail-field">
+                                                                <span className="wf-detail-label">Description</span>
+                                                                <span className="wf-detail-value">{app.description}</span>
+                                                            </div>
+                                                        )}
+                                                        {purpose && (
+                                                            <div className="wf-detail-field">
+                                                                <span className="wf-detail-label">Purpose</span>
+                                                                <span className="wf-detail-value">{purpose}</span>
+                                                            </div>
+                                                        )}
+                                                        {!app.description && !purpose && (
+                                                            <span className="wf-detail-empty">No overview data</span>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="wf-detail-section">
+                                                        <h4 className="wf-detail-section-title">Ownership</h4>
+                                                        {bizOwner && (
+                                                            <div className="wf-detail-field">
+                                                                <span className="wf-detail-label">Business Owner</span>
+                                                                <span className="wf-detail-value">{bizOwner}</span>
+                                                            </div>
+                                                        )}
+                                                        {techOwner && (
+                                                            <div className="wf-detail-field">
+                                                                <span className="wf-detail-label">Technical Owner</span>
+                                                                <span className="wf-detail-value">{techOwner}</span>
+                                                            </div>
+                                                        )}
+                                                        {!bizOwner && !techOwner && (
+                                                            <span className="wf-detail-empty">No ownership data</span>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="wf-detail-section">
+                                                        <h4 className="wf-detail-section-title">Business Context</h4>
+                                                        {crit && (
+                                                            <div className="wf-detail-field">
+                                                                <span className="wf-detail-label">Criticality</span>
+                                                                <span className="wf-detail-value">{crit}</span>
+                                                            </div>
+                                                        )}
+                                                        {impactDown && (
+                                                            <div className="wf-detail-field">
+                                                                <span className="wf-detail-label">Impact If Down</span>
+                                                                <span className="wf-detail-value">{impactDown}</span>
+                                                            </div>
+                                                        )}
+                                                        {!crit && !impactDown && (
+                                                            <span className="wf-detail-empty">No business context data</span>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="wf-detail-section">
+                                                        <h4 className="wf-detail-section-title">Usage</h4>
+                                                        {app.primaryUseCases && (
+                                                            <div className="wf-detail-field">
+                                                                <span className="wf-detail-label">Primary Use Cases</span>
+                                                                <span className="wf-detail-value">{app.primaryUseCases}</span>
+                                                            </div>
+                                                        )}
+                                                        {app.capabilityName && (
+                                                            <div className="wf-detail-field">
+                                                                <span className="wf-detail-label">Capability</span>
+                                                                <span className="wf-detail-value">{app.capabilityName}</span>
+                                                            </div>
+                                                        )}
+                                                        {!app.primaryUseCases && !app.capabilityName && (
+                                                            <span className="wf-detail-empty">No usage data</span>
+                                                        )}
+                                                    </div>
+                                                </>
                                             );
                                         })()}
 
-                                        {inbound.length > 0 && (
-                                            <div className="wf-detail-field wf-detail-field-full">
-                                                <span className="wf-detail-label">
-                                                    Inbound ({inbound.length})
-                                                </span>
-                                                <div className="wf-detail-int-list">
-                                                    {inbound.map((int) => (
-                                                        <div
-                                                            key={int.id}
-                                                            className="wf-detail-int-row"
-                                                        >
-                                                            <span className="wf-detail-int-src">
-                                                                {int.fromApplicationName}
-                                                            </span>
-                                                            <span className="wf-detail-int-type">
-                                                                {int.integrationType || "—"}
-                                                            </span>
-                                                            <span
-                                                                className={`integration-status status-${(int.status || "").toLowerCase()}`}
+                                        <div className="wf-detail-section wf-detail-section-full">
+                                            <h4 className="wf-detail-section-title">Relationships</h4>
+                                            {inbound.length > 0 && (
+                                                <div className="wf-detail-int-group">
+                                                    <span className="wf-detail-label">Inbound ({inbound.length})</span>
+                                                    <div className="wf-detail-int-list">
+                                                        {inbound.map((int) => (
+                                                            <div
+                                                                key={int.id}
+                                                                className="wf-detail-int-row"
+                                                                onClick={() =>
+                                                                    setDetail({
+                                                                        kind: "integration",
+                                                                        integration: int,
+                                                                    })
+                                                                }
+                                                                title="Click for integration details"
                                                             >
-                                                                {int.status || "—"}
-                                                            </span>
-                                                            <span className="wf-detail-int-meta">
-                                                                {int.method || "—"} ·{" "}
-                                                                {int.frequency || "—"}
-                                                            </span>
-                                                        </div>
-                                                    ))}
+                                                                <span className="wf-detail-int-name">{int.fromApplicationName}</span>
+                                                                <span className="wf-detail-int-type">{int.integrationType || "—"}</span>
+                                                                <span className={`wf-detail-int-status status-${(int.status || "").toLowerCase()}`}>
+                                                                    {int.status || "—"}
+                                                                </span>
+                                                                <span className="wf-detail-int-meta">
+                                                                    {int.method || "—"} · {int.frequency || "—"}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )}
+                                            )}
+                                            {outbound.length > 0 && (
+                                                <div className="wf-detail-int-group">
+                                                    <span className="wf-detail-label">Outbound ({outbound.length})</span>
+                                                    <div className="wf-detail-int-list">
+                                                        {outbound.map((int) => (
+                                                            <div
+                                                                key={int.id}
+                                                                className="wf-detail-int-row"
+                                                                onClick={() =>
+                                                                    setDetail({
+                                                                        kind: "integration",
+                                                                        integration: int,
+                                                                    })
+                                                                }
+                                                                title="Click for integration details"
+                                                            >
+                                                                <span className="wf-detail-int-name">{int.toApplicationName}</span>
+                                                                <span className="wf-detail-int-type">{int.integrationType || "—"}</span>
+                                                                <span className={`wf-detail-int-status status-${(int.status || "").toLowerCase()}`}>
+                                                                    {int.status || "—"}
+                                                                </span>
+                                                                <span className="wf-detail-int-meta">
+                                                                    {int.method || "—"} · {int.frequency || "—"}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {inbound.length === 0 && outbound.length === 0 && (
+                                                <span className="wf-detail-empty">No relationships</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
-                                        {outbound.length > 0 && (
-                                            <div className="wf-detail-field wf-detail-field-full">
-                                                <span className="wf-detail-label">
-                                                    Outbound ({outbound.length})
+                            {detail && detail.kind === "integration" && (
+                                <div className="wf-detail-panel">
+                                    <div className="wf-detail-header">
+                                        <h3>Integration Detail</h3>
+                                        <button
+                                            className="wf-detail-close"
+                                            onClick={() =>
+                                                setDetail({
+                                                    kind: "focus",
+                                                    applicationId: focusSystemId,
+                                                })
+                                            }
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                    <div className="wf-detail-sections">
+                                        <div className="wf-detail-section wf-detail-section-full">
+                                            <h4 className="wf-detail-section-title">Connection</h4>
+                                            <div className="wf-detail-field">
+                                                <span className="wf-detail-label">Source</span>
+                                                <span className="wf-detail-value">
+                                                    {detail.integration.fromApplicationName}
                                                 </span>
-                                                <div className="wf-detail-int-list">
-                                                    {outbound.map((int) => (
-                                                        <div
-                                                            key={int.id}
-                                                            className="wf-detail-int-row"
-                                                        >
-                                                            <span className="wf-detail-int-tgt">
-                                                                {int.toApplicationName}
-                                                            </span>
-                                                            <span className="wf-detail-int-type">
-                                                                {int.integrationType || "—"}
-                                                            </span>
-                                                            <span
-                                                                className={`integration-status status-${(int.status || "").toLowerCase()}`}
-                                                            >
-                                                                {int.status || "—"}
-                                                            </span>
-                                                            <span className="wf-detail-int-meta">
-                                                                {int.method || "—"} ·{" "}
-                                                                {int.frequency || "—"}
-                                                            </span>
-                                                        </div>
-                                                    ))}
-                                                </div>
                                             </div>
-                                        )}
+                                            <div className="wf-detail-field">
+                                                <span className="wf-detail-label">Target</span>
+                                                <span className="wf-detail-value">
+                                                    {detail.integration.toApplicationName}
+                                                </span>
+                                            </div>
+                                            <div className="wf-detail-field">
+                                                <span className="wf-detail-label">Type</span>
+                                                <span className="wf-detail-value">
+                                                    {detail.integration.integrationType || "—"}
+                                                </span>
+                                            </div>
+                                            <div className="wf-detail-field">
+                                                <span className="wf-detail-label">Status</span>
+                                                <span className={`integration-status status-${(detail.integration.status || "").toLowerCase()}`}>
+                                                    {detail.integration.status || "—"}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="wf-detail-section">
+                                            <h4 className="wf-detail-section-title">Technical</h4>
+                                            <div className="wf-detail-field">
+                                                <span className="wf-detail-label">Method</span>
+                                                <span className="wf-detail-value">{detail.integration.method || "—"}</span>
+                                            </div>
+                                            <div className="wf-detail-field">
+                                                <span className="wf-detail-label">Frequency</span>
+                                                <span className="wf-detail-value">{detail.integration.frequency || "—"}</span>
+                                            </div>
+                                        </div>
+                                        <div className="wf-detail-section">
+                                            <h4 className="wf-detail-section-title">Business</h4>
+                                            <div className="wf-detail-field">
+                                                <span className="wf-detail-label">Purpose</span>
+                                                <span className="wf-detail-value">{detail.integration.businessPurpose || "—"}</span>
+                                            </div>
+                                            <div className="wf-detail-field">
+                                                <span className="wf-detail-label">Data Exchanged</span>
+                                                <span className="wf-detail-value">{detail.integration.dataExchanged || "—"}</span>
+                                            </div>
+                                            <div className="wf-detail-field">
+                                                <span className="wf-detail-label">Notes</span>
+                                                <span className="wf-detail-value">{detail.integration.notes || "—"}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             )}

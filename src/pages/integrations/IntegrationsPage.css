@@ -332,13 +332,13 @@
 .workflow-view {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 20px;
 }
 
 .workflow-controls {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
 }
 
 .workflow-controls label {
@@ -355,7 +355,7 @@
     border-radius: 6px;
     background: #fff;
     color: #111827;
-    min-width: 200px;
+    min-width: 220px;
 }
 
 .workflow-controls select:focus {
@@ -368,10 +368,60 @@
 .wf-helper-text {
     font-size: 12px;
     color: #9ca3af;
-    max-width: 400px;
+    max-width: 360px;
     line-height: 1.5;
     margin-left: auto;
 }
+
+/* ── Workflow Legend ── */
+.wf-legend {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 14px;
+    background: #fafbfc;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    align-self: center;
+    flex-wrap: wrap;
+}
+
+.wf-legend-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.wf-legend-items {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.wf-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: #6b7280;
+}
+
+.wf-legend-swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.wf-legend-swatch.wf-node-user { background: #9ca3af; }
+.wf-legend-swatch.wf-node-saas { background: #3b82f6; }
+.wf-legend-swatch.wf-node-platform { background: #8b5cf6; }
+.wf-legend-swatch.wf-node-database { background: #22c55e; }
+.wf-legend-swatch.wf-node-reporting { background: #f59e0b; }
+.wf-legend-swatch.wf-node-identity { background: #14b8a6; }
 
 /* ── Workflow Chain ── */
 .workflow-chain {
@@ -379,7 +429,7 @@
     flex-direction: column;
     align-items: center;
     gap: 0;
-    padding: 8px 0;
+    padding: 4px 0;
 }
 
 .wf-node-row {
@@ -387,13 +437,13 @@
     flex-direction: row;
     justify-content: center;
     align-items: flex-start;
-    gap: 20px;
+    gap: 16px;
     flex-wrap: wrap;
     width: 100%;
 }
 
 .wf-node-row-focus {
-    margin: 4px 0;
+    margin: 2px 0;
 }
 
 .wf-downstream-branch {
@@ -407,9 +457,9 @@
     background: #fff;
     border: 1px solid #d1d5db;
     border-radius: 8px;
-    padding: 10px 20px;
-    min-width: 150px;
-    max-width: 240px;
+    padding: 8px 16px;
+    min-width: 140px;
+    max-width: 220px;
     text-align: center;
     cursor: pointer;
     transition: box-shadow 0.15s, border-color 0.15s, background 0.15s, opacity 0.15s;
@@ -423,38 +473,46 @@
     background: #fafbff;
 }
 
-/* Node type color accents */
+/* Node type color accents — more distinct */
 .wf-node-saas {
-    border-left: 3px solid #3b82f6;
+    border-left: 4px solid #3b82f6;
+    background: #f8faff;
 }
 
 .wf-node-database {
-    border-left: 3px solid #22c55e;
+    border-left: 4px solid #22c55e;
+    background: #f8fef9;
 }
 
 .wf-node-reporting {
-    border-left: 3px solid #f59e0b;
+    border-left: 4px solid #f59e0b;
+    background: #fffcf5;
 }
 
 .wf-node-platform {
-    border-left: 3px solid #8b5cf6;
+    border-left: 4px solid #8b5cf6;
+    background: #faf8ff;
+}
+
+.wf-node-identity {
+    border-left: 4px solid #14b8a6;
+    background: #f7fdfc;
 }
 
 .wf-node-user {
-    border-left: 3px solid #9ca3af;
+    border-left: 4px solid #9ca3af;
+    background: #fafafa;
 }
 
 .wf-node-default {
-    border-left: 3px solid #d1d5db;
+    border-left: 4px solid #d1d5db;
 }
 
 /* Context/preview card (faded) */
 .wf-node-context-card {
-    background: #f9fafb;
-    border-color: #e5e7eb;
-    opacity: 0.6;
-    padding: 8px 16px;
-    min-width: 130px;
+    opacity: 0.55;
+    padding: 6px 14px;
+    min-width: 120px;
     cursor: default;
 }
 
@@ -487,9 +545,9 @@
     background: #eff6ff;
     border-color: #93c5fd;
     border-width: 2px;
-    padding: 16px 28px;
-    min-width: 180px;
-    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+    padding: 14px 24px;
+    min-width: 170px;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
 }
 
 .wf-node-focus-card:hover {
@@ -513,16 +571,64 @@
     margin-bottom: 2px;
 }
 
+/* Badge row inside card */
+.wf-node-badges {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 5px;
+}
+
 /* Type badge */
 .wf-node-type-badge {
     display: inline-block;
-    font-size: 10px;
-    font-weight: 500;
+    font-size: 9px;
+    font-weight: 600;
     color: #6b7280;
     background: #f3f4f6;
-    padding: 1px 7px;
-    border-radius: 4px;
-    margin-top: 4px;
+    padding: 1px 6px;
+    border-radius: 3px;
+}
+
+/* Category badge */
+.wf-node-cat-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 500;
+    color: #6b7280;
+    background: #f0f5ff;
+    padding: 1px 6px;
+    border-radius: 3px;
+}
+
+/* Status badge inside card */
+.wf-node-status-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 3px;
+}
+
+.wf-node-status-badge.active {
+    color: #166534;
+    background: #f0fdf4;
+}
+
+.wf-node-status-badge.planned {
+    color: #92400e;
+    background: #fffbeb;
+}
+
+.wf-node-status-badge.retired {
+    color: #6b7280;
+    background: #f3f4f6;
+}
+
+.wf-node-status-badge.unknown {
+    color: #94a3b8;
+    background: #f8fafc;
 }
 
 /* Generated user entry label */
@@ -548,7 +654,7 @@
 .wf-chain-arrow {
     font-size: 20px;
     color: #9ca3af;
-    padding: 6px 0;
+    padding: 4px 0;
     line-height: 1;
     user-select: none;
 }
@@ -556,21 +662,21 @@
 .wf-chain-arrow-preview {
     font-size: 16px;
     color: #d1d5db;
-    padding: 4px 0;
+    padding: 3px 0;
 }
 
 .wf-empty {
     font-size: 13px;
     color: #9ca3af;
     font-style: italic;
-    padding: 12px 0;
+    padding: 10px 0;
     text-align: center;
 }
 
 .workflow-summary {
     display: flex;
     gap: 24px;
-    padding: 12px 16px;
+    padding: 10px 16px;
     background: #f9fafb;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
@@ -585,47 +691,7 @@
     color: #111827;
 }
 
-/* ── Detail panel integration list ── */
-.wf-detail-int-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-top: 4px;
-}
-
-.wf-detail-int-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    font-size: 13px;
-}
-
-.wf-detail-int-src,
-.wf-detail-int-tgt {
-    font-weight: 600;
-    color: #1f2937;
-}
-
-.wf-detail-int-type {
-    font-size: 11px;
-    color: #6b7280;
-    background: #f3f4f6;
-    padding: 1px 6px;
-    border-radius: 4px;
-}
-
-.wf-detail-int-meta {
-    font-size: 11px;
-    color: #9ca3af;
-    margin-left: auto;
-}
-
-/* ── Detail panel ── */
+/* ── Detail panel sections ── */
 .wf-detail-panel {
     background: #fff;
     border: 1px solid #e5e7eb;
@@ -667,24 +733,51 @@
     background: #f3f4f6;
 }
 
-.wf-detail-grid {
+.wf-detail-sections {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 14px 24px;
+    gap: 14px;
+}
+
+.wf-detail-section {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.wf-detail-section-full {
+    grid-column: 1 / -1;
+}
+
+.wf-detail-section-title {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e5e7eb;
 }
 
 .wf-detail-field {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
 }
 
-.wf-detail-field-full {
-    grid-column: 1 / -1;
+.wf-detail-empty {
+    font-size: 12px;
+    color: #9ca3af;
+    font-style: italic;
 }
 
 .wf-detail-label {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     color: #6b7280;
     text-transform: uppercase;
@@ -692,9 +785,93 @@
 }
 
 .wf-detail-value {
-    font-size: 14px;
+    font-size: 13px;
     color: #111827;
     word-break: break-word;
+    line-height: 1.5;
+}
+
+/* ── Detail panel integration list ── */
+.wf-detail-int-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.wf-detail-int-group > .wf-detail-label {
+    margin-top: 4px;
+}
+
+.wf-detail-int-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.wf-detail-int-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: box-shadow 0.12s, border-color 0.12s;
+}
+
+.wf-detail-int-row:hover {
+    border-color: #93c5fd;
+    box-shadow: 0 1px 4px rgba(37, 99, 235, 0.1);
+}
+
+.wf-detail-int-name {
+    font-weight: 600;
+    color: #1f2937;
+    min-width: 120px;
+}
+
+.wf-detail-int-type {
+    font-size: 11px;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+
+.wf-detail-int-status {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: 8px;
+}
+
+.wf-detail-int-status.status-active {
+    background: #f0fdf4;
+    color: #166534;
+}
+
+.wf-detail-int-status.status-planned {
+    background: #fffbeb;
+    color: #92400e;
+}
+
+.wf-detail-int-status.status-retired {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.wf-detail-int-status.status-unknown {
+    background: #f8fafc;
+    color: #94a3b8;
+}
+
+.wf-detail-int-meta {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-left: auto;
 }
 
 @media (max-width: 768px) {
@@ -711,7 +888,7 @@
         display: none;
     }
 
-    .wf-detail-grid {
+    .wf-detail-sections {
         grid-template-columns: 1fr;
     }
 
@@ -720,22 +897,26 @@
     }
 
     .wf-node-row {
-        gap: 12px;
+        gap: 10px;
     }
 
     .wf-node-card {
-        min-width: 110px;
-        max-width: 180px;
-        padding: 8px 14px;
+        min-width: 100px;
+        max-width: 170px;
+        padding: 6px 12px;
     }
 
     .wf-node-focus-card {
-        padding: 12px 20px;
-        min-width: 140px;
+        padding: 10px 18px;
+        min-width: 130px;
     }
 
     .wf-node-context-card {
-        min-width: 100px;
-        padding: 6px 12px;
+        min-width: 90px;
+        padding: 5px 10px;
+    }
+
+    .wf-detail-int-name {
+        min-width: auto;
     }
 }
