@@ -347,6 +347,7 @@ export default function IntegrationsPage() {
     }) {
         const app = appData.get(id);
         const colorClass = getNodeColorClass(id, name);
+        const displayCategory = getNodeDisplayCategory(app?.architectureType);
 
         const cardClass = [
             "wf-node-card",
@@ -372,6 +373,10 @@ export default function IntegrationsPage() {
                       }
                   };
 
+        const criticality = !generated
+            ? (app?.businessCriticality || (app?.businessContext as { businessCriticality?: string } | undefined)?.businessCriticality)
+            : undefined;
+
         return (
             <div
                 className={cardClass}
@@ -385,19 +390,24 @@ export default function IntegrationsPage() {
                 }
             >
                 {generated && <span className="wf-node-gen-label">User Entry</span>}
+                {isFocus && <span className="wf-focus-label">Focus System</span>}
                 <span className="wf-node-name">{name}</span>
                 {!generated && (
                     <div className="wf-node-badges">
-                        {app?.architectureType && <span className="wf-node-arch-badge">{app.architectureType}</span>}
-                        {app?.systemCategory && <span className="wf-node-cat-badge">{app.systemCategory}</span>}
+                        <span className="wf-node-category-badge">{displayCategory}</span>
+                        {(app?.capabilityName || app?.systemCategory) && (
+                            <span className="wf-node-cap-badge">{app.capabilityName || app.systemCategory}</span>
+                        )}
                         {app?.status && (
                             <span className={`wf-node-status-badge ${(app.status || "").toLowerCase()}`}>
                                 {app.status}
                             </span>
                         )}
+                        {criticality && (
+                            <span className="wf-node-crit-badge">{criticality}</span>
+                        )}
                     </div>
                 )}
-                {isFocus && <span className="wf-focus-label">Focus System</span>}
             </div>
         );
     }
@@ -855,101 +865,113 @@ export default function IntegrationsPage() {
                             </div>
 
                             <div className="workflow-chain">
+                                {(contextUpstreamSystems.length > 0 || upstreamSystems.length > 0 || showUserEntry) && (
+                                    <div className="wf-section-label">Feeds Into</div>
+                                )}
+
                                 {contextUpstreamSystems.length > 0 && (
-                                    <>
-                                        <div className="wf-node-row">
-                                            {contextUpstreamSystems.map((sys) => (
+                                    <div className="wf-node-row">
+                                        {contextUpstreamSystems.map((sys) => (
+                                            <div key={sys.id} className="wf-node-with-conn">
                                                 <NodeCard
-                                                    key={sys.id}
                                                     id={sys.id}
                                                     name={sys.name}
                                                     faded
                                                     generated={sys.id === "__user__"}
                                                 />
-                                            ))}
-                                        </div>
-                                        <div className="wf-chain-arrow">↓</div>
-                                    </>
+                                            </div>
+                                        ))}
+                                    </div>
                                 )}
 
                                 {showUserEntry && (
-                                    <>
-                                        <div className="wf-node-row">
+                                    <div className="wf-node-row">
+                                        <div className="wf-node-with-conn">
                                             <NodeCard
                                                 id="__user__"
                                                 name={getUserEntryName(focusName)}
                                                 generated
                                             />
                                         </div>
-                                        <div className="wf-chain-arrow">↓</div>
-                                    </>
+                                    </div>
                                 )}
 
                                 {upstreamSystems.length > 0 && (
                                     <div className="wf-node-row">
-                                        {upstreamSystems.map((sys) => (
-                                            <NodeCard key={sys.id} id={sys.id} name={sys.name} />
-                                        ))}
+                                        {upstreamSystems.map((sys) => {
+                                            const conn = inbound.find((i) => i.fromApplicationId === sys.id);
+                                            const connLabel = conn ? (conn.integrationType || conn.method || conn.frequency || null) : null;
+                                            return (
+                                                <div key={sys.id} className="wf-node-with-conn">
+                                                    <NodeCard id={sys.id} name={sys.name} />
+                                                    {connLabel && <span className="wf-conn-label">{connLabel}</span>}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 )}
 
                                 {upstreamSystems.length === 0 && !showUserEntry && contextUpstreamSystems.length === 0 && (
-                                    <p className="wf-empty">No upstream integrations</p>
+                                    <p className="wf-empty">No upstream systems documented yet</p>
                                 )}
 
-                                {upstreamSystems.length > 0 && (
+                                {(upstreamSystems.length > 0 || showUserEntry || contextUpstreamSystems.length > 0) && (
                                     <div className="wf-chain-arrow">↓</div>
                                 )}
+
+                                <div className="wf-section-label">Focus System</div>
 
                                 <div className="wf-node-row wf-node-row-focus">
                                     <NodeCard id={focusSystemId} name={focusName} isFocus />
                                 </div>
 
                                 {downstreamSystems.length > 0 && (
-                                    <div className="wf-chain-arrow">↓</div>
+                                    <>
+                                        <div className="wf-chain-arrow">↓</div>
+                                        <div className="wf-section-label">Feeds Out To</div>
+                                        <div className="wf-node-row">
+                                            {downstreamSystems.map((sys) => {
+                                                const preview = continuationInfo.moreDownstream.get(sys.id);
+                                                const conn = outbound.find((i) => i.toApplicationId === sys.id);
+                                                const connLabel = conn ? (conn.integrationType || conn.method || conn.frequency || null) : null;
+                                                return (
+                                                    <div key={sys.id} className="wf-downstream-branch">
+                                                        <div className="wf-node-with-conn">
+                                                            <NodeCard id={sys.id} name={sys.name} />
+                                                            {connLabel && <span className="wf-conn-label">{connLabel}</span>}
+                                                        </div>
+                                                        {preview && (
+                                                            <>
+                                                                <div className="wf-chain-arrow wf-chain-arrow-preview">
+                                                                    ↓
+                                                                </div>
+                                                                <span className="wf-section-label wf-section-label-preview">Next Layer</span>
+                                                                {preview.names
+                                                                    .slice(0, 2)
+                                                                    .map((name, i) => (
+                                                                        <NodeCard
+                                                                            key={preview.ids[i]}
+                                                                            id={preview.ids[i]}
+                                                                            name={name}
+                                                                            faded
+                                                                        />
+                                                                    ))}
+                                                                {preview.count > 2 && (
+                                                                    <span className="wf-node-preview-more">
+                                                                        +{preview.count - 2} more
+                                                                    </span>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </>
                                 )}
 
                                 {downstreamSystems.length === 0 && (
-                                    <p className="wf-empty">No downstream integrations</p>
-                                )}
-
-                                {downstreamSystems.length > 0 && (
-                                    <div className="wf-node-row">
-                                        {downstreamSystems.map((sys) => {
-                                            const preview =
-                                                continuationInfo.moreDownstream.get(sys.id);
-                                            return (
-                                                <div key={sys.id} className="wf-downstream-branch">
-                                                    <NodeCard
-                                                        id={sys.id}
-                                                        name={sys.name}
-                                                    />
-                                                    {preview && (
-                                                        <>
-                                                            <div className="wf-chain-arrow wf-chain-arrow-preview">
-                                                                ↓
-                                                            </div>
-                                                            {preview.names
-                                                                .slice(0, 2)
-                                                                .map((name, i) => (
-                                                                    <NodeCard
-                                                                        key={preview.ids[i]}
-                                                                        id={preview.ids[i]}
-                                                                        name={name}
-                                                                        faded
-                                                                    />
-                                                                ))}
-                                                            {preview.count > 2 && (
-                                                                <span className="wf-node-preview-more">
-                                                                    +{preview.count - 2} more
-                                                                </span>
-                                                            )}
-                                                        </>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+                                    <p className="wf-empty">No downstream systems documented yet</p>
                                 )}
                             </div>
 
