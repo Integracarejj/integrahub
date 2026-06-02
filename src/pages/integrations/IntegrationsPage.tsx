@@ -879,15 +879,13 @@ export default function IntegrationsPage() {
 
                                 <div className="wf-section-label">Focus System</div>
 
-                                <div className="wf-focus-row-wrapper">
-                                    <div className="wf-focus-spine">
-                                        <NodeCard id={focusSystemId} name={focusName} isFocus />
-                                    </div>
+                                <div className="wf-focus-stage">
+                                    <NodeCard id={focusSystemId} name={focusName} isFocus />
                                     {connectedSystems.length > 0 && (
-                                        <div className="wf-connected-sidecar">
-                                            <div className="wf-section-label wf-conn-sys-label">Connected Systems</div>
-                                            <div className="wf-conn-sys-content">
-                                                <span className="wf-sync-icon">↻</span>
+                                        <>
+                                            <span className="wf-connected-sync">↻</span>
+                                            <div className="wf-connected-panel">
+                                                <div className="wf-conn-sys-label">Connected Systems</div>
                                                 <div className="wf-connected-systems">
                                                     {connectedSystems.map((sys) => {
                                                         const conn = rows.find(
@@ -905,7 +903,7 @@ export default function IntegrationsPage() {
                                                     })}
                                                 </div>
                                             </div>
-                                        </div>
+                                        </>
                                     )}
                                 </div>
 
