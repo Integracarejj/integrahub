@@ -130,6 +130,7 @@ export default function IntegrationsPage() {
     const [mapShowLabels, setMapShowLabels] = useState(true);
     const [mapShowIntTypes, setMapShowIntTypes] = useState(false);
     const [mapOwnerFilter, setMapOwnerFilter] = useState("");
+    const [mapCapabilityFilter, setMapCapabilityFilter] = useState("");
 
     const loadData = async () => {
         try {
@@ -506,8 +507,20 @@ export default function IntegrationsPage() {
 
     // ── Map View data processing ──
 
-    function getMapNodeIcon(category: string): string {
+    function getMapNodeIcon(category: string, name?: string): string {
         const c = category.toLowerCase();
+        const n = (name || "").toLowerCase();
+        // Name-based overrides for recognizable systems
+        if (n.includes("power bi") || n.includes("report")) return "📊";
+        if (n.includes("sql") || n.includes("database") || n.includes("data warehouse") || n.includes("azure sql")) return "🗄️";
+        if (n.includes("azure ad") || n.includes("identity") || n.includes("okta") || n.includes("active directory") || n.includes("sso") || n.includes("auth")) return "🔑";
+        if (n.includes("sharepoint") || n.includes("file") || n.includes("document")) return "📁";
+        if (n.includes("welcome") || n.includes("welcomehome")) return "🏠";
+        if (n.includes("ecp") || n.includes("clinical") || n.includes("health") || n.includes("medical")) return "🏥";
+        if (n.includes("talent") || n.includes("lms") || n.includes("learning")) return "🎓";
+        if (n.includes("canva") || n.includes("design") || n.includes("marketing") || n.includes("palette")) return "🎨";
+        if (n.includes("paycor") || n.includes("payroll") || n.includes("hr") || n.includes("people")) return "👥";
+        // Category-based fallback
         if (c.includes("identity")) return "🔑";
         if (c.includes("data")) return "🗄️";
         if (c.includes("report") || c.includes("bi")) return "📊";
@@ -539,7 +552,7 @@ export default function IntegrationsPage() {
         const sysMap = new Map<string, {
             id: string; name: string; category: string; status: string;
             criticality: string; bizOwner: string; techOwner: string;
-            archType: string; degree: number;
+            archType: string; capabilityName: string; degree: number;
         }>();
 
         rows.forEach((r) => {
@@ -554,6 +567,7 @@ export default function IntegrationsPage() {
                     bizOwner: app?.businessOwner || (app?.ownership as { businessOwner?: string })?.businessOwner || "",
                     techOwner: app?.technicalOwner || (app?.ownership as { technicalOwner?: string })?.technicalOwner || "",
                     archType: app?.architectureType || "",
+                    capabilityName: app?.capabilityName || "",
                     degree: 0,
                 });
             }
@@ -568,6 +582,7 @@ export default function IntegrationsPage() {
                     bizOwner: app?.businessOwner || (app?.ownership as { businessOwner?: string })?.businessOwner || "",
                     techOwner: app?.technicalOwner || (app?.ownership as { technicalOwner?: string })?.technicalOwner || "",
                     archType: app?.architectureType || "",
+                    capabilityName: app?.capabilityName || "",
                     degree: 0,
                 });
             }
@@ -694,6 +709,9 @@ export default function IntegrationsPage() {
                        n.techOwner.toLowerCase().includes(mapOwnerFilter.toLowerCase())
             );
         }
+        if (mapCapabilityFilter) {
+            visible = visible.filter((n) => n.capabilityName === mapCapabilityFilter);
+        }
 
         const visibleIds = new Set(visible.map((n) => n.id));
         const visibleEdges = mapLayout.edges.filter(
@@ -724,6 +742,10 @@ export default function IntegrationsPage() {
 
     const mapCriticalities = useMemo(() => {
         return [...new Set(mapNodeData.map((n) => n.criticality).filter(Boolean))].sort();
+    }, [mapNodeData]);
+
+    const mapCapabilities = useMemo(() => {
+        return [...new Set(mapNodeData.map((n) => n.capabilityName).filter(Boolean))].sort();
     }, [mapNodeData]);
 
     function handleMapNodeClick(id: string) {
@@ -1101,6 +1123,17 @@ export default function IntegrationsPage() {
                                         <option key={s} value={s}>{s}</option>
                                     ))}
                                 </select>
+
+                                <select
+                                    className="map-filter-select"
+                                    value={mapCapabilityFilter}
+                                    onChange={(e) => setMapCapabilityFilter(e.target.value)}
+                                >
+                                    <option value="">All Capabilities</option>
+                                    {mapCapabilities.map((c) => (
+                                        <option key={c} value={c}>{c}</option>
+                                    ))}
+                                </select>
                             </div>
                             <div className="map-toolbar-row">
                                 <label className="map-toggle">
@@ -1120,6 +1153,7 @@ export default function IntegrationsPage() {
                                         setMapCriticalityFilter("");
                                         setMapStatusFilter("");
                                         setMapOwnerFilter("");
+                                        setMapCapabilityFilter("");
                                     }}
                                 >
                                     Reset Filters
@@ -1248,7 +1282,7 @@ export default function IntegrationsPage() {
                                             )}
                                             {/* Icon */}
                                             <text x={n.x - 76} y={n.y - 4} fontSize={18} textAnchor="middle">
-                                                {getMapNodeIcon(n.category)}
+                                                {getMapNodeIcon(n.category, n.name)}
                                             </text>
                                             {/* Name */}
                                             {mapShowLabels && (
@@ -1317,7 +1351,7 @@ export default function IntegrationsPage() {
                                     return (
                                         <>
                                             <div className="map-detail-header">
-                                                <span className="map-detail-icon">{getMapNodeIcon(node.category)}</span>
+                                                <span className="map-detail-icon">{getMapNodeIcon(node.category, node.name)}</span>
                                                 <div>
                                                     <h3 className="map-detail-name">{node.name}</h3>
                                                     <span className="map-detail-category">{node.category}</span>
@@ -1403,39 +1437,51 @@ export default function IntegrationsPage() {
                         </div>
 
                         {/* ── Legend ── */}
-                        <div className="map-legend">
-                            <div className="map-legend-section">
-                                <span className="map-legend-title">Criticality</span>
-                                <span className="map-legend-item">
-                                    <span className="map-legend-swatch" style={{ background: "#ef4444" }} />
-                                    High
-                                </span>
-                                <span className="map-legend-item">
-                                    <span className="map-legend-swatch" style={{ background: "#f59e0b" }} />
-                                    Medium
-                                </span>
-                                <span className="map-legend-item">
-                                    <span className="map-legend-swatch" style={{ background: "#9ca3af" }} />
-                                    Low
-                                </span>
+                            <div className="map-legend">
+                                <div className="map-legend-section">
+                                    <span className="map-legend-title">Criticality</span>
+                                    <span className="map-legend-item">
+                                        <span className="map-legend-swatch" style={{ background: "#ef4444" }} />
+                                        High
+                                    </span>
+                                    <span className="map-legend-item">
+                                        <span className="map-legend-swatch" style={{ background: "#f59e0b" }} />
+                                        Medium
+                                    </span>
+                                    <span className="map-legend-item">
+                                        <span className="map-legend-swatch" style={{ background: "#9ca3af" }} />
+                                        Low
+                                    </span>
+                                </div>
+                                <div className="map-legend-section">
+                                    <span className="map-legend-title">Lines</span>
+                                    <span className="map-legend-item">
+                                        <svg width="20" height="4" viewBox="0 0 20 4"><line x1="0" y1="2" x2="20" y2="2" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#map-arrow)" /></svg>
+                                        Directional
+                                    </span>
+                                    <span className="map-legend-item">
+                                        <svg width="20" height="4" viewBox="0 0 20 4"><line x1="0" y1="2" x2="20" y2="2" stroke="#60a5fa" strokeWidth="2" strokeDasharray="4,2" /></svg>
+                                        Bidirectional
+                                    </span>
+                                    {mapSelectedId && (
+                                        <>
+                                            <span className="map-legend-item">
+                                                <svg width="20" height="4" viewBox="0 0 20 4"><line x1="0" y1="2" x2="20" y2="2" stroke="#94a3b8" strokeWidth="2" opacity="0.3" /><line x1="0" y1="2" x2="20" y2="2" stroke="#94a3b8" strokeWidth="0.5" strokeDasharray="2,3" /></svg>
+                                                Faded (not related)
+                                            </span>
+                                            <span className="map-legend-item">
+                                                <span style={{ display: "inline-block", width: 20, height: 4, background: "#3b82f6", borderRadius: 2, verticalAlign: "middle" }} />
+                                                Highlighted (related)
+                                            </span>
+                                        </>
+                                    )}
+                                </div>
+                                <div className="map-legend-section">
+                                    <span className="map-legend-title">Systems</span>
+                                    <span className="map-legend-item"><strong>{mapFilteredLayout.nodes.length}</strong> nodes</span>
+                                    <span className="map-legend-item"><strong>{mapFilteredLayout.edges.length}</strong> integrations</span>
+                                </div>
                             </div>
-                            <div className="map-legend-section">
-                                <span className="map-legend-title">Edges</span>
-                                <span className="map-legend-item">
-                                    <svg width="20" height="4" viewBox="0 0 20 4"><line x1="0" y1="2" x2="20" y2="2" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#map-arrow)" /></svg>
-                                    Directional
-                                </span>
-                                <span className="map-legend-item">
-                                    <svg width="20" height="4" viewBox="0 0 20 4"><line x1="0" y1="2" x2="20" y2="2" stroke="#60a5fa" strokeWidth="2" strokeDasharray="4,2" /></svg>
-                                    Bidirectional
-                                </span>
-                            </div>
-                            <div className="map-legend-section">
-                                <span className="map-legend-title">Systems</span>
-                                <span className="map-legend-item"><strong>{mapFilteredLayout.nodes.length}</strong> nodes</span>
-                                <span className="map-legend-item"><strong>{mapFilteredLayout.edges.length}</strong> integrations</span>
-                            </div>
-                        </div>
                     </div>
                 )
             )}

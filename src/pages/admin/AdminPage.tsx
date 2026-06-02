@@ -359,7 +359,7 @@ function loadData() {
                                 <th>Status</th>
                                 <th>Method</th>
                                 <th>Frequency</th>
-                                <th>Purpose / Notes</th>
+                                <th>Details</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -443,10 +443,18 @@ function loadData() {
                                             <td>
                                                 <input
                                                     type="text"
-                                                    value={editForm.businessPurpose || editForm.notes}
+                                                    value={editForm.businessPurpose}
                                                     onChange={(e) => setEditForm({ ...editForm, businessPurpose: e.target.value })}
                                                     className="edit-input"
-                                                    placeholder="Business purpose"
+                                                    placeholder="Purpose"
+                                                    style={{ width: 140 }}
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={editForm.dataExchanged}
+                                                    onChange={(e) => setEditForm({ ...editForm, dataExchanged: e.target.value })}
+                                                    className="edit-input"
+                                                    placeholder="Data exchanged"
                                                     style={{ width: 140 }}
                                                 />
                                                 <input
@@ -455,6 +463,7 @@ function loadData() {
                                                     onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
                                                     className="edit-input"
                                                     placeholder="Notes"
+                                                    style={{ width: 140 }}
                                                 />
                                             </td>
                                             <td>
@@ -481,7 +490,7 @@ function loadData() {
                                             <td>{int.status || "—"}</td>
                                             <td>{int.method || "—"}</td>
                                             <td>{int.frequency || "—"}</td>
-                                            <td className="context-cell">{int.businessPurpose || int.notes || "—"}</td>
+                                            <td className="context-cell">{int.businessPurpose || int.dataExchanged || int.notes || "—"}</td>
                                             <td>
                                                 <button
                                                     className="admin-link"
