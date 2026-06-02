@@ -521,8 +521,11 @@
     border-radius: 8px;
     padding: 10px 12px;
     width: 220px;
-    height: 82px;
-    flex: 0 0 220px;
+    min-width: 220px;
+    max-width: 220px;
+    height: 92px;
+    min-height: 92px;
+    max-height: 92px;
     box-sizing: border-box;
     overflow: hidden;
     text-align: center;
@@ -586,11 +589,6 @@
     cursor: pointer;
 }
 
-/* User Entry generated card - compact */
-.wf-node-card:has(.wf-node-gen-label) {
-    height: 70px;
-}
-
 .wf-node-context-card .wf-node-name {
     font-size: 13px;
     font-weight: 500;
@@ -619,8 +617,11 @@
     border-width: 2px;
     padding: 12px 14px;
     width: 240px;
-    height: 96px;
-    flex: 0 0 240px;
+    min-width: 240px;
+    max-width: 240px;
+    height: 104px;
+    min-height: 104px;
+    max-height: 104px;
     box-shadow: 0 4px 14px rgba(37, 99, 235, 0.15);
 }
 
@@ -974,21 +975,24 @@
 
     .wf-node-card {
         width: 160px;
-        height: 74px;
-        flex: 0 0 160px;
+        min-width: 160px;
+        max-width: 160px;
+        height: 82px;
+        min-height: 82px;
+        max-height: 82px;
         padding: 8px 10px;
     }
 
     .wf-node-focus-card {
         padding: 10px 12px;
         width: 180px;
-        height: 86px;
-        flex: 0 0 180px;
+        min-width: 180px;
+        max-width: 180px;
+        height: 94px;
+        min-height: 94px;
+        max-height: 94px;
     }
 
-    .wf-node-card:has(.wf-node-gen-label) {
-        height: 64px;
-    }
 
     .wf-detail-int-name {
         min-width: auto;
