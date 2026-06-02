@@ -207,73 +207,13 @@ export default function IntegrationsPage() {
         return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
     }, [outbound]);
 
-    const continuationInfo = useMemo(() => {
-        const moreDownstream = new Map<string, { count: number; names: string[]; ids: string[] }>();
-        const moreUpstream = new Map<string, { count: number; names: string[]; ids: string[] }>();
 
-        rows.forEach((r) => {
-            if (r.toApplicationId !== focusSystemId) {
-                const entry = moreDownstream.get(r.fromApplicationId);
-                if (entry) {
-                    if (!entry.names.includes(r.toApplicationName)) {
-                        entry.names.push(r.toApplicationName);
-                        entry.ids.push(r.toApplicationId);
-                        entry.count++;
-                    }
-                } else {
-                    moreDownstream.set(r.fromApplicationId, {
-                        count: 1,
-                        names: [r.toApplicationName],
-                        ids: [r.toApplicationId],
-                    });
-                }
-            }
-
-            if (r.fromApplicationId !== focusSystemId) {
-                const entry = moreUpstream.get(r.toApplicationId);
-                if (entry) {
-                    if (!entry.names.includes(r.fromApplicationName)) {
-                        entry.names.push(r.fromApplicationName);
-                        entry.ids.push(r.fromApplicationId);
-                        entry.count++;
-                    }
-                } else {
-                    moreUpstream.set(r.toApplicationId, {
-                        count: 1,
-                        names: [r.fromApplicationName],
-                        ids: [r.fromApplicationId],
-                    });
-                }
-            }
-        });
-
-        return { moreDownstream, moreUpstream };
-    }, [rows, focusSystemId]);
 
     const appData = useMemo(() => {
         const map = new Map<string, ApplicationOption>();
         applications.forEach((a) => map.set(a.id, a));
         return map;
     }, [applications]);
-
-    const contextUpstreamSystems = useMemo(() => {
-        const result: { id: string; name: string }[] = [];
-        const seen = new Set<string>();
-
-        upstreamSystems.forEach((us) => {
-            const feeders = rows.filter(
-                (r) => r.toApplicationId === us.id && r.fromApplicationId !== focusSystemId,
-            );
-            feeders.forEach((r) => {
-                if (!seen.has(r.fromApplicationId)) {
-                    seen.add(r.fromApplicationId);
-                    result.push({ id: r.fromApplicationId, name: r.fromApplicationName });
-                }
-            });
-        });
-
-        return result;
-    }, [rows, upstreamSystems, focusSystemId]);
 
     const showUserEntry = upstreamSystems.length === 0;
 
@@ -851,28 +791,13 @@ export default function IntegrationsPage() {
                                     ))}
                                 </select>
                                 <span className="wf-helper-text">
-                                    Workflow shows immediate connections plus one layer of
-                                    surrounding context. Click any system to follow the chain.
+                                    Workflow shows direct upstream and downstream connections. Click any system to follow the chain.
                                 </span>
                             </div>
 
                             <div className="workflow-chain">
-                                {(contextUpstreamSystems.length > 0 || upstreamSystems.length > 0 || showUserEntry) && (
+                                {(upstreamSystems.length > 0 || showUserEntry) && (
                                     <div className="wf-section-label">Sources</div>
-                                )}
-
-                                {contextUpstreamSystems.length > 0 && (
-                                    <div className="wf-node-row">
-                                        {contextUpstreamSystems.map((sys) => (
-                                            <div key={sys.id} className="wf-node-with-conn">
-                                                <NodeCard
-                                                    id={sys.id}
-                                                    name={sys.name}
-                                                    faded
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
                                 )}
 
                                 {showUserEntry && (
@@ -902,11 +827,11 @@ export default function IntegrationsPage() {
                                     </div>
                                 )}
 
-                                {upstreamSystems.length === 0 && !showUserEntry && contextUpstreamSystems.length === 0 && (
+                                {upstreamSystems.length === 0 && !showUserEntry && (
                                     <p className="wf-empty">No upstream systems documented yet</p>
                                 )}
 
-                                {(upstreamSystems.length > 0 || showUserEntry || contextUpstreamSystems.length > 0) && (
+                                {(upstreamSystems.length > 0 || showUserEntry) && (
                                     <div className="wf-chain-arrow">↓</div>
                                 )}
 
@@ -922,38 +847,12 @@ export default function IntegrationsPage() {
                                         <div className="wf-section-label">Populates</div>
                                         <div className="wf-node-row">
                                             {downstreamSystems.map((sys) => {
-                                                const preview = continuationInfo.moreDownstream.get(sys.id);
                                                 const conn = outbound.find((i) => i.toApplicationId === sys.id);
                                                 const connLabel = conn ? (conn.integrationType || conn.method || conn.frequency || null) : null;
                                                 return (
-                                                    <div key={sys.id} className="wf-downstream-branch">
-                                                        <div className="wf-node-with-conn">
-                                                            <NodeCard id={sys.id} name={sys.name} />
-                                                            {connLabel && <span className="wf-conn-label">{connLabel}</span>}
-                                                        </div>
-                                                        {preview && (
-                                                            <>
-                                                                <div className="wf-chain-arrow wf-chain-arrow-preview">
-                                                                    ↓
-                                                                </div>
-                                                                <span className="wf-section-label wf-section-label-preview">Next Layer</span>
-                                                                {preview.names
-                                                                    .slice(0, 2)
-                                                                    .map((name, i) => (
-                                                                        <NodeCard
-                                                                            key={preview.ids[i]}
-                                                                            id={preview.ids[i]}
-                                                                            name={name}
-                                                                            faded
-                                                                        />
-                                                                    ))}
-                                                                {preview.count > 2 && (
-                                                                    <span className="wf-node-preview-more">
-                                                                        +{preview.count - 2} more
-                                                                    </span>
-                                                                )}
-                                                            </>
-                                                        )}
+                                                    <div key={sys.id} className="wf-node-with-conn">
+                                                        <NodeCard id={sys.id} name={sys.name} />
+                                                        {connLabel && <span className="wf-conn-label">{connLabel}</span>}
                                                     </div>
                                                 );
                                             })}
