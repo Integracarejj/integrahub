@@ -607,6 +607,10 @@ export default function IntegrationsPage() {
             type: r.integrationType || "",
             method: r.method || "",
             status: r.status || "",
+            frequency: r.frequency || "",
+            businessPurpose: r.businessPurpose || "",
+            dataExchanged: r.dataExchanged || "",
+            notes: r.notes || "",
             isBidirectional: bidirectionalPairs.has(`${r.fromApplicationId}::${r.toApplicationId}`) &&
                              bidirectionalPairs.has(`${r.toApplicationId}::${r.fromApplicationId}`),
         }));
@@ -686,14 +690,10 @@ export default function IntegrationsPage() {
         return { nodes: layoutNodes, edges: mapEdgeData, centerId };
     }, [mapNodeData, mapEdgeData]);
 
-    // Filtered nodes and edges based on toolbar filters
+    // Hide-mode filters: Category, Criticality, Status, Owner — remove non-matching nodes
     const mapFilteredLayout = useMemo(() => {
-        const q = mapSearchQuery.trim().toLowerCase();
         let visible = mapLayout.nodes;
 
-        if (q) {
-            visible = visible.filter((n) => n.name.toLowerCase().includes(q));
-        }
         if (mapCategoryFilter) {
             visible = visible.filter((n) => n.category === mapCategoryFilter);
         }
@@ -709,9 +709,6 @@ export default function IntegrationsPage() {
                        n.techOwner.toLowerCase().includes(mapOwnerFilter.toLowerCase())
             );
         }
-        if (mapCapabilityFilter) {
-            visible = visible.filter((n) => n.capabilityName === mapCapabilityFilter);
-        }
 
         const visibleIds = new Set(visible.map((n) => n.id));
         const visibleEdges = mapLayout.edges.filter(
@@ -719,7 +716,60 @@ export default function IntegrationsPage() {
         );
 
         return { nodes: visible, edges: visibleEdges, centerId: mapLayout.centerId };
-    }, [mapLayout, mapSearchQuery, mapCategoryFilter, mapCriticalityFilter, mapStatusFilter, mapOwnerFilter, mapCapabilityFilter]);
+    }, [mapLayout, mapCategoryFilter, mapCriticalityFilter, mapStatusFilter, mapOwnerFilter]);
+
+    // Capability highlight: matching nodes stay prominent, others fade
+    const mapCapabilityHighlightIds = useMemo(() => {
+        if (!mapCapabilityFilter) return null;
+        return new Set(mapNodeData.filter((n) => n.capabilityName === mapCapabilityFilter).map((n) => n.id));
+    }, [mapNodeData, mapCapabilityFilter]);
+
+    // Search highlight: matching nodes/edges stay prominent, others fade
+    const mapSearchHighlightIds = useMemo(() => {
+        const q = mapSearchQuery.trim().toLowerCase();
+        if (!q) return null;
+        const matched = new Set<string>();
+        // Match node fields
+        mapNodeData.forEach((n) => {
+            if (
+                n.name.toLowerCase().includes(q) ||
+                n.capabilityName.toLowerCase().includes(q) ||
+                n.category.toLowerCase().includes(q) ||
+                n.archType.toLowerCase().includes(q) ||
+                n.criticality.toLowerCase().includes(q) ||
+                n.status.toLowerCase().includes(q)
+            ) {
+                matched.add(n.id);
+            }
+        });
+        // Match integration fields → highlight both connected systems
+        mapLayout.edges.forEach((e) => {
+            if (
+                e.type.toLowerCase().includes(q) ||
+                e.method.toLowerCase().includes(q) ||
+                e.status.toLowerCase().includes(q) ||
+                e.frequency.toLowerCase().includes(q) ||
+                e.businessPurpose.toLowerCase().includes(q) ||
+                e.dataExchanged.toLowerCase().includes(q) ||
+                e.notes.toLowerCase().includes(q)
+            ) {
+                matched.add(e.from);
+                matched.add(e.to);
+            }
+        });
+        return matched;
+    }, [mapNodeData, mapLayout.edges, mapSearchQuery]);
+
+    // Combined highlight set (null if none active)
+    const mapHighlightIds = useMemo(() => {
+        const cap = mapCapabilityHighlightIds;
+        const search = mapSearchHighlightIds;
+        if (!cap && !search) return null;
+        const combined = new Set<string>();
+        if (cap) cap.forEach((id) => combined.add(id));
+        if (search) search.forEach((id) => combined.add(id));
+        return combined;
+    }, [mapCapabilityHighlightIds, mapSearchHighlightIds]);
 
     // Compute related node IDs for selection highlighting
     const mapRelatedIds = useMemo(() => {
@@ -1161,6 +1211,21 @@ export default function IntegrationsPage() {
                             </div>
                         </div>
 
+                        {(() => {
+                            const visibleCount = mapFilteredLayout.nodes.length;
+                            const capCount = mapCapabilityFilter && mapCapabilityHighlightIds
+                                ? mapFilteredLayout.nodes.filter((n) => mapCapabilityHighlightIds!.has(n.id)).length
+                                : null;
+                            const searchCount = mapSearchQuery.trim() && mapSearchHighlightIds
+                                ? mapFilteredLayout.nodes.filter((n) => mapSearchHighlightIds!.has(n.id)).length
+                                : null;
+                            const parts: string[] = [];
+                            if (searchCount !== null) parts.push(`Search matched ${searchCount} system${searchCount === 1 ? "" : "s"}`);
+                            if (capCount !== null) parts.push(`Highlighting ${capCount} ${mapCapabilityFilter} system${capCount === 1 ? "" : "s"}`);
+                            const text = parts.length > 0 ? parts.join(" · ") : `Showing all ${visibleCount} system${visibleCount === 1 ? "" : "s"}`;
+                            return <div className="map-status-text">{text}</div>;
+                        })()}
+
                         {/* ── Body ── */}
                         <div className="map-body">
                             {/* SVG Canvas */}
@@ -1203,7 +1268,10 @@ export default function IntegrationsPage() {
                                     const isRelated = mapSelectedId
                                         ? (e.from === mapSelectedId || e.to === mapSelectedId)
                                         : true;
-                                    const isFaded = mapSelectedId ? !isRelated : false;
+                                    const isHighlighted = mapHighlightIds
+                                        ? (mapHighlightIds.has(e.from) && mapHighlightIds.has(e.to))
+                                        : true;
+                                    const isFaded = mapSelectedId ? !isRelated : (mapHighlightIds ? !isHighlighted : false);
 
                                     const strokeColor = e.isBidirectional ? "#60a5fa" : "#94a3b8";
                                     const strokeDash = e.isBidirectional ? "6,3" : "none";
@@ -1241,7 +1309,8 @@ export default function IntegrationsPage() {
                                 {mapFilteredLayout.nodes.map((n) => {
                                     const isSelected = mapSelectedId === n.id;
                                     const isRelated = mapSelectedId ? mapRelatedIds.has(n.id) : true;
-                                    const isFaded = mapSelectedId ? !isRelated : false;
+                                    const isHighlighted = mapHighlightIds ? mapHighlightIds.has(n.id) : true;
+                                    const isFaded = mapSelectedId ? !isRelated : (mapHighlightIds ? !isHighlighted : false);
                                     const critColor = getCriticalityColor(n.criticality);
 
                                     return (
@@ -1463,15 +1532,15 @@ export default function IntegrationsPage() {
                                         <svg width="20" height="4" viewBox="0 0 20 4"><line x1="0" y1="2" x2="20" y2="2" stroke="#60a5fa" strokeWidth="2" strokeDasharray="4,2" /></svg>
                                         Bidirectional
                                     </span>
-                                    {mapSelectedId && (
+                                    {(mapSelectedId || mapHighlightIds) && (
                                         <>
                                             <span className="map-legend-item">
                                                 <svg width="20" height="4" viewBox="0 0 20 4"><line x1="0" y1="2" x2="20" y2="2" stroke="#94a3b8" strokeWidth="2" opacity="0.3" /><line x1="0" y1="2" x2="20" y2="2" stroke="#94a3b8" strokeWidth="0.5" strokeDasharray="2,3" /></svg>
-                                                Faded (not related)
+                                                Faded (outside focus)
                                             </span>
                                             <span className="map-legend-item">
                                                 <span style={{ display: "inline-block", width: 20, height: 4, background: "#3b82f6", borderRadius: 2, verticalAlign: "middle" }} />
-                                                Highlighted (related)
+                                                Highlighted (in focus)
                                             </span>
                                         </>
                                     )}
