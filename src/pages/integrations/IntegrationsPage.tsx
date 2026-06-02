@@ -358,7 +358,12 @@ export default function IntegrationsPage() {
                           : `Show workflow for ${name}`
                 }
             >
-                {generated && <span className="wf-node-gen-label">User Entry</span>}
+                {generated && (
+                    <span className="wf-node-gen-label">
+                        <span className="wf-person-icon">👤</span>
+                        User Entry
+                    </span>
+                )}
                 {isFocus && <span className="wf-focus-label">Focus System</span>}
                 <span className="wf-node-name">{name}</span>
                 {!generated && (
@@ -874,14 +879,15 @@ export default function IntegrationsPage() {
 
                                 <div className="wf-section-label">Focus System</div>
 
-                                <div className="wf-node-row wf-node-row-focus">
-                                    <div className="wf-focus-with-connected">
-                                        <div className="wf-focus-card-wrap">
-                                            <NodeCard id={focusSystemId} name={focusName} isFocus />
-                                        </div>
-                                        {connectedSystems.length > 0 && (
-                                            <>
-                                                <span className="wf-bidi-arrow">↔</span>
+                                <div className="wf-focus-row-wrapper">
+                                    <div className="wf-focus-spine">
+                                        <NodeCard id={focusSystemId} name={focusName} isFocus />
+                                    </div>
+                                    {connectedSystems.length > 0 && (
+                                        <div className="wf-connected-sidecar">
+                                            <div className="wf-section-label wf-conn-sys-label">Connected Systems</div>
+                                            <div className="wf-conn-sys-content">
+                                                <span className="wf-sync-icon">↻</span>
                                                 <div className="wf-connected-systems">
                                                     {connectedSystems.map((sys) => {
                                                         const conn = rows.find(
@@ -898,9 +904,9 @@ export default function IntegrationsPage() {
                                                         );
                                                     })}
                                                 </div>
-                                            </>
-                                        )}
-                                    </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {downstreamSystems.length > 0 && (
