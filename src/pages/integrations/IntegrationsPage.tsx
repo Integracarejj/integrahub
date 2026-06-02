@@ -719,7 +719,7 @@ export default function IntegrationsPage() {
         );
 
         return { nodes: visible, edges: visibleEdges, centerId: mapLayout.centerId };
-    }, [mapLayout, mapSearchQuery, mapCategoryFilter, mapCriticalityFilter, mapStatusFilter, mapOwnerFilter]);
+    }, [mapLayout, mapSearchQuery, mapCategoryFilter, mapCriticalityFilter, mapStatusFilter, mapOwnerFilter, mapCapabilityFilter]);
 
     // Compute related node IDs for selection highlighting
     const mapRelatedIds = useMemo(() => {

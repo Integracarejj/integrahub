@@ -40,6 +40,7 @@ export default function AdminPage() {
     const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
     const [editingIntegrationId, setEditingIntegrationId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState({ sourceApplicationId: "", targetApplicationId: "", integrationType: "", notes: "", status: "", businessPurpose: "", dataExchanged: "", frequency: "", method: "" });
+    const [editModalDirection, setEditModalDirection] = useState<"unidirectional" | "bidirectional">("unidirectional");
     const [savingId, setSavingId] = useState<string | null>(null);
 
     const INTEGRATION_TYPES = ["API", "Authentication", "Reporting Feed", "File Exchange", "Manual Process", "Database Sync", "ETL / Data Pipeline", "Document Distribution", "Data Export", "Data Import"];
@@ -152,6 +153,12 @@ function loadData() {
 
     function startEditIntegration(int: Integration) {
         setEditingIntegrationId(int.id);
+        const isBidi = integrations.some(
+            (i) => i.id !== int.id &&
+                   i.sourceApplicationId === int.targetApplicationId &&
+                   i.targetApplicationId === int.sourceApplicationId
+        );
+        setEditModalDirection(isBidi ? "bidirectional" : "unidirectional");
         setEditForm({
             sourceApplicationId: int.sourceApplicationId,
             targetApplicationId: int.targetApplicationId,
@@ -167,6 +174,7 @@ function loadData() {
 
     function cancelEditIntegration() {
         setEditingIntegrationId(null);
+        setEditModalDirection("unidirectional");
         setEditForm({ sourceApplicationId: "", targetApplicationId: "", integrationType: "", notes: "", status: "", businessPurpose: "", dataExchanged: "", frequency: "", method: "" });
     }
 
@@ -179,6 +187,14 @@ function loadData() {
         setDeleteError(null);
 
         try {
+            const original = integrations.find((i) => i.id === id);
+            const wasBidirectional = original ? integrations.some(
+                (i) => i.id !== id &&
+                       i.sourceApplicationId === original.targetApplicationId &&
+                       i.targetApplicationId === original.sourceApplicationId
+            ) : false;
+            const wantsBidirectional = editModalDirection === "bidirectional";
+
             const res = await fetch(`/api/integrations/${id}`, {
                 method: "PUT",
                 headers: getAuthHeaders(),
@@ -199,6 +215,51 @@ function loadData() {
                 const data = await res.json();
                 setDeleteError(data.error || "Failed to update integration");
                 return;
+            }
+
+            if (wasBidirectional && !wantsBidirectional) {
+                const reciprocal = original ? integrations.find(
+                    (i) => i.id !== id &&
+                           i.sourceApplicationId === original.targetApplicationId &&
+                           i.targetApplicationId === original.sourceApplicationId
+                ) : null;
+                if (reciprocal) {
+                    await fetch(`/api/integrations/${reciprocal.id}`, {
+                        method: "DELETE",
+                        headers: getAuthHeaders(),
+                    });
+                }
+            } else if (wantsBidirectional && original && (!wasBidirectional ||
+                       original.sourceApplicationId !== editForm.sourceApplicationId ||
+                       original.targetApplicationId !== editForm.targetApplicationId)) {
+                if (wasBidirectional) {
+                    const oldReciprocal = integrations.find(
+                        (i) => i.id !== id &&
+                               i.sourceApplicationId === original.targetApplicationId &&
+                               i.targetApplicationId === original.sourceApplicationId
+                    );
+                    if (oldReciprocal) {
+                        await fetch(`/api/integrations/${oldReciprocal.id}`, {
+                            method: "DELETE",
+                            headers: getAuthHeaders(),
+                        });
+                    }
+                }
+                await fetch("/api/integrations", {
+                    method: "POST",
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        sourceApplicationId: editForm.targetApplicationId,
+                        targetApplicationId: editForm.sourceApplicationId,
+                        integrationType: editForm.integrationType || "",
+                        status: editForm.status || "Active",
+                        method: editForm.method || "Unknown",
+                        frequency: editForm.frequency || "Unknown",
+                        businessPurpose: editForm.businessPurpose || null,
+                        dataExchanged: editForm.dataExchanged || null,
+                        notes: editForm.notes || "",
+                    }),
+                });
             }
 
             loadData();
@@ -366,153 +427,178 @@ function loadData() {
                         <tbody>
                             {integrations.map((int) => (
                                 <tr key={int.id}>
-                                    {editingIntegrationId === int.id ? (
-                                        <>
-                                            <td>
-                                                <select
-                                                    value={editForm.sourceApplicationId}
-                                                    onChange={(e) => setEditForm({ ...editForm, sourceApplicationId: e.target.value })}
-                                                    className="edit-select"
-                                                >
-                                                    <option value="">Select Source</option>
-                                                    {applications.map((app) => (
-                                                        <option key={app.id} value={app.id}>{app.name}</option>
-                                                    ))}
-                                                </select>
-                                            </td>
-                                            <td>
-                                                <select
-                                                    value={editForm.targetApplicationId}
-                                                    onChange={(e) => setEditForm({ ...editForm, targetApplicationId: e.target.value })}
-                                                    className="edit-select"
-                                                >
-                                                    <option value="">Select Target</option>
-                                                    {applications.map((app) => (
-                                                        <option key={app.id} value={app.id}>{app.name}</option>
-                                                    ))}
-                                                </select>
-                                            </td>
-                                            <td>
-                                                <select
-                                                    value={editForm.integrationType}
-                                                    onChange={(e) => setEditForm({ ...editForm, integrationType: e.target.value })}
-                                                    className="edit-select"
-                                                >
-                                                    <option value="">Select Type</option>
-                                                    {INTEGRATION_TYPES.map((type) => (
-                                                        <option key={type} value={type}>{type}</option>
-                                                    ))}
-                                                </select>
-                                            </td>
-                                            <td>
-                                                <select
-                                                    value={editForm.status}
-                                                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                                                    className="edit-select"
-                                                >
-                                                    <option value="">Select Status</option>
-                                                    {STATUS_OPTIONS.map((opt) => (
-                                                        <option key={opt} value={opt}>{opt}</option>
-                                                    ))}
-                                                </select>
-                                            </td>
-                                            <td>
-                                                <select
-                                                    value={editForm.method}
-                                                    onChange={(e) => setEditForm({ ...editForm, method: e.target.value })}
-                                                    className="edit-select"
-                                                >
-                                                    <option value="">Select Method</option>
-                                                    {METHOD_OPTIONS.map((opt) => (
-                                                        <option key={opt} value={opt}>{opt}</option>
-                                                    ))}
-                                                </select>
-                                            </td>
-                                            <td>
-                                                <select
-                                                    value={editForm.frequency}
-                                                    onChange={(e) => setEditForm({ ...editForm, frequency: e.target.value })}
-                                                    className="edit-select"
-                                                >
-                                                    <option value="">Select Frequency</option>
-                                                    {FREQUENCY_OPTIONS.map((opt) => (
-                                                        <option key={opt} value={opt}>{opt}</option>
-                                                    ))}
-                                                </select>
-                                            </td>
-                                            <td>
-                                                <input
-                                                    type="text"
-                                                    value={editForm.businessPurpose}
-                                                    onChange={(e) => setEditForm({ ...editForm, businessPurpose: e.target.value })}
-                                                    className="edit-input"
-                                                    placeholder="Purpose"
-                                                    style={{ width: 140 }}
-                                                />
-                                                <input
-                                                    type="text"
-                                                    value={editForm.dataExchanged}
-                                                    onChange={(e) => setEditForm({ ...editForm, dataExchanged: e.target.value })}
-                                                    className="edit-input"
-                                                    placeholder="Data exchanged"
-                                                    style={{ width: 140 }}
-                                                />
-                                                <input
-                                                    type="text"
-                                                    value={editForm.notes}
-                                                    onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-                                                    className="edit-input"
-                                                    placeholder="Notes"
-                                                    style={{ width: 140 }}
-                                                />
-                                            </td>
-                                            <td>
-                                                <button
-                                                    className="admin-link"
-                                                    onClick={() => saveEditIntegration(int.id)}
-                                                    disabled={savingId === int.id}
-                                                >
-                                                    {savingId === int.id ? "Saving..." : "Save"}
-                                                </button>
-                                                <button
-                                                    className="admin-link"
-                                                    onClick={cancelEditIntegration}
-                                                >
-                                                    Cancel
-                                                </button>
-                                            </td>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <td>{int.sourceApplicationName}</td>
-                                            <td>{int.targetApplicationName}</td>
-                                            <td>{int.integrationType || "—"}</td>
-                                            <td>{int.status || "—"}</td>
-                                            <td>{int.method || "—"}</td>
-                                            <td>{int.frequency || "—"}</td>
-                                            <td className="context-cell">{int.businessPurpose || int.dataExchanged || int.notes || "—"}</td>
-                                            <td>
-                                                <button
-                                                    className="admin-link"
-                                                    onClick={() => startEditIntegration(int)}
-                                                >
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    className="admin-link danger"
-                                                    onClick={() => handleDeleteIntegration(int.id)}
-                                                    disabled={deletingId === int.id}
-                                                >
-                                                    {deletingId === int.id ? "Deleting..." : "Delete"}
-                                                </button>
-                                            </td>
-                                        </>
-                                    )}
+                                    <td>{int.sourceApplicationName}</td>
+                                    <td>{int.targetApplicationName}</td>
+                                    <td>{int.integrationType || "—"}</td>
+                                    <td>{int.status || "—"}</td>
+                                    <td>{int.method || "—"}</td>
+                                    <td>{int.frequency || "—"}</td>
+                                    <td className="context-cell">{int.businessPurpose || int.dataExchanged || int.notes || "—"}</td>
+                                    <td>
+                                        <button
+                                            className="admin-link"
+                                            onClick={() => startEditIntegration(int)}
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            className="admin-link danger"
+                                            onClick={() => handleDeleteIntegration(int.id)}
+                                            disabled={deletingId === int.id}
+                                        >
+                                            {deletingId === int.id ? "Deleting..." : "Delete"}
+                                        </button>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 )}
+
+                {editingIntegrationId && (() => {
+                    const editingInt = integrations.find((i) => i.id === editingIntegrationId);
+                    if (!editingInt) return null;
+                    return (
+                        <div className="modal-overlay" onClick={cancelEditIntegration}>
+                            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                                <h2>Edit Integration</h2>
+                                <div className="modal-form-grid">
+                                    <div className="form-field">
+                                        <label>Source Application</label>
+                                        <select
+                                            value={editForm.sourceApplicationId}
+                                            onChange={(e) => setEditForm({ ...editForm, sourceApplicationId: e.target.value })}
+                                            className="edit-select modal-select"
+                                        >
+                                            <option value="">Select Source</option>
+                                            {applications.map((app) => (
+                                                <option key={app.id} value={app.id}>{app.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="form-field">
+                                        <label>Target Application</label>
+                                        <select
+                                            value={editForm.targetApplicationId}
+                                            onChange={(e) => setEditForm({ ...editForm, targetApplicationId: e.target.value })}
+                                            className="edit-select modal-select"
+                                        >
+                                            <option value="">Select Target</option>
+                                            {applications.map((app) => (
+                                                <option key={app.id} value={app.id}>{app.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="form-field">
+                                        <label>Direction</label>
+                                        <select
+                                            value={editModalDirection}
+                                            onChange={(e) => setEditModalDirection(e.target.value as "unidirectional" | "bidirectional")}
+                                            className="edit-select modal-select"
+                                        >
+                                            <option value="unidirectional">Source → Target</option>
+                                            <option value="bidirectional">Bidirectional</option>
+                                        </select>
+                                    </div>
+                                    <div className="form-field">
+                                        <label>Integration Type</label>
+                                        <select
+                                            value={editForm.integrationType}
+                                            onChange={(e) => setEditForm({ ...editForm, integrationType: e.target.value })}
+                                            className="edit-select modal-select"
+                                        >
+                                            <option value="">Select Type</option>
+                                            {INTEGRATION_TYPES.map((type) => (
+                                                <option key={type} value={type}>{type}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="form-field">
+                                        <label>Status</label>
+                                        <select
+                                            value={editForm.status}
+                                            onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                                            className="edit-select modal-select"
+                                        >
+                                            <option value="">Select Status</option>
+                                            {STATUS_OPTIONS.map((opt) => (
+                                                <option key={opt} value={opt}>{opt}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="form-field">
+                                        <label>Method</label>
+                                        <select
+                                            value={editForm.method}
+                                            onChange={(e) => setEditForm({ ...editForm, method: e.target.value })}
+                                            className="edit-select modal-select"
+                                        >
+                                            <option value="">Select Method</option>
+                                            {METHOD_OPTIONS.map((opt) => (
+                                                <option key={opt} value={opt}>{opt}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="form-field">
+                                        <label>Frequency</label>
+                                        <select
+                                            value={editForm.frequency}
+                                            onChange={(e) => setEditForm({ ...editForm, frequency: e.target.value })}
+                                            className="edit-select modal-select"
+                                        >
+                                            <option value="">Select Frequency</option>
+                                            {FREQUENCY_OPTIONS.map((opt) => (
+                                                <option key={opt} value={opt}>{opt}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="form-field">
+                                        <label>Business Purpose</label>
+                                        <textarea
+                                            value={editForm.businessPurpose}
+                                            onChange={(e) => setEditForm({ ...editForm, businessPurpose: e.target.value })}
+                                            className="edit-select modal-textarea"
+                                            rows={2}
+                                        />
+                                    </div>
+                                    <div className="form-field">
+                                        <label>Data Exchanged</label>
+                                        <textarea
+                                            value={editForm.dataExchanged}
+                                            onChange={(e) => setEditForm({ ...editForm, dataExchanged: e.target.value })}
+                                            className="edit-select modal-textarea"
+                                            rows={2}
+                                        />
+                                    </div>
+                                    <div className="form-field">
+                                        <label>Notes</label>
+                                        <textarea
+                                            value={editForm.notes}
+                                            onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                                            className="edit-select modal-textarea"
+                                            rows={2}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="modal-actions">
+                                    <button
+                                        className="btn btn-primary"
+                                        onClick={() => saveEditIntegration(editingIntegrationId)}
+                                        disabled={savingId === editingIntegrationId}
+                                    >
+                                        {savingId === editingIntegrationId ? "Saving..." : "Save"}
+                                    </button>
+                                    <button
+                                        className="btn btn-sm"
+                                        onClick={cancelEditIntegration}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
             </CollapsibleSection>
         </div>
     );
