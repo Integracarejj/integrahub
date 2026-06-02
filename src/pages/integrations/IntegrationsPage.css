@@ -523,7 +523,7 @@
 /* Circular sync icon between focus card and connected panel */
 .wf-connected-sync {
     position: absolute;
-    left: calc(50% + 178px);
+    left: calc(50% + 218px);
     top: 42%;
     transform: translateY(-50%);
     font-size: 20px;
@@ -536,13 +536,16 @@
 /* Connected systems panel — absolutely positioned, does not participate in vertical spine */
 .wf-connected-panel {
     position: absolute;
-    left: calc(50% + 220px);
+    left: calc(50% + 260px);
     top: 42%;
     transform: translateY(-50%);
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 6px;
+    width: 300px;
+    max-height: 260px;
+    overflow-y: auto;
     background: #fafcff;
     border: 1px solid #dbeafe;
     border-radius: 8px;
@@ -561,9 +564,19 @@
 
 .wf-connected-systems {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
+    width: 100%;
+}
+
+/* Populates row — constrained width keeps cards under focus spine, clear of sidecar */
+.wf-populates-row {
+    width: 100%;
+    max-width: 620px;
+    display: flex;
+    justify-content: center;
+    gap: 24px;
     flex-wrap: wrap;
 }
 

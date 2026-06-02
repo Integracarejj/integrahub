@@ -911,7 +911,7 @@ export default function IntegrationsPage() {
                                     <>
                                         <div className="wf-chain-arrow">↓</div>
                                         <div className="wf-section-label">Populates</div>
-                                        <div className="wf-node-row">
+                                        <div className="wf-node-row wf-populates-row">
                                             {downstreamSystems.map((sys) => {
                                                 const conn = directionalOutbound.find((i) => i.toApplicationId === sys.id);
                                                 const connLabel = conn ? (conn.integrationType || conn.method || conn.frequency || null) : null;
