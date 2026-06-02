@@ -195,19 +195,56 @@ export default function IntegrationsPage() {
         [rows, focusSystemId],
     );
 
+    // Detect systems bidirectionally connected to the focus system (reciprocal integrations)
+    const connectedSystemIds = useMemo(() => {
+        const focusIsSource = new Set(
+            rows.filter((r) => r.fromApplicationId === focusSystemId)
+                .map((r) => r.toApplicationId)
+        );
+        const focusIsTarget = new Set(
+            rows.filter((r) => r.toApplicationId === focusSystemId)
+                .map((r) => r.fromApplicationId)
+        );
+        return new Set([...focusIsSource].filter((id) => focusIsTarget.has(id)));
+    }, [rows, focusSystemId]);
+
+    // Directional inbound rows (focus is target), excluding bidirectional pairs
+    const directionalInbound = useMemo(
+        () => rows.filter((r) => r.toApplicationId === focusSystemId && !connectedSystemIds.has(r.fromApplicationId)),
+        [rows, focusSystemId, connectedSystemIds],
+    );
+
+    // Directional outbound rows (focus is source), excluding bidirectional pairs
+    const directionalOutbound = useMemo(
+        () => rows.filter((r) => r.fromApplicationId === focusSystemId && !connectedSystemIds.has(r.toApplicationId)),
+        [rows, focusSystemId, connectedSystemIds],
+    );
+
+    // Systems bidirectionally linked to the focus system
+    const connectedSystems = useMemo(() => {
+        const map = new Map<string, string>();
+        rows.forEach((r) => {
+            if (r.fromApplicationId === focusSystemId && connectedSystemIds.has(r.toApplicationId)) {
+                map.set(r.toApplicationId, r.toApplicationName);
+            }
+            if (r.toApplicationId === focusSystemId && connectedSystemIds.has(r.fromApplicationId)) {
+                map.set(r.fromApplicationId, r.fromApplicationName);
+            }
+        });
+        return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+    }, [rows, focusSystemId, connectedSystemIds]);
+
     const upstreamSystems = useMemo(() => {
         const map = new Map<string, string>();
-        inbound.forEach((int) => map.set(int.fromApplicationId, int.fromApplicationName));
+        directionalInbound.forEach((int) => map.set(int.fromApplicationId, int.fromApplicationName));
         return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-    }, [inbound]);
+    }, [directionalInbound]);
 
     const downstreamSystems = useMemo(() => {
         const map = new Map<string, string>();
-        outbound.forEach((int) => map.set(int.toApplicationId, int.toApplicationName));
+        directionalOutbound.forEach((int) => map.set(int.toApplicationId, int.toApplicationName));
         return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-    }, [outbound]);
-
-
+    }, [directionalOutbound]);
 
     const appData = useMemo(() => {
         const map = new Map<string, ApplicationOption>();
@@ -815,7 +852,7 @@ export default function IntegrationsPage() {
                                 {upstreamSystems.length > 0 && (
                                     <div className="wf-node-row">
                                         {upstreamSystems.map((sys) => {
-                                            const conn = inbound.find((i) => i.fromApplicationId === sys.id);
+                                            const conn = directionalInbound.find((i) => i.fromApplicationId === sys.id);
                                             const connLabel = conn ? (conn.integrationType || conn.method || conn.frequency || null) : null;
                                             return (
                                                 <div key={sys.id} className="wf-node-with-conn">
@@ -838,7 +875,32 @@ export default function IntegrationsPage() {
                                 <div className="wf-section-label">Focus System</div>
 
                                 <div className="wf-node-row wf-node-row-focus">
-                                    <NodeCard id={focusSystemId} name={focusName} isFocus />
+                                    <div className="wf-focus-with-connected">
+                                        <div className="wf-focus-card-wrap">
+                                            <NodeCard id={focusSystemId} name={focusName} isFocus />
+                                        </div>
+                                        {connectedSystems.length > 0 && (
+                                            <>
+                                                <span className="wf-bidi-arrow">↔</span>
+                                                <div className="wf-connected-systems">
+                                                    {connectedSystems.map((sys) => {
+                                                        const conn = rows.find(
+                                                            (r) =>
+                                                                (r.fromApplicationId === focusSystemId && r.toApplicationId === sys.id) ||
+                                                                (r.toApplicationId === focusSystemId && r.fromApplicationId === sys.id)
+                                                        );
+                                                        const connLabel = conn ? (conn.integrationType || conn.method || conn.frequency || null) : null;
+                                                        return (
+                                                            <div key={sys.id} className="wf-node-with-conn">
+                                                                <NodeCard id={sys.id} name={sys.name} />
+                                                                {connLabel && <span className="wf-conn-label">{connLabel}</span>}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {downstreamSystems.length > 0 && (
@@ -847,7 +909,7 @@ export default function IntegrationsPage() {
                                         <div className="wf-section-label">Populates</div>
                                         <div className="wf-node-row">
                                             {downstreamSystems.map((sys) => {
-                                                const conn = outbound.find((i) => i.toApplicationId === sys.id);
+                                                const conn = directionalOutbound.find((i) => i.toApplicationId === sys.id);
                                                 const connLabel = conn ? (conn.integrationType || conn.method || conn.frequency || null) : null;
                                                 return (
                                                     <div key={sys.id} className="wf-node-with-conn">
