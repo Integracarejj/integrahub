@@ -121,6 +121,16 @@ export default function IntegrationsPage() {
     } | null>(null);
     const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
 
+    // Map View state
+    const [mapSelectedId, setMapSelectedId] = useState<string | null>(null);
+    const [mapSearchQuery, setMapSearchQuery] = useState("");
+    const [mapCategoryFilter, setMapCategoryFilter] = useState("");
+    const [mapCriticalityFilter, setMapCriticalityFilter] = useState("");
+    const [mapStatusFilter, setMapStatusFilter] = useState("");
+    const [mapShowLabels, setMapShowLabels] = useState(true);
+    const [mapShowIntTypes, setMapShowIntTypes] = useState(false);
+    const [mapOwnerFilter, setMapOwnerFilter] = useState("");
+
     const loadData = async () => {
         try {
             const data = await getIntegrationViews();
@@ -494,6 +504,241 @@ export default function IntegrationsPage() {
         }
     }
 
+    // ── Map View data processing ──
+
+    function getMapNodeIcon(category: string): string {
+        const c = category.toLowerCase();
+        if (c.includes("identity")) return "🔑";
+        if (c.includes("data")) return "🗄️";
+        if (c.includes("report") || c.includes("bi")) return "📊";
+        if (c.includes("platform") || c.includes("integration layer")) return "🧩";
+        if (c.includes("file") || c.includes("document")) return "📁";
+        if (c.includes("people") || c.includes("manual") || c.includes("user")) return "👤";
+        if (c.includes("application") || c.includes("saas") || c.includes("vendor")) return "💻";
+        return "🔵";
+    }
+
+    function getCriticalityColor(crit: string | null | undefined): string {
+        const c = (crit || "").toLowerCase();
+        if (c === "high") return "#ef4444";
+        if (c === "medium") return "#f59e0b";
+        if (c === "low") return "#9ca3af";
+        return "#d1d5db";
+    }
+
+    function getStatusColor(status: string | null | undefined): string {
+        const s = (status || "").toLowerCase();
+        if (s === "active") return "#22c55e";
+        if (s === "planned") return "#3b82f6";
+        if (s === "retired") return "#6b7280";
+        return "#d1d5db";
+    }
+
+    // All unique systems from integration data, enhanced with app metadata
+    const mapNodeData = useMemo(() => {
+        const sysMap = new Map<string, {
+            id: string; name: string; category: string; status: string;
+            criticality: string; bizOwner: string; techOwner: string;
+            archType: string; degree: number;
+        }>();
+
+        rows.forEach((r) => {
+            if (!sysMap.has(r.fromApplicationId)) {
+                const app = appData.get(r.fromApplicationId);
+                sysMap.set(r.fromApplicationId, {
+                    id: r.fromApplicationId,
+                    name: r.fromApplicationName,
+                    category: getNodeDisplayCategory(app?.architectureType),
+                    status: app?.status || "",
+                    criticality: app?.businessCriticality || "",
+                    bizOwner: app?.businessOwner || (app?.ownership as { businessOwner?: string })?.businessOwner || "",
+                    techOwner: app?.technicalOwner || (app?.ownership as { technicalOwner?: string })?.technicalOwner || "",
+                    archType: app?.architectureType || "",
+                    degree: 0,
+                });
+            }
+            if (!sysMap.has(r.toApplicationId)) {
+                const app = appData.get(r.toApplicationId);
+                sysMap.set(r.toApplicationId, {
+                    id: r.toApplicationId,
+                    name: r.toApplicationName,
+                    category: getNodeDisplayCategory(app?.architectureType),
+                    status: app?.status || "",
+                    criticality: app?.businessCriticality || "",
+                    bizOwner: app?.businessOwner || (app?.ownership as { businessOwner?: string })?.businessOwner || "",
+                    techOwner: app?.technicalOwner || (app?.ownership as { technicalOwner?: string })?.technicalOwner || "",
+                    archType: app?.architectureType || "",
+                    degree: 0,
+                });
+            }
+            sysMap.get(r.fromApplicationId)!.degree++;
+            sysMap.get(r.toApplicationId)!.degree++;
+        });
+
+        return Array.from(sysMap.values());
+    }, [rows, appData]);
+
+    // Build edges with bidirectional awareness
+    const mapEdgeData = useMemo(() => {
+        const bidirectionalPairs = new Set<string>();
+        rows.forEach((r) => {
+            if (rows.some((rr) => rr.fromApplicationId === r.toApplicationId && rr.toApplicationId === r.fromApplicationId)) {
+                bidirectionalPairs.add(`${r.fromApplicationId}::${r.toApplicationId}`);
+            }
+        });
+        return rows.map((r) => ({
+            from: r.fromApplicationId,
+            to: r.toApplicationId,
+            type: r.integrationType || "",
+            method: r.method || "",
+            status: r.status || "",
+            isBidirectional: bidirectionalPairs.has(`${r.fromApplicationId}::${r.toApplicationId}`) &&
+                             bidirectionalPairs.has(`${r.toApplicationId}::${r.fromApplicationId}`),
+        }));
+    }, [rows]);
+
+    // Layout computation: radial concentric rings
+    const mapLayout = useMemo(() => {
+        if (mapNodeData.length === 0) return { nodes: [], edges: mapEdgeData };
+
+        const RING1_R = 230;
+        const RING2_R = 400;
+        const RING3_R = 520;
+
+        // Find center: highest degree node, or first node if ties
+        const sorted = [...mapNodeData].sort((a, b) => b.degree - a.degree);
+        const centerId = sorted[0].id;
+
+        // BFS to find hop distances
+        const dist = new Map<string, number>();
+        dist.set(centerId, 0);
+        const adj = new Map<string, Set<string>>();
+        mapNodeData.forEach((n) => adj.set(n.id, new Set()));
+        mapEdgeData.forEach((e) => {
+            adj.get(e.from)?.add(e.to);
+            adj.get(e.to)?.add(e.from);
+        });
+
+        const queue = [centerId];
+        while (queue.length > 0) {
+            const cur = queue.shift()!;
+            const curDist = dist.get(cur) || 0;
+            adj.get(cur)?.forEach((neighbor) => {
+                if (!dist.has(neighbor)) {
+                    dist.set(neighbor, curDist + 1);
+                    queue.push(neighbor);
+                }
+            });
+        }
+
+        // Group nodes by ring
+        const ring1: typeof mapNodeData = [];
+        const ring2: typeof mapNodeData = [];
+        const ring3: typeof mapNodeData = [];
+        mapNodeData.forEach((n) => {
+            if (n.id === centerId) return;
+            const d = dist.get(n.id) ?? 99;
+            if (d <= 1) ring1.push(n);
+            else if (d <= 2) ring2.push(n);
+            else ring3.push(n);
+        });
+
+        const positions = new Map<string, { x: number; y: number }>();
+        positions.set(centerId, { x: 0, y: 0 });
+
+        function placeRing(nodes: typeof mapNodeData, radius: number) {
+            const count = nodes.length;
+            if (count === 0) return;
+            const angleStep = (2 * Math.PI) / count;
+            nodes.forEach((n, i) => {
+                const angle = angleStep * i - Math.PI / 2;
+                positions.set(n.id, {
+                    x: Math.round(Math.cos(angle) * radius),
+                    y: Math.round(Math.sin(angle) * radius),
+                });
+            });
+        }
+
+        placeRing(ring1, RING1_R);
+        placeRing(ring2, RING2_R);
+        placeRing(ring3, RING3_R);
+
+        const layoutNodes = mapNodeData.map((n) => {
+            const pos = positions.get(n.id) || { x: 0, y: 0 };
+            return { ...n, x: pos.x, y: pos.y };
+        });
+
+        return { nodes: layoutNodes, edges: mapEdgeData, centerId };
+    }, [mapNodeData, mapEdgeData]);
+
+    // Filtered nodes and edges based on toolbar filters
+    const mapFilteredLayout = useMemo(() => {
+        const q = mapSearchQuery.trim().toLowerCase();
+        let visible = mapLayout.nodes;
+
+        if (q) {
+            visible = visible.filter((n) => n.name.toLowerCase().includes(q));
+        }
+        if (mapCategoryFilter) {
+            visible = visible.filter((n) => n.category === mapCategoryFilter);
+        }
+        if (mapCriticalityFilter) {
+            visible = visible.filter((n) => n.criticality.toLowerCase() === mapCriticalityFilter.toLowerCase());
+        }
+        if (mapStatusFilter) {
+            visible = visible.filter((n) => n.status.toLowerCase() === mapStatusFilter.toLowerCase());
+        }
+        if (mapOwnerFilter) {
+            visible = visible.filter(
+                (n) => n.bizOwner.toLowerCase().includes(mapOwnerFilter.toLowerCase()) ||
+                       n.techOwner.toLowerCase().includes(mapOwnerFilter.toLowerCase())
+            );
+        }
+
+        const visibleIds = new Set(visible.map((n) => n.id));
+        const visibleEdges = mapLayout.edges.filter(
+            (e) => visibleIds.has(e.from) && visibleIds.has(e.to)
+        );
+
+        return { nodes: visible, edges: visibleEdges, centerId: mapLayout.centerId };
+    }, [mapLayout, mapSearchQuery, mapCategoryFilter, mapCriticalityFilter, mapStatusFilter, mapOwnerFilter]);
+
+    // Compute related node IDs for selection highlighting
+    const mapRelatedIds = useMemo(() => {
+        if (!mapSelectedId) return new Set<string>();
+        const related = new Set<string>([mapSelectedId]);
+        mapLayout.edges.forEach((e) => {
+            if (e.from === mapSelectedId) related.add(e.to);
+            if (e.to === mapSelectedId) related.add(e.from);
+        });
+        return related;
+    }, [mapSelectedId, mapLayout.edges]);
+
+    const mapCategories = useMemo(() => {
+        return [...new Set(mapNodeData.map((n) => n.category))].sort();
+    }, [mapNodeData]);
+
+    const mapStatuses = useMemo(() => {
+        return [...new Set(mapNodeData.map((n) => n.status).filter(Boolean))].sort();
+    }, [mapNodeData]);
+
+    const mapCriticalities = useMemo(() => {
+        return [...new Set(mapNodeData.map((n) => n.criticality).filter(Boolean))].sort();
+    }, [mapNodeData]);
+
+    function handleMapNodeClick(id: string) {
+        setMapSelectedId((prev) => (prev === id ? null : id));
+    }
+
+    function handleMapViewWorkflow(id: string) {
+        setFocusSystemId(id);
+        setView("workflow");
+    }
+
+    function countRelated(id: string, field: "from" | "to"): number {
+        return mapLayout.edges.filter((e) => e[field] === id).length;
+    }
+
     const appOptions = applications
         .filter((a) => a.id && a.name)
         .sort((a, b) => a.name.localeCompare(b.name));
@@ -800,14 +1045,399 @@ export default function IntegrationsPage() {
             )}
 
             {view === "map" && (
-                <div className="placeholder-card">
-                    <h2>Map View coming soon</h2>
-                    <p>
-                        This view will show selected systems and their connected
-                        integrations in an interactive map, helping you visualize
-                        the relationships between applications.
-                    </p>
-                </div>
+                mapNodeData.length === 0 ? (
+                    <div className="placeholder-card">
+                        <h2>No integration data yet</h2>
+                        <p>Add integrations to see the system relationship map.</p>
+                    </div>
+                ) : (
+                    <div className="map-view">
+                        {/* ── Toolbar ── */}
+                        <div className="map-toolbar">
+                            <div className="map-toolbar-row">
+                                <div className="map-search-wrap">
+                                    <span className="map-search-icon">🔍</span>
+                                    <input
+                                        className="map-search-input"
+                                        type="text"
+                                        placeholder="Search systems..."
+                                        value={mapSearchQuery}
+                                        onChange={(e) => setMapSearchQuery(e.target.value)}
+                                    />
+                                    {mapSearchQuery && (
+                                        <button className="map-search-clear" onClick={() => setMapSearchQuery("")}>×</button>
+                                    )}
+                                </div>
+
+                                <select
+                                    className="map-filter-select"
+                                    value={mapCategoryFilter}
+                                    onChange={(e) => setMapCategoryFilter(e.target.value)}
+                                >
+                                    <option value="">All Categories</option>
+                                    {mapCategories.map((c) => (
+                                        <option key={c} value={c}>{c}</option>
+                                    ))}
+                                </select>
+
+                                <select
+                                    className="map-filter-select"
+                                    value={mapCriticalityFilter}
+                                    onChange={(e) => setMapCriticalityFilter(e.target.value)}
+                                >
+                                    <option value="">All Criticality</option>
+                                    {mapCriticalities.map((c) => (
+                                        <option key={c} value={c}>{c}</option>
+                                    ))}
+                                </select>
+
+                                <select
+                                    className="map-filter-select"
+                                    value={mapStatusFilter}
+                                    onChange={(e) => setMapStatusFilter(e.target.value)}
+                                >
+                                    <option value="">All Status</option>
+                                    {mapStatuses.map((s) => (
+                                        <option key={s} value={s}>{s}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="map-toolbar-row">
+                                <label className="map-toggle">
+                                    <input type="checkbox" checked={mapShowLabels} onChange={(e) => setMapShowLabels(e.target.checked)} />
+                                    <span>Show Labels</span>
+                                </label>
+                                <label className="map-toggle">
+                                    <input type="checkbox" checked={mapShowIntTypes} onChange={(e) => setMapShowIntTypes(e.target.checked)} />
+                                    <span>Integration Types</span>
+                                </label>
+                                <button
+                                    className="map-btn-reset"
+                                    onClick={() => {
+                                        setMapSelectedId(null);
+                                        setMapSearchQuery("");
+                                        setMapCategoryFilter("");
+                                        setMapCriticalityFilter("");
+                                        setMapStatusFilter("");
+                                        setMapOwnerFilter("");
+                                    }}
+                                >
+                                    Reset Filters
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* ── Body ── */}
+                        <div className="map-body">
+                            {/* SVG Canvas */}
+                            <svg
+                                className="map-canvas"
+                                viewBox="-600 -600 1200 1200"
+                                preserveAspectRatio="xMidYMid meet"
+                            >
+                                <defs>
+                                    <marker
+                                        id="map-arrow"
+                                        viewBox="0 0 10 10"
+                                        refX="8"
+                                        refY="5"
+                                        markerWidth="6"
+                                        markerHeight="6"
+                                        orient="auto"
+                                    >
+                                        <path d="M0,0 L10,5 L0,10 Z" fill="#94a3b8" />
+                                    </marker>
+                                    <marker
+                                        id="map-arrow-bidi"
+                                        viewBox="0 0 10 10"
+                                        refX="8"
+                                        refY="5"
+                                        markerWidth="6"
+                                        markerHeight="6"
+                                        orient="auto"
+                                    >
+                                        <path d="M0,0 L10,5 L0,10 Z" fill="#60a5fa" />
+                                    </marker>
+                                </defs>
+
+                                {/* Edges */}
+                                {mapFilteredLayout.edges.map((e, i) => {
+                                    const fromNode = mapFilteredLayout.nodes.find((n) => n.id === e.from);
+                                    const toNode = mapFilteredLayout.nodes.find((n) => n.id === e.to);
+                                    if (!fromNode || !toNode) return null;
+
+                                    const isRelated = mapSelectedId
+                                        ? (e.from === mapSelectedId || e.to === mapSelectedId)
+                                        : true;
+                                    const isFaded = mapSelectedId ? !isRelated : false;
+
+                                    const strokeColor = e.isBidirectional ? "#60a5fa" : "#94a3b8";
+                                    const strokeDash = e.isBidirectional ? "6,3" : "none";
+                                    const markerEnd = e.isBidirectional ? "url(#map-arrow-bidi)" : "url(#map-arrow)";
+
+                                    return (
+                                        <g key={i} className={`map-edge${isFaded ? " map-edge-faded" : ""}`}>
+                                            {/* Main line */}
+                                            <line
+                                                x1={fromNode.x} y1={fromNode.y}
+                                                x2={toNode.x} y2={toNode.y}
+                                                stroke={strokeColor}
+                                                strokeWidth={isRelated ? 2 : 1}
+                                                strokeDasharray={strokeDash}
+                                                markerEnd={markerEnd}
+                                            />
+                                            {/* Integration type label */}
+                                            {mapShowIntTypes && e.type && isRelated && (
+                                                <text
+                                                    x={(fromNode.x + toNode.x) / 2}
+                                                    y={(fromNode.y + toNode.y) / 2 - 6}
+                                                    textAnchor="middle"
+                                                    fontSize={9}
+                                                    fill="#6b7280"
+                                                    className="map-edge-label"
+                                                >
+                                                    {e.type}
+                                                </text>
+                                            )}
+                                        </g>
+                                    );
+                                })}
+
+                                {/* Nodes */}
+                                {mapFilteredLayout.nodes.map((n) => {
+                                    const isSelected = mapSelectedId === n.id;
+                                    const isRelated = mapSelectedId ? mapRelatedIds.has(n.id) : true;
+                                    const isFaded = mapSelectedId ? !isRelated : false;
+                                    const critColor = getCriticalityColor(n.criticality);
+
+                                    return (
+                                        <g
+                                            key={n.id}
+                                            className={`map-node-group${isSelected ? " map-node-selected" : ""}${isFaded ? " map-node-faded" : ""}`}
+                                            onClick={() => handleMapNodeClick(n.id)}
+                                            style={{ cursor: "pointer" }}
+                                        >
+                                            {/* Node card */}
+                                            <rect
+                                                x={n.x - 90} y={n.y - 36}
+                                                width={180} height={72}
+                                                rx={8} ry={8}
+                                                fill={isSelected ? "#eff6ff" : "#fff"}
+                                                stroke={isSelected ? "#3b82f6" : "#d1d5db"}
+                                                strokeWidth={isSelected ? 2 : 1}
+                                                className="map-node-rect"
+                                            />
+                                            {/* Criticality accent bar */}
+                                            <rect
+                                                x={n.x - 90} y={n.y - 36}
+                                                width={4} height={72}
+                                                rx={4} ry={4}
+                                                fill={critColor}
+                                            />
+                                            {/* Shadow filter? Use simple approach */}
+                                            {isSelected && (
+                                                <rect
+                                                    x={n.x - 90} y={n.y - 36}
+                                                    width={180} height={72}
+                                                    rx={8} ry={8}
+                                                    fill="none"
+                                                    stroke="#93c5fd"
+                                                    strokeWidth={3}
+                                                    opacity={0.4}
+                                                />
+                                            )}
+                                            {/* Icon */}
+                                            <text x={n.x - 76} y={n.y - 4} fontSize={18} textAnchor="middle">
+                                                {getMapNodeIcon(n.category)}
+                                            </text>
+                                            {/* Name */}
+                                            {mapShowLabels && (
+                                                <text
+                                                    x={n.x - 52} y={n.y - 6}
+                                                    fontSize={12} fontWeight="600"
+                                                    fill="#1f2937"
+                                                    className="map-node-text"
+                                                >
+                                                    {n.name.length > 16 ? n.name.slice(0, 15) + "…" : n.name}
+                                                </text>
+                                            )}
+                                            {/* Category */}
+                                            <text
+                                                x={n.x} y={n.y + 16}
+                                                fontSize={10} fill="#6b7280"
+                                                textAnchor="middle"
+                                                className="map-node-text"
+                                            >
+                                                {n.category}
+                                            </text>
+                                            {/* Status badge */}
+                                            {n.status && (
+                                                <>
+                                                    <rect
+                                                        x={n.x - 28} y={n.y + 22}
+                                                        width={56} height={16}
+                                                        rx={8} ry={8}
+                                                        fill={getStatusColor(n.status)}
+                                                        opacity={0.15}
+                                                    />
+                                                    <text
+                                                        x={n.x} y={n.y + 34}
+                                                        fontSize={9} fontWeight="600"
+                                                        fill={getStatusColor(n.status)}
+                                                        textAnchor="middle"
+                                                    >
+                                                        {n.status}
+                                                    </text>
+                                                </>
+                                            )}
+                                        </g>
+                                    );
+                                })}
+                            </svg>
+
+                            {/* Detail Panel */}
+                            <div className="map-detail-panel">
+                                {mapSelectedId ? (() => {
+                                    const node = mapFilteredLayout.nodes.find((n) => n.id === mapSelectedId);
+                                    if (!node) return (
+                                        <div className="map-detail-empty">
+                                            <span className="map-detail-empty-icon">🔍</span>
+                                            <p>System not found in current filter.</p>
+                                        </div>
+                                    );
+                                    const upstream = countRelated(mapSelectedId, "to");
+                                    const downstream = countRelated(mapSelectedId, "from");
+                                    const connected = mapLayout.edges.filter(
+                                        (e) => e.isBidirectional && (e.from === mapSelectedId || e.to === mapSelectedId)
+                                    ).length;
+                                    const total = mapLayout.edges.filter(
+                                        (e) => e.from === mapSelectedId || e.to === mapSelectedId
+                                    ).length;
+
+                                    return (
+                                        <>
+                                            <div className="map-detail-header">
+                                                <span className="map-detail-icon">{getMapNodeIcon(node.category)}</span>
+                                                <div>
+                                                    <h3 className="map-detail-name">{node.name}</h3>
+                                                    <span className="map-detail-category">{node.category}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="map-detail-section">
+                                                <div className="map-detail-field">
+                                                    <span className="map-detail-label">Architecture</span>
+                                                    <span className="map-detail-value">{node.archType || "—"}</span>
+                                                </div>
+                                                <div className="map-detail-field">
+                                                    <span className="map-detail-label">Status</span>
+                                                    <span className="map-detail-value" style={{ color: getStatusColor(node.status) }}>
+                                                        {node.status || "—"}
+                                                    </span>
+                                                </div>
+                                                <div className="map-detail-field">
+                                                    <span className="map-detail-label">Criticality</span>
+                                                    <span className="map-detail-value" style={{ color: getCriticalityColor(node.criticality) }}>
+                                                        {node.criticality || "—"}
+                                                    </span>
+                                                </div>
+                                                {node.bizOwner && (
+                                                    <div className="map-detail-field">
+                                                        <span className="map-detail-label">Business Owner</span>
+                                                        <span className="map-detail-value">{node.bizOwner}</span>
+                                                    </div>
+                                                )}
+                                                {node.techOwner && (
+                                                    <div className="map-detail-field">
+                                                        <span className="map-detail-label">Technical Owner</span>
+                                                        <span className="map-detail-value">{node.techOwner}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="map-detail-section">
+                                                <h4 className="map-detail-section-title">Relationships</h4>
+                                                <div className="map-detail-stats">
+                                                    <div className="map-detail-stat">
+                                                        <span className="map-detail-stat-num">{upstream}</span>
+                                                        <span className="map-detail-stat-label">Upstream</span>
+                                                    </div>
+                                                    <div className="map-detail-stat">
+                                                        <span className="map-detail-stat-num">{downstream}</span>
+                                                        <span className="map-detail-stat-label">Downstream</span>
+                                                    </div>
+                                                    <div className="map-detail-stat">
+                                                        <span className="map-detail-stat-num">{connected}</span>
+                                                        <span className="map-detail-stat-label">Connected</span>
+                                                    </div>
+                                                    <div className="map-detail-stat">
+                                                        <span className="map-detail-stat-num">{total}</span>
+                                                        <span className="map-detail-stat-label">Total</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="map-detail-actions">
+                                                <button
+                                                    className="btn btn-primary btn-sm"
+                                                    onClick={() => handleMapViewWorkflow(mapSelectedId)}
+                                                >
+                                                    View Workflow
+                                                </button>
+                                                <button
+                                                    className="btn btn-sm"
+                                                    onClick={() => setMapSelectedId(null)}
+                                                >
+                                                    Deselect
+                                                </button>
+                                            </div>
+                                        </>
+                                    );
+                                })() : (
+                                    <div className="map-detail-empty">
+                                        <span className="map-detail-empty-icon">🗺️</span>
+                                        <p>Select a system to view relationship details.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* ── Legend ── */}
+                        <div className="map-legend">
+                            <div className="map-legend-section">
+                                <span className="map-legend-title">Criticality</span>
+                                <span className="map-legend-item">
+                                    <span className="map-legend-swatch" style={{ background: "#ef4444" }} />
+                                    High
+                                </span>
+                                <span className="map-legend-item">
+                                    <span className="map-legend-swatch" style={{ background: "#f59e0b" }} />
+                                    Medium
+                                </span>
+                                <span className="map-legend-item">
+                                    <span className="map-legend-swatch" style={{ background: "#9ca3af" }} />
+                                    Low
+                                </span>
+                            </div>
+                            <div className="map-legend-section">
+                                <span className="map-legend-title">Edges</span>
+                                <span className="map-legend-item">
+                                    <svg width="20" height="4" viewBox="0 0 20 4"><line x1="0" y1="2" x2="20" y2="2" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#map-arrow)" /></svg>
+                                    Directional
+                                </span>
+                                <span className="map-legend-item">
+                                    <svg width="20" height="4" viewBox="0 0 20 4"><line x1="0" y1="2" x2="20" y2="2" stroke="#60a5fa" strokeWidth="2" strokeDasharray="4,2" /></svg>
+                                    Bidirectional
+                                </span>
+                            </div>
+                            <div className="map-legend-section">
+                                <span className="map-legend-title">Systems</span>
+                                <span className="map-legend-item"><strong>{mapFilteredLayout.nodes.length}</strong> nodes</span>
+                                <span className="map-legend-item"><strong>{mapFilteredLayout.edges.length}</strong> integrations</span>
+                            </div>
+                        </div>
+                    </div>
+                )
             )}
 
             {view === "workflow" && (
