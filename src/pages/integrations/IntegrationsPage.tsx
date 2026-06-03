@@ -1235,6 +1235,9 @@ export default function IntegrationsPage() {
                                 preserveAspectRatio="xMidYMid meet"
                             >
                                 <defs>
+                                    <filter id="map-card-shadow" x="-10%" y="-10%" width="130%" height="130%">
+                                        <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.07" />
+                                    </filter>
                                     <marker
                                         id="map-arrow"
                                         viewBox="0 0 10 10"
@@ -1320,74 +1323,106 @@ export default function IntegrationsPage() {
                                             onClick={() => handleMapNodeClick(n.id)}
                                             style={{ cursor: "pointer" }}
                                         >
-                                            {/* Node card */}
+                                            {/* Card shadow */}
                                             <rect
-                                                x={n.x - 90} y={n.y - 36}
-                                                width={180} height={72}
-                                                rx={8} ry={8}
+                                                x={n.x - 95} y={n.y - 39}
+                                                width={190} height={78}
+                                                rx={9} ry={9}
+                                                fill="#fff"
+                                                filter="url(#map-card-shadow)"
+                                            />
+                                            {/* Card background */}
+                                            <rect
+                                                x={n.x - 95} y={n.y - 39}
+                                                width={190} height={78}
+                                                rx={9} ry={9}
                                                 fill={isSelected ? "#eff6ff" : "#fff"}
-                                                stroke={isSelected ? "#3b82f6" : "#d1d5db"}
-                                                strokeWidth={isSelected ? 2 : 1}
+                                                stroke={isSelected ? "#3b82f6" : "#e2e8f0"}
+                                                strokeWidth={isSelected ? 1.5 : 1}
                                                 className="map-node-rect"
                                             />
                                             {/* Criticality accent bar */}
                                             <rect
-                                                x={n.x - 90} y={n.y - 36}
-                                                width={4} height={72}
-                                                rx={4} ry={4}
+                                                x={n.x - 95} y={n.y - 39}
+                                                width={4} height={78}
+                                                rx={2} ry={2}
                                                 fill={critColor}
                                             />
-                                            {/* Shadow filter? Use simple approach */}
+                                            {/* Selection glow */}
                                             {isSelected && (
                                                 <rect
-                                                    x={n.x - 90} y={n.y - 36}
-                                                    width={180} height={72}
-                                                    rx={8} ry={8}
+                                                    x={n.x - 95} y={n.y - 39}
+                                                    width={190} height={78}
+                                                    rx={9} ry={9}
                                                     fill="none"
                                                     stroke="#93c5fd"
-                                                    strokeWidth={3}
-                                                    opacity={0.4}
+                                                    strokeWidth={2}
+                                                    opacity={0.5}
                                                 />
                                             )}
                                             {/* Icon */}
-                                            <text x={n.x - 76} y={n.y - 4} fontSize={18} textAnchor="middle">
+                                            <text x={n.x - 80} y={n.y - 10} fontSize={18} textAnchor="middle" className="map-node-text">
                                                 {getMapNodeIcon(n.category, n.name)}
                                             </text>
                                             {/* Name */}
                                             {mapShowLabels && (
                                                 <text
-                                                    x={n.x - 52} y={n.y - 6}
-                                                    fontSize={12} fontWeight="600"
+                                                    x={n.x - 56} y={n.y - 12}
+                                                    fontSize={11} fontWeight="600"
                                                     fill="#1f2937"
                                                     className="map-node-text"
                                                 >
-                                                    {n.name.length > 16 ? n.name.slice(0, 15) + "…" : n.name}
+                                                    {n.name.length > 20 ? n.name.slice(0, 19) + "…" : n.name}
                                                 </text>
                                             )}
                                             {/* Category */}
                                             <text
-                                                x={n.x} y={n.y + 16}
+                                                x={n.x} y={n.y + 13}
                                                 fontSize={10} fill="#6b7280"
                                                 textAnchor="middle"
                                                 className="map-node-text"
                                             >
                                                 {n.category}
                                             </text>
+                                            {/* Criticality pill */}
+                                            {n.criticality && (
+                                                <>
+                                                    <rect
+                                                        x={n.x - 80} y={n.y + 21}
+                                                        width={50} height={16}
+                                                        rx={8} ry={8}
+                                                        fill={critColor}
+                                                        opacity={0.12}
+                                                    />
+                                                    <text
+                                                        x={n.x - 55} y={n.y + 33}
+                                                        fontSize={8} fontWeight="700"
+                                                        fill={critColor}
+                                                        textAnchor="middle"
+                                                        className="map-node-crit-pill"
+                                                    >
+                                                        {n.criticality}
+                                                    </text>
+                                                </>
+                                            )}
                                             {/* Status badge */}
                                             {n.status && (
                                                 <>
                                                     <rect
-                                                        x={n.x - 28} y={n.y + 22}
+                                                        x={n.criticality ? n.x - 24 : n.x - 28}
+                                                        y={n.y + 21}
                                                         width={56} height={16}
                                                         rx={8} ry={8}
                                                         fill={getStatusColor(n.status)}
-                                                        opacity={0.15}
+                                                        opacity={0.12}
                                                     />
                                                     <text
-                                                        x={n.x} y={n.y + 34}
-                                                        fontSize={9} fontWeight="600"
+                                                        x={n.criticality ? n.x + 4 : n.x}
+                                                        y={n.y + 33}
+                                                        fontSize={8} fontWeight="600"
                                                         fill={getStatusColor(n.status)}
                                                         textAnchor="middle"
+                                                        className="map-node-text"
                                                     >
                                                         {n.status}
                                                     </text>
@@ -1578,13 +1613,13 @@ export default function IntegrationsPage() {
                                     )}
 
                                     <div className="map-detail-legend-section">
-                                        <span className="map-detail-legend-subtitle">Systems</span>
+                                        <span className="map-detail-legend-subtitle">Map Summary</span>
                                         <div className="map-detail-legend-items">
                                             <span className="map-legend-item">
-                                                <strong>{mapFilteredLayout.nodes.length}</strong> nodes
+                                                <strong>{mapFilteredLayout.nodes.length}</strong> Systems
                                             </span>
                                             <span className="map-legend-item">
-                                                <strong>{mapFilteredLayout.edges.length}</strong> integrations
+                                                <strong>{mapFilteredLayout.edges.length}</strong> Integrations
                                             </span>
                                         </div>
                                     </div>
