@@ -131,6 +131,7 @@ export default function IntegrationsPage() {
     const [mapShowIntTypes, setMapShowIntTypes] = useState(false);
     const [mapOwnerFilter, setMapOwnerFilter] = useState("");
     const [mapCapabilityFilter, setMapCapabilityFilter] = useState("");
+    const [mapZoom, setMapZoom] = useState(1);
 
     const loadData = async () => {
         try {
@@ -536,6 +537,17 @@ export default function IntegrationsPage() {
         if (c === "high") return "#ef4444";
         if (c === "medium") return "#f59e0b";
         if (c === "low") return "#9ca3af";
+        return "#d1d5db";
+    }
+
+    function getMapCategoryColor(category: string): string {
+        const c = category.toLowerCase();
+        if (c.includes("people") || c.includes("manual")) return "#9ca3af";
+        if (c.includes("application")) return "#14b8a6";
+        if (c.includes("platform")) return "#8b5cf6";
+        if (c.includes("data")) return "#22c55e";
+        if (c.includes("report")) return "#f59e0b";
+        if (c.includes("identity")) return "#06b6d4";
         return "#d1d5db";
     }
 
@@ -1204,6 +1216,7 @@ export default function IntegrationsPage() {
                                         setMapStatusFilter("");
                                         setMapOwnerFilter("");
                                         setMapCapabilityFilter("");
+                                        setMapZoom(1);
                                     }}
                                 >
                                     Reset Filters
@@ -1229,10 +1242,12 @@ export default function IntegrationsPage() {
                         {/* ── Body ── */}
                         <div className="map-body">
                             {/* SVG Canvas */}
+                            <div className="map-svg-wrap">
                             <svg
                                 className="map-canvas"
-                                viewBox="-600 -600 1200 1200"
+                                viewBox="-700 -700 1400 1400"
                                 preserveAspectRatio="xMidYMid meet"
+                                style={{ transform: `scale(${mapZoom})`, transformOrigin: "center center" }}
                             >
                                 <defs>
                                     <filter id="map-card-shadow" x="-10%" y="-10%" width="130%" height="130%">
@@ -1315,6 +1330,7 @@ export default function IntegrationsPage() {
                                     const isHighlighted = mapHighlightIds ? mapHighlightIds.has(n.id) : true;
                                     const isFaded = mapSelectedId ? !isRelated : (mapHighlightIds ? !isHighlighted : false);
                                     const critColor = getCriticalityColor(n.criticality);
+                                    const catColor = getMapCategoryColor(n.category);
 
                                     return (
                                         <g
@@ -1341,12 +1357,12 @@ export default function IntegrationsPage() {
                                                 strokeWidth={isSelected ? 1.5 : 1}
                                                 className="map-node-rect"
                                             />
-                                            {/* Criticality accent bar */}
+                                            {/* Category accent bar */}
                                             <rect
                                                 x={n.x - 95} y={n.y - 39}
-                                                width={4} height={78}
+                                                width={5} height={78}
                                                 rx={2} ry={2}
-                                                fill={critColor}
+                                                fill={catColor}
                                             />
                                             {/* Selection glow */}
                                             {isSelected && (
@@ -1432,6 +1448,32 @@ export default function IntegrationsPage() {
                                     );
                                 })}
                             </svg>
+
+                            {/* Floating Zoom Controls */}
+                            <div className="map-zoom-controls">
+                                <button
+                                    className="map-zoom-btn"
+                                    title="Zoom in"
+                                    onClick={() => setMapZoom((z) => Math.min(z + 0.25, 2.5))}
+                                >
+                                    +
+                                </button>
+                                <button
+                                    className="map-zoom-btn"
+                                    title="Zoom out"
+                                    onClick={() => setMapZoom((z) => Math.max(z - 0.25, 0.25))}
+                                >
+                                    −
+                                </button>
+                                <button
+                                    className="map-zoom-btn"
+                                    title="Reset zoom"
+                                    onClick={() => setMapZoom(1)}
+                                >
+                                    ⟲
+                                </button>
+                            </div>
+                            </div>
 
                             {/* Detail Panel */}
                             <div className="map-detail-panel">
@@ -1560,6 +1602,40 @@ export default function IntegrationsPage() {
                                     <h4 className="map-detail-legend-title">Map Legend</h4>
 
                                     <div className="map-detail-legend-section">
+                                        <span className="map-detail-legend-subtitle">Category</span>
+                                        <div className="map-detail-legend-items">
+                                            <span className="map-legend-item">
+                                                <span className="map-legend-swatch" style={{ background: "#14b8a6" }} />
+                                                Applications
+                                            </span>
+                                            <span className="map-legend-item">
+                                                <span className="map-legend-swatch" style={{ background: "#8b5cf6" }} />
+                                                Platforms
+                                            </span>
+                                            <span className="map-legend-item">
+                                                <span className="map-legend-swatch" style={{ background: "#22c55e" }} />
+                                                Data
+                                            </span>
+                                            <span className="map-legend-item">
+                                                <span className="map-legend-swatch" style={{ background: "#f59e0b" }} />
+                                                Reporting
+                                            </span>
+                                            <span className="map-legend-item">
+                                                <span className="map-legend-swatch" style={{ background: "#06b6d4" }} />
+                                                Identity
+                                            </span>
+                                            <span className="map-legend-item">
+                                                <span className="map-legend-swatch" style={{ background: "#9ca3af" }} />
+                                                People / Manual
+                                            </span>
+                                            <span className="map-legend-item">
+                                                <span className="map-legend-swatch" style={{ background: "#d1d5db" }} />
+                                                Unknown
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="map-detail-legend-section">
                                         <span className="map-detail-legend-subtitle">Criticality</span>
                                         <div className="map-detail-legend-items">
                                             <span className="map-legend-item">
@@ -1578,7 +1654,7 @@ export default function IntegrationsPage() {
                                     </div>
 
                                     <div className="map-detail-legend-section">
-                                        <span className="map-detail-legend-subtitle">Lines</span>
+                                        <span className="map-detail-legend-subtitle">Integration Lines</span>
                                         <div className="map-detail-legend-items">
                                             <span className="map-legend-item">
                                                 <svg width="16" height="4" viewBox="0 0 16 4">
@@ -1752,7 +1828,7 @@ export default function IntegrationsPage() {
                             </div>
 
                             <div className="wf-legend">
-                                <span className="wf-legend-title">Node Types</span>
+                                <span className="wf-legend-title">Categories</span>
                             <div className="wf-legend-items">
                                 <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-people-manual" />People / Manual</span>
                                 <span className="wf-legend-item"><span className="wf-legend-swatch wf-node-applications" />Applications</span>
