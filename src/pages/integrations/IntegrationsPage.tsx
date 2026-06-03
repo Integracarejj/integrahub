@@ -555,20 +555,44 @@ export default function IntegrationsPage() {
         return "#d1d5db";
     }
 
+    function getEdgeIntersection(
+        cx: number, cy: number,
+        ox: number, oy: number,
+        halfW: number, halfH: number
+    ): { x: number; y: number } {
+        const dx = ox - cx;
+        const dy = oy - cy;
+        if (dx === 0 && dy === 0) return { x: cx, y: cy };
+        let t = Infinity;
+        if (dx !== 0) {
+            const tx = halfW / Math.abs(dx);
+            const y = cy + dy * tx;
+            if (y >= cy - halfH && y <= cy + halfH) t = Math.min(t, tx);
+        }
+        if (dy !== 0) {
+            const ty = halfH / Math.abs(dy);
+            const x = cx + dx * ty;
+            if (x >= cx - halfW && x <= cx + halfW) t = Math.min(t, ty);
+        }
+        return { x: cx + dx * t, y: cy + dy * t };
+    }
+
     function getEdgePath(x1: number, y1: number, x2: number, y2: number): string {
-        const dx = x2 - x1;
-        const dy = y2 - y1;
+        const p1 = getEdgeIntersection(x1, y1, x2, y2, 100, 42);
+        const p2 = getEdgeIntersection(x2, y2, x1, y1, 100, 42);
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 200) return `M${x1},${y1} L${x2},${y2}`;
+        if (dist < 200) return `M${p1.x},${p1.y} L${p2.x},${p2.y}`;
         const offset = Math.min(dist * 0.12, 60);
         const nx = -dy / dist;
         const ny = dx / dist;
         const dir = ((Math.round(x1 + y1 + x2 + y2) % 2) === 0) ? 1 : -1;
-        const cx1 = x1 + dx * 0.25 + nx * offset * dir;
-        const cy1 = y1 + dy * 0.25 + ny * offset * dir;
-        const cx2 = x2 - dx * 0.25 + nx * offset * dir;
-        const cy2 = y2 - dy * 0.25 + ny * offset * dir;
-        return `M${x1},${y1} C${cx1},${cy1} ${cx2},${cy2} ${x2},${y2}`;
+        const cx1 = p1.x + dx * 0.25 + nx * offset * dir;
+        const cy1 = p1.y + dy * 0.25 + ny * offset * dir;
+        const cx2 = p2.x - dx * 0.25 + nx * offset * dir;
+        const cy2 = p2.y - dy * 0.25 + ny * offset * dir;
+        return `M${p1.x},${p1.y} C${cx1},${cy1} ${cx2},${cy2} ${p2.x},${p2.y}`;
     }
 
     function getStatusColor(status: string | null | undefined): string {
@@ -1370,6 +1394,8 @@ export default function IntegrationsPage() {
 
                                     return (
                                         <g key={i} className={`map-edge${isFaded ? " map-edge-faded" : ""}`}>
+                                            {/* Invisible wider hit area for easier hover */}
+                                            <path d={path} fill="none" stroke="transparent" strokeWidth={12} style={{ pointerEvents: isFaded ? 'none' : undefined }} />
                                             {/* Main path */}
                                             <path
                                                 d={path}
@@ -1378,6 +1404,7 @@ export default function IntegrationsPage() {
                                                 strokeWidth={isRelated ? 2 : 1}
                                                 strokeDasharray={strokeDash}
                                                 markerEnd={markerEnd}
+                                                className="map-edge-line"
                                             />
                                             {/* Integration type label */}
                                             {mapShowIntTypes && e.type && isRelated && (
