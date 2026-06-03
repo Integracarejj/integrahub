@@ -1312,7 +1312,7 @@ export default function IntegrationsPage() {
                             >
                             <svg
                                 className="map-canvas"
-                                viewBox="-700 -700 1400 1400"
+                                viewBox="-700 -630 1400 1400"
                                 preserveAspectRatio="xMidYMid meet"
                                 style={{
                                     transform: `translate(${mapPanOffset.x}px, ${mapPanOffset.y}px) scale(${mapZoom})`,
@@ -1321,7 +1321,8 @@ export default function IntegrationsPage() {
                             >
                                 <defs>
                                     <filter id="map-card-shadow" x="-20%" y="-20%" width="140%" height="140%">
-                                        <feDropShadow dx="0" dy="2" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.08" />
+                                        <feDropShadow dx="0" dy="1" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.06" />
+                                        <feDropShadow dx="0" dy="2" stdDeviation="8" flood-color="#0f172a" flood-opacity="0.04" />
                                     </filter>
                                     <marker
                                         id="map-arrow"
@@ -1412,34 +1413,34 @@ export default function IntegrationsPage() {
                                         >
                                             {/* Card shadow */}
                                             <rect
-                                                x={n.x - 95} y={n.y - 39}
-                                                width={190} height={78}
+                                                x={n.x - 100} y={n.y - 42}
+                                                width={200} height={84}
                                                 rx={9} ry={9}
                                                 fill="#fff"
                                                 filter="url(#map-card-shadow)"
                                             />
                                             {/* Card background */}
                                             <rect
-                                                x={n.x - 95} y={n.y - 39}
-                                                width={190} height={78}
+                                                x={n.x - 100} y={n.y - 42}
+                                                width={200} height={84}
                                                 rx={9} ry={9}
                                                 fill={isSelected ? "#eff6ff" : "#fff"}
-                                                stroke={isSelected ? "#3b82f6" : "#e2e8f0"}
+                                                stroke={isSelected ? "#2563eb" : "rgba(20, 184, 166, 0.22)"}
                                                 strokeWidth={isSelected ? 1.5 : 1}
                                                 className="map-node-rect"
                                             />
                                             {/* Category accent bar */}
                                             <rect
-                                                x={n.x - 95} y={n.y - 39}
-                                                width={5} height={78}
+                                                x={n.x - 100} y={n.y - 42}
+                                                width={5} height={84}
                                                 rx={2} ry={2}
                                                 fill={catColor}
                                             />
                                             {/* Selection glow */}
                                             {isSelected && (
                                                 <rect
-                                                    x={n.x - 95} y={n.y - 39}
-                                                    width={190} height={78}
+                                                    x={n.x - 100} y={n.y - 42}
+                                                    width={200} height={84}
                                                     rx={9} ry={9}
                                                     fill="none"
                                                     stroke="#93c5fd"
@@ -1455,8 +1456,8 @@ export default function IntegrationsPage() {
                                             {mapShowLabels && (
                                                 <text
                                                     x={n.x - 56} y={n.y - 12}
-                                                    fontSize={11} fontWeight="600"
-                                                    fill="#1f2937"
+                                                    fontSize={12} fontWeight="600"
+                                                    fill="#1e293b"
                                                     className="map-node-text"
                                                 >
                                                     {n.name.length > 20 ? n.name.slice(0, 19) + "…" : n.name}
@@ -1465,7 +1466,7 @@ export default function IntegrationsPage() {
                                             {/* Category */}
                                             <text
                                                 x={n.x} y={n.y + 13}
-                                                fontSize={10} fill="#6b7280"
+                                                fontSize={11} fill="#64748b"
                                                 textAnchor="middle"
                                                 className="map-node-text"
                                             >
@@ -1476,14 +1477,14 @@ export default function IntegrationsPage() {
                                                 <>
                                                     <rect
                                                         x={n.x - 80} y={n.y + 21}
-                                                        width={50} height={16}
-                                                        rx={8} ry={8}
+                                                        width={56} height={18}
+                                                        rx={9} ry={9}
                                                         fill={critColor}
                                                         opacity={0.12}
                                                     />
                                                     <text
-                                                        x={n.x - 55} y={n.y + 33}
-                                                        fontSize={8} fontWeight="700"
+                                                        x={n.x - 52} y={n.y + 34}
+                                                        fontSize={9} fontWeight="700"
                                                         fill={critColor}
                                                         textAnchor="middle"
                                                         className="map-node-crit-pill"
@@ -1496,17 +1497,17 @@ export default function IntegrationsPage() {
                                             {n.status && (
                                                 <>
                                                     <rect
-                                                        x={n.criticality ? n.x - 24 : n.x - 28}
+                                                        x={n.criticality ? n.x - 20 : n.x - 28}
                                                         y={n.y + 21}
-                                                        width={56} height={16}
-                                                        rx={8} ry={8}
+                                                        width={60} height={18}
+                                                        rx={9} ry={9}
                                                         fill={getStatusColor(n.status)}
                                                         opacity={0.12}
                                                     />
                                                     <text
-                                                        x={n.criticality ? n.x + 4 : n.x}
-                                                        y={n.y + 33}
-                                                        fontSize={8} fontWeight="600"
+                                                        x={n.criticality ? n.x + 10 : n.x}
+                                                        y={n.y + 34}
+                                                        fontSize={9} fontWeight="600"
                                                         fill={getStatusColor(n.status)}
                                                         textAnchor="middle"
                                                         className="map-node-text"

@@ -1228,15 +1228,20 @@
 
 .map-node-group {
     cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.map-node-group:hover {
+    transform: translateY(-1px);
 }
 
 .map-node-group:hover .map-node-rect {
-    stroke: #93c5fd;
+    stroke: rgba(20, 184, 166, 0.45);
     stroke-width: 1.5;
 }
 
 .map-node-selected .map-node-rect {
-    stroke: #3b82f6;
+    stroke: #2563eb;
     stroke-width: 1.5;
     fill: #eff6ff;
 }
@@ -1269,9 +1274,9 @@
     width: 290px;
     flex-shrink: 0;
     position: sticky;
-    top: 100px;
+    top: 88px;
     align-self: flex-start;
-    max-height: calc(100vh - 120px);
+    max-height: calc(100vh - 112px);
     overflow-y: auto;
     background: #fff;
     border: 1px solid #e2e8f0;
