@@ -1498,59 +1498,99 @@ export default function IntegrationsPage() {
                                     );
                                 })() : (
                                     <div className="map-detail-empty">
-                                        <span className="map-detail-empty-icon">🗺️</span>
-                                        <p>Select a system to view relationship details.</p>
+                                        <h3 className="map-detail-empty-title">Map Details</h3>
+                                        <p className="map-detail-empty-subtitle">Click any system on the map to:</p>
+                                        <ul className="map-detail-empty-list">
+                                            <li>View ownership</li>
+                                            <li>View integrations</li>
+                                            <li>View upstream systems</li>
+                                            <li>View downstream systems</li>
+                                            <li>Jump to Workflow View</li>
+                                        </ul>
+                                        <div className="map-detail-empty-stats">
+                                            <div className="map-detail-empty-stat">
+                                                <span className="map-detail-empty-stat-num">{mapNodeData.length}</span>
+                                                <span className="map-detail-empty-stat-label">Systems</span>
+                                            </div>
+                                            <div className="map-detail-empty-stat">
+                                                <span className="map-detail-empty-stat-num">{mapEdgeData.length}</span>
+                                                <span className="map-detail-empty-stat-label">Integrations</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
+
+                                {/* Map Legend within panel */}
+                                <div className="map-detail-legend">
+                                    <h4 className="map-detail-legend-title">Map Legend</h4>
+
+                                    <div className="map-detail-legend-section">
+                                        <span className="map-detail-legend-subtitle">Criticality</span>
+                                        <div className="map-detail-legend-items">
+                                            <span className="map-legend-item">
+                                                <span className="map-legend-swatch" style={{ background: "#ef4444" }} />
+                                                High
+                                            </span>
+                                            <span className="map-legend-item">
+                                                <span className="map-legend-swatch" style={{ background: "#f59e0b" }} />
+                                                Medium
+                                            </span>
+                                            <span className="map-legend-item">
+                                                <span className="map-legend-swatch" style={{ background: "#9ca3af" }} />
+                                                Low
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="map-detail-legend-section">
+                                        <span className="map-detail-legend-subtitle">Lines</span>
+                                        <div className="map-detail-legend-items">
+                                            <span className="map-legend-item">
+                                                <svg width="16" height="4" viewBox="0 0 16 4">
+                                                    <line x1="0" y1="2" x2="12" y2="2" stroke="#94a3b8" strokeWidth="2" />
+                                                    <polygon points="12,0 16,2 12,4" fill="#94a3b8" />
+                                                </svg>
+                                                Directional
+                                            </span>
+                                            <span className="map-legend-item">
+                                                <svg width="16" height="4" viewBox="0 0 16 4">
+                                                    <line x1="0" y1="2" x2="16" y2="2" stroke="#60a5fa" strokeWidth="2" strokeDasharray="4,2" />
+                                                </svg>
+                                                Bidirectional
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {(mapSelectedId || mapHighlightIds) && (
+                                        <div className="map-detail-legend-section">
+                                            <span className="map-detail-legend-subtitle">Focus</span>
+                                            <div className="map-detail-legend-items">
+                                                <span className="map-legend-item">
+                                                    <span style={{ display: "inline-block", width: 14, height: 4, background: "#3b82f6", borderRadius: 2, verticalAlign: "middle" }} />
+                                                    Highlighted
+                                                </span>
+                                                <span className="map-legend-item">
+                                                    <svg width="16" height="4" viewBox="0 0 16 4"><line x1="0" y1="2" x2="16" y2="2" stroke="#94a3b8" strokeWidth="2" opacity="0.3" /></svg>
+                                                    Faded
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="map-detail-legend-section">
+                                        <span className="map-detail-legend-subtitle">Systems</span>
+                                        <div className="map-detail-legend-items">
+                                            <span className="map-legend-item">
+                                                <strong>{mapFilteredLayout.nodes.length}</strong> nodes
+                                            </span>
+                                            <span className="map-legend-item">
+                                                <strong>{mapFilteredLayout.edges.length}</strong> integrations
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-
-                        {/* ── Legend ── */}
-                            <div className="map-legend">
-                                <div className="map-legend-section">
-                                    <span className="map-legend-title">Criticality</span>
-                                    <span className="map-legend-item">
-                                        <span className="map-legend-swatch" style={{ background: "#ef4444" }} />
-                                        High
-                                    </span>
-                                    <span className="map-legend-item">
-                                        <span className="map-legend-swatch" style={{ background: "#f59e0b" }} />
-                                        Medium
-                                    </span>
-                                    <span className="map-legend-item">
-                                        <span className="map-legend-swatch" style={{ background: "#9ca3af" }} />
-                                        Low
-                                    </span>
-                                </div>
-                                <div className="map-legend-section">
-                                    <span className="map-legend-title">Lines</span>
-                                    <span className="map-legend-item">
-                                        <svg width="20" height="4" viewBox="0 0 20 4"><line x1="0" y1="2" x2="20" y2="2" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#map-arrow)" /></svg>
-                                        Directional
-                                    </span>
-                                    <span className="map-legend-item">
-                                        <svg width="20" height="4" viewBox="0 0 20 4"><line x1="0" y1="2" x2="20" y2="2" stroke="#60a5fa" strokeWidth="2" strokeDasharray="4,2" /></svg>
-                                        Bidirectional
-                                    </span>
-                                    {(mapSelectedId || mapHighlightIds) && (
-                                        <>
-                                            <span className="map-legend-item">
-                                                <svg width="20" height="4" viewBox="0 0 20 4"><line x1="0" y1="2" x2="20" y2="2" stroke="#94a3b8" strokeWidth="2" opacity="0.3" /><line x1="0" y1="2" x2="20" y2="2" stroke="#94a3b8" strokeWidth="0.5" strokeDasharray="2,3" /></svg>
-                                                Faded (outside focus)
-                                            </span>
-                                            <span className="map-legend-item">
-                                                <span style={{ display: "inline-block", width: 20, height: 4, background: "#3b82f6", borderRadius: 2, verticalAlign: "middle" }} />
-                                                Highlighted (in focus)
-                                            </span>
-                                        </>
-                                    )}
-                                </div>
-                                <div className="map-legend-section">
-                                    <span className="map-legend-title">Systems</span>
-                                    <span className="map-legend-item"><strong>{mapFilteredLayout.nodes.length}</strong> nodes</span>
-                                    <span className="map-legend-item"><strong>{mapFilteredLayout.edges.length}</strong> integrations</span>
-                                </div>
-                            </div>
                     </div>
                 )
             )}
