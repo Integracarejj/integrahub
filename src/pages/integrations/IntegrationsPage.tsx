@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
     getIntegrationViews,
@@ -132,6 +132,10 @@ export default function IntegrationsPage() {
     const [mapOwnerFilter, setMapOwnerFilter] = useState("");
     const [mapCapabilityFilter, setMapCapabilityFilter] = useState("");
     const [mapZoom, setMapZoom] = useState(1);
+    const [mapPanOffset, setMapPanOffset] = useState({ x: 0, y: 0 });
+    const [mapIsPanning, setMapIsPanning] = useState(false);
+    const mapDragRef = useRef<{ startX: number; startY: number; offsetX: number; offsetY: number } | null>(null);
+    const mapWasDraggedRef = useRef(false);
 
     const loadData = async () => {
         try {
@@ -534,7 +538,7 @@ export default function IntegrationsPage() {
 
     function getCriticalityColor(crit: string | null | undefined): string {
         const c = (crit || "").toLowerCase();
-        if (c === "high") return "#ef4444";
+        if (c === "critical" || c === "high") return "#ef4444";
         if (c === "medium") return "#f59e0b";
         if (c === "low") return "#9ca3af";
         return "#d1d5db";
@@ -549,6 +553,22 @@ export default function IntegrationsPage() {
         if (c.includes("report")) return "#f59e0b";
         if (c.includes("identity")) return "#06b6d4";
         return "#d1d5db";
+    }
+
+    function getEdgePath(x1: number, y1: number, x2: number, y2: number): string {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 200) return `M${x1},${y1} L${x2},${y2}`;
+        const offset = Math.min(dist * 0.12, 60);
+        const nx = -dy / dist;
+        const ny = dx / dist;
+        const dir = ((Math.round(x1 + y1 + x2 + y2) % 2) === 0) ? 1 : -1;
+        const cx1 = x1 + dx * 0.25 + nx * offset * dir;
+        const cy1 = y1 + dy * 0.25 + ny * offset * dir;
+        const cx2 = x2 - dx * 0.25 + nx * offset * dir;
+        const cy2 = y2 - dy * 0.25 + ny * offset * dir;
+        return `M${x1},${y1} C${cx1},${cy1} ${cx2},${cy2} ${x2},${y2}`;
     }
 
     function getStatusColor(status: string | null | undefined): string {
@@ -575,7 +595,7 @@ export default function IntegrationsPage() {
                     name: r.fromApplicationName,
                     category: getNodeDisplayCategory(app?.architectureType),
                     status: app?.status || "",
-                    criticality: app?.businessCriticality || "",
+                    criticality: app?.businessCriticality || (app?.businessContext as { businessCriticality?: string } | undefined)?.businessCriticality || "",
                     bizOwner: app?.businessOwner || (app?.ownership as { businessOwner?: string })?.businessOwner || "",
                     techOwner: app?.technicalOwner || (app?.ownership as { technicalOwner?: string })?.technicalOwner || "",
                     archType: app?.architectureType || "",
@@ -590,7 +610,7 @@ export default function IntegrationsPage() {
                     name: r.toApplicationName,
                     category: getNodeDisplayCategory(app?.architectureType),
                     status: app?.status || "",
-                    criticality: app?.businessCriticality || "",
+                    criticality: app?.businessCriticality || (app?.businessContext as { businessCriticality?: string } | undefined)?.businessCriticality || "",
                     bizOwner: app?.businessOwner || (app?.ownership as { businessOwner?: string })?.businessOwner || "",
                     techOwner: app?.technicalOwner || (app?.ownership as { technicalOwner?: string })?.technicalOwner || "",
                     archType: app?.architectureType || "",
@@ -632,9 +652,9 @@ export default function IntegrationsPage() {
     const mapLayout = useMemo(() => {
         if (mapNodeData.length === 0) return { nodes: [], edges: mapEdgeData };
 
-        const RING1_R = 230;
-        const RING2_R = 400;
-        const RING3_R = 520;
+        const RING1_R = 300;
+        const RING2_R = 460;
+        const RING3_R = 600;
 
         // Find center: highest degree node, or first node if ties
         const sorted = [...mapNodeData].sort((a, b) => b.degree - a.degree);
@@ -811,7 +831,47 @@ export default function IntegrationsPage() {
     }, [mapNodeData]);
 
     function handleMapNodeClick(id: string) {
+        if (mapWasDraggedRef.current) {
+            mapWasDraggedRef.current = false;
+            return;
+        }
         setMapSelectedId((prev) => (prev === id ? null : id));
+    }
+
+    function handlePointerDown(e: React.PointerEvent) {
+        mapWasDraggedRef.current = false;
+        setMapIsPanning(true);
+        mapDragRef.current = {
+            startX: e.clientX,
+            startY: e.clientY,
+            offsetX: mapPanOffset.x,
+            offsetY: mapPanOffset.y,
+        };
+    }
+
+    function handlePointerMove(e: React.PointerEvent) {
+        if (!mapDragRef.current) return;
+        const dx = e.clientX - mapDragRef.current.startX;
+        const dy = e.clientY - mapDragRef.current.startY;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+            mapWasDraggedRef.current = true;
+        }
+        setMapPanOffset({
+            x: mapDragRef.current.offsetX + dx,
+            y: mapDragRef.current.offsetY + dy,
+        });
+    }
+
+    function handlePointerUp(_e: React.PointerEvent) {
+        mapDragRef.current = null;
+        setMapIsPanning(false);
+    }
+
+    function handlePointerLeave(_e: React.PointerEvent) {
+        if (mapDragRef.current) {
+            mapDragRef.current = null;
+            setMapIsPanning(false);
+        }
     }
 
     function handleMapViewWorkflow(id: string) {
@@ -1217,6 +1277,7 @@ export default function IntegrationsPage() {
                                         setMapOwnerFilter("");
                                         setMapCapabilityFilter("");
                                         setMapZoom(1);
+                                        setMapPanOffset({ x: 0, y: 0 });
                                     }}
                                 >
                                     Reset Filters
@@ -1242,16 +1303,25 @@ export default function IntegrationsPage() {
                         {/* ── Body ── */}
                         <div className="map-body">
                             {/* SVG Canvas */}
-                            <div className="map-svg-wrap">
+                            <div
+                                className={`map-svg-wrap${mapIsPanning ? " map-panning" : ""}`}
+                                onPointerDown={handlePointerDown}
+                                onPointerMove={handlePointerMove}
+                                onPointerUp={handlePointerUp}
+                                onPointerLeave={handlePointerLeave}
+                            >
                             <svg
                                 className="map-canvas"
                                 viewBox="-700 -700 1400 1400"
                                 preserveAspectRatio="xMidYMid meet"
-                                style={{ transform: `scale(${mapZoom})`, transformOrigin: "center center" }}
+                                style={{
+                                    transform: `translate(${mapPanOffset.x}px, ${mapPanOffset.y}px) scale(${mapZoom})`,
+                                    transformOrigin: "center center",
+                                }}
                             >
                                 <defs>
-                                    <filter id="map-card-shadow" x="-10%" y="-10%" width="130%" height="130%">
-                                        <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.07" />
+                                    <filter id="map-card-shadow" x="-20%" y="-20%" width="140%" height="140%">
+                                        <feDropShadow dx="0" dy="2" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.08" />
                                     </filter>
                                     <marker
                                         id="map-arrow"
@@ -1295,12 +1365,14 @@ export default function IntegrationsPage() {
                                     const strokeDash = e.isBidirectional ? "6,3" : "none";
                                     const markerEnd = e.isBidirectional ? "url(#map-arrow-bidi)" : "url(#map-arrow)";
 
+                                    const path = getEdgePath(fromNode.x, fromNode.y, toNode.x, toNode.y);
+
                                     return (
                                         <g key={i} className={`map-edge${isFaded ? " map-edge-faded" : ""}`}>
-                                            {/* Main line */}
-                                            <line
-                                                x1={fromNode.x} y1={fromNode.y}
-                                                x2={toNode.x} y2={toNode.y}
+                                            {/* Main path */}
+                                            <path
+                                                d={path}
+                                                fill="none"
                                                 stroke={strokeColor}
                                                 strokeWidth={isRelated ? 2 : 1}
                                                 strokeDasharray={strokeDash}
@@ -1310,7 +1382,7 @@ export default function IntegrationsPage() {
                                             {mapShowIntTypes && e.type && isRelated && (
                                                 <text
                                                     x={(fromNode.x + toNode.x) / 2}
-                                                    y={(fromNode.y + toNode.y) / 2 - 6}
+                                                    y={(fromNode.y + toNode.y) / 2 - 12}
                                                     textAnchor="middle"
                                                     fontSize={9}
                                                     fill="#6b7280"
@@ -1337,7 +1409,6 @@ export default function IntegrationsPage() {
                                             key={n.id}
                                             className={`map-node-group${isSelected ? " map-node-selected" : ""}${isFaded ? " map-node-faded" : ""}`}
                                             onClick={() => handleMapNodeClick(n.id)}
-                                            style={{ cursor: "pointer" }}
                                         >
                                             {/* Card shadow */}
                                             <rect
@@ -1456,21 +1527,24 @@ export default function IntegrationsPage() {
                                     title="Zoom in"
                                     onClick={() => setMapZoom((z) => Math.min(z + 0.25, 2.5))}
                                 >
-                                    +
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
                                 </button>
                                 <button
                                     className="map-zoom-btn"
                                     title="Zoom out"
                                     onClick={() => setMapZoom((z) => Math.max(z - 0.25, 0.25))}
                                 >
-                                    −
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
                                 </button>
                                 <button
                                     className="map-zoom-btn"
-                                    title="Reset zoom"
-                                    onClick={() => setMapZoom(1)}
+                                    title="Fit to center"
+                                    onClick={() => {
+                                        setMapZoom(1);
+                                        setMapPanOffset({ x: 0, y: 0 });
+                                    }}
                                 >
-                                    ⟲
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="3" y="3" width="10" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.5"/><path d="M6 8h4M8 6v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                                 </button>
                             </div>
                             </div>
@@ -1638,6 +1712,10 @@ export default function IntegrationsPage() {
                                     <div className="map-detail-legend-section">
                                         <span className="map-detail-legend-subtitle">Criticality</span>
                                         <div className="map-detail-legend-items">
+                                            <span className="map-legend-item">
+                                                <span className="map-legend-swatch" style={{ background: "#ef4444" }} />
+                                                Critical
+                                            </span>
                                             <span className="map-legend-item">
                                                 <span className="map-legend-swatch" style={{ background: "#ef4444" }} />
                                                 High
