@@ -127,7 +127,6 @@ export default function IntegrationsPage() {
     const [mapCategoryFilter, setMapCategoryFilter] = useState("");
     const [mapCriticalityFilter, setMapCriticalityFilter] = useState("");
     const [mapStatusFilter, setMapStatusFilter] = useState("");
-    const [mapShowLabels, setMapShowLabels] = useState(true);
     const [mapShowIntTypes, setMapShowIntTypes] = useState(false);
     const [mapOwnerFilter, setMapOwnerFilter] = useState("");
     const [mapCapabilityFilter, setMapCapabilityFilter] = useState("");
@@ -676,9 +675,9 @@ export default function IntegrationsPage() {
     const mapLayout = useMemo(() => {
         if (mapNodeData.length === 0) return { nodes: [], edges: mapEdgeData };
 
-        const RING1_R = 300;
-        const RING2_R = 460;
-        const RING3_R = 600;
+        const RING1_R = 360;
+        const RING2_R = 530;
+        const RING3_R = 700;
 
         // Find center: highest degree node, or first node if ties
         const sorted = [...mapNodeData].sort((a, b) => b.degree - a.degree);
@@ -721,22 +720,25 @@ export default function IntegrationsPage() {
         const positions = new Map<string, { x: number; y: number }>();
         positions.set(centerId, { x: 0, y: 0 });
 
-        function placeRing(nodes: typeof mapNodeData, radius: number) {
+        function placeRing(nodes: typeof mapNodeData, radius: number, rotationOffset: number = 0) {
             const count = nodes.length;
             if (count === 0) return;
             const angleStep = (2 * Math.PI) / count;
             nodes.forEach((n, i) => {
-                const angle = angleStep * i - Math.PI / 2;
+                const nudge = Math.sin(i * 2.3) * 20;
+                const angle = rotationOffset + angleStep * i - Math.PI / 2;
                 positions.set(n.id, {
-                    x: Math.round(Math.cos(angle) * radius),
-                    y: Math.round(Math.sin(angle) * radius),
+                    x: Math.round(Math.cos(angle) * (radius + nudge)),
+                    y: Math.round(Math.sin(angle) * (radius + nudge)),
                 });
             });
         }
 
-        placeRing(ring1, RING1_R);
-        placeRing(ring2, RING2_R);
-        placeRing(ring3, RING3_R);
+        placeRing(ring1, RING1_R, 0);
+        const r2Rot = ring2.length > 0 ? Math.PI / ring2.length : 0;
+        placeRing(ring2, RING2_R, r2Rot);
+        const r3Rot = ring3.length > 0 ? Math.PI / ring3.length / 2 : 0;
+        placeRing(ring3, RING3_R, r3Rot);
 
         const layoutNodes = mapNodeData.map((n) => {
             const pos = positions.get(n.id) || { x: 0, y: 0 };
@@ -752,9 +754,6 @@ export default function IntegrationsPage() {
 
         if (mapCategoryFilter) {
             visible = visible.filter((n) => n.category === mapCategoryFilter);
-        }
-        if (mapCriticalityFilter) {
-            visible = visible.filter((n) => n.criticality.toLowerCase() === mapCriticalityFilter.toLowerCase());
         }
         if (mapStatusFilter) {
             visible = visible.filter((n) => n.status.toLowerCase() === mapStatusFilter.toLowerCase());
@@ -772,13 +771,19 @@ export default function IntegrationsPage() {
         );
 
         return { nodes: visible, edges: visibleEdges, centerId: mapLayout.centerId };
-    }, [mapLayout, mapCategoryFilter, mapCriticalityFilter, mapStatusFilter, mapOwnerFilter]);
+    }, [mapLayout, mapCategoryFilter, mapStatusFilter, mapOwnerFilter]);
 
     // Capability highlight: matching nodes stay prominent, others fade
     const mapCapabilityHighlightIds = useMemo(() => {
         if (!mapCapabilityFilter) return null;
         return new Set(mapNodeData.filter((n) => n.capabilityName === mapCapabilityFilter).map((n) => n.id));
     }, [mapNodeData, mapCapabilityFilter]);
+
+    // Criticality highlight: matching nodes stay prominent, others fade
+    const mapCriticalityHighlightIds = useMemo(() => {
+        if (!mapCriticalityFilter) return null;
+        return new Set(mapNodeData.filter((n) => n.criticality.toLowerCase() === mapCriticalityFilter.toLowerCase()).map((n) => n.id));
+    }, [mapNodeData, mapCriticalityFilter]);
 
     // Search highlight: matching nodes/edges stay prominent, others fade
     const mapSearchHighlightIds = useMemo(() => {
@@ -820,12 +825,14 @@ export default function IntegrationsPage() {
     const mapHighlightIds = useMemo(() => {
         const cap = mapCapabilityHighlightIds;
         const search = mapSearchHighlightIds;
-        if (!cap && !search) return null;
+        const crit = mapCriticalityHighlightIds;
+        if (!cap && !search && !crit) return null;
         const combined = new Set<string>();
         if (cap) cap.forEach((id) => combined.add(id));
         if (search) search.forEach((id) => combined.add(id));
+        if (crit) crit.forEach((id) => combined.add(id));
         return combined;
-    }, [mapCapabilityHighlightIds, mapSearchHighlightIds]);
+    }, [mapCapabilityHighlightIds, mapSearchHighlightIds, mapCriticalityHighlightIds]);
 
     // Compute related node IDs for selection highlighting
     const mapRelatedIds = useMemo(() => {
@@ -1283,10 +1290,6 @@ export default function IntegrationsPage() {
                             </div>
                             <div className="map-toolbar-row">
                                 <label className="map-toggle">
-                                    <input type="checkbox" checked={mapShowLabels} onChange={(e) => setMapShowLabels(e.target.checked)} />
-                                    <span>Show Labels</span>
-                                </label>
-                                <label className="map-toggle">
                                     <input type="checkbox" checked={mapShowIntTypes} onChange={(e) => setMapShowIntTypes(e.target.checked)} />
                                     <span>Integration Types</span>
                                 </label>
@@ -1317,9 +1320,13 @@ export default function IntegrationsPage() {
                             const searchCount = mapSearchQuery.trim() && mapSearchHighlightIds
                                 ? mapFilteredLayout.nodes.filter((n) => mapSearchHighlightIds!.has(n.id)).length
                                 : null;
+                            const critCount = mapCriticalityFilter && mapCriticalityHighlightIds
+                                ? mapFilteredLayout.nodes.filter((n) => mapCriticalityHighlightIds!.has(n.id)).length
+                                : null;
                             const parts: string[] = [];
                             if (searchCount !== null) parts.push(`Search matched ${searchCount} system${searchCount === 1 ? "" : "s"}`);
                             if (capCount !== null) parts.push(`Highlighting ${capCount} ${mapCapabilityFilter} system${capCount === 1 ? "" : "s"}`);
+                            if (critCount !== null) parts.push(`Highlighting ${critCount} ${mapCriticalityFilter} criticality system${critCount === 1 ? "" : "s"}`);
                             const text = parts.length > 0 ? parts.join(" · ") : `Showing all ${visibleCount} system${visibleCount === 1 ? "" : "s"}`;
                             return <div className="map-status-text">{text}</div>;
                         })()}
@@ -1336,7 +1343,7 @@ export default function IntegrationsPage() {
                             >
                             <svg
                                 className="map-canvas"
-                                viewBox="-700 -630 1400 1400"
+                                viewBox="-850 -850 1700 1700"
                                 preserveAspectRatio="xMidYMid meet"
                                 style={{
                                     transform: `translate(${mapPanOffset.x}px, ${mapPanOffset.y}px) scale(${mapZoom})`,
@@ -1480,16 +1487,14 @@ export default function IntegrationsPage() {
                                                 {getMapNodeIcon(n.category, n.name)}
                                             </text>
                                             {/* Name */}
-                                            {mapShowLabels && (
-                                                <text
-                                                    x={n.x - 56} y={n.y - 12}
-                                                    fontSize={12} fontWeight="600"
-                                                    fill="#1e293b"
-                                                    className="map-node-text"
-                                                >
-                                                    {n.name.length > 20 ? n.name.slice(0, 19) + "…" : n.name}
-                                                </text>
-                                            )}
+                                            <text
+                                                x={n.x - 56} y={n.y - 12}
+                                                fontSize={12} fontWeight="600"
+                                                fill="#1e293b"
+                                                className="map-node-text"
+                                            >
+                                                {n.name.length > 20 ? n.name.slice(0, 19) + "…" : n.name}
+                                            </text>
                                             {/* Category */}
                                             <text
                                                 x={n.x} y={n.y + 13}
@@ -1547,6 +1552,7 @@ export default function IntegrationsPage() {
                                     );
                                 })}
                             </svg>
+                            </div>
 
                             {/* Floating Zoom Controls */}
                             <div className="map-zoom-controls">
@@ -1574,7 +1580,6 @@ export default function IntegrationsPage() {
                                 >
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="3" y="3" width="10" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.5"/><path d="M6 8h4M8 6v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                                 </button>
-                            </div>
                             </div>
 
                             {/* Detail Panel */}
