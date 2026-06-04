@@ -675,9 +675,9 @@ export default function IntegrationsPage() {
     const mapLayout = useMemo(() => {
         if (mapNodeData.length === 0) return { nodes: [], edges: mapEdgeData };
 
-        const RING1_R = 360;
-        const RING2_R = 530;
-        const RING3_R = 700;
+        const RING1_R = 300;
+        const RING2_R = 460;
+        const RING3_R = 600;
 
         // Find center: highest degree node, or first node if ties
         const sorted = [...mapNodeData].sort((a, b) => b.degree - a.degree);
@@ -720,25 +720,22 @@ export default function IntegrationsPage() {
         const positions = new Map<string, { x: number; y: number }>();
         positions.set(centerId, { x: 0, y: 0 });
 
-        function placeRing(nodes: typeof mapNodeData, radius: number, rotationOffset: number = 0) {
+        function placeRing(nodes: typeof mapNodeData, radius: number) {
             const count = nodes.length;
             if (count === 0) return;
             const angleStep = (2 * Math.PI) / count;
             nodes.forEach((n, i) => {
-                const nudge = Math.sin(i * 2.3) * 20;
-                const angle = rotationOffset + angleStep * i - Math.PI / 2;
+                const angle = angleStep * i - Math.PI / 2;
                 positions.set(n.id, {
-                    x: Math.round(Math.cos(angle) * (radius + nudge)),
-                    y: Math.round(Math.sin(angle) * (radius + nudge)),
+                    x: Math.round(Math.cos(angle) * radius),
+                    y: Math.round(Math.sin(angle) * radius),
                 });
             });
         }
 
-        placeRing(ring1, RING1_R, 0);
-        const r2Rot = ring2.length > 0 ? Math.PI / ring2.length : 0;
-        placeRing(ring2, RING2_R, r2Rot);
-        const r3Rot = ring3.length > 0 ? Math.PI / ring3.length / 2 : 0;
-        placeRing(ring3, RING3_R, r3Rot);
+        placeRing(ring1, RING1_R);
+        placeRing(ring2, RING2_R);
+        placeRing(ring3, RING3_R);
 
         const layoutNodes = mapNodeData.map((n) => {
             const pos = positions.get(n.id) || { x: 0, y: 0 };
@@ -1343,7 +1340,7 @@ export default function IntegrationsPage() {
                             >
                             <svg
                                 className="map-canvas"
-                                viewBox="-850 -850 1700 1700"
+                                viewBox="-700 -630 1400 1400"
                                 preserveAspectRatio="xMidYMid meet"
                                 style={{
                                     transform: `translate(${mapPanOffset.x}px, ${mapPanOffset.y}px) scale(${mapZoom})`,

@@ -1168,6 +1168,11 @@
     cursor: pointer;
     transition: background 0.1s, border-color 0.1s, color 0.1s;
     margin-left: auto;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
 }
 
 .map-btn-reset:hover {
@@ -1642,7 +1647,7 @@
 /* ── Floating Zoom Controls ── */
 .map-zoom-controls {
     position: absolute;
-    top: 16px;
+    top: 80px;
     left: 16px;
     display: flex;
     flex-direction: row;
