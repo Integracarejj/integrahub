@@ -9,6 +9,7 @@ import roleUsageRouter from "./routes/roleUsage.js";
 import meRouter from "./routes/me.js";
 import adminUsersRouter from "./routes/adminUsers.js";
 import adminApplicationsRouter from "./routes/adminApplications.js";
+import dashboardRouter from "./routes/dashboard.js";
 import { resolveCurrentUser } from "./middleware/resolveCurrentUser.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -60,6 +61,7 @@ app.use("/api/role-usage", roleUsageRouter);
 app.use("/api/me", meRouter);
 app.use("/api/admin/users", adminUsersRouter);
 app.use("/api/admin/applications", adminApplicationsRouter);
+app.use("/api/dashboard", dashboardRouter);
 
 app.use((req, res, _next) => {
     if (req.path.startsWith("/health") || req.path.startsWith("/api")) return res.status(404).json({ error: "Not found" });
