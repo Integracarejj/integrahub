@@ -1,4 +1,4 @@
-import type { RoleDefinition, SystemRoleUsageRecord, RoleUsageFormData } from "../types/role";
+import type { RoleDefinition, SystemRoleUsageRecord, RoleUsageFormData, ApplicationRoleUsage } from "../types/role";
 import { getAuthHeaders } from "../utils/authHeaders";
 
 export async function getRoleDefinitions(): Promise<RoleDefinition[]> {
@@ -10,6 +10,12 @@ export async function getRoleDefinitions(): Promise<RoleDefinition[]> {
 export async function getRoleUsageByRole(roleCode: string): Promise<SystemRoleUsageRecord[]> {
     const res = await fetch(`/api/role-usage/by-role/${encodeURIComponent(roleCode)}`);
     if (!res.ok) throw new Error("Failed to fetch role usage");
+    return res.json();
+}
+
+export async function getApplicationRoles(applicationId: string): Promise<ApplicationRoleUsage[]> {
+    const res = await fetch(`/api/applications/${encodeURIComponent(applicationId)}/roles`);
+    if (!res.ok) throw new Error("Failed to fetch application roles");
     return res.json();
 }
 

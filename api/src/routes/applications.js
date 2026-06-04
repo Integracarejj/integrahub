@@ -958,6 +958,44 @@ router.get("/:id", async (req, res) => {
     }
 });
 
+router.get("/:id/roles", async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const rows = await query(`
+            SELECT
+                sru.id AS usageId,
+                sru.applicationId,
+                sru.roleDefinitionId,
+                rd.roleCode,
+                rd.roleName,
+                rd.roleGroup,
+                sru.usageType,
+                sru.usagePurpose,
+                sru.isPrimary,
+                sru.notes,
+                sru.createdAt,
+                sru.updatedAt
+            FROM cmdb.SystemRoleUsage sru
+            INNER JOIN cmdb.RoleDefinitions rd ON sru.roleDefinitionId = rd.id
+            WHERE sru.applicationId = @applicationId
+            ORDER BY
+                sru.isPrimary DESC,
+                sru.usageType ASC,
+                rd.roleGroup ASC,
+                rd.roleName ASC
+        `, { applicationId: id });
+
+        res.json(rows);
+    } catch (err) {
+        console.error(`GET /api/applications/${id}/roles failed:`, err);
+        res.status(500).json({
+            error: "Failed to fetch application roles",
+            details: err?.message || "Unknown error",
+        });
+    }
+});
+
 router.delete("/:id", async (req, res) => {
     console.log(`DELETE /api/applications/${req.params.id} called`);
     const id = req.params.id.replace(/[^a-zA-Z0-9_-]/g, "");

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getAuthHeaders } from "../../utils/authHeaders";
+import type { ApplicationRoleUsage } from "../../types/role";
+import { getApplicationRoles } from "../../services/roleService";
 import "./ApplicationDetailPage.css";
 
 type RouteParams = {
@@ -93,6 +95,9 @@ export default function ApplicationDetailPage() {
     const [newIntegration, setNewIntegration] = useState({ connectedAppId: "", direction: "", integrationType: "", notes: "", status: "Active", businessPurpose: "", dataExchanged: "", frequency: "", method: "" });
     const [permissions, setPermissions] = useState<PermissionInfo | null>(null);
     const [users, setUsers] = useState<{ id: string; displayName: string }[]>([]);
+    const [roleUsage, setRoleUsage] = useState<ApplicationRoleUsage[]>([]);
+    const [roleUsageLoading, setRoleUsageLoading] = useState(true);
+
     const [editingTechOwner, setEditingTechOwner] = useState(false);
     const [selectedTechOwner, setSelectedTechOwner] = useState("");
     const [savingTechOwner, setSavingTechOwner] = useState(false);
@@ -175,6 +180,25 @@ export default function ApplicationDetailPage() {
             })
             .catch(() => setPermissions(null));
     }, []);
+
+    useEffect(() => {
+        if (!appId) return;
+
+        let mounted = true;
+
+        (async () => {
+            try {
+                const data = await getApplicationRoles(appId);
+                if (mounted) setRoleUsage(data);
+            } catch {
+                if (mounted) setRoleUsage([]);
+            } finally {
+                if (mounted) setRoleUsageLoading(false);
+            }
+        })();
+
+        return () => { mounted = false; };
+    }, [appId]);
 
     // DEV ONLY: Listen for dev user changes
     useEffect(() => {
@@ -762,6 +786,88 @@ export default function ApplicationDetailPage() {
                                 </div>
                             );
                         })()}
+                    </section>
+
+                    <section className="detail-section roles-section">
+                        <h2 className="detail-section-title">Roles Using This System</h2>
+                        <p className="detail-subtitle">Shows which organizational roles depend on this system.</p>
+
+                        {roleUsageLoading ? (
+                            <p className="detail-empty">Loading roles…</p>
+                        ) : roleUsage.length === 0 ? (
+                            <p className="detail-empty">No roles have been mapped to this system yet.</p>
+                        ) : (
+                            <>
+                                <div className="role-summary-bar">
+                                    <div className="role-summary-item">
+                                        <span className="role-summary-value">{roleUsage.length}</span>
+                                        <span className="role-summary-label">Total Roles</span>
+                                    </div>
+                                    <div className="role-summary-item">
+                                        <span className="role-summary-value">{roleUsage.filter(r => r.isPrimary).length}</span>
+                                        <span className="role-summary-label">Primary</span>
+                                    </div>
+                                    <div className="role-summary-item">
+                                        <span className="role-summary-value">{roleUsage.filter(r => !r.isPrimary).length}</span>
+                                        <span className="role-summary-label">Supporting</span>
+                                    </div>
+                                    <div className="role-summary-item">
+                                        <span className="role-summary-value">{new Set(roleUsage.map(r => r.roleGroup)).size}</span>
+                                        <span className="role-summary-label">Role Groups</span>
+                                    </div>
+                                </div>
+
+                                {(() => {
+                                    const groups: { label: string; key: string }[] = [
+                                        { label: "Primary", key: "Primary" },
+                                        { label: "Reporting / Visibility", key: "Reporting / Visibility" },
+                                        { label: "Administrative", key: "Administrative" },
+                                        { label: "Secondary", key: "Secondary" },
+                                        { label: "Occasional", key: "Occasional" },
+                                    ];
+
+                                    const grouped: Record<string, ApplicationRoleUsage[]> = {};
+                                    for (const g of groups) {
+                                        grouped[g.key] = [];
+                                    }
+                                    grouped["Other"] = [];
+
+                                    for (const r of roleUsage) {
+                                        const key = groups.find(g => g.key === r.usageType)?.key ?? "Other";
+                                        grouped[key].push(r);
+                                    }
+
+                                    return groups
+                                        .concat({ label: "Other", key: "Other" })
+                                        .filter(g => grouped[g.key].length > 0)
+                                        .map(group => (
+                                            <div key={group.key} className="role-group">
+                                                <h3 className="role-group-title">{group.label}</h3>
+                                                <div className="role-cards">
+                                                    {grouped[group.key].map(r => (
+                                                        <div key={r.usageId} className="role-card">
+                                                            <div className="role-card-header">
+                                                                <span className="role-code">{r.roleCode}</span>
+                                                                <span className={"role-usage-pill " + r.usageType.toLowerCase().replace(/[^a-z]/g, "")}>{r.usageType}</span>
+                                                            </div>
+                                                            <div className="role-card-body">
+                                                                <span className="role-name">{r.roleName}</span>
+                                                                <span className="role-group-label">{r.roleGroup}</span>
+                                                            </div>
+                                                            {(r.usagePurpose || r.notes) && (
+                                                                <div className="role-card-details">
+                                                                    {r.usagePurpose && <p className="role-purpose">{r.usagePurpose}</p>}
+                                                                    {r.notes && <p className="role-notes">{r.notes}</p>}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ));
+                                })()}
+                            </>
+                        )}
                     </section>
                 </div>
             </div>

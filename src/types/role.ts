@@ -27,6 +27,21 @@ export interface SystemRoleUsageRecord {
     roleGroup: string;
 }
 
+export interface ApplicationRoleUsage {
+    usageId: number;
+    applicationId: string;
+    roleDefinitionId: number;
+    roleCode: string;
+    roleName: string;
+    roleGroup: string;
+    usageType: string;
+    usagePurpose: string | null;
+    isPrimary: boolean;
+    notes: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export interface RoleUsageFormData {
     applicationId: string;
     roleDefinitionId: number;

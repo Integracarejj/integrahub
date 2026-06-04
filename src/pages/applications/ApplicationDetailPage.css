@@ -627,6 +627,171 @@
     font-size: 13px;
 }
 
+/* ─── Roles Using This System ─── */
+
+.roles-section {
+    grid-column: 1 / -1;
+}
+
+.detail-subtitle {
+    margin: -8px 0 0;
+    font-size: 13px;
+    color: #9ca3af;
+}
+
+.role-summary-bar {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    padding: 16px 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.role-summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.role-summary-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.2;
+}
+
+.role-summary-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.role-group {
+    margin-top: 20px;
+}
+
+.role-group-title {
+    margin: 0 0 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.role-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+}
+
+.role-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px;
+    background: #fafafa;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+}
+
+.role-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.role-code {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: #e5e7eb;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.role-usage-pill {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 10px;
+    border-radius: 12px;
+    white-space: nowrap;
+}
+
+.role-usage-pill.primary {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.role-usage-pill.reportingvisibility {
+    background: #e0f2fe;
+    color: #075985;
+}
+
+.role-usage-pill.administrative {
+    background: #ede9fe;
+    color: #5b21b6;
+}
+
+.role-usage-pill.secondary {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.role-usage-pill.occasional {
+    background: #fce7f3;
+    color: #9d174d;
+}
+
+.role-usage-pill.other {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.role-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.role-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.role-group-label {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.role-card-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 4px;
+    border-top: 1px solid #e5e7eb;
+    margin-top: 2px;
+}
+
+.role-purpose {
+    margin: 0;
+    font-size: 12px;
+    color: #6b7280;
+    line-height: 1.5;
+}
+
+.role-notes {
+    margin: 0;
+    font-size: 12px;
+    color: #9ca3af;
+    font-style: italic;
+    line-height: 1.5;
+}
+
 @media (max-width: 899px) {
     .application-detail-page {
         padding: 20px;
@@ -635,5 +800,13 @@
     .detail-definition-list {
         grid-template-columns: 1fr;
         gap: 14px;
+    }
+
+    .role-summary-bar {
+        gap: 16px;
+    }
+
+    .role-cards {
+        grid-template-columns: 1fr;
     }
 }
