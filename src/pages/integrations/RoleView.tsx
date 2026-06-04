@@ -207,10 +207,6 @@ export default function RoleView() {
         }
     }
 
-    function getAppName(applicationId: string): string {
-        return appOptions.find((a) => a.id === applicationId)?.name || applicationId;
-    }
-
     if (loading) {
         return <p className="role-loading">Loading roles…</p>;
     }
