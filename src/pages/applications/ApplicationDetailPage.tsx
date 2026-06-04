@@ -97,6 +97,7 @@ export default function ApplicationDetailPage() {
     const [users, setUsers] = useState<{ id: string; displayName: string }[]>([]);
     const [roleUsage, setRoleUsage] = useState<ApplicationRoleUsage[]>([]);
     const [roleUsageLoading, setRoleUsageLoading] = useState(true);
+    const [expandedRoles, setExpandedRoles] = useState<Set<number>>(new Set());
 
     const [editingTechOwner, setEditingTechOwner] = useState(false);
     const [selectedTechOwner, setSelectedTechOwner] = useState("");
@@ -520,6 +521,28 @@ export default function ApplicationDetailPage() {
                     </section>
 
                     <section className="detail-section">
+                        <h2 className="detail-section-title">Operational Context</h2>
+                        <dl className="detail-definition-list">
+                            <div className="detail-definition-item full-width">
+                                <dt>Primary Use Cases</dt>
+                                <dd>{application.primaryUseCases || "—"}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>Departments Supported</dt>
+                                <dd>{application.departmentsSupported || "—"}</dd>
+                            </div>
+                            <div className="detail-definition-item full-width">
+                                <dt>Access Request Process</dt>
+                                <dd>{application.accessRequestProcess || "—"}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>Training / Documentation</dt>
+                                <dd>{application.trainingDocumentationUrl ? <a href={application.trainingDocumentationUrl} target="_blank" rel="noopener noreferrer">{application.trainingDocumentationUrl}</a> : "—"}</dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    <section className="detail-section">
                         <h2 className="detail-section-title">Security & Access</h2>
                         <dl className="detail-definition-list">
                             <div className="detail-definition-item">
@@ -560,316 +583,308 @@ export default function ApplicationDetailPage() {
                             </div>
                         </dl>
                     </section>
-
-                    <section className="detail-section">
-                        <h2 className="detail-section-title">Operational Context</h2>
-                        <dl className="detail-definition-list">
-                            <div className="detail-definition-item full-width">
-                                <dt>Primary Use Cases</dt>
-                                <dd>{application.primaryUseCases || "—"}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>Departments Supported</dt>
-                                <dd>{application.departmentsSupported || "—"}</dd>
-                            </div>
-                            <div className="detail-definition-item full-width">
-                                <dt>Access Request Process</dt>
-                                <dd>{application.accessRequestProcess || "—"}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>Training / Documentation</dt>
-                                <dd>{application.trainingDocumentationUrl ? <a href={application.trainingDocumentationUrl} target="_blank" rel="noopener noreferrer">{application.trainingDocumentationUrl}</a> : "—"}</dd>
-                            </div>
-                        </dl>
-                    </section>
-
-                    <section className="detail-section integrations-section">
-                        <h2 className="detail-section-title">Integrations</h2>
-                        {canEditApp() && (
-                            <button className={showAddIntegration ? "secondary-action-btn" : "primary-action-btn"} onClick={() => setShowAddIntegration(!showAddIntegration)}>
-                                {showAddIntegration ? "Cancel" : "+ Add Integration"}
-                            </button>
-                        )}
-
-                        {showAddIntegration && (
-                            <div className="add-integration-modal">
-                                <div className="form-group">
-                                    <label>Connected Application</label>
-                                    <select
-                                        value={newIntegration.connectedAppId}
-                                        onChange={(e) => setNewIntegration({ ...newIntegration, connectedAppId: e.target.value })}
-                                    >
-                                        <option value="">Select Application</option>
-                                        {applications
-                                            .filter((a) => a.id !== appId)
-                                            .map((a) => (
-                                                <option key={a.id} value={a.id}>
-                                                    {a.name}
-                                                </option>
-                                            ))}
-                                    </select>
-                                </div>
-                                <div className="form-group">
-                                    <label>Direction</label>
-                                    <select
-                                        value={newIntegration.direction}
-                                        onChange={(e) => setNewIntegration({ ...newIntegration, direction: e.target.value })}
-                                    >
-                                        <option value="">Select Direction</option>
-                                        {DIRECTION_OPTIONS.map((opt) => (
-                                            <option key={opt.value} value={opt.value}>
-                                                {opt.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="form-group">
-                                    <label>Status</label>
-                                    <select
-                                        value={newIntegration.status}
-                                        onChange={(e) => setNewIntegration({ ...newIntegration, status: e.target.value })}
-                                    >
-                                        {STATUS_OPTIONS.map((opt) => (
-                                            <option key={opt} value={opt}>{opt}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="form-group">
-                                    <label>Method</label>
-                                    <select
-                                        value={newIntegration.method}
-                                        onChange={(e) => setNewIntegration({ ...newIntegration, method: e.target.value })}
-                                    >
-                                        <option value="">Select Method</option>
-                                        {METHOD_OPTIONS.map((opt) => (
-                                            <option key={opt} value={opt}>{opt}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="form-group">
-                                    <label>Frequency</label>
-                                    <select
-                                        value={newIntegration.frequency}
-                                        onChange={(e) => setNewIntegration({ ...newIntegration, frequency: e.target.value })}
-                                    >
-                                        <option value="">Select Frequency</option>
-                                        {FREQUENCY_OPTIONS.map((opt) => (
-                                            <option key={opt} value={opt}>{opt}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="form-group">
-                                    <label>Integration Type (optional)</label>
-                                    <select
-                                        value={newIntegration.integrationType}
-                                        onChange={(e) => setNewIntegration({ ...newIntegration, integrationType: e.target.value })}
-                                    >
-                                        <option value="">Select Type</option>
-                                        {INTEGRATION_TYPES.map((type) => (
-                                            <option key={type} value={type}>
-                                                {type}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="form-group full-width">
-                                    <label>Business Purpose</label>
-                                    <textarea
-                                        placeholder="Why does this integration exist?"
-                                        value={newIntegration.businessPurpose}
-                                        onChange={(e) => setNewIntegration({ ...newIntegration, businessPurpose: e.target.value })}
-                                        rows={2}
-                                    />
-                                </div>
-                                <div className="form-group full-width">
-                                    <label>Data Exchanged</label>
-                                    <textarea
-                                        placeholder="What data is exchanged?"
-                                        value={newIntegration.dataExchanged}
-                                        onChange={(e) => setNewIntegration({ ...newIntegration, dataExchanged: e.target.value })}
-                                        rows={2}
-                                    />
-                                </div>
-                                <div className="form-group full-width">
-                                    <label>Notes (optional)</label>
-                                    <input
-                                        type="text"
-                                        placeholder="Add notes..."
-                                        value={newIntegration.notes}
-                                        onChange={(e) => setNewIntegration({ ...newIntegration, notes: e.target.value })}
-                                    />
-                                </div>
-                                <div className="form-actions">
-                                    <button className="detail-btn primary" onClick={handleAddIntegration} disabled={adding}>
-                                        {adding ? "Adding..." : "Add Integration"}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {(() => {
-                            const outbound = application.integrations || [];
-                            const inbound = application.inboundIntegrations || [];
-                            
-                            const outboundMap = new Map(outbound.map(i => [i.targetApplicationId, i]));
-                            const inboundMap = new Map(inbound.map(i => [i.sourceApplicationId, i]));
-                            
-                            const allAppIds = new Set([...outboundMap.keys(), ...inboundMap.keys()]);
-                            
-                            const displayIntegrations = Array.from(allAppIds).map(appId => {
-                                const out = outboundMap.get(appId);
-                                const inb = inboundMap.get(appId);
-                                
-                                const name = out?.targetApplicationName || inb?.sourceApplicationName || "Unknown";
-                                const type = out?.integrationType || inb?.integrationType || "";
-                                const notes = out?.notes || inb?.notes || "";
-                                const status = out?.status || inb?.status || null;
-                                const method = out?.method || inb?.method || null;
-                                const frequency = out?.frequency || inb?.frequency || null;
-                                const businessPurpose = out?.businessPurpose || inb?.businessPurpose || null;
-                                
-                                let direction = "Outbound";
-                                if (out && inb) {
-                                    direction = "Bidirectional";
-                                } else if (inb) {
-                                    direction = "Inbound";
-                                }
-                                
-                                return {
-                                    id: out?.id || inb?.id,
-                                    appId,
-                                    name,
-                                    direction,
-                                    type,
-                                    notes,
-                                    status,
-                                    method,
-                                    frequency,
-                                    businessPurpose,
-                                };
-                            }).sort((a, b) => a.name.localeCompare(b.name));
-
-                            return (
-                                <div className="integrations-list">
-                                    {displayIntegrations.length === 0 ? (
-                                        <p className="detail-empty">None</p>
-                                    ) : (
-                                        <table className="detail-relationships-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Connected Application</th>
-                                                    <th>Direction</th>
-                                                    <th>Type</th>
-                                                    <th>Status</th>
-                                                    <th>Method / Frequency</th>
-                                                    <th>Business Purpose</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {displayIntegrations.map((i) => (
-                                                    <tr key={i.id}>
-                                                        <td>
-                                                            <Link to={`/applications/${i.appId}`}>
-                                                                {i.name}
-                                                            </Link>
-                                                        </td>
-                                                        <td>{i.direction}</td>
-                                                        <td>{i.type || "—"}</td>
-                                                        <td>{i.status || "—"}</td>
-                                                        <td>{[i.method, i.frequency].filter(Boolean).join(" / ") || "—"}</td>
-                                                        <td className="context-cell">{i.businessPurpose || i.notes || "—"}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    )}
-                                </div>
-                            );
-                        })()}
-                    </section>
-
-                    <section className="detail-section roles-section">
-                        <h2 className="detail-section-title">Roles Using This System</h2>
-                        <p className="detail-subtitle">Shows which organizational roles depend on this system.</p>
-
-                        {roleUsageLoading ? (
-                            <p className="detail-empty">Loading roles…</p>
-                        ) : roleUsage.length === 0 ? (
-                            <p className="detail-empty">No roles have been mapped to this system yet.</p>
-                        ) : (
-                            <>
-                                <div className="role-summary-bar">
-                                    <div className="role-summary-item">
-                                        <span className="role-summary-value">{roleUsage.length}</span>
-                                        <span className="role-summary-label">Total Roles</span>
-                                    </div>
-                                    <div className="role-summary-item">
-                                        <span className="role-summary-value">{roleUsage.filter(r => r.isPrimary).length}</span>
-                                        <span className="role-summary-label">Primary</span>
-                                    </div>
-                                    <div className="role-summary-item">
-                                        <span className="role-summary-value">{roleUsage.filter(r => !r.isPrimary).length}</span>
-                                        <span className="role-summary-label">Supporting</span>
-                                    </div>
-                                    <div className="role-summary-item">
-                                        <span className="role-summary-value">{new Set(roleUsage.map(r => r.roleGroup)).size}</span>
-                                        <span className="role-summary-label">Role Groups</span>
-                                    </div>
-                                </div>
-
-                                {(() => {
-                                    const groups: { label: string; key: string }[] = [
-                                        { label: "Primary", key: "Primary" },
-                                        { label: "Reporting / Visibility", key: "Reporting / Visibility" },
-                                        { label: "Administrative", key: "Administrative" },
-                                        { label: "Secondary", key: "Secondary" },
-                                        { label: "Occasional", key: "Occasional" },
-                                    ];
-
-                                    const grouped: Record<string, ApplicationRoleUsage[]> = {};
-                                    for (const g of groups) {
-                                        grouped[g.key] = [];
-                                    }
-                                    grouped["Other"] = [];
-
-                                    for (const r of roleUsage) {
-                                        const key = groups.find(g => g.key === r.usageType)?.key ?? "Other";
-                                        grouped[key].push(r);
-                                    }
-
-                                    return groups
-                                        .concat({ label: "Other", key: "Other" })
-                                        .filter(g => grouped[g.key].length > 0)
-                                        .map(group => (
-                                            <div key={group.key} className="role-group">
-                                                <h3 className="role-group-title">{group.label}</h3>
-                                                <div className="role-cards">
-                                                    {grouped[group.key].map(r => (
-                                                        <div key={r.usageId} className="role-card">
-                                                            <div className="role-card-header">
-                                                                <span className="role-code">{r.roleCode}</span>
-                                                                <span className={"role-usage-pill " + r.usageType.toLowerCase().replace(/[^a-z]/g, "")}>{r.usageType}</span>
-                                                            </div>
-                                                            <div className="role-card-body">
-                                                                <span className="role-name">{r.roleName}</span>
-                                                                <span className="role-group-label">{r.roleGroup}</span>
-                                                            </div>
-                                                            {(r.usagePurpose || r.notes) && (
-                                                                <div className="role-card-details">
-                                                                    {r.usagePurpose && <p className="role-purpose">{r.usagePurpose}</p>}
-                                                                    {r.notes && <p className="role-notes">{r.notes}</p>}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ));
-                                })()}
-                            </>
-                        )}
-                    </section>
                 </div>
+
+                <section className="detail-section roles-section">
+                    <h2 className="detail-section-title">Roles Using This System</h2>
+                    <p className="detail-subtitle">Shows which organizational roles depend on this system.</p>
+
+                    {roleUsageLoading ? (
+                        <p className="detail-empty">Loading roles…</p>
+                    ) : roleUsage.length === 0 ? (
+                        <p className="detail-empty">No roles have been mapped to this system yet.</p>
+                    ) : (
+                        <>
+                            <div className="role-summary-bar">
+                                <div className="role-summary-item">
+                                    <span className="role-summary-value">{roleUsage.length}</span>
+                                    <span className="role-summary-label">Total Roles</span>
+                                </div>
+                                <div className="role-summary-item">
+                                    <span className="role-summary-value">{roleUsage.filter(r => r.isPrimary).length}</span>
+                                    <span className="role-summary-label">Primary</span>
+                                </div>
+                                <div className="role-summary-item">
+                                    <span className="role-summary-value">{roleUsage.filter(r => !r.isPrimary).length}</span>
+                                    <span className="role-summary-label">Supporting</span>
+                                </div>
+                                <div className="role-summary-item">
+                                    <span className="role-summary-value">{new Set(roleUsage.map(r => r.roleGroup)).size}</span>
+                                    <span className="role-summary-label">Role Groups</span>
+                                </div>
+                            </div>
+
+                            {(() => {
+                                const groups: { label: string; key: string }[] = [
+                                    { label: "Primary", key: "Primary" },
+                                    { label: "Reporting / Visibility", key: "Reporting / Visibility" },
+                                    { label: "Administrative", key: "Administrative" },
+                                    { label: "Secondary", key: "Secondary" },
+                                    { label: "Occasional", key: "Occasional" },
+                                ];
+
+                                const grouped: Record<string, ApplicationRoleUsage[]> = {};
+                                for (const g of groups) {
+                                    grouped[g.key] = [];
+                                }
+                                grouped["Other"] = [];
+
+                                for (const r of roleUsage) {
+                                    const key = groups.find(g => g.key === r.usageType)?.key ?? "Other";
+                                    grouped[key].push(r);
+                                }
+
+                                function toggleExpand(usageId: number) {
+                                    setExpandedRoles(prev => {
+                                        const next = new Set(prev);
+                                        if (next.has(usageId)) next.delete(usageId);
+                                        else next.add(usageId);
+                                        return next;
+                                    });
+                                }
+
+                                return groups
+                                    .concat({ label: "Other", key: "Other" })
+                                    .filter(g => grouped[g.key].length > 0)
+                                    .map(group => (
+                                        <div key={group.key} className="role-group">
+                                            <h3 className="role-group-title">{group.label} <span className="role-group-count">{grouped[group.key].length}</span></h3>
+                                            <div className="role-list">
+                                                {grouped[group.key].map(r => (
+                                                    <div
+                                                        key={r.usageId}
+                                                        className={"role-row" + (expandedRoles.has(r.usageId) ? " expanded" : "") + ((r.usagePurpose || r.notes) ? " has-detail" : "")}
+                                                        onClick={() => (r.usagePurpose || r.notes) && toggleExpand(r.usageId)}
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        onKeyDown={e => (e.key === "Enter" || e.key === " ") && (r.usagePurpose || r.notes) && toggleExpand(r.usageId)}
+                                                    >
+                                                        <div className="role-row-main">
+                                                            <span className="role-row-code">{r.roleCode}</span>
+                                                            <span className="role-row-name">{r.roleName}</span>
+                                                            <span className="role-row-group">{r.roleGroup}</span>
+                                                            <span className={"role-usage-pill " + r.usageType.toLowerCase().replace(/[^a-z]/g, "")}>{r.usageType}</span>
+                                                        </div>
+                                                        {(r.usagePurpose || r.notes) && (
+                                                            <div className="role-row-detail">
+                                                                {r.usagePurpose && <p className="role-row-purpose">{r.usagePurpose}</p>}
+                                                                {r.notes && <p className="role-row-notes">{r.notes}</p>}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ));
+                            })()}
+                        </>
+                    )}
+                </section>
+
+                <section className="detail-section integrations-section">
+                    <h2 className="detail-section-title">Integrations</h2>
+                    {canEditApp() && (
+                        <button className={showAddIntegration ? "secondary-action-btn" : "primary-action-btn"} onClick={() => setShowAddIntegration(!showAddIntegration)}>
+                            {showAddIntegration ? "Cancel" : "+ Add Integration"}
+                        </button>
+                    )}
+
+                    {showAddIntegration && (
+                        <div className="add-integration-modal">
+                            <div className="form-group">
+                                <label>Connected Application</label>
+                                <select
+                                    value={newIntegration.connectedAppId}
+                                    onChange={(e) => setNewIntegration({ ...newIntegration, connectedAppId: e.target.value })}
+                                >
+                                    <option value="">Select Application</option>
+                                    {applications
+                                        .filter((a) => a.id !== appId)
+                                        .map((a) => (
+                                            <option key={a.id} value={a.id}>
+                                                {a.name}
+                                            </option>
+                                        ))}
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Direction</label>
+                                <select
+                                    value={newIntegration.direction}
+                                    onChange={(e) => setNewIntegration({ ...newIntegration, direction: e.target.value })}
+                                >
+                                    <option value="">Select Direction</option>
+                                    {DIRECTION_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Status</label>
+                                <select
+                                    value={newIntegration.status}
+                                    onChange={(e) => setNewIntegration({ ...newIntegration, status: e.target.value })}
+                                >
+                                    {STATUS_OPTIONS.map((opt) => (
+                                        <option key={opt} value={opt}>{opt}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Method</label>
+                                <select
+                                    value={newIntegration.method}
+                                    onChange={(e) => setNewIntegration({ ...newIntegration, method: e.target.value })}
+                                >
+                                    <option value="">Select Method</option>
+                                    {METHOD_OPTIONS.map((opt) => (
+                                        <option key={opt} value={opt}>{opt}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Frequency</label>
+                                <select
+                                    value={newIntegration.frequency}
+                                    onChange={(e) => setNewIntegration({ ...newIntegration, frequency: e.target.value })}
+                                >
+                                    <option value="">Select Frequency</option>
+                                    {FREQUENCY_OPTIONS.map((opt) => (
+                                        <option key={opt} value={opt}>{opt}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Integration Type (optional)</label>
+                                <select
+                                    value={newIntegration.integrationType}
+                                    onChange={(e) => setNewIntegration({ ...newIntegration, integrationType: e.target.value })}
+                                >
+                                    <option value="">Select Type</option>
+                                    {INTEGRATION_TYPES.map((type) => (
+                                        <option key={type} value={type}>
+                                            {type}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="form-group full-width">
+                                <label>Business Purpose</label>
+                                <textarea
+                                    placeholder="Why does this integration exist?"
+                                    value={newIntegration.businessPurpose}
+                                    onChange={(e) => setNewIntegration({ ...newIntegration, businessPurpose: e.target.value })}
+                                    rows={2}
+                                />
+                            </div>
+                            <div className="form-group full-width">
+                                <label>Data Exchanged</label>
+                                <textarea
+                                    placeholder="What data is exchanged?"
+                                    value={newIntegration.dataExchanged}
+                                    onChange={(e) => setNewIntegration({ ...newIntegration, dataExchanged: e.target.value })}
+                                    rows={2}
+                                />
+                            </div>
+                            <div className="form-group full-width">
+                                <label>Notes (optional)</label>
+                                <input
+                                    type="text"
+                                    placeholder="Add notes..."
+                                    value={newIntegration.notes}
+                                    onChange={(e) => setNewIntegration({ ...newIntegration, notes: e.target.value })}
+                                />
+                            </div>
+                            <div className="form-actions">
+                                <button className="detail-btn primary" onClick={handleAddIntegration} disabled={adding}>
+                                    {adding ? "Adding..." : "Add Integration"}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {(() => {
+                        const outbound = application.integrations || [];
+                        const inbound = application.inboundIntegrations || [];
+                        
+                        const outboundMap = new Map(outbound.map(i => [i.targetApplicationId, i]));
+                        const inboundMap = new Map(inbound.map(i => [i.sourceApplicationId, i]));
+                        
+                        const allAppIds = new Set([...outboundMap.keys(), ...inboundMap.keys()]);
+                        
+                        const displayIntegrations = Array.from(allAppIds).map(appId => {
+                            const out = outboundMap.get(appId);
+                            const inb = inboundMap.get(appId);
+                            
+                            const name = out?.targetApplicationName || inb?.sourceApplicationName || "Unknown";
+                            const type = out?.integrationType || inb?.integrationType || "";
+                            const notes = out?.notes || inb?.notes || "";
+                            const status = out?.status || inb?.status || null;
+                            const method = out?.method || inb?.method || null;
+                            const frequency = out?.frequency || inb?.frequency || null;
+                            const businessPurpose = out?.businessPurpose || inb?.businessPurpose || null;
+                            
+                            let direction = "Outbound";
+                            if (out && inb) {
+                                direction = "Bidirectional";
+                            } else if (inb) {
+                                direction = "Inbound";
+                            }
+                            
+                            return {
+                                id: out?.id || inb?.id,
+                                appId,
+                                name,
+                                direction,
+                                type,
+                                notes,
+                                status,
+                                method,
+                                frequency,
+                                businessPurpose,
+                            };
+                        }).sort((a, b) => a.name.localeCompare(b.name));
+
+                        return (
+                            <div className="integrations-list">
+                                {displayIntegrations.length === 0 ? (
+                                    <p className="detail-empty">None</p>
+                                ) : (
+                                    <table className="detail-relationships-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Connected Application</th>
+                                                <th>Direction</th>
+                                                <th>Type</th>
+                                                <th>Status</th>
+                                                <th>Method / Frequency</th>
+                                                <th>Business Purpose</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {displayIntegrations.map((i) => (
+                                                <tr key={i.id}>
+                                                    <td>
+                                                        <Link to={`/applications/${i.appId}`}>
+                                                            {i.name}
+                                                        </Link>
+                                                    </td>
+                                                    <td>{i.direction}</td>
+                                                    <td>{i.type || "—"}</td>
+                                                    <td>{i.status || "—"}</td>
+                                                    <td>{[i.method, i.frequency].filter(Boolean).join(" / ") || "—"}</td>
+                                                    <td className="context-cell">{i.businessPurpose || i.notes || "—"}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                        );
+                    })()}
+                </section>
             </div>
         </div>
     );
