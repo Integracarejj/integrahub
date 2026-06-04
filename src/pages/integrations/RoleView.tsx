@@ -191,7 +191,7 @@ export default function RoleView() {
         }
     }
 
-    async function handleDelete(id: string) {
+    async function handleDelete(id: number) {
         if (!window.confirm("Are you sure you want to remove this role mapping?")) return;
 
         try {
