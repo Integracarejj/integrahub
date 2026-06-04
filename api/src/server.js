@@ -4,6 +4,8 @@ import { query, closePool } from "./db.js";
 import applicationsRouter from "./routes/applications.js";
 import capabilitiesRouter from "./routes/capabilities.js";
 import integrationsRouter from "./routes/integrations.js";
+import rolesRouter from "./routes/roles.js";
+import roleUsageRouter from "./routes/roleUsage.js";
 import meRouter from "./routes/me.js";
 import adminUsersRouter from "./routes/adminUsers.js";
 import adminApplicationsRouter from "./routes/adminApplications.js";
@@ -53,6 +55,8 @@ app.get("/health/db", async (_req, res) => {
 app.use("/api/applications", applicationsRouter);
 app.use("/api/capabilities", capabilitiesRouter);
 app.use("/api/integrations", integrationsRouter);
+app.use("/api/roles", rolesRouter);
+app.use("/api/role-usage", roleUsageRouter);
 app.use("/api/me", meRouter);
 app.use("/api/admin/users", adminUsersRouter);
 app.use("/api/admin/applications", adminApplicationsRouter);
