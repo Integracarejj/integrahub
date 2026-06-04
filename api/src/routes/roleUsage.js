@@ -106,11 +106,12 @@ router.post("/", async (req, res, next) => {
             finalRoleDefId = roleRow[0].id;
         }
 
-        await query(`
+        const insertResult = await query(`
             INSERT INTO cmdb.SystemRoleUsage
-                (applicationId, roleDefinitionId, usageType, usagePurpose, isPrimary, notes)
+                (applicationId, roleDefinitionId, usageType, usagePurpose, isPrimary, notes, createdAt, updatedAt)
+            OUTPUT INSERTED.id
             VALUES
-                (@applicationId, @roleDefinitionId, @usageType, @usagePurpose, @isPrimary, @notes)
+                (@applicationId, @roleDefinitionId, @usageType, @usagePurpose, @isPrimary, @notes, SYSUTCDATETIME(), SYSUTCDATETIME())
         `, {
             applicationId: String(applicationId),
             roleDefinitionId: Number(finalRoleDefId),
@@ -120,14 +121,10 @@ router.post("/", async (req, res, next) => {
             notes: notes || "",
         });
 
-        const idResult = await query(`
-            SELECT CAST(SCOPE_IDENTITY() AS INT) AS id
-        `);
-
-        const newId = idResult[0]?.id;
+        const newId = insertResult[0]?.id;
 
         if (!newId) {
-            console.error("POST /api/role-usage: SCOPE_IDENTITY() returned no id");
+            console.error("POST /api/role-usage: OUTPUT INSERTED.id returned no id, insertResult=", JSON.stringify(insertResult));
             return res.status(500).json({ error: "Insert succeeded but could not retrieve new id" });
         }
 
