@@ -25,8 +25,8 @@ export async function createRoleUsage(data: RoleUsageFormData): Promise<void> {
     }
 }
 
-export async function updateRoleUsage(id: string, data: Partial<RoleUsageFormData>): Promise<void> {
-    const res = await fetch(`/api/role-usage/${encodeURIComponent(id)}`, {
+export async function updateRoleUsage(id: number, data: Partial<RoleUsageFormData>): Promise<void> {
+    const res = await fetch(`/api/role-usage/${encodeURIComponent(String(id))}`, {
         method: "PUT",
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
@@ -37,8 +37,8 @@ export async function updateRoleUsage(id: string, data: Partial<RoleUsageFormDat
     }
 }
 
-export async function deleteRoleUsage(id: string): Promise<void> {
-    const res = await fetch(`/api/role-usage/${encodeURIComponent(id)}`, {
+export async function deleteRoleUsage(id: number): Promise<void> {
+    const res = await fetch(`/api/role-usage/${encodeURIComponent(String(id))}`, {
         method: "DELETE",
         headers: getAuthHeaders(),
     });

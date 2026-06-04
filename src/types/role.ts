@@ -1,5 +1,5 @@
 export interface RoleDefinition {
-    id: string;
+    id: number;
     roleCode: string;
     roleName: string;
     roleGroup: string;
@@ -8,9 +8,9 @@ export interface RoleDefinition {
 }
 
 export interface SystemRoleUsageRecord {
-    id: string;
+    id: number;
     applicationId: string;
-    roleDefinitionId: string;
+    roleDefinitionId: number;
     usageType: string;
     usagePurpose: string | null;
     isPrimary: boolean;
@@ -29,7 +29,7 @@ export interface SystemRoleUsageRecord {
 
 export interface RoleUsageFormData {
     applicationId: string;
-    roleDefinitionId: string;
+    roleDefinitionId: number;
     usageType: string;
     usagePurpose: string;
     isPrimary: boolean;

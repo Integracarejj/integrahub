@@ -59,12 +59,15 @@ router.post("/", async (req, res, next) => {
         return forbidden(res);
     }
 
-    const { applicationId, roleDefinitionId, usageType, usagePurpose, isPrimary, notes } = req.body;
+    const { applicationId, roleDefinitionId, roleCode, usageType, usagePurpose, isPrimary, notes } = req.body;
 
     if (!applicationId) return res.status(400).json({ error: "applicationId is required" });
-    if (!roleDefinitionId) return res.status(400).json({ error: "roleDefinitionId is required" });
     if (!usageType || !VALID_USAGE_TYPES.includes(usageType)) {
         return res.status(400).json({ error: `usageType must be one of: ${VALID_USAGE_TYPES.join(", ")}` });
+    }
+
+    if (!roleDefinitionId && !roleCode) {
+        return res.status(400).json({ error: "roleDefinitionId or roleCode is required" });
     }
 
     try {
@@ -73,30 +76,68 @@ router.post("/", async (req, res, next) => {
             return res.status(400).json({ error: "applicationId does not exist" });
         }
 
-        const roleCheck = await query("SELECT id FROM cmdb.RoleDefinitions WHERE id = @id", { id: roleDefinitionId });
+        let resolvedRoleId = roleDefinitionId;
+
+        if (!resolvedRoleId && roleCode) {
+            const roleRow = await query(
+                "SELECT id FROM cmdb.RoleDefinitions WHERE roleCode = @code",
+                { code: roleCode }
+            );
+            if (roleRow.length === 0) {
+                return res.status(400).json({ error: "roleCode does not match any role" });
+            }
+            resolvedRoleId = roleRow[0].id;
+        }
+
+        const roleCheck = await query("SELECT id FROM cmdb.RoleDefinitions WHERE id = @id", { id: resolvedRoleId });
         if (roleCheck.length === 0) {
             return res.status(400).json({ error: "roleDefinitionId does not exist" });
         }
 
-        const id = "sru-" + Date.now();
+        const insertResult = await query(`
+            INSERT INTO cmdb.SystemRoleUsage (applicationId, roleDefinitionId, usageType, usagePurpose, isPrimary, notes)
+            OUTPUT INSERTED.id
+            VALUES (@applicationId, @roleDefinitionId, @usageType, @usagePurpose, @isPrimary, @notes)
+        `, {
+            applicationId,
+            roleDefinitionId: Number(resolvedRoleId),
+            usageType,
+            usagePurpose: usagePurpose || null,
+            isPrimary: isPrimary ? 1 : 0,
+            notes: notes || null,
+        });
 
-        await query(
-            `INSERT INTO cmdb.SystemRoleUsage (id, applicationId, roleDefinitionId, usageType, usagePurpose, isPrimary, notes)
-             VALUES (@id, @applicationId, @roleDefinitionId, @usageType, @usagePurpose, @isPrimary, @notes)`,
-            {
-                id,
-                applicationId,
-                roleDefinitionId,
-                usageType,
-                usagePurpose: usagePurpose || null,
-                isPrimary: isPrimary ? 1 : 0,
-                notes: notes || null,
-            }
-        );
+        const newId = insertResult[0]?.id;
 
-        res.status(201).json({ id, applicationId, roleDefinitionId, usageType, usagePurpose, isPrimary: !!isPrimary, notes });
+        const newRecord = await query(`
+            SELECT
+                sru.id,
+                sru.applicationId,
+                sru.roleDefinitionId,
+                sru.usageType,
+                sru.usagePurpose,
+                sru.isPrimary,
+                sru.notes,
+                sru.createdAt,
+                sru.updatedAt,
+                a.name AS applicationName,
+                a.type AS applicationType,
+                a.systemCategory,
+                a.architectureType,
+                a.status AS applicationStatus,
+                rd.roleCode,
+                rd.roleName,
+                rd.roleGroup
+            FROM cmdb.SystemRoleUsage sru
+            INNER JOIN cmdb.RoleDefinitions rd ON sru.roleDefinitionId = rd.id
+            INNER JOIN cmdb.Applications a ON sru.applicationId = a.id
+            WHERE sru.id = @id
+        `, { id: newId });
+
+        res.status(201).json(newRecord[0] || { id: newId });
     } catch (err) {
         console.error("POST /api/role-usage failed:", err);
+        console.error("POST /api/role-usage body:", JSON.stringify(req.body));
         next(err);
     }
 });
@@ -106,23 +147,35 @@ router.put("/:id", async (req, res, next) => {
         return forbidden(res);
     }
 
-    const id = req.params.id.replace(/[^a-zA-Z0-9_-]/g, "");
+    const recordId = Number(req.params.id);
+
+    if (!Number.isInteger(recordId) || recordId < 1) {
+        return res.status(400).json({ error: "Invalid id" });
+    }
 
     try {
-        const existing = await query("SELECT id FROM cmdb.SystemRoleUsage WHERE id = @id", { id });
+        const existing = await query("SELECT id FROM cmdb.SystemRoleUsage WHERE id = @id", { id: recordId });
         if (existing.length === 0) {
             return res.status(404).json({ error: "Role usage not found" });
         }
 
-        const { usageType, usagePurpose, isPrimary, notes } = req.body;
+        const { applicationId, roleDefinitionId, usageType, usagePurpose, isPrimary, notes } = req.body;
 
         if (usageType && !VALID_USAGE_TYPES.includes(usageType)) {
             return res.status(400).json({ error: `usageType must be one of: ${VALID_USAGE_TYPES.join(", ")}` });
         }
 
         const updateFields = [];
-        const params = { id };
+        const params = { id: recordId };
 
+        if (applicationId !== undefined) {
+            updateFields.push("applicationId = @applicationId");
+            params.applicationId = applicationId;
+        }
+        if (roleDefinitionId !== undefined) {
+            updateFields.push("roleDefinitionId = @roleDefinitionId");
+            params.roleDefinitionId = Number(roleDefinitionId);
+        }
         if (usageType !== undefined) {
             updateFields.push("usageType = @usageType");
             params.usageType = usageType;
@@ -154,6 +207,7 @@ router.put("/:id", async (req, res, next) => {
         res.json({ success: true });
     } catch (err) {
         console.error("PUT /api/role-usage/:id failed:", err);
+        console.error("PUT /api/role-usage params:", { id: req.params.id, body: JSON.stringify(req.body) });
         next(err);
     }
 });
@@ -163,15 +217,19 @@ router.delete("/:id", async (req, res, next) => {
         return forbidden(res);
     }
 
-    const id = req.params.id.replace(/[^a-zA-Z0-9_-]/g, "");
+    const recordId = Number(req.params.id);
+
+    if (!Number.isInteger(recordId) || recordId < 1) {
+        return res.status(400).json({ error: "Invalid id" });
+    }
 
     try {
-        const existing = await query("SELECT id FROM cmdb.SystemRoleUsage WHERE id = @id", { id });
+        const existing = await query("SELECT id FROM cmdb.SystemRoleUsage WHERE id = @id", { id: recordId });
         if (existing.length === 0) {
             return res.status(404).json({ error: "Role usage not found" });
         }
 
-        await query("DELETE FROM cmdb.SystemRoleUsage WHERE id = @id", { id });
+        await query("DELETE FROM cmdb.SystemRoleUsage WHERE id = @id", { id: recordId });
         res.json({ success: true });
     } catch (err) {
         console.error("DELETE /api/role-usage/:id failed:", err);

@@ -21,7 +21,7 @@ const USAGE_TYPE_LABELS: Record<string, string> = {
 
 const EMPTY_ADMIN_FORM: RoleUsageFormData = {
     applicationId: "",
-    roleDefinitionId: "",
+    roleDefinitionId: 0,
     usageType: "Primary",
     usagePurpose: "",
     isPrimary: false,
@@ -41,7 +41,7 @@ export default function RoleView() {
 
     const [showAdmin, setShowAdmin] = useState(false);
     const [adminForm, setAdminForm] = useState<RoleUsageFormData>({ ...EMPTY_ADMIN_FORM });
-    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editingId, setEditingId] = useState<number | null>(null);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 

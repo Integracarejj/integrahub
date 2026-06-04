@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { query } from "../db.js";
-import { forbidden } from "../auth/applicationPermissions.js";
 
 const router = Router();
 
