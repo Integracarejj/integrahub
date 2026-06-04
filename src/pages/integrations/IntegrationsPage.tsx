@@ -749,9 +749,6 @@ export default function IntegrationsPage() {
     const mapFilteredLayout = useMemo(() => {
         let visible = mapLayout.nodes;
 
-        if (mapCategoryFilter) {
-            visible = visible.filter((n) => n.category === mapCategoryFilter);
-        }
         if (mapStatusFilter) {
             visible = visible.filter((n) => n.status.toLowerCase() === mapStatusFilter.toLowerCase());
         }
@@ -768,7 +765,13 @@ export default function IntegrationsPage() {
         );
 
         return { nodes: visible, edges: visibleEdges, centerId: mapLayout.centerId };
-    }, [mapLayout, mapCategoryFilter, mapStatusFilter, mapOwnerFilter]);
+    }, [mapLayout, mapStatusFilter, mapOwnerFilter]);
+
+    // Category highlight: matching nodes stay prominent, others fade
+    const mapCategoryHighlightIds = useMemo(() => {
+        if (!mapCategoryFilter) return null;
+        return new Set(mapNodeData.filter((n) => n.category === mapCategoryFilter).map((n) => n.id));
+    }, [mapNodeData, mapCategoryFilter]);
 
     // Capability highlight: matching nodes stay prominent, others fade
     const mapCapabilityHighlightIds = useMemo(() => {
@@ -820,16 +823,18 @@ export default function IntegrationsPage() {
 
     // Combined highlight set (null if none active)
     const mapHighlightIds = useMemo(() => {
+        const cat = mapCategoryHighlightIds;
         const cap = mapCapabilityHighlightIds;
         const search = mapSearchHighlightIds;
         const crit = mapCriticalityHighlightIds;
-        if (!cap && !search && !crit) return null;
+        if (!cat && !cap && !search && !crit) return null;
         const combined = new Set<string>();
+        if (cat) cat.forEach((id) => combined.add(id));
         if (cap) cap.forEach((id) => combined.add(id));
         if (search) search.forEach((id) => combined.add(id));
         if (crit) crit.forEach((id) => combined.add(id));
         return combined;
-    }, [mapCapabilityHighlightIds, mapSearchHighlightIds, mapCriticalityHighlightIds]);
+    }, [mapCategoryHighlightIds, mapCapabilityHighlightIds, mapSearchHighlightIds, mapCriticalityHighlightIds]);
 
     // Compute related node IDs for selection highlighting
     const mapRelatedIds = useMemo(() => {
@@ -1311,6 +1316,9 @@ export default function IntegrationsPage() {
 
                         {(() => {
                             const visibleCount = mapFilteredLayout.nodes.length;
+                            const catCount = mapCategoryFilter && mapCategoryHighlightIds
+                                ? mapFilteredLayout.nodes.filter((n) => mapCategoryHighlightIds!.has(n.id)).length
+                                : null;
                             const capCount = mapCapabilityFilter && mapCapabilityHighlightIds
                                 ? mapFilteredLayout.nodes.filter((n) => mapCapabilityHighlightIds!.has(n.id)).length
                                 : null;
@@ -1322,6 +1330,7 @@ export default function IntegrationsPage() {
                                 : null;
                             const parts: string[] = [];
                             if (searchCount !== null) parts.push(`Search matched ${searchCount} system${searchCount === 1 ? "" : "s"}`);
+                            if (catCount !== null) parts.push(`Highlighting ${catCount} ${mapCategoryFilter} system${catCount === 1 ? "" : "s"}`);
                             if (capCount !== null) parts.push(`Highlighting ${capCount} ${mapCapabilityFilter} system${capCount === 1 ? "" : "s"}`);
                             if (critCount !== null) parts.push(`Highlighting ${critCount} ${mapCriticalityFilter} criticality system${critCount === 1 ? "" : "s"}`);
                             const text = parts.length > 0 ? parts.join(" · ") : `Showing all ${visibleCount} system${visibleCount === 1 ? "" : "s"}`;
