@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getDashboardDataQuality } from "../services/dashboardService";
 import type { DashboardDataQualityMetrics, DashboardDataQualityLists } from "../types/dashboard";
@@ -18,6 +18,84 @@ interface Capability {
     name: string;
 }
 
+interface DqAccordionSectionProps<T> {
+    id: string;
+    title: string;
+    subtitle?: string;
+    count: number;
+    helperText: string;
+    emptyText: string;
+    items: T[];
+    renderItem: (item: T) => React.ReactNode;
+    expanded: boolean;
+    onToggle: () => void;
+}
+
+function DqAccordionSection<T>({
+    id,
+    title,
+    subtitle,
+    count,
+    helperText,
+    emptyText,
+    items,
+    renderItem,
+    expanded,
+    onToggle,
+}: DqAccordionSectionProps<T>) {
+    const visibleItems = items.slice(0, 10);
+    const totalItems = items.length;
+
+    return (
+        <div className="dq-accordion" id={id}>
+            <button
+                className="dq-accordion-header"
+                onClick={onToggle}
+                type="button"
+                aria-expanded={expanded}
+            >
+                <span className="dq-accordion-header-left">
+                    <svg
+                        className={`dq-chevron ${expanded ? "dq-chevron-open" : ""}`}
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                    >
+                        <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <span className="dq-accordion-title">
+                        {title}
+                        {subtitle && <span className="dq-list-subtitle"> {subtitle}</span>}
+                    </span>
+                </span>
+                <span className="dq-accordion-header-right">
+                    <span className="dq-accordion-count">{count}</span>
+                    <span className="dq-accordion-helper">{helperText}</span>
+                </span>
+            </button>
+            {expanded && (
+                <div className="dq-accordion-body">
+                    {totalItems === 0 ? (
+                        <p className="dq-empty">{emptyText}</p>
+                    ) : (
+                        <>
+                            <div className="dq-list-items">
+                                {visibleItems.map((item, i) => (
+                                    <div key={i}>{renderItem(item)}</div>
+                                ))}
+                            </div>
+                            {totalItems > 10 && (
+                                <p className="dq-showing-n">Showing 10 of {totalItems}</p>
+                            )}
+                        </>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function HomePage() {
     const navigate = useNavigate();
     const [applications, setApplications] = useState<ApiApplication[]>([]);
@@ -27,6 +105,8 @@ export default function HomePage() {
     const [dqMetrics, setDqMetrics] = useState<DashboardDataQualityMetrics | null>(null);
     const [dqLists, setDqLists] = useState<DashboardDataQualityLists | null>(null);
     const [dqLoading, setDqLoading] = useState(true);
+
+    const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
         Promise.all([
@@ -52,6 +132,10 @@ export default function HomePage() {
                 console.error("Data Quality fetch failed:", err);
                 setDqLoading(false);
             });
+    }, []);
+
+    const toggleSection = useCallback((key: string) => {
+        setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
     }, []);
 
     const stats = useMemo(() => {
@@ -162,121 +246,130 @@ export default function HomePage() {
                         <div className="dq-lists">
                             {dqLists && (
                                 <>
-                                    <div className="dq-list-section" id="missing-owners">
-                                        <h3 className="dq-list-title">Ownership Needs Attention</h3>
-                                        {dqLists.missingOwners.length === 0 ? (
-                                            <p className="dq-empty">All systems have owners assigned.</p>
-                                        ) : (
-                                            <div className="dq-list-items">
-                                                {dqLists.missingOwners.map(s => (
-                                                    <Link key={s.id} to={`/applications/${s.id}`} className="dq-list-item">
-                                                        <span className="dq-item-name">{s.name}</span>
-                                                        <span className="dq-item-detail">
-                                                            {s.businessOwner ? "" : "No business owner"} {s.businessOwner && !s.technicalOwner ? " / " : ""} {s.technicalOwner ? "" : "No technical owner"}
-                                                        </span>
-                                                        <span className={"dq-item-status " + s.status.toLowerCase()}>{s.status}</span>
-                                                    </Link>
-                                                ))}
-                                            </div>
+                                    <DqAccordionSection
+                                        id="missing-owners"
+                                        title="Ownership Needs Attention"
+                                        count={dqMetrics.systemsMissingBusinessOwner + dqMetrics.systemsMissingTechnicalOwner}
+                                        helperText="Systems missing business or technical owner"
+                                        emptyText="All systems have owners assigned."
+                                        items={dqLists.missingOwners}
+                                        expanded={!!expandedSections["missing-owners"]}
+                                        onToggle={() => toggleSection("missing-owners")}
+                                        renderItem={s => (
+                                            <Link key={s.id} to={`/applications/${s.id}`} className="dq-list-item">
+                                                <span className="dq-item-name">{s.name}</span>
+                                                <span className="dq-item-detail">
+                                                    {s.businessOwner ? "" : "No business owner"}{s.businessOwner && !s.technicalOwner ? " / " : ""}{!s.businessOwner && !s.technicalOwner ? " " : ""}{s.technicalOwner ? "" : "No technical owner"}
+                                                </span>
+                                                <span className={"dq-item-status " + s.status.toLowerCase()}>{s.status}</span>
+                                            </Link>
                                         )}
-                                    </div>
+                                    />
 
-                                    <div className="dq-list-section" id="missing-context">
-                                        <h3 className="dq-list-title">Missing Operational Context</h3>
-                                        {dqLists.missingOperationalContext.length === 0 ? (
-                                            <p className="dq-empty">All systems have operational context.</p>
-                                        ) : (
-                                            <div className="dq-list-items">
-                                                {dqLists.missingOperationalContext.map(s => (
-                                                    <Link key={s.id} to={`/applications/${s.id}`} className="dq-list-item">
-                                                        <span className="dq-item-name">{s.name}</span>
-                                                        <span className="dq-item-detail">Missing use cases, departments, access process, and training URL</span>
-                                                        <span className={"dq-item-status " + s.status.toLowerCase()}>{s.status}</span>
-                                                    </Link>
-                                                ))}
-                                            </div>
+                                    <DqAccordionSection
+                                        id="missing-context"
+                                        title="Missing Operational Context"
+                                        count={dqMetrics.systemsMissingOperationalContext}
+                                        helperText="Systems missing use cases, departments, access process, training URL"
+                                        emptyText="All systems have operational context."
+                                        items={dqLists.missingOperationalContext}
+                                        expanded={!!expandedSections["missing-context"]}
+                                        onToggle={() => toggleSection("missing-context")}
+                                        renderItem={s => (
+                                            <Link key={s.id} to={`/applications/${s.id}`} className="dq-list-item">
+                                                <span className="dq-item-name">{s.name}</span>
+                                                <span className="dq-item-detail">Missing use cases, departments, access process, and training URL</span>
+                                                <span className={"dq-item-status " + s.status.toLowerCase()}>{s.status}</span>
+                                            </Link>
                                         )}
-                                    </div>
+                                    />
 
-                                    <div className="dq-list-section" id="without-roles">
-                                        <h3 className="dq-list-title">Systems Without Role Mappings</h3>
-                                        {dqLists.systemsWithoutRoles.length === 0 ? (
-                                            <p className="dq-empty">All systems have role mappings.</p>
-                                        ) : (
-                                            <div className="dq-list-items">
-                                                {dqLists.systemsWithoutRoles.map(s => (
-                                                    <Link key={s.id} to={`/applications/${s.id}`} className="dq-list-item">
-                                                        <span className="dq-item-name">{s.name}</span>
-                                                        <span className={"dq-item-status " + s.status.toLowerCase()}>{s.status}</span>
-                                                    </Link>
-                                                ))}
-                                            </div>
+                                    <DqAccordionSection
+                                        id="without-roles"
+                                        title="Systems Without Role Mappings"
+                                        count={dqMetrics.systemsWithoutRoleMappings}
+                                        helperText="Systems not mapped to any role"
+                                        emptyText="All systems have role mappings."
+                                        items={dqLists.systemsWithoutRoles}
+                                        expanded={!!expandedSections["without-roles"]}
+                                        onToggle={() => toggleSection("without-roles")}
+                                        renderItem={s => (
+                                            <Link key={s.id} to={`/applications/${s.id}`} className="dq-list-item">
+                                                <span className="dq-item-name">{s.name}</span>
+                                                <span className={"dq-item-status " + s.status.toLowerCase()}>{s.status}</span>
+                                            </Link>
                                         )}
-                                    </div>
+                                    />
 
-                                    <div className="dq-list-section" id="without-integrations">
-                                        <h3 className="dq-list-title">Systems Without Integrations</h3>
-                                        {dqLists.systemsWithoutIntegrations.length === 0 ? (
-                                            <p className="dq-empty">All systems have integrations.</p>
-                                        ) : (
-                                            <div className="dq-list-items">
-                                                {dqLists.systemsWithoutIntegrations.map(s => (
-                                                    <Link key={s.id} to={`/applications/${s.id}`} className="dq-list-item">
-                                                        <span className="dq-item-name">{s.name}</span>
-                                                        <span className={"dq-item-status " + s.status.toLowerCase()}>{s.status}</span>
-                                                    </Link>
-                                                ))}
-                                            </div>
+                                    <DqAccordionSection
+                                        id="without-integrations"
+                                        title="Systems Without Integrations"
+                                        count={dqMetrics.systemsWithoutIntegrations}
+                                        helperText="Systems with no integrations defined"
+                                        emptyText="All systems have integrations."
+                                        items={dqLists.systemsWithoutIntegrations}
+                                        expanded={!!expandedSections["without-integrations"]}
+                                        onToggle={() => toggleSection("without-integrations")}
+                                        renderItem={s => (
+                                            <Link key={s.id} to={`/applications/${s.id}`} className="dq-list-item">
+                                                <span className="dq-item-name">{s.name}</span>
+                                                <span className={"dq-item-status " + s.status.toLowerCase()}>{s.status}</span>
+                                            </Link>
                                         )}
-                                    </div>
+                                    />
 
-                                    <div className="dq-list-section" id="cleanup-integrations">
-                                        <h3 className="dq-list-title">Possible Test / Cleanup Integrations</h3>
-                                        {dqLists.possibleTestIntegrations.length === 0 ? (
-                                            <p className="dq-empty">No suspicious integrations found.</p>
-                                        ) : (
-                                            <div className="dq-list-items">
-                                                {dqLists.possibleTestIntegrations.map(i => (
-                                                    <Link key={i.id} to={`/integrations`} className="dq-list-item">
-                                                        <span className="dq-item-name">{i.sourceApplicationName} → {i.targetApplicationName}</span>
-                                                        <span className="dq-item-detail">{i.notes || i.businessPurpose || i.dataExchanged || ""}</span>
-                                                    </Link>
-                                                ))}
-                                            </div>
+                                    <DqAccordionSection
+                                        id="cleanup-integrations"
+                                        title="Possible Test / Cleanup Integrations"
+                                        count={dqMetrics.testOrCleanupIntegrations}
+                                        helperText="Integrations flagged as test, sample, or dummy"
+                                        emptyText="No suspicious integrations found."
+                                        items={dqLists.possibleTestIntegrations}
+                                        expanded={!!expandedSections["cleanup-integrations"]}
+                                        onToggle={() => toggleSection("cleanup-integrations")}
+                                        renderItem={i => (
+                                            <Link key={i.id} to={"/integrations"} className="dq-list-item">
+                                                <span className="dq-item-name">{i.sourceApplicationName} &rarr; {i.targetApplicationName}</span>
+                                                <span className="dq-item-detail">{i.notes || i.businessPurpose || i.dataExchanged || ""}</span>
+                                            </Link>
                                         )}
-                                    </div>
+                                    />
 
-                                    <div className="dq-list-section" id="most-used">
-                                        <h3 className="dq-list-title">Most Used Systems <span className="dq-list-subtitle">(by role count)</span></h3>
-                                        {dqLists.mostUsedSystemsByRoleCount.length === 0 ? (
-                                            <p className="dq-empty">No role mappings exist.</p>
-                                        ) : (
-                                            <div className="dq-list-items">
-                                                {dqLists.mostUsedSystemsByRoleCount.map(s => (
-                                                    <Link key={s.id} to={`/applications/${s.id}`} className="dq-list-item">
-                                                        <span className="dq-item-name">{s.name}</span>
-                                                        <span className="dq-item-badge">{s.roleCount} role{s.roleCount !== 1 ? "s" : ""}</span>
-                                                    </Link>
-                                                ))}
-                                            </div>
+                                    <DqAccordionSection
+                                        id="most-used"
+                                        title="Most Used Systems"
+                                        subtitle="by role count"
+                                        count={dqLists.mostUsedSystemsByRoleCount.length}
+                                        helperText="Systems ranked by number of role assignments"
+                                        emptyText="No role mappings exist."
+                                        items={dqLists.mostUsedSystemsByRoleCount}
+                                        expanded={!!expandedSections["most-used"]}
+                                        onToggle={() => toggleSection("most-used")}
+                                        renderItem={s => (
+                                            <Link key={s.id} to={`/applications/${s.id}`} className="dq-list-item">
+                                                <span className="dq-item-name">{s.name}</span>
+                                                <span className="dq-item-badge">{s.roleCount} role{s.roleCount !== 1 ? "s" : ""}</span>
+                                            </Link>
                                         )}
-                                    </div>
+                                    />
 
-                                    <div className="dq-list-section" id="most-connected">
-                                        <h3 className="dq-list-title">Most Connected Systems <span className="dq-list-subtitle">(by integration count)</span></h3>
-                                        {dqLists.mostConnectedSystems.length === 0 ? (
-                                            <p className="dq-empty">No integrations exist.</p>
-                                        ) : (
-                                            <div className="dq-list-items">
-                                                {dqLists.mostConnectedSystems.map(s => (
-                                                    <Link key={s.id} to={`/applications/${s.id}`} className="dq-list-item">
-                                                        <span className="dq-item-name">{s.name}</span>
-                                                        <span className="dq-item-badge">{s.connectionCount} connection{s.connectionCount !== 1 ? "s" : ""}</span>
-                                                    </Link>
-                                                ))}
-                                            </div>
+                                    <DqAccordionSection
+                                        id="most-connected"
+                                        title="Most Connected Systems"
+                                        subtitle="by integration count"
+                                        count={dqLists.mostConnectedSystems.length}
+                                        helperText="Systems ranked by number of integrations"
+                                        emptyText="No integrations exist."
+                                        items={dqLists.mostConnectedSystems}
+                                        expanded={!!expandedSections["most-connected"]}
+                                        onToggle={() => toggleSection("most-connected")}
+                                        renderItem={s => (
+                                            <Link key={s.id} to={`/applications/${s.id}`} className="dq-list-item">
+                                                <span className="dq-item-name">{s.name}</span>
+                                                <span className="dq-item-badge">{s.connectionCount} connection{s.connectionCount !== 1 ? "s" : ""}</span>
+                                            </Link>
                                         )}
-                                    </div>
+                                    />
                                 </>
                             )}
                         </div>

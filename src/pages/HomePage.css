@@ -173,22 +173,70 @@
 .dq-card-purple { border-left: 4px solid #8b5cf6; }
 .dq-card-gray { border-left: 4px solid #9ca3af; }
 
-/* Lists */
+/* ─── Accordion Lists ─── */
 .dq-lists {
     display: flex;
     flex-direction: column;
-    gap: 28px;
+    gap: 8px;
 }
 
-.dq-list-section {
+.dq-accordion {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
     scroll-margin-top: 16px;
 }
 
-.dq-list-title {
-    margin: 0 0 4px;
-    font-size: 16px;
+.dq-accordion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 14px 16px;
+    border: none;
+    background: #fff;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: background 0.1s;
+}
+
+.dq-accordion-header:hover {
+    background: #f9fafb;
+}
+
+.dq-accordion-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+}
+
+.dq-accordion-header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.dq-chevron {
+    flex-shrink: 0;
+    color: #9ca3af;
+    transition: transform 0.2s;
+}
+
+.dq-chevron-open {
+    transform: rotate(90deg);
+}
+
+.dq-accordion-title {
+    font-size: 14px;
     font-weight: 600;
     color: #1f2937;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .dq-list-subtitle {
@@ -197,9 +245,37 @@
     color: #9ca3af;
 }
 
+.dq-accordion-count {
+    font-size: 13px;
+    font-weight: 600;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 1px 10px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+
+.dq-accordion-helper {
+    display: none;
+    font-size: 12px;
+    color: #9ca3af;
+    white-space: nowrap;
+}
+
+@media (min-width: 600px) {
+    .dq-accordion-helper {
+        display: inline;
+    }
+}
+
+.dq-accordion-body {
+    border-top: 1px solid #f3f4f6;
+}
+
 .dq-empty {
-    margin: 8px 0 0;
-    font-size: 14px;
+    margin: 0;
+    padding: 12px 16px;
+    font-size: 13px;
     color: #9ca3af;
     font-style: italic;
 }
@@ -207,9 +283,6 @@
 .dq-list-items {
     display: flex;
     flex-direction: column;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    overflow: hidden;
 }
 
 .dq-list-item {
@@ -283,6 +356,14 @@
 .dq-item-status.retired {
     background: #f3f4f6;
     color: #6b7280;
+}
+
+.dq-showing-n {
+    margin: 0;
+    padding: 8px 16px;
+    font-size: 12px;
+    color: #9ca3af;
+    text-align: center;
 }
 
 @media (max-width: 768px) {
