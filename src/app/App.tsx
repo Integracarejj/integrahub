@@ -14,6 +14,7 @@ import CapabilityDetailPage from "../pages/capabilities/CapabilityDetailPage";
 import AdminPage from "../pages/admin/AdminPage";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
 import AdminApplicationImportPage from "../pages/admin/AdminApplicationImportPage";
+import AdminDataQualityPage from "../pages/admin/AdminDataQualityPage";
 import IntegrationsPage from "../pages/integrations/IntegrationsPage";
 import PlatformsPage from "../pages/platforms/PlatformsPage";
 
@@ -100,6 +101,7 @@ function AuthAwareRouter() {
                 <Route path="/admin" element={<AdminPage />} />
                 <Route path="/admin/users" element={<AdminUsersPage />} />
                 <Route path="/admin/application-import" element={<AdminApplicationImportPage />} />
+                <Route path="/admin/data-quality" element={<AdminDataQualityPage />} />
 
                 <Route path="/integrations" element={<IntegrationsPage />} />
                 <Route path="/platforms" element={<PlatformsPage />} />

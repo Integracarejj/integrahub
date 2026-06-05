@@ -112,258 +112,130 @@
     border-color: #d1d5db;
 }
 
-/* ─── Data Quality ─── */
+/* ─── System Intelligence ─── */
 
-.dq-section {
+.si-section {
     margin-bottom: 32px;
 }
 
-.dq-subtitle {
+.si-subtitle {
     margin: -12px 0 20px;
     font-size: 14px;
     color: #9ca3af;
 }
 
-.dq-loading {
-    color: #9ca3af;
-    font-size: 14px;
-}
-
-.dq-summary-cards {
+.si-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-    gap: 12px;
-    margin-bottom: 32px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
 }
 
-.dq-card {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 18px;
+.si-card {
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
-    text-decoration: none;
-    transition: transform 0.15s, box-shadow 0.15s;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
 }
 
-.dq-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+.si-card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0 0 2px;
 }
 
-.dq-card-value {
-    font-size: 26px;
-    font-weight: 700;
-    color: #111827;
-    line-height: 1.2;
-}
-
-.dq-card-label {
+.si-card-subtitle {
     font-size: 12px;
-    font-weight: 500;
-    color: #6b7280;
-    line-height: 1.3;
+    color: #9ca3af;
+    margin: 0 0 14px;
 }
 
-.dq-card-red { border-left: 4px solid #ef4444; }
-.dq-card-orange { border-left: 4px solid #f97316; }
-.dq-card-yellow { border-left: 4px solid #eab308; }
-.dq-card-purple { border-left: 4px solid #8b5cf6; }
-.dq-card-gray { border-left: 4px solid #9ca3af; }
-
-/* ─── Accordion Lists ─── */
-.dq-lists {
+.si-card-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-}
-
-.dq-accordion {
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    overflow: hidden;
-    scroll-margin-top: 16px;
-}
-
-.dq-accordion-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    padding: 14px 16px;
-    border: none;
-    background: #fff;
-    cursor: pointer;
-    font-family: inherit;
-    text-align: left;
-    transition: background 0.1s;
-}
-
-.dq-accordion-header:hover {
-    background: #f9fafb;
-}
-
-.dq-accordion-header-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
+    gap: 2px;
     flex: 1;
 }
 
-.dq-accordion-header-right {
+.si-card-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    flex-shrink: 0;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border-radius: 6px;
+    text-decoration: none;
+    transition: background 0.1s;
 }
 
-.dq-chevron {
-    flex-shrink: 0;
-    color: #9ca3af;
-    transition: transform 0.2s;
+.si-card-item:hover {
+    background: #f9fafb;
 }
 
-.dq-chevron-open {
-    transform: rotate(90deg);
-}
-
-.dq-accordion-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: #1f2937;
-    white-space: nowrap;
+.si-item-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: #2563eb;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    margin-right: 8px;
 }
 
-.dq-list-subtitle {
-    font-weight: 400;
-    font-size: 13px;
-    color: #9ca3af;
-}
-
-.dq-accordion-count {
-    font-size: 13px;
+.si-item-stat {
+    font-size: 12px;
     font-weight: 600;
     color: #6b7280;
     background: #f3f4f6;
     padding: 1px 10px;
     border-radius: 10px;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
-.dq-accordion-helper {
-    display: none;
-    font-size: 12px;
-    color: #9ca3af;
-    white-space: nowrap;
-}
-
-@media (min-width: 600px) {
-    .dq-accordion-helper {
-        display: inline;
-    }
-}
-
-.dq-accordion-body {
-    border-top: 1px solid #f3f4f6;
-}
-
-.dq-empty {
-    margin: 0;
-    padding: 12px 16px;
+.si-empty {
     font-size: 13px;
     color: #9ca3af;
     font-style: italic;
+    padding: 8px 10px;
 }
 
-.dq-list-items {
+.si-coverage {
     display: flex;
     flex-direction: column;
+    gap: 6px;
+    flex: 1;
 }
 
-.dq-list-item {
+.si-coverage-row {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 16px;
-    border-bottom: 1px solid #f3f4f6;
-    text-decoration: none;
-    transition: background 0.1s;
-}
-
-.dq-list-item:last-child {
-    border-bottom: none;
-}
-
-.dq-list-item:hover {
+    justify-content: space-between;
+    padding: 8px 10px;
+    border-radius: 6px;
     background: #f9fafb;
 }
 
-.dq-item-name {
+.si-coverage-label {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.si-coverage-value {
     font-size: 14px;
-    font-weight: 500;
-    color: #2563eb;
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-weight: 700;
     white-space: nowrap;
 }
 
-.dq-item-detail {
-    font-size: 12px;
-    color: #9ca3af;
-    flex-shrink: 0;
-    max-width: 280px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.si-coverage-good {
+    color: #059669;
 }
 
-.dq-item-badge {
-    font-size: 12px;
-    font-weight: 600;
-    color: #6b7280;
-    background: #f3f4f6;
-    padding: 2px 10px;
-    border-radius: 12px;
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-
-.dq-item-status {
-    font-size: 11px;
-    font-weight: 500;
-    padding: 2px 8px;
-    border-radius: 4px;
-    flex-shrink: 0;
-}
-
-.dq-item-status.active {
-    background: #d1fae5;
-    color: #065f46;
-}
-
-.dq-item-status.planned {
-    background: #dbeafe;
-    color: #1e40af;
-}
-
-.dq-item-status.retired {
-    background: #f3f4f6;
-    color: #6b7280;
-}
-
-.dq-showing-n {
-    margin: 0;
-    padding: 8px 16px;
-    font-size: 12px;
-    color: #9ca3af;
-    text-align: center;
+.si-coverage-warn {
+    color: #d97706;
 }
 
 @media (max-width: 768px) {
@@ -375,17 +247,7 @@
         grid-template-columns: repeat(2, 1fr);
     }
 
-    .dq-summary-cards {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .dq-list-item {
-        flex-wrap: wrap;
-        gap: 6px;
-    }
-
-    .dq-item-detail {
-        max-width: 100%;
-        width: 100%;
+    .si-grid {
+        grid-template-columns: 1fr;
     }
 }

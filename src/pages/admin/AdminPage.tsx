@@ -330,6 +330,12 @@ function loadData() {
                     <p>Preview registry spreadsheet imports.</p>
                     <Link to="/admin/application-import" className="admin-btn">Application Import</Link>
                 </div>
+
+                <div className="admin-card">
+                    <h2>Data Quality</h2>
+                    <p>Review missing ownership, operational context, role mappings, integrations, and cleanup opportunities.</p>
+                    <Link to="/admin/data-quality" className="admin-btn">Open Data Quality</Link>
+                </div>
             </div>
 
             <CollapsibleSection title="Manage Capabilities" sectionKey="capabilities">
