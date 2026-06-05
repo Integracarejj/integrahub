@@ -48,7 +48,10 @@ export default function HomePage() {
                 setDqLists(data.lists);
                 setDqLoading(false);
             })
-            .catch(() => setDqLoading(false));
+            .catch(err => {
+                console.error("Data Quality fetch failed:", err);
+                setDqLoading(false);
+            });
     }, []);
 
     const stats = useMemo(() => {
