@@ -878,3 +878,62 @@
         margin-left: 0;
     }
 }
+
+/* ─── Business Processes Using This System ─── */
+
+.bp-list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.bp-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #f3f4f6;
+    text-decoration: none;
+    transition: background 0.1s;
+}
+
+.bp-item:last-child {
+    border-bottom: none;
+}
+
+.bp-item:hover {
+    background: #f9fafb;
+}
+
+.bp-item-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #2563eb;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.bp-item-category {
+    font-size: 12px;
+    font-weight: 500;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 1px 8px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.bp-item-desc {
+    font-size: 12px;
+    color: #9ca3af;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}

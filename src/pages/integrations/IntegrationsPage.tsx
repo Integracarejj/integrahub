@@ -6,15 +6,17 @@ import {
 } from "../../services/integrationService";
 import type { IntegrationView } from "../../types/integration";
 import RoleView from "./RoleView";
+import ProcessView from "./ProcessView";
 import "./IntegrationsPage.css";
 
-type View = "table" | "map" | "workflow" | "role";
+type View = "table" | "map" | "workflow" | "role" | "process";
 
 const VIEWS: { key: View; label: string }[] = [
     { key: "table", label: "Table View" },
     { key: "map", label: "Map View" },
     { key: "workflow", label: "Workflow View" },
     { key: "role", label: "Role View" },
+    { key: "process", label: "Process View" },
 ];
 
 interface ApplicationOption {
@@ -1826,6 +1828,8 @@ export default function IntegrationsPage() {
             )}
 
             {view === "role" && <RoleView />}
+
+            {view === "process" && <ProcessView />}
 
             {view === "workflow" && (
                 <div className="workflow-view">

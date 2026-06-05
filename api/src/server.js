@@ -6,6 +6,7 @@ import capabilitiesRouter from "./routes/capabilities.js";
 import integrationsRouter from "./routes/integrations.js";
 import rolesRouter from "./routes/roles.js";
 import roleUsageRouter from "./routes/roleUsage.js";
+import businessProcessesRouter from "./routes/businessProcesses.js";
 import meRouter from "./routes/me.js";
 import adminUsersRouter from "./routes/adminUsers.js";
 import adminApplicationsRouter from "./routes/adminApplications.js";
@@ -62,6 +63,7 @@ app.use("/api/me", meRouter);
 app.use("/api/admin/users", adminUsersRouter);
 app.use("/api/admin/applications", adminApplicationsRouter);
 app.use("/api/dashboard", dashboardRouter);
+app.use("/api/business-processes", businessProcessesRouter);
 
 app.use((req, res, _next) => {
     if (req.path.startsWith("/health") || req.path.startsWith("/api")) return res.status(404).json({ error: "Not found" });

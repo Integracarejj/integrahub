@@ -3,6 +3,8 @@ import { useParams, Link } from "react-router-dom";
 import { getAuthHeaders } from "../../utils/authHeaders";
 import type { ApplicationRoleUsage } from "../../types/role";
 import { getApplicationRoles } from "../../services/roleService";
+import { getApplicationBusinessProcesses } from "../../services/businessProcessService";
+import type { BusinessProcess } from "../../types/businessProcess";
 import "./ApplicationDetailPage.css";
 
 type RouteParams = {
@@ -98,6 +100,8 @@ export default function ApplicationDetailPage() {
     const [roleUsage, setRoleUsage] = useState<ApplicationRoleUsage[]>([]);
     const [roleUsageLoading, setRoleUsageLoading] = useState(true);
     const [expandedRoles, setExpandedRoles] = useState<Set<number>>(new Set());
+    const [bpProcesses, setBpProcesses] = useState<Pick<BusinessProcess, "id" | "processName" | "processCategory" | "description">[]>([]);
+    const [bpLoading, setBpLoading] = useState(true);
 
     const [editingTechOwner, setEditingTechOwner] = useState(false);
     const [selectedTechOwner, setSelectedTechOwner] = useState("");
@@ -195,6 +199,17 @@ export default function ApplicationDetailPage() {
                 if (mounted) setRoleUsage([]);
             } finally {
                 if (mounted) setRoleUsageLoading(false);
+            }
+        })();
+
+        (async () => {
+            try {
+                const data = await getApplicationBusinessProcesses(appId);
+                if (mounted) setBpProcesses(data);
+            } catch {
+                if (mounted) setBpProcesses([]);
+            } finally {
+                if (mounted) setBpLoading(false);
             }
         })();
 
@@ -678,6 +693,27 @@ export default function ApplicationDetailPage() {
                                     ));
                             })()}
                         </>
+                    )}
+                </section>
+
+                <section className="detail-section">
+                    <h2 className="detail-section-title">Business Processes Using This System</h2>
+                    <p className="detail-subtitle">Shows which business workflows this system supports.</p>
+
+                    {bpLoading ? (
+                        <p className="detail-empty">Loading processes…</p>
+                    ) : bpProcesses.length === 0 ? (
+                        <p className="detail-empty">This system is not part of any business process yet.</p>
+                    ) : (
+                        <div className="bp-list">
+                            {bpProcesses.map(p => (
+                                <Link key={p.id} to="/integrations" className="bp-item">
+                                    <span className="bp-item-name">{p.processName}</span>
+                                    {p.processCategory && <span className="bp-item-category">{p.processCategory}</span>}
+                                    {p.description && <span className="bp-item-desc">{p.description}</span>}
+                                </Link>
+                            ))}
+                        </div>
                     )}
                 </section>
 
