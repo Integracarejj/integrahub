@@ -124,7 +124,7 @@ function ProcessStageCard({
     idx: number;
     expanded: boolean;
     onToggle: () => void;
-    onStageClick?: (stepId: number) => void;
+    onStageClick?: (step: BusinessProcessStep) => void;
     onSystemClick?: (applicationId: string) => void;
 }) {
     const actor = getActorLabel(step);
@@ -133,7 +133,7 @@ function ProcessStageCard({
         <div
             className="pv-stage"
             style={onStageClick ? { cursor: "pointer" } : undefined}
-            onClick={onStageClick ? () => onStageClick(step.id) : undefined}
+            onClick={onStageClick ? () => onStageClick(step) : undefined}
         >
             <span className="pv-stage-num">{idx + 1}</span>
 
@@ -178,6 +178,101 @@ function ProcessStageCard({
     );
 }
 
+/* ─── Drawer: single system card ─── */
+
+function ProcessDrawerSystemCard({ system }: { system: BusinessProcessStepSystem }) {
+    return (
+        <div className="pv-drawer-system">
+            <Link to={`/applications/${system.applicationId}`} className="pv-drawer-system-name" onClick={e => e.stopPropagation()}>
+                {system.applicationName}
+            </Link>
+            <div className="pv-drawer-system-tags">
+                {system.systemCategory && <span className="pv-tag">{system.systemCategory}</span>}
+                {system.businessCriticality && (
+                    <span className={`pv-tag pv-crit-${system.businessCriticality.toLowerCase()}`}>
+                        {system.businessCriticality}
+                    </span>
+                )}
+                {system.status === "Active" && <span className="pv-tag pv-tag-active">Active</span>}
+                {system.status === "Retired" && <span className="pv-tag pv-tag-retired">Retired</span>}
+            </div>
+            {system.processRole && <p className="pv-drawer-system-role">Role: {system.processRole}</p>}
+            {system.notes && <p className="pv-drawer-system-note">{system.notes}</p>}
+        </div>
+    );
+}
+
+/* ─── Drawer ─── */
+
+function ProcessStageDrawer({ stage, onClose }: { stage: BusinessProcessStep; onClose: () => void }) {
+    const actor = getActorLabel(stage);
+    const systemsWithNotes = stage.systems.filter(s => s.notes);
+
+    return (
+        <div className="pv-drawer" onClick={e => e.stopPropagation()}>
+            <div className="pv-drawer-inner">
+                <div className="pv-drawer-hdr">
+                    <div className="pv-drawer-hdr-top">
+                        <span className="pv-drawer-label">Process Stage</span>
+                        <button className="pv-drawer-close" onClick={onClose} title="Close drawer" aria-label="Close">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                <path d="M4 4l8 8M12 4l-8 8" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div className="pv-drawer-hdr-main">
+                        <span className="pv-stage-num">{stage.sequenceOrder}</span>
+                        <div>
+                            <h2 className="pv-drawer-title">{stage.stepName}</h2>
+                            {actor && <ProcessActorBadge label={actor} />}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="pv-drawer-section">
+                    <h3 className="pv-drawer-section-title">Purpose</h3>
+                    <p className="pv-drawer-text">{stage.stepDescription || "No description provided."}</p>
+                </div>
+
+                <div className="pv-drawer-section">
+                    <h3 className="pv-drawer-section-title">
+                        Systems Involved
+                        <span className="pv-drawer-count">{stage.systems.length}</span>
+                    </h3>
+                    {stage.systems.length === 0 ? (
+                        <p className="pv-drawer-empty">No systems mapped to this stage.</p>
+                    ) : (
+                        <div className="pv-drawer-systems">
+                            {stage.systems.map(sys => (
+                                <ProcessDrawerSystemCard key={sys.mappingId} system={sys} />
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {systemsWithNotes.length > 0 && (
+                    <div className="pv-drawer-section">
+                        <h3 className="pv-drawer-section-title">Process Notes</h3>
+                        {systemsWithNotes.map(sys => (
+                            <div key={sys.mappingId} className="pv-drawer-note-item">
+                                <span className="pv-drawer-note-name">{sys.applicationName}</span>
+                                <p className="pv-drawer-note-text">{sys.notes}</p>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                <div className="pv-drawer-section pv-drawer-section-future">
+                    <h3 className="pv-drawer-section-title">Future Intelligence</h3>
+                    <p className="pv-drawer-future-text">
+                        Related integrations, roles, owners, and downstream impacts can be added here as the process model matures.
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 /* ─── Main View ─── */
 
 export default function ProcessView() {
@@ -187,6 +282,7 @@ export default function ProcessView() {
     const [loading, setLoading] = useState(true);
     const [detailLoading, setDetailLoading] = useState(false);
     const [expandedStages, setExpandedStages] = useState<Set<number>>(new Set());
+    const [selectedStage, setSelectedStage] = useState<BusinessProcessStep | null>(null);
 
     useEffect(() => {
         getBusinessProcesses()
@@ -207,6 +303,14 @@ export default function ProcessView() {
             .catch(() => setDetail(null))
             .finally(() => setDetailLoading(false));
     }, [selectedId]);
+
+    function openDrawer(step: BusinessProcessStep) {
+        setSelectedStage(step);
+    }
+
+    function closeDrawer() {
+        setSelectedStage(null);
+    }
 
     const systemsInProcess = detail
         ? detail.steps.reduce((sum, s) => sum + s.systems.length, 0) + (detail.unassignedSystems?.length ?? 0)
@@ -314,6 +418,7 @@ export default function ProcessView() {
                                                 idx={idx}
                                                 expanded={expandedStages.has(step.id)}
                                                 onToggle={() => toggleStage(step.id)}
+                                                onStageClick={openDrawer}
                                             />
                                         ))}
 
@@ -345,6 +450,8 @@ export default function ProcessView() {
                     )}
                 </>
             )}
+            {selectedStage && <div className="pv-drawer-backdrop" onClick={closeDrawer} />}
+            {selectedStage && <ProcessStageDrawer stage={selectedStage} onClose={closeDrawer} />}
         </div>
     );
 }
