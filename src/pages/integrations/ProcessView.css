@@ -1,5 +1,8 @@
 .pv-page {
-    padding: 8px 0;
+    background: linear-gradient(135deg, #f8fbff 0%, #f1f5f9 100%);
+    padding: 12px 16px;
+    border-radius: 10px;
+    min-height: 400px;
 }
 
 .pv-loading {
@@ -62,11 +65,11 @@
 }
 
 .pv-content {
-    margin-top: 8px;
+    margin-top: 4px;
 }
 
 .pv-header {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
 }
 
 .pv-name {
@@ -98,14 +101,14 @@
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 10px;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
 }
 
 .pv-summary-card {
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
-    padding: 14px 12px;
+    padding: 12px 10px;
     text-align: center;
 }
 
@@ -130,22 +133,45 @@
 .pv-stages {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
+    gap: 16px;
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 16px;
+    position: relative;
 }
 
 .pv-stage {
+    position: relative;
     display: flex;
-    gap: 10px;
+    gap: 8px;
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
-    padding: 12px;
+    padding: 10px;
     min-width: 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .pv-stage-unassigned {
     grid-column: 1 / -1;
     opacity: 0.7;
+}
+
+/* Connector arrow: shows on desktop between stage cards */
+@media (min-width: 1025px) {
+    .pv-stage:not(:nth-child(3n))::after {
+        content: "→";
+        position: absolute;
+        right: -14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #93c5fd;
+        font-size: 15px;
+        font-weight: 300;
+        pointer-events: none;
+        line-height: 1;
+    }
 }
 
 /* ─── Step Number + Actor ─── */
@@ -154,21 +180,21 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 3px;
     flex-shrink: 0;
-    width: 28px;
+    width: 26px;
 }
 
 .pv-si-num {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     background: #7c3aed;
     color: #fff;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     flex-shrink: 0;
 }
@@ -179,16 +205,15 @@
 }
 
 .pv-si-actor {
-    font-size: 9px;
+    font-size: 8px;
     font-weight: 600;
     color: #7c3aed;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
     white-space: nowrap;
     writing-mode: vertical-lr;
     text-orientation: mixed;
-    line-height: 1.2;
-    margin-top: 2px;
+    line-height: 1.1;
 }
 
 /* ─── Stage Body ─── */
@@ -202,8 +227,8 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 6px;
-    margin-bottom: 8px;
+    gap: 4px;
+    margin-bottom: 6px;
 }
 
 .pv-stage-hdr-l {
@@ -213,7 +238,7 @@
 .pv-stage-hdr-r {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     flex-shrink: 0;
 }
 
@@ -230,27 +255,32 @@
     color: #6b7280;
     margin: 1px 0 0;
     line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .pv-stage-count {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 20px;
-    height: 20px;
+    min-width: 18px;
+    height: 18px;
     padding: 0 5px;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     color: #6b7280;
     background: #f3f4f6;
-    border-radius: 10px;
+    border-radius: 9px;
 }
 
 .pv-stage-empty {
-    font-size: 12px;
-    color: #9ca3af;
+    font-size: 11px;
+    color: #b0b7c3;
     margin: 0;
-    padding: 0;
+    padding: 2px 0;
+    font-style: italic;
 }
 
 /* ─── Expand Button ─── */
@@ -259,23 +289,29 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
-    border: 1px solid #d1d5db;
+    width: 22px;
+    height: 22px;
+    border: 1px solid #bfdbfe;
     border-radius: 4px;
     background: #fff;
-    color: #6b7280;
-    font-size: 13px;
-    font-weight: 600;
+    color: #3b82f6;
+    font-size: 14px;
+    font-weight: 700;
     cursor: pointer;
     line-height: 1;
     padding: 0;
-    transition: background 0.1s, border-color 0.1s;
+    transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
 }
 
 .pv-expand-btn:hover {
-    background: #f3f4f6;
-    border-color: #9ca3af;
+    background: #eff6ff;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
+}
+
+.pv-expand-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
 }
 
 /* ─── System Chips ─── */
@@ -283,17 +319,17 @@
 .pv-chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 4px;
 }
 
 .pv-chip {
     display: inline-flex;
     flex-direction: column;
-    gap: 3px;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    padding: 6px 8px;
+    gap: 2px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    padding: 3px 6px;
     max-width: 100%;
 }
 
@@ -312,15 +348,15 @@
 .pv-chip-badges {
     display: flex;
     flex-wrap: wrap;
-    gap: 3px;
+    gap: 2px;
 }
 
 .pv-badge {
-    font-size: 10px;
-    font-weight: 500;
+    font-size: 9px;
+    font-weight: 600;
     color: #6b7280;
-    background: #f3f4f6;
-    padding: 1px 6px;
+    background: #f1f3f5;
+    padding: 1px 5px;
     border-radius: 3px;
     line-height: 1.4;
 }
@@ -341,7 +377,7 @@
 }
 
 .pv-crit-low {
-    background: #f9fafb;
+    background: #f8fafc;
     color: #6b7280;
 }
 
@@ -351,7 +387,7 @@
 }
 
 .pv-badge-retired {
-    background: #f9fafb;
+    background: #f1f3f5;
     color: #9ca3af;
 }
 
@@ -362,17 +398,19 @@
 
 .pv-chip-notes {
     font-size: 11px;
-    color: #6b7280;
-    margin: 2px 0 0;
+    color: #64748b;
+    margin: 1px 0 0;
     line-height: 1.3;
-    max-width: 200px;
+    max-width: 220px;
+    padding-top: 2px;
+    border-top: 1px dotted #e2e8f0;
 }
 
 .pv-empty-state {
     grid-column: 1 / -1;
     text-align: center;
     padding: 40px 20px;
-    background: #fff;
+    background: rgba(255, 255, 255, 0.8);
     border: 1px dashed #d1d5db;
     border-radius: 8px;
     color: #9ca3af;
@@ -391,6 +429,9 @@
 }
 
 @media (max-width: 640px) {
+    .pv-page {
+        padding: 8px 10px;
+    }
     .pv-top-bar {
         flex-direction: column;
         align-items: stretch;
@@ -400,6 +441,8 @@
     }
     .pv-stages {
         grid-template-columns: 1fr;
+        padding: 12px;
+        gap: 12px;
     }
     .pv-summary-cards {
         grid-template-columns: repeat(2, 1fr);
