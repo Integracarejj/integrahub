@@ -26,18 +26,6 @@ function ProcessActorBadge({ label }: { label: string }) {
     return <span className="pv-actor-badge">{label}</span>;
 }
 
-/* ─── Connector ─── */
-
-function ProcessConnector() {
-    return (
-        <div className="pv-connector" aria-hidden="true">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#b0c9e0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 4l6 5-6 5" />
-            </svg>
-        </div>
-    );
-}
-
 /* ─── System Chip (collapsed) ─── */
 
 function ProcessSystemChip({
@@ -122,7 +110,7 @@ function ProcessSystemDetailList({
     );
 }
 
-/* ─── Stage Card ─── */
+/* ─── Stage Accordion Row ─── */
 
 function ProcessStageCard({
     step,
@@ -320,36 +308,32 @@ export default function ProcessView() {
                                 ) : (
                                     <>
                                         {detail.steps.map((step, idx) => (
-                                            <div key={step.id} className="pv-stage-wrap">
-                                                <ProcessStageCard
-                                                    step={step}
-                                                    idx={idx}
-                                                    expanded={expandedStages.has(step.id)}
-                                                    onToggle={() => toggleStage(step.id)}
-                                                />
-                                                {idx < detail.steps.length - 1 && <ProcessConnector />}
-                                            </div>
+                                            <ProcessStageCard
+                                                key={step.id}
+                                                step={step}
+                                                idx={idx}
+                                                expanded={expandedStages.has(step.id)}
+                                                onToggle={() => toggleStage(step.id)}
+                                            />
                                         ))}
 
                                         {detail.unassignedSystems && detail.unassignedSystems.length > 0 && (
-                                            <div className="pv-stage-wrap">
-                                                <div className="pv-stage pv-stage-unassigned">
-                                                    <span className="pv-stage-num pv-stage-num-muted">—</span>
-                                                    <div className="pv-stage-body">
-                                                        <div className="pv-stage-hdr">
-                                                            <div className="pv-stage-hdr-l">
-                                                                <h3 className="pv-stage-name">Unassigned Systems</h3>
-                                                                <p className="pv-stage-desc">Systems in this process without a stage assignment.</p>
-                                                            </div>
-                                                            <div className="pv-stage-hdr-r">
-                                                                <span className="pv-stage-count">{systemLabel(detail.unassignedSystems.length)}</span>
-                                                            </div>
+                                            <div className="pv-stage pv-stage-unassigned">
+                                                <span className="pv-stage-num pv-stage-num-muted">—</span>
+                                                <div className="pv-stage-body">
+                                                    <div className="pv-stage-hdr">
+                                                        <div className="pv-stage-hdr-l">
+                                                            <h3 className="pv-stage-name">Unassigned Systems</h3>
+                                                            <p className="pv-stage-desc">Systems in this process without a stage assignment.</p>
                                                         </div>
-                                                        <div className="pv-chips">
-                                                            {detail.unassignedSystems.map(sys => (
-                                                                <ProcessSystemChip key={sys.mappingId} system={sys} />
-                                                            ))}
+                                                        <div className="pv-stage-hdr-r">
+                                                            <span className="pv-stage-count">{systemLabel(detail.unassignedSystems.length)}</span>
                                                         </div>
+                                                    </div>
+                                                    <div className="pv-chips">
+                                                        {detail.unassignedSystems.map(sys => (
+                                                            <ProcessSystemChip key={sys.mappingId} system={sys} />
+                                                        ))}
                                                     </div>
                                                 </div>
                                             </div>

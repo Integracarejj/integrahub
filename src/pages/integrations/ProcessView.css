@@ -1,7 +1,6 @@
 .pv-page {
-    background: linear-gradient(135deg, #f8fbff 0%, #f1f5f9 100%);
+    background: #fff;
     padding: 12px 16px;
-    border-radius: 10px;
     min-height: 400px;
 }
 
@@ -58,10 +57,8 @@
 .pv-empty p {
     font-size: 14px;
     color: #9ca3af;
-    margin: 0 0 20px;
+    margin: 0 auto 20px;
     max-width: 480px;
-    margin-left: auto;
-    margin-right: auto;
 }
 
 .pv-content {
@@ -102,7 +99,7 @@
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 10px;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
 }
 
 .pv-summary-card {
@@ -129,67 +126,30 @@
     margin-top: 2px;
 }
 
-/* ─── Stages Flexbox ─── */
+/* ─── Stages ─── */
 
 .pv-stages {
     display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    justify-content: center;
-    align-items: stretch;
-    background: #fff;
-    border: 1px solid #d1d5db;
-    border-radius: 10px;
-    padding: 20px 16px;
-    position: relative;
-    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.05);
+    flex-direction: column;
+    gap: 10px;
+    max-width: 800px;
 }
 
-/* ─── Stage Wrap (holds card + optional connector) ─── */
-
-.pv-stage-wrap {
-    display: flex;
-    align-items: stretch;
-    gap: 0;
-    flex: 0 0 auto;
-}
-
-/* ─── Stage Card ─── */
+/* ─── Stage Accordion Row ─── */
 
 .pv-stage {
-    position: relative;
     display: flex;
-    gap: 12px;
+    gap: 14px;
     background: #fff;
     border: 1px solid #e2e8f0;
     border-left: 3px solid #7c3aed;
-    border-radius: 8px;
-    padding: 16px 14px;
-    min-width: 280px;
-    max-width: 360px;
-    min-height: 140px;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-    transition: box-shadow 0.15s;
-}
-
-.pv-stage:hover {
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
+    border-radius: 6px;
+    padding: 14px 16px;
 }
 
 .pv-stage-unassigned {
     opacity: 0.7;
     border-left-color: #d1d5db;
-}
-
-/* ─── Connector between stages ─── */
-
-.pv-connector {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-    width: 28px;
-    align-self: center;
 }
 
 /* ─── Step Number ─── */
@@ -226,7 +186,7 @@
     border-radius: 10px;
     line-height: 1.6;
     letter-spacing: 0.2px;
-    margin-bottom: 4px;
+    margin-bottom: 3px;
 }
 
 /* ─── Stage Body ─── */
@@ -240,18 +200,18 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 4px;
-    margin-bottom: 6px;
+    gap: 8px;
 }
 
 .pv-stage-hdr-l {
+    flex: 1;
     min-width: 0;
 }
 
 .pv-stage-hdr-r {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     flex-shrink: 0;
     margin-top: 1px;
 }
@@ -265,9 +225,9 @@
 }
 
 .pv-stage-desc {
-    font-size: 12px;
+    font-size: 13px;
     color: #4b5563;
-    margin: 2px 0 0;
+    margin: 3px 0 0;
     line-height: 1.45;
 }
 
@@ -288,8 +248,7 @@
 .pv-stage-empty {
     font-size: 12px;
     color: #9ca3af;
-    margin: 0;
-    padding: 2px 0;
+    margin: 6px 0 0;
 }
 
 /* ─── Expand Button ─── */
@@ -298,18 +257,18 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     border: 1px solid #bfdbfe;
     border-radius: 4px;
     background: #fff;
     color: #3b82f6;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 700;
     cursor: pointer;
     line-height: 1;
     padding: 0;
-    transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+    transition: background 0.12s, border-color 0.12s;
 }
 
 .pv-expand-btn:hover {
@@ -335,6 +294,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
+    margin-top: 6px;
 }
 
 .pv-chip {
@@ -423,7 +383,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding-top: 2px;
+    margin-top: 8px;
 }
 
 .pv-detail-item {
@@ -469,10 +429,9 @@
 }
 
 .pv-empty-state {
-    flex: 0 0 100%;
     text-align: center;
     padding: 40px 20px;
-    background: rgba(255, 255, 255, 0.8);
+    background: #f9fafb;
     border: 1px dashed #d1d5db;
     border-radius: 8px;
     color: #6b7280;
@@ -482,10 +441,6 @@
 /* ─── Responsive ─── */
 
 @media (max-width: 1024px) {
-    .pv-stage {
-        min-width: 240px;
-        max-width: 320px;
-    }
     .pv-summary-cards {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -502,34 +457,13 @@
     .pv-select {
         max-width: 100%;
     }
-    .pv-stages {
-        padding: 12px;
-        gap: 8px;
-        flex-direction: column;
-        align-items: stretch;
-    }
-    .pv-stage-wrap {
-        flex-direction: column;
-        width: 100%;
-    }
     .pv-stage {
-        min-width: 0;
-        max-width: none;
-        width: 100%;
-        padding: 14px 12px;
-    }
-    .pv-connector {
-        width: auto;
-        height: 20px;
-        padding: 2px 0;
-    }
-    .pv-connector svg {
-        transform: rotate(90deg);
-    }
-    .pv-summary-cards {
-        grid-template-columns: repeat(2, 1fr);
+        padding: 12px;
     }
     .pv-stage-hdr {
         flex-wrap: wrap;
+    }
+    .pv-summary-cards {
+        grid-template-columns: repeat(2, 1fr);
     }
 }
