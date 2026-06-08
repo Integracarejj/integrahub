@@ -4,8 +4,10 @@ import {
     getBusinessProcesses,
     getBusinessProcessDetail,
 } from "../../services/businessProcessService";
-import type { BusinessProcessDetail, BusinessProcessStep } from "../../types/businessProcess";
+import type { BusinessProcessDetail, BusinessProcessStep, BusinessProcessStepSystem } from "../../types/businessProcess";
 import "./ProcessView.css";
+
+/* ─── Helpers ─── */
 
 function getActorLabel(step: BusinessProcessStep): string | null {
     const name = step.stepName.toLowerCase();
@@ -61,6 +63,12 @@ function getStageIcon(step: BusinessProcessStep): JSX.Element | null {
     return null;
 }
 
+function systemLabel(count: number): string {
+    return count === 1 ? "1 system" : `${count} systems`;
+}
+
+/* ─── Step Number Icon ─── */
+
 function StepNumberIcon({ idx, actor, icon }: { idx: number; actor: string | null; icon: JSX.Element | null }) {
     return (
         <div className="pv-si-wrap">
@@ -70,9 +78,167 @@ function StepNumberIcon({ idx, actor, icon }: { idx: number; actor: string | nul
     );
 }
 
-function systemLabel(count: number): string {
-    return count === 1 ? "1 system" : `${count} systems`;
+/* ─── System Chip (collapsed) ─── */
+
+function ProcessSystemChip({
+    system,
+    onSystemClick,
+}: {
+    system: BusinessProcessStepSystem;
+    onSystemClick?: (applicationId: string) => void;
+}) {
+    return (
+        <div
+            className="pv-chip"
+            style={onSystemClick ? { cursor: "pointer" } : undefined}
+            onClick={onSystemClick ? () => onSystemClick(system.applicationId) : undefined}
+        >
+            <Link
+                to={`/applications/${system.applicationId}`}
+                className="pv-chip-name"
+                onClick={e => e.stopPropagation()}
+            >
+                {system.applicationName}
+            </Link>
+            <div className="pv-chip-badges">
+                {system.systemCategory && <span className="pv-badge">{system.systemCategory}</span>}
+                {system.businessCriticality && (
+                    <span className={`pv-badge pv-crit-${system.businessCriticality.toLowerCase()}`}>
+                        {system.businessCriticality}
+                    </span>
+                )}
+                {system.status === "Active" && <span className="pv-badge pv-badge-active">Active</span>}
+                {system.status === "Retired" && <span className="pv-badge pv-badge-retired">Retired</span>}
+                {system.processRole && <span className="pv-badge pv-badge-role">{system.processRole}</span>}
+            </div>
+        </div>
+    );
 }
+
+/* ─── System Detail (expanded) ─── */
+
+function ProcessSystemDetailItem({
+    system,
+    onSystemClick,
+}: {
+    system: BusinessProcessStepSystem;
+    onSystemClick?: (applicationId: string) => void;
+}) {
+    return (
+        <div
+            className="pv-detail-item"
+            style={onSystemClick ? { cursor: "pointer" } : undefined}
+            onClick={onSystemClick ? () => onSystemClick(system.applicationId) : undefined}
+        >
+            <div className="pv-detail-top">
+                <Link
+                    to={`/applications/${system.applicationId}`}
+                    className="pv-detail-name"
+                    onClick={e => e.stopPropagation()}
+                >
+                    {system.applicationName}
+                </Link>
+                <div className="pv-detail-badges">
+                    {system.systemCategory && <span className="pv-badge">{system.systemCategory}</span>}
+                    {system.businessCriticality && (
+                        <span className={`pv-badge pv-crit-${system.businessCriticality.toLowerCase()}`}>
+                            {system.businessCriticality}
+                        </span>
+                    )}
+                    {system.status === "Active" && <span className="pv-badge pv-badge-active">Active</span>}
+                    {system.status === "Retired" && <span className="pv-badge pv-badge-retired">Retired</span>}
+                    {system.processRole && <span className="pv-badge pv-badge-role">{system.processRole}</span>}
+                </div>
+            </div>
+            {system.notes && <p className="pv-detail-notes">{system.notes}</p>}
+        </div>
+    );
+}
+
+function ProcessSystemDetailList({
+    systems,
+    onSystemClick,
+}: {
+    systems: BusinessProcessStepSystem[];
+    onSystemClick?: (applicationId: string) => void;
+}) {
+    if (systems.length === 0) return null;
+    return (
+        <div className="pv-detail-list">
+            {systems.map(sys => (
+                <ProcessSystemDetailItem key={sys.mappingId} system={sys} onSystemClick={onSystemClick} />
+            ))}
+        </div>
+    );
+}
+
+/* ─── Stage Card ─── */
+
+function ProcessStageCard({
+    step,
+    idx,
+    expanded,
+    onToggle,
+    onStageClick,
+    onSystemClick,
+}: {
+    step: BusinessProcessStep;
+    idx: number;
+    expanded: boolean;
+    onToggle: () => void;
+    onStageClick?: (stepId: number) => void;
+    onSystemClick?: (applicationId: string) => void;
+}) {
+    const actor = getActorLabel(step);
+    const icon = getStageIcon(step);
+
+    return (
+        <div
+            className="pv-stage"
+            style={onStageClick ? { cursor: "pointer" } : undefined}
+            onClick={onStageClick ? () => onStageClick(step.id) : undefined}
+        >
+            <StepNumberIcon idx={idx} actor={actor} icon={icon} />
+
+            <div className="pv-stage-body">
+                <div className="pv-stage-hdr">
+                    <div className="pv-stage-hdr-l">
+                        <h3 className="pv-stage-name">{step.stepName}</h3>
+                        {step.stepDescription && (
+                            <p className="pv-stage-desc">{step.stepDescription}</p>
+                        )}
+                    </div>
+                    <div className="pv-stage-hdr-r">
+                        <span className="pv-stage-count">{systemLabel(step.systems.length)}</span>
+                        {step.systems.length > 0 && (
+                            <button
+                                className={`pv-expand-btn${expanded ? " pv-expand-btn--open" : ""}`}
+                                onClick={e => { e.stopPropagation(); onToggle(); }}
+                                title={expanded ? "Hide details" : "Show details"}
+                            >
+                                {expanded ? "−" : "+"}
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {step.systems.length === 0 ? (
+                    <p className="pv-stage-empty">No systems mapped</p>
+                ) : expanded ? (
+                    <ProcessSystemDetailList systems={step.systems} onSystemClick={onSystemClick} />
+                ) : (
+                    <div className="pv-chips">
+                        {step.systems.map(sys => (
+                            <ProcessSystemChip key={sys.mappingId} system={sys} onSystemClick={onSystemClick} />
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/* ─── Main View ─── */
 
 export default function ProcessView() {
     const [processes, setProcesses] = useState<BusinessProcessDetail[]>([]);
@@ -201,94 +367,15 @@ export default function ProcessView() {
                                     </div>
                                 ) : (
                                     <>
-                                        {detail.steps.map((step, idx) => {
-                                            const actor = getActorLabel(step);
-                                            const icon = getStageIcon(step);
-                                            const expanded = expandedStages.has(step.id);
-
-                                            return (
-                                                <div key={step.id} className="pv-stage">
-                                                    <StepNumberIcon idx={idx} actor={actor} icon={icon} />
-
-                                                    <div className="pv-stage-body">
-                                                        <div className="pv-stage-hdr">
-                                                            <div className="pv-stage-hdr-l">
-                                                                <h3 className="pv-stage-name">{step.stepName}</h3>
-                                                                {step.stepDescription && (
-                                                                    <p className="pv-stage-desc">{step.stepDescription}</p>
-                                                                )}
-                                                            </div>
-                                                            <div className="pv-stage-hdr-r">
-                                                                <span className="pv-stage-count">{systemLabel(step.systems.length)}</span>
-                                                                {step.systems.length > 0 && (
-                                                                    <button
-                                                                        className={`pv-expand-btn${expanded ? " pv-expand-btn--open" : ""}`}
-                                                                        onClick={() => toggleStage(step.id)}
-                                                                        title={expanded ? "Hide details" : "Show details"}
-                                                                    >
-                                                                        {expanded ? "−" : "+"}
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        </div>
-
-                                                        {step.systems.length > 0 ? (
-                                                            expanded ? (
-                                                                <div className="pv-detail-list">
-                                                                    {step.systems.map(sys => (
-                                                                        <div key={sys.mappingId} className="pv-detail-item">
-                                                                            <div className="pv-detail-top">
-                                                                                <Link to={`/applications/${sys.applicationId}`} className="pv-detail-name">
-                                                                                    {sys.applicationName}
-                                                                                </Link>
-                                                                                <div className="pv-detail-badges">
-                                                                                    {sys.systemCategory && <span className="pv-badge">{sys.systemCategory}</span>}
-                                                                                    {sys.businessCriticality && (
-                                                                                        <span className={`pv-badge pv-crit-${sys.businessCriticality.toLowerCase()}`}>
-                                                                                            {sys.businessCriticality}
-                                                                                        </span>
-                                                                                    )}
-                                                                                    {sys.status === "Active" && <span className="pv-badge pv-badge-active">Active</span>}
-                                                                                    {sys.status === "Retired" && <span className="pv-badge pv-badge-retired">Retired</span>}
-                                                                                    {sys.processRole && <span className="pv-badge pv-badge-role">{sys.processRole}</span>}
-                                                                                </div>
-                                                                            </div>
-                                                                            {sys.systemCategory && (
-                                                                                <p className="pv-detail-meta">{sys.systemCategory}</p>
-                                                                            )}
-                                                                            {sys.notes && <p className="pv-detail-notes">{sys.notes}</p>}
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            ) : (
-                                                                <div className="pv-chips">
-                                                                    {step.systems.map(sys => (
-                                                                        <div key={sys.mappingId} className="pv-chip">
-                                                                            <Link to={`/applications/${sys.applicationId}`} className="pv-chip-name">
-                                                                                {sys.applicationName}
-                                                                            </Link>
-                                                                            <div className="pv-chip-badges">
-                                                                                {sys.systemCategory && <span className="pv-badge">{sys.systemCategory}</span>}
-                                                                                {sys.businessCriticality && (
-                                                                                    <span className={`pv-badge pv-crit-${sys.businessCriticality.toLowerCase()}`}>
-                                                                                        {sys.businessCriticality}
-                                                                                    </span>
-                                                                                )}
-                                                                                {sys.status === "Active" && <span className="pv-badge pv-badge-active">Active</span>}
-                                                                                {sys.status === "Retired" && <span className="pv-badge pv-badge-retired">Retired</span>}
-                                                                                {sys.processRole && <span className="pv-badge pv-badge-role">{sys.processRole}</span>}
-                                                                            </div>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            )
-                                                        ) : (
-                                                            <p className="pv-stage-empty">No systems mapped</p>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
+                                        {detail.steps.map((step, idx) => (
+                                            <ProcessStageCard
+                                                key={step.id}
+                                                step={step}
+                                                idx={idx}
+                                                expanded={expandedStages.has(step.id)}
+                                                onToggle={() => toggleStage(step.id)}
+                                            />
+                                        ))}
 
                                         {detail.unassignedSystems && detail.unassignedSystems.length > 0 && (
                                             <div className="pv-stage pv-stage-unassigned">
@@ -307,22 +394,7 @@ export default function ProcessView() {
                                                     </div>
                                                     <div className="pv-chips">
                                                         {detail.unassignedSystems.map(sys => (
-                                                            <div key={sys.mappingId} className="pv-chip">
-                                                                <Link to={`/applications/${sys.applicationId}`} className="pv-chip-name">
-                                                                    {sys.applicationName}
-                                                                </Link>
-                                                                <div className="pv-chip-badges">
-                                                                    {sys.systemCategory && <span className="pv-badge">{sys.systemCategory}</span>}
-                                                                    {sys.businessCriticality && (
-                                                                        <span className={`pv-badge pv-crit-${sys.businessCriticality.toLowerCase()}`}>
-                                                                            {sys.businessCriticality}
-                                                                        </span>
-                                                                    )}
-                                                                    {sys.status === "Active" && <span className="pv-badge pv-badge-active">Active</span>}
-                                                                    {sys.status === "Retired" && <span className="pv-badge pv-badge-retired">Retired</span>}
-                                                                    {sys.processRole && <span className="pv-badge pv-badge-role">{sys.processRole}</span>}
-                                                                </div>
-                                                            </div>
+                                                            <ProcessSystemChip key={sys.mappingId} system={sys} />
                                                         ))}
                                                     </div>
                                                 </div>
