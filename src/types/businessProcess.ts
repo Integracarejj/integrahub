@@ -8,12 +8,11 @@ export interface BusinessProcess {
     updatedAt: string;
 }
 
-export interface BusinessProcessSystem {
+export interface BusinessProcessStepSystem {
     mappingId: number;
     businessProcessId: number;
+    businessProcessStepId: number | null;
     applicationId: string;
-    sequenceOrder: number;
-    processRole: string | null;
     notes: string | null;
     applicationName: string;
     systemCategory: string | null;
@@ -21,6 +20,18 @@ export interface BusinessProcessSystem {
     applicationStatus: string | null;
 }
 
+export interface BusinessProcessStep {
+    id: number;
+    businessProcessId: number;
+    stepName: string;
+    stepDescription: string | null;
+    sequenceOrder: number;
+    createdAt: string;
+    updatedAt: string;
+    systems: BusinessProcessStepSystem[];
+}
+
 export interface BusinessProcessDetail extends BusinessProcess {
-    systems: BusinessProcessSystem[];
+    steps: BusinessProcessStep[];
+    unassignedSystems: BusinessProcessStepSystem[];
 }

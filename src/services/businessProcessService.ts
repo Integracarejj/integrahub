@@ -1,4 +1,4 @@
-import type { BusinessProcess, BusinessProcessDetail, BusinessProcessSystem } from "../types/businessProcess";
+import type { BusinessProcess, BusinessProcessDetail, BusinessProcessStepSystem } from "../types/businessProcess";
 
 export async function getApplicationBusinessProcesses(applicationId: string): Promise<Pick<BusinessProcess, "id" | "processName" | "processCategory" | "description">[]> {
     const res = await fetch(`/api/business-processes/by-application/${applicationId}`);
@@ -49,7 +49,7 @@ export async function deleteBusinessProcess(id: number): Promise<void> {
     if (!res.ok) throw new Error("Failed to delete process");
 }
 
-export async function addSystemToProcess(id: number, data: { applicationId: string; sequenceOrder?: number; processRole?: string; notes?: string }): Promise<BusinessProcessSystem> {
+export async function addSystemToProcess(id: number, data: { applicationId: string; sequenceOrder?: number; processRole?: string; notes?: string }): Promise<BusinessProcessStepSystem> {
     const res = await fetch(`/api/business-processes/${id}/systems`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -62,7 +62,7 @@ export async function addSystemToProcess(id: number, data: { applicationId: stri
     return res.json();
 }
 
-export async function updateSystemMapping(id: number, mappingId: number, data: { sequenceOrder?: number; processRole?: string; notes?: string }): Promise<BusinessProcessSystem> {
+export async function updateSystemMapping(id: number, mappingId: number, data: { sequenceOrder?: number; processRole?: string; notes?: string }): Promise<BusinessProcessStepSystem> {
     const res = await fetch(`/api/business-processes/${id}/systems/${mappingId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },

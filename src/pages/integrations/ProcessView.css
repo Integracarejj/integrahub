@@ -39,75 +39,6 @@
     box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
 }
 
-.pv-admin-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-/* ─── Forms ─── */
-
-.pv-form-card {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 20px;
-}
-
-.pv-form-title {
-    font-size: 15px;
-    font-weight: 600;
-    color: #1f2937;
-    margin: 0 0 14px;
-}
-
-.pv-form-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-}
-
-.pv-field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.pv-field-wide {
-    grid-column: 1 / -1;
-}
-
-.pv-field label {
-    font-size: 12px;
-    font-weight: 500;
-    color: #6b7280;
-}
-
-.pv-field input,
-.pv-field select,
-.pv-field textarea {
-    padding: 8px 10px;
-    font-size: 13px;
-    border: 1px solid #d1d5db;
-    border-radius: 5px;
-    outline: none;
-    font-family: inherit;
-}
-
-.pv-field input:focus,
-.pv-field select:focus,
-.pv-field textarea:focus {
-    border-color: #7c3aed;
-    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.08);
-}
-
-.pv-form-actions {
-    margin-top: 14px;
-}
-
-/* ─── Empty State ─── */
-
 .pv-empty {
     text-align: center;
     padding: 60px 20px;
@@ -129,8 +60,6 @@
     margin-left: auto;
     margin-right: auto;
 }
-
-/* ─── Process Detail ─── */
 
 .pv-content {
     margin-top: 8px;
@@ -163,8 +92,6 @@
     margin: 8px 0 0;
 }
 
-/* ─── Summary Cards ─── */
-
 .pv-summary-cards {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -196,30 +123,29 @@
     margin-top: 2px;
 }
 
-/* ─── Flow / Steps ─── */
-
-.pv-flow {
+.pv-stages {
     display: flex;
     flex-direction: column;
-    gap: 0;
-    padding: 0;
-}
-
-.pv-step {
-    display: flex;
     gap: 16px;
-    min-height: 0;
 }
 
-.pv-step-connector {
+.pv-stage {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.pv-stage-header {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 32px;
-    flex-shrink: 0;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 16px;
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
 }
 
-.pv-step-number {
+.pv-stage-step {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -228,74 +154,76 @@
     border-radius: 50%;
     background: #7c3aed;
     color: #fff;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
     flex-shrink: 0;
+    margin-top: 1px;
 }
 
-.pv-step-line {
-    width: 2px;
+.pv-stage-info {
     flex: 1;
-    background: #e5e7eb;
-    min-height: 24px;
+    min-width: 0;
 }
 
-.pv-step-card {
-    flex: 1;
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 14px 16px;
-    margin-bottom: 12px;
-}
-
-.pv-step-card-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-}
-
-.pv-step-name {
+.pv-stage-name {
     font-size: 15px;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+}
+
+.pv-stage-desc {
+    font-size: 13px;
+    color: #6b7280;
+    margin: 2px 0 0;
+}
+
+.pv-stage-count {
+    font-size: 12px;
+    font-weight: 500;
+    color: #6b7280;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 4px;
+}
+
+.pv-stage-systems {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px;
+    padding: 12px 16px;
+}
+
+.pv-stage-system {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 10px 12px;
+}
+
+.pv-stage-system-top {
+    margin-bottom: 6px;
+}
+
+.pv-stage-system-name {
+    font-size: 13px;
     font-weight: 600;
     color: #2563eb;
     text-decoration: none;
 }
 
-.pv-step-name:hover {
+.pv-stage-system-name:hover {
     text-decoration: underline;
 }
 
-.pv-step-remove {
-    flex-shrink: 0;
-    width: 22px;
-    height: 22px;
-    border: none;
-    background: #f3f4f6;
-    border-radius: 4px;
-    color: #9ca3af;
-    font-size: 14px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.1s, color 0.1s;
-}
-
-.pv-step-remove:hover {
-    background: #fee2e2;
-    color: #ef4444;
-}
-
-.pv-step-badges {
+.pv-stage-system-badges {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 8px;
+    gap: 4px;
+    margin-bottom: 4px;
 }
 
-.pv-step-badge {
+.pv-badge {
     font-size: 11px;
     font-weight: 500;
     color: #6b7280;
@@ -324,16 +252,28 @@
     color: #6b7280;
 }
 
-.pv-role {
-    background: #eef2ff;
-    color: #4338ca;
+.pv-stage-system-notes {
+    font-size: 12px;
+    color: #6b7280;
+    margin: 4px 0 0;
+    line-height: 1.4;
 }
 
-.pv-step-notes {
+.pv-stage-empty {
+    padding: 14px 16px;
     font-size: 13px;
-    color: #6b7280;
-    margin: 8px 0 0;
-    line-height: 1.4;
+    color: #9ca3af;
+    margin: 0;
+}
+
+.pv-stage-header-unassigned {
+    background: #f9fafb;
+    opacity: 0.7;
+}
+
+.pv-stage-step-unassigned {
+    background: #9ca3af;
+    font-size: 11px;
 }
 
 .pv-empty-state {
@@ -344,10 +284,6 @@
     border-radius: 8px;
     color: #9ca3af;
     font-size: 14px;
-}
-
-.pv-empty-state .btn {
-    margin-top: 12px;
 }
 
 @media (max-width: 768px) {
@@ -364,7 +300,7 @@
         grid-template-columns: repeat(3, 1fr);
     }
 
-    .pv-form-grid {
+    .pv-stage-systems {
         grid-template-columns: 1fr;
     }
 }

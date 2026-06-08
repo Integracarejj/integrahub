@@ -51,13 +51,19 @@ router.get("/:id", async (req, res, next) => {
 
         const process = processes[0];
 
+        const steps = await query(`
+            SELECT id, businessProcessId, stepName, stepDescription, sequenceOrder, createdAt, updatedAt
+            FROM cmdb.BusinessProcessSteps
+            WHERE businessProcessId = @id
+            ORDER BY sequenceOrder
+        `, { id: req.params.id });
+
         const systems = await query(`
             SELECT
                 bps.id AS mappingId,
                 bps.businessProcessId,
+                bps.businessProcessStepId,
                 bps.applicationId,
-                bps.sequenceOrder,
-                bps.processRole,
                 bps.notes,
                 a.name AS applicationName,
                 a.systemCategory,
@@ -66,10 +72,16 @@ router.get("/:id", async (req, res, next) => {
             FROM cmdb.BusinessProcessSystems bps
             INNER JOIN cmdb.Applications a ON bps.applicationId = a.id
             WHERE bps.businessProcessId = @id
-            ORDER BY bps.sequenceOrder
         `, { id: req.params.id });
 
-        res.json({ ...process, systems });
+        const stepsWithSystems = steps.map(step => ({
+            ...step,
+            systems: systems.filter(s => s.businessProcessStepId === step.id),
+        }));
+
+        const unassigned = systems.filter(s => !s.businessProcessStepId);
+
+        res.json({ ...process, steps: stepsWithSystems, unassignedSystems: unassigned });
     } catch (err) {
         console.error("GET /api/business-processes/:id failed:", err.message);
         next(err);
