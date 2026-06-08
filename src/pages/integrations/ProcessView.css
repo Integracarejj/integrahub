@@ -109,23 +109,23 @@
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
-    padding: 12px 10px;
+    padding: 9px 8px;
     text-align: center;
 }
 
 .pv-summary-value {
     display: block;
-    font-size: 22px;
-    font-weight: 700;
-    color: #1f2937;
+    font-size: 18px;
+    font-weight: 600;
+    color: #374151;
     line-height: 1.2;
 }
 
 .pv-summary-label {
     display: block;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
-    color: #4b5563;
+    color: #6b7280;
     margin-top: 2px;
 }
 
@@ -136,19 +136,20 @@
     flex-wrap: wrap;
     gap: 16px;
     justify-content: center;
-    align-items: flex-start;
-    background: rgba(255, 255, 255, 0.6);
-    border: 1px solid #e5e7eb;
+    align-items: stretch;
+    background: #fff;
+    border: 1px solid #d1d5db;
     border-radius: 10px;
-    padding: 16px;
+    padding: 20px 16px;
     position: relative;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.05);
 }
 
 /* ─── Stage Wrap (holds card + optional connector) ─── */
 
 .pv-stage-wrap {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     gap: 0;
     flex: 0 0 auto;
 }
@@ -166,6 +167,7 @@
     padding: 16px 14px;
     min-width: 280px;
     max-width: 360px;
+    min-height: 140px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
     transition: box-shadow 0.15s;
 }
@@ -187,7 +189,7 @@
     justify-content: center;
     flex: 0 0 auto;
     width: 28px;
-    height: 28px;
+    align-self: center;
 }
 
 /* ─── Step Number ─── */
