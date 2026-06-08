@@ -136,6 +136,7 @@
     flex-wrap: wrap;
     gap: 16px;
     justify-content: center;
+    align-items: flex-start;
     background: rgba(255, 255, 255, 0.6);
     border: 1px solid #e5e7eb;
     border-radius: 10px;
@@ -153,7 +154,13 @@
     padding: 12px;
     min-width: 0;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-    flex: 0 0 calc((100% - 32px) / 3);
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.pv-stage:hover {
+    border-color: #bfdbfe;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07);
 }
 
 .pv-stage-unassigned {
@@ -164,16 +171,27 @@
 /* Connector arrow: shows on desktop between stage cards */
 @media (min-width: 1025px) {
     .pv-stage:not(:nth-child(3n))::after {
-        content: "→";
+        content: "";
         position: absolute;
         right: -14px;
         top: 50%;
+        width: 12px;
+        height: 2px;
+        background: #8bb0d8;
         transform: translateY(-50%);
-        color: #7c9fcf;
-        font-size: 16px;
-        font-weight: 400;
         pointer-events: none;
-        line-height: 1;
+    }
+    .pv-stage:not(:nth-child(3n))::before {
+        content: "";
+        position: absolute;
+        right: -16px;
+        top: 50%;
+        width: 6px;
+        height: 6px;
+        border-right: 2px solid #8bb0d8;
+        border-bottom: 2px solid #8bb0d8;
+        transform: translateY(-50%) rotate(-45deg);
+        pointer-events: none;
     }
 }
 
