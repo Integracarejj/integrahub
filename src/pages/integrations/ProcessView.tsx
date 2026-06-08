@@ -148,6 +148,9 @@ export default function ProcessView() {
                                                                             {sys.businessCriticality}
                                                                         </span>
                                                                     )}
+                                                                    {sys.status === "Active" && <span className="pv-badge pv-badge-active">Active</span>}
+                                                                    {sys.status === "Retired" && <span className="pv-badge pv-badge-retired">Retired</span>}
+                                                                    {sys.processRole && <span className="pv-badge pv-badge-role">{sys.processRole}</span>}
                                                                 </div>
                                                                 {sys.notes && <p className="pv-stage-system-notes">{sys.notes}</p>}
                                                             </div>
@@ -184,6 +187,9 @@ export default function ProcessView() {
                                                                         {sys.businessCriticality}
                                                                     </span>
                                                                 )}
+                                                                {sys.status === "Active" && <span className="pv-badge pv-badge-active">Active</span>}
+                                                                {sys.status === "Retired" && <span className="pv-badge pv-badge-retired">Retired</span>}
+                                                                {sys.processRole && <span className="pv-badge pv-badge-role">{sys.processRole}</span>}
                                                             </div>
                                                             {sys.notes && <p className="pv-stage-system-notes">{sys.notes}</p>}
                                                         </div>

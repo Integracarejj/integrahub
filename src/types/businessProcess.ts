@@ -13,11 +13,13 @@ export interface BusinessProcessStepSystem {
     businessProcessId: number;
     businessProcessStepId: number | null;
     applicationId: string;
+    sequenceOrder: number;
+    processRole: string | null;
     notes: string | null;
     applicationName: string;
     systemCategory: string | null;
     businessCriticality: string | null;
-    applicationStatus: string | null;
+    status: string | null;
 }
 
 export interface BusinessProcessStep {
