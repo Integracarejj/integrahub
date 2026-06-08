@@ -178,6 +178,14 @@ function ProcessStageCard({
     );
 }
 
+/* ─── Helpers ─── */
+
+function splitDelimited(value: string | null): string[] {
+    if (!value) return [];
+    const parts = value.split(/[;,]/).map(s => s.trim()).filter(Boolean);
+    return parts.length > 1 ? parts : [];
+}
+
 /* ─── Drawer: single system card ─── */
 
 function ProcessDrawerSystemCard({ system }: { system: BusinessProcessStepSystem }) {
@@ -202,11 +210,47 @@ function ProcessDrawerSystemCard({ system }: { system: BusinessProcessStepSystem
     );
 }
 
+/* ─── Drawer sub-components ─── */
+
+function DrawerSection({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) {
+    return (
+        <div className="pv-drawer-section">
+            <h3 className="pv-drawer-section-title">
+                {title}
+                {count !== undefined && <span className="pv-drawer-count">{count}</span>}
+            </h3>
+            {children}
+        </div>
+    );
+}
+
+function DrawerBulletList({ items }: { items: string[] }) {
+    return (
+        <ul className="pv-drawer-bullets">
+            {items.map((item, i) => (
+                <li key={i}>{item}</li>
+            ))}
+        </ul>
+    );
+}
+
+function DrawerPillList({ items }: { items: string[] }) {
+    return (
+        <div className="pv-drawer-pills">
+            {items.map((item, i) => (
+                <span key={i} className="pv-drawer-pill">{item}</span>
+            ))}
+        </div>
+    );
+}
+
 /* ─── Drawer ─── */
 
 function ProcessStageDrawer({ stage, onClose }: { stage: BusinessProcessStep; onClose: () => void }) {
     const actor = getActorLabel(stage);
-    const systemsWithNotes = stage.systems.filter(s => s.notes);
+    const businessPurpose = stage.businessPurpose || stage.stepDescription;
+    const keyActivityItems = splitDelimited(stage.keyActivities);
+    const actorItems = splitDelimited(stage.primaryActors);
 
     return (
         <div className="pv-drawer" onClick={e => e.stopPropagation()}>
@@ -229,16 +273,43 @@ function ProcessStageDrawer({ stage, onClose }: { stage: BusinessProcessStep; on
                     </div>
                 </div>
 
-                <div className="pv-drawer-section">
-                    <h3 className="pv-drawer-section-title">Purpose</h3>
-                    <p className="pv-drawer-text">{stage.stepDescription || "No description provided."}</p>
-                </div>
+                <DrawerSection title="Business Purpose">
+                    <p className="pv-drawer-text">{businessPurpose || "No purpose documented yet."}</p>
+                </DrawerSection>
 
-                <div className="pv-drawer-section">
-                    <h3 className="pv-drawer-section-title">
-                        Systems Involved
-                        <span className="pv-drawer-count">{stage.systems.length}</span>
-                    </h3>
+                {stage.keyActivities && (
+                    <DrawerSection title="Key Activities">
+                        {keyActivityItems.length > 0 ? (
+                            <DrawerBulletList items={keyActivityItems} />
+                        ) : (
+                            <p className="pv-drawer-text">{stage.keyActivities}</p>
+                        )}
+                    </DrawerSection>
+                )}
+
+                {stage.primaryActors && (
+                    <DrawerSection title="Primary Actors">
+                        {actorItems.length > 0 ? (
+                            <DrawerPillList items={actorItems} />
+                        ) : (
+                            <p className="pv-drawer-text">{stage.primaryActors}</p>
+                        )}
+                    </DrawerSection>
+                )}
+
+                {stage.inputs && (
+                    <DrawerSection title="Inputs">
+                        <p className="pv-drawer-text">{stage.inputs}</p>
+                    </DrawerSection>
+                )}
+
+                {stage.outputs && (
+                    <DrawerSection title="Outputs">
+                        <p className="pv-drawer-text">{stage.outputs}</p>
+                    </DrawerSection>
+                )}
+
+                <DrawerSection title="Systems Involved" count={stage.systems.length}>
                     {stage.systems.length === 0 ? (
                         <p className="pv-drawer-empty">No systems mapped to this stage.</p>
                     ) : (
@@ -248,22 +319,17 @@ function ProcessStageDrawer({ stage, onClose }: { stage: BusinessProcessStep; on
                             ))}
                         </div>
                     )}
-                </div>
+                </DrawerSection>
 
-                {systemsWithNotes.length > 0 && (
-                    <div className="pv-drawer-section">
-                        <h3 className="pv-drawer-section-title">Process Notes</h3>
-                        {systemsWithNotes.map(sys => (
-                            <div key={sys.mappingId} className="pv-drawer-note-item">
-                                <span className="pv-drawer-note-name">{sys.applicationName}</span>
-                                <p className="pv-drawer-note-text">{sys.notes}</p>
-                            </div>
-                        ))}
-                    </div>
-                )}
+                <DrawerSection title="Risks / Impacts">
+                    {stage.riskNotes ? (
+                        <p className="pv-drawer-text">{stage.riskNotes}</p>
+                    ) : (
+                        <p className="pv-drawer-empty">No risks or impacts documented yet.</p>
+                    )}
+                </DrawerSection>
 
-                <div className="pv-drawer-section pv-drawer-section-future">
-                    <h3 className="pv-drawer-section-title">Future Intelligence</h3>
+                <div className="pv-drawer-section-future">
                     <p className="pv-drawer-future-text">
                         Related integrations, roles, owners, and downstream impacts can be added here as the process model matures.
                     </p>

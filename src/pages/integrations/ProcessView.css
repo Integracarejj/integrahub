@@ -658,46 +658,63 @@
     border-top: 1px dotted #d1d5db;
 }
 
-/* ─── Drawer Process Notes ─── */
+/* ─── Drawer Bullet List ─── */
 
-.pv-drawer-note-item {
-    margin-bottom: 10px;
-}
-
-.pv-drawer-note-item:last-child {
-    margin-bottom: 0;
-}
-
-.pv-drawer-note-name {
-    font-size: 12px;
-    font-weight: 700;
-    color: #374151;
-    display: block;
-    margin-bottom: 2px;
-}
-
-.pv-drawer-note-text {
-    font-size: 13px;
-    color: #4b5563;
-    line-height: 1.5;
+.pv-drawer-bullets {
+    list-style: none;
+    padding: 0;
     margin: 0;
+}
+
+.pv-drawer-bullets li {
+    position: relative;
+    padding-left: 14px;
+    font-size: 14px;
+    color: #4b5563;
+    line-height: 1.55;
+    margin-bottom: 3px;
+}
+
+.pv-drawer-bullets li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: #7c3aed;
+    font-weight: 700;
+}
+
+/* ─── Drawer Pill List ─── */
+
+.pv-drawer-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.pv-drawer-pill {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #4338ca;
+    background: #eef2ff;
+    padding: 3px 10px;
+    border-radius: 12px;
+    line-height: 1.4;
 }
 
 /* ─── Drawer Future Section ─── */
 
 .pv-drawer-section-future {
-    padding: 14px;
-    background: #f8faff;
-    border: 1px solid #e0e7ff;
-    border-radius: 6px;
+    margin-top: 28px;
+    padding-top: 14px;
+    border-top: 1px solid #e5e7eb;
 }
 
 .pv-drawer-future-text {
-    font-size: 12px;
-    color: #6b7280;
+    font-size: 11px;
+    color: #9ca3af;
     line-height: 1.5;
     margin: 0;
-    font-style: italic;
 }
 
 /* ─── Responsive ─── */

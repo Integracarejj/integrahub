@@ -27,6 +27,12 @@ export interface BusinessProcessStep {
     businessProcessId: number;
     stepName: string;
     stepDescription: string | null;
+    businessPurpose: string | null;
+    keyActivities: string | null;
+    primaryActors: string | null;
+    inputs: string | null;
+    outputs: string | null;
+    riskNotes: string | null;
     sequenceOrder: number;
     createdAt: string;
     updatedAt: string;
