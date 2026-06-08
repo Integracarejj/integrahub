@@ -52,10 +52,20 @@ router.get("/:id", async (req, res, next) => {
         const process = processes[0];
 
         const steps = await query(`
-            SELECT id, businessProcessId, stepName, stepDescription,
-                   businessPurpose, keyActivities, primaryActors,
-                   inputs, outputs, riskNotes,
-                   sequenceOrder, createdAt, updatedAt
+            SELECT
+                id AS id,
+                businessProcessId AS businessProcessId,
+                stepName AS stepName,
+                stepDescription AS stepDescription,
+                businessPurpose AS businessPurpose,
+                keyActivities AS keyActivities,
+                primaryActors AS primaryActors,
+                inputs AS inputs,
+                outputs AS outputs,
+                riskNotes AS riskNotes,
+                sequenceOrder AS sequenceOrder,
+                createdAt AS createdAt,
+                updatedAt AS updatedAt
             FROM cmdb.BusinessProcessSteps
             WHERE businessProcessId = @id
             ORDER BY sequenceOrder

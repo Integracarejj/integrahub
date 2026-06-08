@@ -251,6 +251,19 @@ function ProcessStageDrawer({ stage, onClose }: { stage: BusinessProcessStep; on
     const businessPurpose = stage.businessPurpose || stage.stepDescription;
     const keyActivityItems = splitDelimited(stage.keyActivities);
     const actorItems = splitDelimited(stage.primaryActors);
+    const inputItems = splitDelimited(stage.inputs);
+    const outputItems = splitDelimited(stage.outputs);
+
+    console.debug("[ProcessStageDrawer] stage data:", {
+        id: stage.id,
+        stepName: stage.stepName,
+        businessPurpose: stage.businessPurpose,
+        keyActivities: stage.keyActivities,
+        primaryActors: stage.primaryActors,
+        inputs: stage.inputs,
+        outputs: stage.outputs,
+        riskNotes: stage.riskNotes,
+    });
 
     return (
         <div className="pv-drawer" onClick={e => e.stopPropagation()}>
@@ -299,13 +312,21 @@ function ProcessStageDrawer({ stage, onClose }: { stage: BusinessProcessStep; on
 
                 {stage.inputs && (
                     <DrawerSection title="Inputs">
-                        <p className="pv-drawer-text">{stage.inputs}</p>
+                        {inputItems.length > 0 ? (
+                            <DrawerBulletList items={inputItems} />
+                        ) : (
+                            <p className="pv-drawer-text">{stage.inputs}</p>
+                        )}
                     </DrawerSection>
                 )}
 
                 {stage.outputs && (
                     <DrawerSection title="Outputs">
-                        <p className="pv-drawer-text">{stage.outputs}</p>
+                        {outputItems.length > 0 ? (
+                            <DrawerBulletList items={outputItems} />
+                        ) : (
+                            <p className="pv-drawer-text">{stage.outputs}</p>
+                        )}
                     </DrawerSection>
                 )}
 
