@@ -205,7 +205,6 @@ export default function ProcessView() {
                                             const actor = getActorLabel(step);
                                             const icon = getStageIcon(step);
                                             const expanded = expandedStages.has(step.id);
-                                            const hasNotes = step.systems.some(sys => sys.notes);
 
                                             return (
                                                 <div key={step.id} className="pv-stage">
@@ -221,7 +220,7 @@ export default function ProcessView() {
                                                             </div>
                                                             <div className="pv-stage-hdr-r">
                                                                 <span className="pv-stage-count">{systemLabel(step.systems.length)}</span>
-                                                                {hasNotes && (
+                                                                {step.systems.length > 0 && (
                                                                     <button
                                                                         className={`pv-expand-btn${expanded ? " pv-expand-btn--open" : ""}`}
                                                                         onClick={() => toggleStage(step.id)}
@@ -234,29 +233,55 @@ export default function ProcessView() {
                                                         </div>
 
                                                         {step.systems.length > 0 ? (
-                                                            <div className="pv-chips">
-                                                                {step.systems.map(sys => (
-                                                                    <div key={sys.mappingId} className="pv-chip">
-                                                                        <Link to={`/applications/${sys.applicationId}`} className="pv-chip-name">
-                                                                            {sys.applicationName}
-                                                                        </Link>
-                                                                        <div className="pv-chip-badges">
-                                                                            {sys.systemCategory && <span className="pv-badge">{sys.systemCategory}</span>}
-                                                                            {sys.businessCriticality && (
-                                                                                <span className={`pv-badge pv-crit-${sys.businessCriticality.toLowerCase()}`}>
-                                                                                    {sys.businessCriticality}
-                                                                                </span>
+                                                            expanded ? (
+                                                                <div className="pv-detail-list">
+                                                                    {step.systems.map(sys => (
+                                                                        <div key={sys.mappingId} className="pv-detail-item">
+                                                                            <div className="pv-detail-top">
+                                                                                <Link to={`/applications/${sys.applicationId}`} className="pv-detail-name">
+                                                                                    {sys.applicationName}
+                                                                                </Link>
+                                                                                <div className="pv-detail-badges">
+                                                                                    {sys.systemCategory && <span className="pv-badge">{sys.systemCategory}</span>}
+                                                                                    {sys.businessCriticality && (
+                                                                                        <span className={`pv-badge pv-crit-${sys.businessCriticality.toLowerCase()}`}>
+                                                                                            {sys.businessCriticality}
+                                                                                        </span>
+                                                                                    )}
+                                                                                    {sys.status === "Active" && <span className="pv-badge pv-badge-active">Active</span>}
+                                                                                    {sys.status === "Retired" && <span className="pv-badge pv-badge-retired">Retired</span>}
+                                                                                    {sys.processRole && <span className="pv-badge pv-badge-role">{sys.processRole}</span>}
+                                                                                </div>
+                                                                            </div>
+                                                                            {sys.systemCategory && (
+                                                                                <p className="pv-detail-meta">{sys.systemCategory}</p>
                                                                             )}
-                                                                            {sys.status === "Active" && <span className="pv-badge pv-badge-active">Active</span>}
-                                                                            {sys.status === "Retired" && <span className="pv-badge pv-badge-retired">Retired</span>}
-                                                                            {sys.processRole && <span className="pv-badge pv-badge-role">{sys.processRole}</span>}
+                                                                            {sys.notes && <p className="pv-detail-notes">{sys.notes}</p>}
                                                                         </div>
-                                                                        {expanded && sys.notes && (
-                                                                            <p className="pv-chip-notes">{sys.notes}</p>
-                                                                        )}
-                                                                    </div>
-                                                                ))}
-                                                            </div>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="pv-chips">
+                                                                    {step.systems.map(sys => (
+                                                                        <div key={sys.mappingId} className="pv-chip">
+                                                                            <Link to={`/applications/${sys.applicationId}`} className="pv-chip-name">
+                                                                                {sys.applicationName}
+                                                                            </Link>
+                                                                            <div className="pv-chip-badges">
+                                                                                {sys.systemCategory && <span className="pv-badge">{sys.systemCategory}</span>}
+                                                                                {sys.businessCriticality && (
+                                                                                    <span className={`pv-badge pv-crit-${sys.businessCriticality.toLowerCase()}`}>
+                                                                                        {sys.businessCriticality}
+                                                                                    </span>
+                                                                                )}
+                                                                                {sys.status === "Active" && <span className="pv-badge pv-badge-active">Active</span>}
+                                                                                {sys.status === "Retired" && <span className="pv-badge pv-badge-retired">Retired</span>}
+                                                                                {sys.processRole && <span className="pv-badge pv-badge-role">{sys.processRole}</span>}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )
                                                         ) : (
                                                             <p className="pv-stage-empty">No systems mapped</p>
                                                         )}

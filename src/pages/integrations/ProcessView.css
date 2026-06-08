@@ -418,13 +418,61 @@
     color: #4338ca;
 }
 
-.pv-chip-notes {
+/* ─── System Detail List (expanded) ─── */
+
+.pv-detail-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 2px;
+}
+
+.pv-detail-item {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px 10px;
+}
+
+.pv-detail-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.pv-detail-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #2563eb;
+    text-decoration: none;
+    line-height: 1.4;
+}
+
+.pv-detail-name:hover {
+    text-decoration: underline;
+}
+
+.pv-detail-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}
+
+.pv-detail-meta {
+    font-size: 12px;
+    color: #4b5563;
+    margin: 4px 0 0;
+    line-height: 1.4;
+}
+
+.pv-detail-notes {
     font-size: 12px;
     color: #475569;
-    margin: 2px 0 0;
-    line-height: 1.4;
-    max-width: 240px;
-    padding-top: 3px;
+    margin: 4px 0 0;
+    line-height: 1.5;
+    padding-top: 4px;
     border-top: 1px dotted #d1d5db;
 }
 
