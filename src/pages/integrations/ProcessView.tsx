@@ -171,7 +171,7 @@ export default function ProcessView() {
                                                                 <span className="pv-stage-count">{step.systems.length}</span>
                                                                 {hasNotes && (
                                                                     <button
-                                                                        className="pv-expand-btn"
+                                                                        className={`pv-expand-btn${expanded ? " pv-expand-btn--open" : ""}`}
                                                                         onClick={() => toggleStage(step.id)}
                                                                         title={expanded ? "Hide details" : "Show details"}
                                                                     >
