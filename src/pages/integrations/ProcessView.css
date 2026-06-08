@@ -129,13 +129,13 @@
     margin-top: 2px;
 }
 
-/* ─── Stages Grid ─── */
+/* ─── Stages Flexbox ─── */
 
 .pv-stages {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    display: flex;
+    flex-wrap: wrap;
     gap: 16px;
-    align-items: start;
+    justify-content: center;
     background: rgba(255, 255, 255, 0.6);
     border: 1px solid #e5e7eb;
     border-radius: 10px;
@@ -153,10 +153,11 @@
     padding: 12px;
     min-width: 0;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    flex: 0 0 calc((100% - 32px) / 3);
 }
 
 .pv-stage-unassigned {
-    grid-column: 1 / -1;
+    flex: 0 0 100%;
     opacity: 0.7;
 }
 
@@ -168,9 +169,9 @@
         right: -14px;
         top: 50%;
         transform: translateY(-50%);
-        color: #93c5fd;
-        font-size: 15px;
-        font-weight: 300;
+        color: #7c9fcf;
+        font-size: 16px;
+        font-weight: 400;
         pointer-events: none;
         line-height: 1;
     }
@@ -257,10 +258,6 @@
     color: #4b5563;
     margin: 1px 0 0;
     line-height: 1.4;
-    display: -webkit-box;
-    -webkit-line-clamp: 1;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
 }
 
 .pv-stage-count {
@@ -414,7 +411,7 @@
 }
 
 .pv-empty-state {
-    grid-column: 1 / -1;
+    flex: 0 0 100%;
     text-align: center;
     padding: 40px 20px;
     background: rgba(255, 255, 255, 0.8);
@@ -427,8 +424,8 @@
 /* ─── Responsive ─── */
 
 @media (max-width: 1024px) {
-    .pv-stages {
-        grid-template-columns: repeat(2, 1fr);
+    .pv-stage {
+        flex: 0 0 calc((100% - 16px) / 2);
     }
     .pv-summary-cards {
         grid-template-columns: repeat(2, 1fr);
@@ -447,16 +444,16 @@
         max-width: 100%;
     }
     .pv-stages {
-        grid-template-columns: 1fr;
         padding: 12px;
         gap: 12px;
     }
-    .pv-summary-cards {
-        grid-template-columns: repeat(2, 1fr);
-    }
     .pv-stage {
+        flex: 0 0 100%;
         flex-direction: column;
         align-items: stretch;
+    }
+    .pv-summary-cards {
+        grid-template-columns: repeat(2, 1fr);
     }
     .pv-si-wrap {
         flex-direction: row;

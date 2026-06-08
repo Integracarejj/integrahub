@@ -14,13 +14,64 @@ function getActorLabel(step: BusinessProcessStep): string | null {
     return null;
 }
 
-function StepNumberIcon({ idx, actor }: { idx: number; actor: string | null }) {
+function getStageIcon(step: BusinessProcessStep): JSX.Element | null {
+    const name = step.stepName.toLowerCase();
+    if (name.includes("recruit") || name.includes("sourc") || name.includes("applicant")) {
+        return (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <line x1="19" y1="8" x2="19" y2="14" />
+                <line x1="22" y1="11" x2="16" y2="11" />
+            </svg>
+        );
+    }
+    if (name.includes("hiring") || name.includes("offer") || name.includes("onboard") || name.includes("orient")) {
+        return (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="9" y1="15" x2="15" y2="15" />
+            </svg>
+        );
+    }
+    if (name.includes("identity") || name.includes("access") || name.includes("auth") || name.includes("security")) {
+        return (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+        );
+    }
+    if (name.includes("train") || name.includes("learn") || name.includes("educat") || name.includes("course")) {
+        return (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+            </svg>
+        );
+    }
+    if (name.includes("engagement") || name.includes("retention") || name.includes("reward") || name.includes("recogn")) {
+        return (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+        );
+    }
+    return null;
+}
+
+function StepNumberIcon({ idx, actor, icon }: { idx: number; actor: string | null; icon: JSX.Element | null }) {
     return (
         <div className="pv-si-wrap">
-            <span className="pv-si-num">{idx + 1}</span>
+            <span className="pv-si-num">{icon ? icon : idx + 1}</span>
             {actor && <span className="pv-si-actor">{actor}</span>}
         </div>
     );
+}
+
+function systemLabel(count: number): string {
+    return count === 1 ? "1 system" : `${count} systems`;
 }
 
 export default function ProcessView() {
@@ -152,12 +203,13 @@ export default function ProcessView() {
                                     <>
                                         {detail.steps.map((step, idx) => {
                                             const actor = getActorLabel(step);
+                                            const icon = getStageIcon(step);
                                             const expanded = expandedStages.has(step.id);
                                             const hasNotes = step.systems.some(sys => sys.notes);
 
                                             return (
                                                 <div key={step.id} className="pv-stage">
-                                                    <StepNumberIcon idx={idx} actor={actor} />
+                                                    <StepNumberIcon idx={idx} actor={actor} icon={icon} />
 
                                                     <div className="pv-stage-body">
                                                         <div className="pv-stage-hdr">
@@ -168,7 +220,7 @@ export default function ProcessView() {
                                                                 )}
                                                             </div>
                                                             <div className="pv-stage-hdr-r">
-                                                                <span className="pv-stage-count">{step.systems.length}</span>
+                                                                <span className="pv-stage-count">{systemLabel(step.systems.length)}</span>
                                                                 {hasNotes && (
                                                                     <button
                                                                         className={`pv-expand-btn${expanded ? " pv-expand-btn--open" : ""}`}
@@ -225,7 +277,7 @@ export default function ProcessView() {
                                                             <p className="pv-stage-desc">Systems in this process without a stage assignment.</p>
                                                         </div>
                                                         <div className="pv-stage-hdr-r">
-                                                            <span className="pv-stage-count">{detail.unassignedSystems.length}</span>
+                                                            <span className="pv-stage-count">{systemLabel(detail.unassignedSystems.length)}</span>
                                                         </div>
                                                     </div>
                                                     <div className="pv-chips">
