@@ -4,7 +4,7 @@ import {
     getBusinessProcesses,
     getBusinessProcessDetail,
 } from "../../services/businessProcessService";
-import type { BusinessProcessDetail, BusinessProcessStep, BusinessProcessStepSystem } from "../../types/businessProcess";
+import type { BusinessProcessDetail, BusinessProcessStep, BusinessProcessStepSystem, ProcessRelatedIntegration } from "../../types/businessProcess";
 import "./ProcessView.css";
 
 /* ─── Helpers ─── */
@@ -244,6 +244,33 @@ function DrawerPillList({ items }: { items: string[] }) {
     );
 }
 
+/* ─── Drawer: integration card ─── */
+
+function ProcessDrawerIntegrationCard({ integration }: { integration: ProcessRelatedIntegration }) {
+    const metaParts = [integration.integrationType, integration.method, integration.frequency].filter(Boolean);
+    return (
+        <div className="pv-drawer-integration">
+            <div className="pv-drawer-int-hdr">
+                <span className="pv-drawer-int-arrow">{integration.sourceApplicationName}</span>
+                <span className="pv-drawer-int-symbol">→</span>
+                <span className="pv-drawer-int-arrow">{integration.targetApplicationName}</span>
+                {integration.status && (
+                    <span className={`pv-tag${integration.status === "Active" ? " pv-tag-active" : ""}`}>{integration.status}</span>
+                )}
+            </div>
+            {metaParts.length > 0 && (
+                <p className="pv-drawer-int-meta">{metaParts.join(" · ")}</p>
+            )}
+            {integration.businessPurpose && (
+                <p className="pv-drawer-int-purpose">Purpose: {integration.businessPurpose}</p>
+            )}
+            {integration.dataExchanged && (
+                <p className="pv-drawer-int-data">Data: {integration.dataExchanged}</p>
+            )}
+        </div>
+    );
+}
+
 /* ─── Drawer ─── */
 
 function ProcessStageDrawer({ stage, onClose }: { stage: BusinessProcessStep; onClose: () => void }) {
@@ -342,6 +369,21 @@ function ProcessStageDrawer({ stage, onClose }: { stage: BusinessProcessStep; on
                     )}
                 </DrawerSection>
 
+                <DrawerSection
+                    title="Related Integrations"
+                    count={stage.relatedIntegrations?.length ?? 0}
+                >
+                    {stage.relatedIntegrations && stage.relatedIntegrations.length > 0 ? (
+                        <div className="pv-drawer-integrations">
+                            {stage.relatedIntegrations.map(int => (
+                                <ProcessDrawerIntegrationCard key={int.integrationId} integration={int} />
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="pv-drawer-empty">No related integrations documented for this stage yet.</p>
+                    )}
+                </DrawerSection>
+
                 <DrawerSection title="Risks / Impacts">
                     {stage.riskNotes ? (
                         <p className="pv-drawer-text">{stage.riskNotes}</p>
@@ -350,11 +392,7 @@ function ProcessStageDrawer({ stage, onClose }: { stage: BusinessProcessStep; on
                     )}
                 </DrawerSection>
 
-                <div className="pv-drawer-section-future">
-                    <p className="pv-drawer-future-text">
-                        Related integrations, roles, owners, and downstream impacts can be added here as the process model matures.
-                    </p>
-                </div>
+
             </div>
         </div>
     );

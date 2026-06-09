@@ -90,10 +90,40 @@ router.get("/:id", async (req, res, next) => {
             ORDER BY bps.sequenceOrder, a.name
         `, { id: req.params.id });
 
-        const stepsWithSystems = steps.map(step => ({
-            ...step,
-            systems: systems.filter(s => s.businessProcessStepId === step.id),
-        }));
+        const stepIntegrations = await query(`
+            SELECT DISTINCT
+                i.id AS integrationId,
+                i.sourceApplicationId,
+                src.name AS sourceApplicationName,
+                i.targetApplicationId,
+                tgt.name AS targetApplicationName,
+                i.integrationType,
+                i.method,
+                i.frequency,
+                i.status,
+                i.businessPurpose,
+                i.dataExchanged,
+                i.notes,
+                bps.businessProcessStepId AS stepId
+            FROM cmdb.ApplicationIntegrations i
+            INNER JOIN cmdb.BusinessProcessSystems bps
+                ON (i.sourceApplicationId = bps.applicationId OR i.targetApplicationId = bps.applicationId)
+                AND bps.businessProcessId = @id
+            LEFT JOIN cmdb.Applications src ON i.sourceApplicationId = src.id
+            LEFT JOIN cmdb.Applications tgt ON i.targetApplicationId = tgt.id
+            WHERE bps.businessProcessStepId IS NOT NULL
+        `, { id: req.params.id });
+
+        const stepsWithSystems = steps.map(step => {
+            const rel = stepIntegrations
+                .filter(si => si.stepId === step.id)
+                .map(({ stepId, ...integration }) => ({ ...integration }));
+            return {
+                ...step,
+                systems: systems.filter(s => s.businessProcessStepId === step.id),
+                relatedIntegrations: rel,
+            };
+        });
 
         const unassigned = systems.filter(s => !s.businessProcessStepId);
 

@@ -22,6 +22,21 @@ export interface BusinessProcessStepSystem {
     status: string | null;
 }
 
+export interface ProcessRelatedIntegration {
+    integrationId: number;
+    sourceApplicationId?: string | null;
+    sourceApplicationName?: string | null;
+    targetApplicationId?: string | null;
+    targetApplicationName?: string | null;
+    integrationType?: string | null;
+    method?: string | null;
+    frequency?: string | null;
+    status?: string | null;
+    businessPurpose?: string | null;
+    dataExchanged?: string | null;
+    notes?: string | null;
+}
+
 export interface BusinessProcessStep {
     id: number;
     businessProcessId: number;
@@ -37,6 +52,7 @@ export interface BusinessProcessStep {
     createdAt: string;
     updatedAt: string;
     systems: BusinessProcessStepSystem[];
+    relatedIntegrations?: ProcessRelatedIntegration[];
 }
 
 export interface BusinessProcessDetail extends BusinessProcess {

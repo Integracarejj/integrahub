@@ -702,6 +702,60 @@
     line-height: 1.4;
 }
 
+/* ─── Drawer Integration Cards ─── */
+
+.pv-drawer-integrations {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.pv-drawer-integration {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 10px 12px;
+}
+
+.pv-drawer-int-hdr {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.pv-drawer-int-arrow {
+    font-size: 13px;
+    font-weight: 700;
+    color: #2563eb;
+}
+
+.pv-drawer-int-symbol {
+    font-size: 13px;
+    color: #9ca3af;
+}
+
+.pv-drawer-int-meta {
+    font-size: 11px;
+    color: #6b7280;
+    margin: 4px 0 0;
+    line-height: 1.5;
+}
+
+.pv-drawer-int-purpose {
+    font-size: 12px;
+    color: #374151;
+    margin: 5px 0 0;
+    line-height: 1.5;
+}
+
+.pv-drawer-int-data {
+    font-size: 12px;
+    color: #475569;
+    margin: 3px 0 0;
+    line-height: 1.5;
+}
+
 /* ─── Drawer Future Section ─── */
 
 .pv-drawer-section-future {
