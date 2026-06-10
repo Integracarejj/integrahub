@@ -27,13 +27,29 @@ export default function EditApplicationPage() {
         "Learning Management", "Clinical / Resident Care", "Clinical / Pharmacy",
         "Clinical / eMAR", "Clinical / Resident Safety", "Clinical / Resident Engagement",
         "Collaboration / Document Management", "Financial / Accounting",
-        "Vendor Portal", "Utility / Admin Tool", "Infrastructure Platform", "Other",
+        "Vendor Portal", "Utility / Admin Tool", "Infrastructure Platform",
+        "Operations & Facilities", "Other",
     ];
 
     const ARCHITECTURE_TYPES = [
         "SaaS", "Database", "Platform", "Identity Provider", "Reporting",
         "File Repository", "Integration Layer", "Internal Application",
         "External Vendor", "Manual Process", "Unknown",
+    ];
+
+    const MOBILE_SUPPORT_TYPES = [
+        "Unknown", "None", "Responsive Web", "Native iOS",
+        "Native Android", "Native iOS + Android", "Mixed",
+    ];
+
+    const API_AVAILABILITIES = [
+        "Unknown", "No Public API", "Vendor API Available",
+        "Internal API Available", "API Available - Documentation Needed",
+    ];
+
+    const REPORTING_SOURCES = [
+        "Unknown", "Vendor Reporting", "Power BI", "Azure SQL",
+        "System Reports", "Manual Export", "Mixed",
     ];
 
     const [form, setForm] = useState({
@@ -43,6 +59,9 @@ export default function EditApplicationPage() {
         type: "",
         systemCategory: "",
         architectureType: "",
+        mobileSupportType: "",
+        apiAvailability: "",
+        reportingSource: "",
         businessOwner: "",
         businessCriticality: "",
         impactIfDown: "",
@@ -82,6 +101,9 @@ export default function EditApplicationPage() {
                     type: appData.type || "",
                     systemCategory: appData.systemCategory || "",
                     architectureType: appData.architectureType || "",
+                    mobileSupportType: appData.mobileSupportType || "",
+                    apiAvailability: appData.apiAvailability || "",
+                    reportingSource: appData.reportingSource || "",
                     businessOwner: appData.ownership?.businessOwner || "",
                     businessCriticality: appData.businessContext?.businessCriticality || "",
                     impactIfDown: appData.businessContext?.impactIfDown || "",
@@ -339,6 +361,51 @@ export default function EditApplicationPage() {
                 <div className="form-section">
                     <h2 className="form-section-title">Operational Context</h2>
                     <div className="form-grid">
+                        <div className="form-field">
+                            <label htmlFor="mobileSupportType">Mobile Support</label>
+                            <select
+                                id="mobileSupportType"
+                                value={form.mobileSupportType}
+                                onChange={(e) => handleChange("mobileSupportType", e.target.value)}
+                                disabled={submitting}
+                            >
+                                <option value="">Select</option>
+                                {MOBILE_SUPPORT_TYPES.map((opt) => (
+                                    <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="form-field">
+                            <label htmlFor="apiAvailability">API Availability</label>
+                            <select
+                                id="apiAvailability"
+                                value={form.apiAvailability}
+                                onChange={(e) => handleChange("apiAvailability", e.target.value)}
+                                disabled={submitting}
+                            >
+                                <option value="">Select</option>
+                                {API_AVAILABILITIES.map((opt) => (
+                                    <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="form-field">
+                            <label htmlFor="reportingSource">Reporting Source</label>
+                            <select
+                                id="reportingSource"
+                                value={form.reportingSource}
+                                onChange={(e) => handleChange("reportingSource", e.target.value)}
+                                disabled={submitting}
+                            >
+                                <option value="">Select</option>
+                                {REPORTING_SOURCES.map((opt) => (
+                                    <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                            </select>
+                        </div>
+
                         <div className="form-field full-width">
                             <label htmlFor="primaryUseCases">Primary Use Cases</label>
                             <textarea

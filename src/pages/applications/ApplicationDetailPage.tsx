@@ -33,6 +33,9 @@ interface ApiApplication {
     type?: string;
     systemCategory?: string | null;
     architectureType?: string | null;
+    mobileSupportType?: string | null;
+    apiAvailability?: string | null;
+    reportingSource?: string | null;
     description?: string;
     purpose?: string;
     vendor?: string;
@@ -553,6 +556,24 @@ export default function ApplicationDetailPage() {
                             <div className="detail-definition-item">
                                 <dt>Training / Documentation</dt>
                                 <dd>{application.trainingDocumentationUrl ? <a href={application.trainingDocumentationUrl} target="_blank" rel="noopener noreferrer">{application.trainingDocumentationUrl}</a> : "—"}</dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    <section className="detail-section">
+                        <h2 className="detail-section-title">Platform Information</h2>
+                        <dl className="detail-definition-list">
+                            <div className="detail-definition-item">
+                                <dt>Mobile Support</dt>
+                                <dd>{application.mobileSupportType || "—"}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>API Availability</dt>
+                                <dd>{application.apiAvailability || "—"}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>Reporting Source</dt>
+                                <dd>{application.reportingSource || "—"}</dd>
                             </div>
                         </dl>
                     </section>

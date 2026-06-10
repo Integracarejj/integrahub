@@ -41,6 +41,10 @@ router.post("/", async (req, res) => {
             status,
             type,
             systemCategory,
+            architectureType,
+            mobileSupportType,
+            apiAvailability,
+            reportingSource,
             businessOwner,
             businessCriticality,
             impactIfDown,
@@ -59,7 +63,6 @@ router.post("/", async (req, res) => {
             departmentsSupported,
             accessRequestProcess,
             trainingDocumentationUrl,
-            architectureType,
         } = req.body;
 
         if (!name) {
@@ -131,8 +134,8 @@ router.post("/", async (req, res) => {
         }
 
         await query(
-            `INSERT INTO cmdb.Applications (id, name, capabilityId, status, type, systemCategory, architectureType, businessOwner, businessCriticality, impactIfDown, websiteUrl, loginUrl, backupOwner, ssoSupported, ssoEnabled, mfaSupported, mfaEnabled, dataClassification, userCountBand, lastReviewedAt, notes, primaryUseCases, departmentsSupported, accessRequestProcess, trainingDocumentationUrl)
-             VALUES (@id, @name, @capabilityId, @status, @type, @systemCategory, @architectureType, @businessOwner, @businessCriticality, @impactIfDown, @websiteUrl, @loginUrl, @backupOwner, @ssoSupported, @ssoEnabled, @mfaSupported, @mfaEnabled, @dataClassification, @userCountBand, @lastReviewedAt, @notes, @primaryUseCases, @departmentsSupported, @accessRequestProcess, @trainingDocumentationUrl)`,
+            `INSERT INTO cmdb.Applications (id, name, capabilityId, status, type, systemCategory, architectureType, mobileSupportType, apiAvailability, reportingSource, businessOwner, businessCriticality, impactIfDown, websiteUrl, loginUrl, backupOwner, ssoSupported, ssoEnabled, mfaSupported, mfaEnabled, dataClassification, userCountBand, lastReviewedAt, notes, primaryUseCases, departmentsSupported, accessRequestProcess, trainingDocumentationUrl)
+             VALUES (@id, @name, @capabilityId, @status, @type, @systemCategory, @architectureType, @mobileSupportType, @apiAvailability, @reportingSource, @businessOwner, @businessCriticality, @impactIfDown, @websiteUrl, @loginUrl, @backupOwner, @ssoSupported, @ssoEnabled, @mfaSupported, @mfaEnabled, @dataClassification, @userCountBand, @lastReviewedAt, @notes, @primaryUseCases, @departmentsSupported, @accessRequestProcess, @trainingDocumentationUrl)`,
             {
                 id: generatedId,
                 name: normalizedName,
@@ -141,6 +144,9 @@ router.post("/", async (req, res) => {
                 type: type || "",
                 systemCategory: systemCategory || null,
                 architectureType: architectureType || null,
+                mobileSupportType: mobileSupportType || null,
+                apiAvailability: apiAvailability || null,
+                reportingSource: reportingSource || null,
                 businessOwner: businessOwner || "",
                 businessCriticality: businessCriticality || "",
                 impactIfDown: impactIfDown || "",
@@ -170,6 +176,9 @@ router.post("/", async (req, res) => {
             type: type || "",
             systemCategory: systemCategory || null,
             architectureType: architectureType || null,
+            mobileSupportType: mobileSupportType || null,
+            apiAvailability: apiAvailability || null,
+            reportingSource: reportingSource || null,
             businessOwner: businessOwner || "",
             businessCriticality: businessCriticality || "",
             impactIfDown: impactIfDown || "",
@@ -213,8 +222,11 @@ router.put("/:id", async (req, res) => {
             status,
             type,
             systemCategory,
+            architectureType,
+            mobileSupportType,
+            apiAvailability,
+            reportingSource,
             businessOwner,
-            technicalOwner,
             businessCriticality,
             impactIfDown,
             websiteUrl,
@@ -232,7 +244,6 @@ router.put("/:id", async (req, res) => {
             departmentsSupported,
             accessRequestProcess,
             trainingDocumentationUrl,
-            architectureType,
         } = req.body;
 
         if (!name) {
@@ -308,6 +319,9 @@ router.put("/:id", async (req, res) => {
              SET name = @name, capabilityId = @capabilityId, status = @status, type = @type,
                  systemCategory = @systemCategory,
                  architectureType = @architectureType,
+                 mobileSupportType = @mobileSupportType,
+                 apiAvailability = @apiAvailability,
+                 reportingSource = @reportingSource,
                  businessOwner = @businessOwner, technicalOwner = @technicalOwner, businessCriticality = @businessCriticality, impactIfDown = @impactIfDown,
                  websiteUrl = @websiteUrl, loginUrl = @loginUrl, backupOwner = @backupOwner,
                  ssoSupported = @ssoSupported, ssoEnabled = @ssoEnabled,
@@ -327,6 +341,9 @@ router.put("/:id", async (req, res) => {
                 type: type || "",
                 systemCategory: systemCategory || null,
                 architectureType: architectureType || null,
+                mobileSupportType: mobileSupportType || null,
+                apiAvailability: apiAvailability || null,
+                reportingSource: reportingSource || null,
                 businessOwner: businessOwner || "",
                 businessCriticality: businessCriticality || "",
                 impactIfDown: impactIfDown || "",
@@ -357,6 +374,9 @@ router.put("/:id", async (req, res) => {
             type: type || "",
             systemCategory: systemCategory || null,
             architectureType: architectureType || null,
+            mobileSupportType: mobileSupportType || null,
+            apiAvailability: apiAvailability || null,
+            reportingSource: reportingSource || null,
             businessOwner: businessOwner || "",
             businessCriticality: businessCriticality || "",
             impactIfDown: impactIfDown || "",
@@ -608,6 +628,21 @@ router.patch("/:id", async (req, res) => {
             params.trainingDocumentationUrl = body.trainingDocumentationUrl || null;
         }
 
+        if (body.mobileSupportType !== undefined) {
+            setClauses.push("mobileSupportType = @mobileSupportType");
+            params.mobileSupportType = body.mobileSupportType || null;
+        }
+
+        if (body.apiAvailability !== undefined) {
+            setClauses.push("apiAvailability = @apiAvailability");
+            params.apiAvailability = body.apiAvailability || null;
+        }
+
+        if (body.reportingSource !== undefined) {
+            setClauses.push("reportingSource = @reportingSource");
+            params.reportingSource = body.reportingSource || null;
+        }
+
         if (setClauses.length === 0) {
             return res.status(400).json({ error: "No fields to update" });
         }
@@ -630,6 +665,9 @@ router.patch("/:id", async (req, res) => {
                 a.type,
                 a.systemCategory,
                 a.architectureType,
+                a.mobileSupportType,
+                a.apiAvailability,
+                a.reportingSource,
                 a.description,
                 a.technicalOwner,
                 a.vendor,
@@ -668,6 +706,9 @@ router.patch("/:id", async (req, res) => {
             type: row.type,
             systemCategory: row.systemCategory,
             architectureType: row.architectureType,
+            mobileSupportType: row.mobileSupportType,
+            apiAvailability: row.apiAvailability,
+            reportingSource: row.reportingSource,
             description: row.description,
             technicalOwner: row.technicalOwner,
             vendor: row.vendor,
@@ -719,6 +760,9 @@ router.get("/", async (_req, res) => {
                 a.type,
                 a.systemCategory,
                 a.architectureType,
+                a.mobileSupportType,
+                a.apiAvailability,
+                a.reportingSource,
                 a.description,
                 a.technicalOwner,
                 a.vendor,
@@ -756,6 +800,9 @@ router.get("/", async (_req, res) => {
             type: row.type,
             systemCategory: row.systemCategory,
             architectureType: row.architectureType,
+            mobileSupportType: row.mobileSupportType,
+            apiAvailability: row.apiAvailability,
+            reportingSource: row.reportingSource,
             description: row.description,
             technicalOwner: row.technicalOwner,
             vendor: row.vendor,
@@ -810,6 +857,9 @@ router.get("/:id", async (req, res) => {
                 a.type,
                 a.systemCategory,
                 a.architectureType,
+                a.mobileSupportType,
+                a.apiAvailability,
+                a.reportingSource,
                 a.description,
                 a.technicalOwner,
                 a.vendor,
@@ -916,6 +966,9 @@ router.get("/:id", async (req, res) => {
             type: row.type,
             systemCategory: row.systemCategory,
             architectureType: row.architectureType,
+            mobileSupportType: row.mobileSupportType,
+            apiAvailability: row.apiAvailability,
+            reportingSource: row.reportingSource,
             description: row.description,
             technicalOwner: row.technicalOwner,
             vendor: row.vendor,

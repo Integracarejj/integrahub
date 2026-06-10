@@ -74,6 +74,10 @@ export interface Application {
 
     description?: string;
 
+    mobileSupportType?: string | null;
+    apiAvailability?: string | null;
+    reportingSource?: string | null;
+
     primaryUseCases?: string | null;
     departmentsSupported?: string | null;
     accessRequestProcess?: string | null;

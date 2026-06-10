@@ -130,6 +130,8 @@ const SYSTEM_CATEGORY_MAP = {
     "utility": "Utility / Admin Tool",
     "admin": "Utility / Admin Tool",
     "enterprise": "Enterprise System",
+    "operations": "Operations & Facilities",
+    "facilities": "Operations & Facilities",
 };
 
 function suggestSystemCategory(row) {
