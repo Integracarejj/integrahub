@@ -23,6 +23,8 @@ interface ApiApplication {
         businessCriticality: string;
         impactIfDown: string;
     };
+    departmentsSupported?: string | null;
+    departments?: { id: string; name: string }[];
     ownership: {
         businessOwner: string;
         technicalOwner?: string;
@@ -502,6 +504,7 @@ export default function ApplicationsListPage() {
                             Criticality<span className="sort-indicator">{renderSortIndicator("criticality")}</span>
                         </th>
                         <th>System Signals</th>
+                        <th>Departments</th>
                         <th>Business Owner</th>
                         <th>Technical Owner</th>
                         <th>Vendor</th>
@@ -552,6 +555,20 @@ export default function ApplicationsListPage() {
                                             <span className="signal-none">—</span>
                                         )}
                                     </div>
+                                </td>
+                                <td>
+                                    {app.departments && app.departments.length > 0 ? (
+                                        <div className="department-pills">
+                                            {app.departments.slice(0, 2).map((dept) => (
+                                                <span key={dept.id} className="department-pill">{dept.name}</span>
+                                            ))}
+                                            {app.departments.length > 2 && (
+                                                <span className="department-pill-more">+{app.departments.length - 2}</span>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <span className="signal-none">—</span>
+                                    )}
                                 </td>
                                 <td>
                                     {app.ownership.businessOwner ? (

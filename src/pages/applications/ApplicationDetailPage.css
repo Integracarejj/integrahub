@@ -209,19 +209,13 @@
 .detail-main-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 24px;
+    gap: 20px;
 }
 
 @media (min-width: 900px) {
     .detail-main-grid {
-        grid-template-columns: 65fr 35fr;
+        grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
     }
-}
-
-.detail-column {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
 }
 
 .detail-section {
@@ -234,11 +228,19 @@
     border-radius: 8px;
 }
 
-.detail-section.integrations-section {
+.detail-section.detail-section-wide,
+.detail-section.detail-section-full {
     grid-column: 1 / -1;
+}
+
+.detail-section.integrations-section {
     background: transparent;
     border: none;
     padding: 0;
+}
+
+.detail-section.integrations-section .detail-section-title {
+    margin-bottom: 8px;
 }
 
 .detail-section-header {

@@ -14,6 +14,7 @@ interface ApiApplication {
     apiAvailability?: string | null;
     reportingSource?: string | null;
     vendor?: string;
+    departments?: { id: string; name: string }[];
     businessContext: {
         businessCriticality?: string;
     };
@@ -84,7 +85,10 @@ export default function HomePage() {
         const critical = applications.filter(
             (app) => app.businessContext?.businessCriticality === "Critical"
         ).length;
-        return { total, mobileCapable, apiEnabled, reportingSource, critical };
+        const departmentsCovered = applications.filter(
+            (app) => app.departments && app.departments.length > 0
+        ).length;
+        return { total, mobileCapable, apiEnabled, reportingSource, critical, departmentsCovered };
     }, [applications]);
 
     const handleSearch = (e: React.FormEvent) => {
@@ -136,6 +140,10 @@ export default function HomePage() {
                 <Link to="/applications?criticality=Critical" className="stat-card stat-red">
                     <span className="stat-value">{stats.critical}</span>
                     <span className="stat-label">Critical Systems</span>
+                </Link>
+                <Link to="/applications" className="stat-card stat-green">
+                    <span className="stat-value">{stats.departmentsCovered}</span>
+                    <span className="stat-label">Dept. Coverage</span>
                 </Link>
             </section>
 

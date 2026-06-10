@@ -66,6 +66,7 @@ interface ApiApplication {
     notes: string;
     primaryUseCases?: string | null;
     departmentsSupported?: string | null;
+    departments?: { id: string; name: string }[];
     accessRequestProcess?: string | null;
     trainingDocumentationUrl?: string | null;
     integrations: ApiIntegration[];
@@ -397,251 +398,259 @@ export default function ApplicationDetailPage() {
             )}
 
             <div className="detail-main-grid">
-                <div className="detail-column">
-                    <section className="detail-section">
-                        <h2 className="detail-section-title">Overview</h2>
-                        <dl className="detail-definition-list">
-                            <div className="detail-definition-item">
-                                <dt>Type</dt>
-                                <dd>{application.type || "—"}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>System Category</dt>
-                                <dd>{application.systemCategory || "—"}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>Architecture Type</dt>
-                                <dd>{application.architectureType || "—"}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>Description</dt>
-                                <dd>{application.description || "—"}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>Vendor</dt>
-                                <dd>{application.vendor || "—"}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>Purpose</dt>
-                                <dd>{(application.purpose ?? application.businessContext.purpose) || "—"}</dd>
-                            </div>
-                            <div className="detail-definition-item full-width">
-                                <dt>Capability</dt>
-                                <dd>{application.capabilityName}</dd>
-                            </div>
-                        </dl>
-                    </section>
+                <section className="detail-section detail-section-wide">
+                    <h2 className="detail-section-title">Overview</h2>
+                    <dl className="detail-definition-list">
+                        <div className="detail-definition-item">
+                            <dt>Type</dt>
+                            <dd>{application.type || "—"}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>System Category</dt>
+                            <dd>{application.systemCategory || "—"}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>Architecture Type</dt>
+                            <dd>{application.architectureType || "—"}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>Description</dt>
+                            <dd>{application.description || "—"}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>Vendor</dt>
+                            <dd>{application.vendor || "—"}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>Purpose</dt>
+                            <dd>{(application.purpose ?? application.businessContext.purpose) || "—"}</dd>
+                        </div>
+                        <div className="detail-definition-item full-width">
+                            <dt>Capability</dt>
+                            <dd>{application.capabilityName}</dd>
+                        </div>
+                    </dl>
+                </section>
 
-                    <section className="detail-section">
-                        <h2 className="detail-section-title">Business Context</h2>
-                        <dl className="detail-definition-list">
-                            <div className="detail-definition-item">
-                                <dt>Business Criticality</dt>
-                                <dd>{application.businessContext.businessCriticality}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>Impact If Down</dt>
-                                <dd>{application.businessContext.impactIfDown || "—"}</dd>
-                            </div>
-                        </dl>
-                    </section>
-                </div>
+                <section className="detail-section">
+                    <h2 className="detail-section-title">Business Context</h2>
+                    <dl className="detail-definition-list single-column">
+                        <div className="detail-definition-item">
+                            <dt>Business Criticality</dt>
+                            <dd>{application.businessContext.businessCriticality}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>Impact If Down</dt>
+                            <dd>{application.businessContext.impactIfDown || "—"}</dd>
+                        </div>
+                    </dl>
+                </section>
 
-                <div className="detail-column">
-                    <section className="detail-section">
-                        <h2 className="detail-section-title">Ownership</h2>
-                        <dl className="detail-definition-list">
-                            <div className="detail-definition-item">
-                                <dt>Business Owner</dt>
-                                <dd>
-                                    {application.ownership.businessOwner ? (
-                                        application.ownership.businessOwner
-                                    ) : (
-                                        <span className="owner-badge">Needs owner</span>
-                                    )}
-                                </dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>Technical Owner</dt>
-                                <dd>
-                                    {editingTechOwner ? (
-                                        <div className="tech-owner-edit">
-                                            {techOwnerError && <span className="owner-error">{techOwnerError}</span>}
-                                            <select
-                                                value={selectedTechOwner}
-                                                onChange={(e) => setSelectedTechOwner(e.target.value)}
-                                                className="owner-select"
-                                            >
-                                                <option value="">Select owner...</option>
-                                                {users.map((u) => (
-                                                    <option key={u.id} value={u.displayName}>
-                                                        {u.displayName}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <button
-                                                className="owner-save-btn"
-                                                onClick={handleSaveTechOwner}
-                                                disabled={savingTechOwner || !selectedTechOwner}
-                                            >
-                                                {savingTechOwner ? "..." : "Save"}
-                                            </button>
-                                            <button
-                                                className="owner-cancel-btn"
-                                                onClick={() => {
-                                                    setEditingTechOwner(false);
-                                                    setSelectedTechOwner("");
-                                                    setTechOwnerError(null);
-                                                }}
-                                            >
-                                                Cancel
-                                            </button>
-                                        </div>
-                                    ) : application.ownership.technicalOwner ? (
-                                        <>
-                                            <span>{application.ownership.technicalOwner}</span>
-                                            {canEditApp() && (
-                                                <>
-                                                    <button
-                                                        className="owner-change-btn"
-                                                        onClick={() => {
-                                                            setEditingTechOwner(true);
-                                                            setSelectedTechOwner(application.ownership.technicalOwner || "");
-                                                        }}
-                                                    >
-                                                        Change
-                                                    </button>
-                                                    <button
-                                                        className="owner-clear-btn"
-                                                        onClick={handleClearTechOwner}
-                                                    >
-                                                        Clear
-                                                    </button>
-                                                </>
-                                            )}
-                                        </>
-                                    ) : canEditApp() ? (
+                <section className="detail-section">
+                    <h2 className="detail-section-title">Ownership</h2>
+                    <dl className="detail-definition-list single-column">
+                        <div className="detail-definition-item">
+                            <dt>Business Owner</dt>
+                            <dd>
+                                {application.ownership.businessOwner ? (
+                                    application.ownership.businessOwner
+                                ) : (
+                                    <span className="owner-badge">Needs owner</span>
+                                )}
+                            </dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>Technical Owner</dt>
+                            <dd>
+                                {editingTechOwner ? (
+                                    <div className="tech-owner-edit">
+                                        {techOwnerError && <span className="owner-error">{techOwnerError}</span>}
+                                        <select
+                                            value={selectedTechOwner}
+                                            onChange={(e) => setSelectedTechOwner(e.target.value)}
+                                            className="owner-select"
+                                        >
+                                            <option value="">Select owner...</option>
+                                            {users.map((u) => (
+                                                <option key={u.id} value={u.displayName}>
+                                                    {u.displayName}
+                                                </option>
+                                            ))}
+                                        </select>
                                         <button
-                                            className="owner-assign-btn"
+                                            className="owner-save-btn"
+                                            onClick={handleSaveTechOwner}
+                                            disabled={savingTechOwner || !selectedTechOwner}
+                                        >
+                                            {savingTechOwner ? "..." : "Save"}
+                                        </button>
+                                        <button
+                                            className="owner-cancel-btn"
                                             onClick={() => {
-                                                setEditingTechOwner(true);
+                                                setEditingTechOwner(false);
                                                 setSelectedTechOwner("");
+                                                setTechOwnerError(null);
                                             }}
                                         >
-                                            + Assign
+                                            Cancel
                                         </button>
-                                    ) : (
-                                        <span className="owner-badge">Needs owner</span>
-                                    )}
-                                </dd>
-                            </div>
-                        </dl>
-                    </section>
+                                    </div>
+                                ) : application.ownership.technicalOwner ? (
+                                    <>
+                                        <span>{application.ownership.technicalOwner}</span>
+                                        {canEditApp() && (
+                                            <>
+                                                <button
+                                                    className="owner-change-btn"
+                                                    onClick={() => {
+                                                        setEditingTechOwner(true);
+                                                        setSelectedTechOwner(application.ownership.technicalOwner || "");
+                                                    }}
+                                                >
+                                                    Change
+                                                </button>
+                                                <button
+                                                    className="owner-clear-btn"
+                                                    onClick={handleClearTechOwner}
+                                                >
+                                                    Clear
+                                                </button>
+                                            </>
+                                        )}
+                                    </>
+                                ) : canEditApp() ? (
+                                    <button
+                                        className="owner-assign-btn"
+                                        onClick={() => {
+                                            setEditingTechOwner(true);
+                                            setSelectedTechOwner("");
+                                        }}
+                                    >
+                                        + Assign
+                                    </button>
+                                ) : (
+                                    <span className="owner-badge">Needs owner</span>
+                                )}
+                            </dd>
+                        </div>
+                    </dl>
+                </section>
 
-                    <section className="detail-section">
-                        <h2 className="detail-section-title">Operational Context</h2>
-                        <dl className="detail-definition-list">
-                            <div className="detail-definition-item full-width">
-                                <dt>Primary Use Cases</dt>
-                                <dd>{application.primaryUseCases || "—"}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>Departments Supported</dt>
-                                <dd>{application.departmentsSupported || "—"}</dd>
-                            </div>
-                            <div className="detail-definition-item full-width">
-                                <dt>Access Request Process</dt>
-                                <dd>{application.accessRequestProcess || "—"}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>Training / Documentation</dt>
-                                <dd>{application.trainingDocumentationUrl ? <a href={application.trainingDocumentationUrl} target="_blank" rel="noopener noreferrer">{application.trainingDocumentationUrl}</a> : "—"}</dd>
-                            </div>
-                        </dl>
-                    </section>
+                <section className="detail-section detail-section-wide">
+                    <h2 className="detail-section-title">Operational Context</h2>
+                    <dl className="detail-definition-list">
+                        <div className="detail-definition-item full-width">
+                            <dt>Primary Use Cases</dt>
+                            <dd>{application.primaryUseCases || "—"}</dd>
+                        </div>
+                        <div className="detail-definition-item full-width">
+                            <dt>Department Usage Notes</dt>
+                            <dd>{application.departmentsSupported || "—"}</dd>
+                        </div>
+                        <div className="detail-definition-item full-width">
+                            <dt>Departments Supported</dt>
+                            <dd>
+                                {application.departments && application.departments.length > 0 ? (
+                                    <div className="department-pills">
+                                        {application.departments.map((dept) => (
+                                            <span key={dept.id} className="department-pill">{dept.name}</span>
+                                        ))}
+                                    </div>
+                                ) : "—"}
+                            </dd>
+                        </div>
+                        <div className="detail-definition-item full-width">
+                            <dt>Access Request Process</dt>
+                            <dd>{application.accessRequestProcess || "—"}</dd>
+                        </div>
+                        <div className="detail-definition-item full-width">
+                            <dt>Training / Documentation</dt>
+                            <dd>{application.trainingDocumentationUrl ? <a href={application.trainingDocumentationUrl} target="_blank" rel="noopener noreferrer">{application.trainingDocumentationUrl}</a> : "—"}</dd>
+                        </div>
+                    </dl>
+                </section>
 
-                    <section className="detail-section">
-                        <h2 className="detail-section-title">Platform Information</h2>
-                        <dl className="detail-definition-list">
-                            <div className="detail-definition-item">
-                                <dt>Architecture Type</dt>
-                                <dd>{application.architectureType || "Unknown"}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>Mobile Support</dt>
-                                <dd>{application.mobileSupportType || "Unknown"}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>API Availability</dt>
-                                <dd>{application.apiAvailability || "Unknown"}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>Reporting Source</dt>
-                                <dd>{application.reportingSource || "Unknown"}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>SSO Supported</dt>
-                                <dd>{application.security?.ssoSupported || "Unknown"}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>SSO Enabled</dt>
-                                <dd>{application.security?.ssoEnabled || "Unknown"}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>MFA Supported</dt>
-                                <dd>{application.security?.mfaSupported || "Unknown"}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>MFA Enabled</dt>
-                                <dd>{application.security?.mfaEnabled || "Unknown"}</dd>
-                            </div>
-                        </dl>
-                    </section>
+                <section className="detail-section detail-section-wide">
+                    <h2 className="detail-section-title">Platform Information</h2>
+                    <dl className="detail-definition-list">
+                        <div className="detail-definition-item">
+                            <dt>Architecture Type</dt>
+                            <dd>{application.architectureType || "Unknown"}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>Mobile Support</dt>
+                            <dd>{application.mobileSupportType || "Unknown"}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>API Availability</dt>
+                            <dd>{application.apiAvailability || "Unknown"}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>Reporting Source</dt>
+                            <dd>{application.reportingSource || "Unknown"}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>SSO Supported</dt>
+                            <dd>{application.security?.ssoSupported || "Unknown"}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>SSO Enabled</dt>
+                            <dd>{application.security?.ssoEnabled || "Unknown"}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>MFA Supported</dt>
+                            <dd>{application.security?.mfaSupported || "Unknown"}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>MFA Enabled</dt>
+                            <dd>{application.security?.mfaEnabled || "Unknown"}</dd>
+                        </div>
+                    </dl>
+                </section>
 
-                    <section className="detail-section">
-                        <h2 className="detail-section-title">Security & Access</h2>
-                        <dl className="detail-definition-list">
-                            <div className="detail-definition-item">
-                                <dt>Website</dt>
-                                <dd>{application.security?.websiteUrl ? <a href={application.security.websiteUrl} target="_blank" rel="noopener noreferrer">{application.security.websiteUrl}</a> : "—"}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>Login URL</dt>
-                                <dd>{application.security?.loginUrl ? <a href={application.security.loginUrl} target="_blank" rel="noopener noreferrer">{application.security.loginUrl}</a> : "—"}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>Backup Owner</dt>
-                                <dd>{application.security?.backupOwner || "—"}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>SSO</dt>
-                                <dd>{application.security?.ssoSupported ? `Supported: ${application.security.ssoSupported}` : "—"} {application.security?.ssoEnabled ? ` | Enabled: ${application.security.ssoEnabled}` : ""}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>MFA</dt>
-                                <dd>{application.security?.mfaSupported ? `Supported: ${application.security.mfaSupported}` : "—"} {application.security?.mfaEnabled ? ` | Enabled: ${application.security.mfaEnabled}` : ""}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>Data Classification</dt>
-                                <dd>{application.security?.dataClassification || "—"}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>User Count</dt>
-                                <dd>{application.userCountBand ? application.userCountBand.replace("_", "-") : "—"}</dd>
-                            </div>
-                            <div className="detail-definition-item">
-                                <dt>Last Reviewed</dt>
-                                <dd>{application.lastReviewedAt ? new Date(application.lastReviewedAt).toLocaleDateString() : "—"}</dd>
-                            </div>
-                            <div className="detail-definition-item full-width">
-                                <dt>Notes</dt>
-                                <dd>{application.notes || "—"}</dd>
-                            </div>
-                        </dl>
-                    </section>
-                </div>
+                <section className="detail-section detail-section-wide">
+                    <h2 className="detail-section-title">Security & Access</h2>
+                    <dl className="detail-definition-list">
+                        <div className="detail-definition-item">
+                            <dt>Website</dt>
+                            <dd>{application.security?.websiteUrl ? <a href={application.security.websiteUrl} target="_blank" rel="noopener noreferrer">{application.security.websiteUrl}</a> : "—"}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>Login URL</dt>
+                            <dd>{application.security?.loginUrl ? <a href={application.security.loginUrl} target="_blank" rel="noopener noreferrer">{application.security.loginUrl}</a> : "—"}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>Backup Owner</dt>
+                            <dd>{application.security?.backupOwner || "—"}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>SSO</dt>
+                            <dd>{application.security?.ssoSupported ? `Supported: ${application.security.ssoSupported}` : "—"} {application.security?.ssoEnabled ? ` | Enabled: ${application.security.ssoEnabled}` : ""}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>MFA</dt>
+                            <dd>{application.security?.mfaSupported ? `Supported: ${application.security.mfaSupported}` : "—"} {application.security?.mfaEnabled ? ` | Enabled: ${application.security.mfaEnabled}` : ""}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>Data Classification</dt>
+                            <dd>{application.security?.dataClassification || "—"}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>User Count</dt>
+                            <dd>{application.userCountBand ? application.userCountBand.replace("_", "-") : "—"}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>Last Reviewed</dt>
+                            <dd>{application.lastReviewedAt ? new Date(application.lastReviewedAt).toLocaleDateString() : "—"}</dd>
+                        </div>
+                        <div className="detail-definition-item full-width">
+                            <dt>Notes</dt>
+                            <dd>{application.notes || "—"}</dd>
+                        </div>
+                    </dl>
+                </section>
 
-                <section className="detail-section roles-section">
+                <section className="detail-section detail-section-full roles-section">
                     <h2 className="detail-section-title">Roles Using This System</h2>
                     <p className="detail-subtitle">Shows which organizational roles depend on this system.</p>
 
@@ -737,7 +746,7 @@ export default function ApplicationDetailPage() {
                     )}
                 </section>
 
-                <section className="detail-section">
+                <section className="detail-section detail-section-full">
                     <h2 className="detail-section-title">Business Processes Using This System</h2>
                     <p className="detail-subtitle">Shows which business workflows this system supports.</p>
 
