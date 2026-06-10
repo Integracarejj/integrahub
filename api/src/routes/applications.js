@@ -325,8 +325,7 @@ router.put("/:id", async (req, res) => {
 
         const updatedBy = getUpdatedBy(req.user);
 
-        await query(
-            `UPDATE cmdb.Applications
+        const updateSql = `UPDATE cmdb.Applications
              SET name = @name, capabilityId = @capabilityId, status = @status, type = @type,
                  systemCategory = @systemCategory,
                  architectureType = @architectureType,
@@ -342,41 +341,42 @@ router.put("/:id", async (req, res) => {
                  primaryUseCases = @primaryUseCases, departmentsSupported = @departmentsSupported,
                  accessRequestProcess = @accessRequestProcess, trainingDocumentationUrl = @trainingDocumentationUrl,
                  updatedBy = @updatedBy
-             WHERE id = @id`,
-            {
-                id,
-                name: normalizedName,
-                capabilityId,
-                technicalOwner: technicalOwner || null,
-                vendor: vendor || "",
-                status: status || "",
-                type: type || "",
-                systemCategory: systemCategory || null,
-                architectureType: architectureType || null,
-                mobileSupportType: mobileSupportType || null,
-                apiAvailability: apiAvailability || null,
-                reportingSource: reportingSource || null,
-                businessOwner: businessOwner || "",
-                businessCriticality: businessCriticality || "",
-                impactIfDown: impactIfDown || "",
-                websiteUrl: websiteUrl || "",
-                loginUrl: loginUrl || "",
-                backupOwner: backupOwner || "",
-                ssoSupported: ssoSupported || "",
-                ssoEnabled: ssoEnabled || "",
-                mfaSupported: mfaSupported || "",
-                mfaEnabled: mfaEnabled || "",
-                dataClassification: dataClassification || "",
-                userCountBand: userCountBand || "",
-                lastReviewedAt: lastReviewedAt || "",
-                notes: notes || "",
-                primaryUseCases: primaryUseCases || null,
-                departmentsSupported: departmentsSupported || null,
-                accessRequestProcess: accessRequestProcess || null,
-                trainingDocumentationUrl: trainingDocumentationUrl || null,
-                updatedBy,
-            }
-        );
+             WHERE id = @id`;
+        const updateParams = {
+            id,
+            name: normalizedName,
+            capabilityId,
+            technicalOwner: technicalOwner || null,
+            vendor: vendor || "",
+            status: status || "",
+            type: type || "",
+            systemCategory: systemCategory || null,
+            architectureType: architectureType || null,
+            mobileSupportType: mobileSupportType || null,
+            apiAvailability: apiAvailability || null,
+            reportingSource: reportingSource || null,
+            businessOwner: businessOwner || "",
+            businessCriticality: businessCriticality || "",
+            impactIfDown: impactIfDown || "",
+            websiteUrl: websiteUrl || "",
+            loginUrl: loginUrl || "",
+            backupOwner: backupOwner || "",
+            ssoSupported: ssoSupported || "",
+            ssoEnabled: ssoEnabled || "",
+            mfaSupported: mfaSupported || "",
+            mfaEnabled: mfaEnabled || "",
+            dataClassification: dataClassification || "",
+            userCountBand: userCountBand || "",
+            lastReviewedAt: normalizeDate(lastReviewedAt) || null,
+            notes: notes || "",
+            primaryUseCases: primaryUseCases || null,
+            departmentsSupported: departmentsSupported || null,
+            accessRequestProcess: accessRequestProcess || null,
+            trainingDocumentationUrl: trainingDocumentationUrl || null,
+            updatedBy,
+        };
+
+        await query(updateSql, updateParams);
 
         res.status(200).json({
             id,
@@ -418,6 +418,8 @@ router.put("/:id", async (req, res) => {
         if (err.number) console.error("Error number:", err.number);
         if (err.code) console.error("Error code:", err.code);
         if (err.originalError) console.error("Original error:", err.originalError);
+        if (typeof updateSql !== "undefined") console.error("SQL:", updateSql);
+        if (typeof updateParams !== "undefined") console.error("SQL params:", JSON.stringify(updateParams, null, 2));
         res.status(500).json({
             error: "Failed to update application",
             detail: err?.message || "Unknown error",
