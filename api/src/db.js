@@ -69,6 +69,15 @@ export async function query(statement, params = {}) {
     return result.recordset;
 }
 
+export async function queryInTransaction(transaction, statement, params = {}) {
+    const request = new sql.Request(transaction);
+    for (const [key, value] of Object.entries(params)) {
+        request.input(key, value);
+    }
+    const result = await request.query(statement);
+    return result.recordset;
+}
+
 export async function closePool() {
     if (pool) {
         await pool.close();

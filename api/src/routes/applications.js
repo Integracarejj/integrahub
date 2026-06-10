@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { query } from "../db.js";
+import sql from "mssql";
+import { query, getPool, queryInTransaction } from "../db.js";
 import { canCreateApplication, canEditApplication, forbidden } from "../auth/applicationPermissions.js";
 
 const router = Router();
@@ -204,6 +205,7 @@ router.post("/", async (req, res) => {
             notes: notes || "",
             primaryUseCases: primaryUseCases || null,
             departmentsSupported: departmentsSupported || null,
+            departments: [],
             accessRequestProcess: accessRequestProcess || null,
             trainingDocumentationUrl: trainingDocumentationUrl || null,
         });
@@ -255,6 +257,7 @@ router.put("/:id", async (req, res) => {
             departmentsSupported,
             accessRequestProcess,
             trainingDocumentationUrl,
+            departmentIds,
         } = req.body;
 
         if (!name) {
@@ -376,7 +379,32 @@ router.put("/:id", async (req, res) => {
             updatedBy,
         };
 
-        await query(updateSql, updateParams);
+        const pool = await getPool();
+        const transaction = new sql.Transaction(pool);
+        await transaction.begin();
+
+        try {
+            await queryInTransaction(transaction, updateSql, updateParams);
+
+            await queryInTransaction(transaction,
+                "DELETE FROM cmdb.ApplicationDepartments WHERE applicationId = @id",
+                { id }
+            );
+
+            if (departmentIds && departmentIds.length > 0) {
+                for (const deptId of departmentIds) {
+                    await queryInTransaction(transaction,
+                        "INSERT INTO cmdb.ApplicationDepartments (applicationId, departmentId) VALUES (@applicationId, @departmentId)",
+                        { applicationId: id, departmentId: deptId }
+                    );
+                }
+            }
+
+            await transaction.commit();
+        } catch (txErr) {
+            await transaction.rollback();
+            throw txErr;
+        }
 
         res.status(200).json({
             id,
@@ -712,6 +740,14 @@ router.patch("/:id", async (req, res) => {
             WHERE a.id = @id
         `, { id });
 
+        const pDeptRows = await query(`
+            SELECT d.id, d.name
+            FROM cmdb.ApplicationDepartments ad
+            INNER JOIN cmdb.Departments d ON ad.departmentId = d.id
+            WHERE ad.applicationId = @id
+            ORDER BY d.sortOrder, d.name
+        `, { id });
+
         const row = updatedRows[0];
         res.json({
             id: row.id,
@@ -751,6 +787,7 @@ router.patch("/:id", async (req, res) => {
             notes: row.notes,
             primaryUseCases: row.primaryUseCases,
             departmentsSupported: row.departmentsSupported,
+            departments: pDeptRows.map(r => ({ id: r.id, name: r.name })),
             accessRequestProcess: row.accessRequestProcess,
             trainingDocumentationUrl: row.trainingDocumentationUrl,
         });
@@ -807,6 +844,19 @@ router.get("/", async (_req, res) => {
             ORDER BY a.name
         `);
 
+        const allDeptRows = await query(`
+            SELECT ad.applicationId, d.id, d.name
+            FROM cmdb.ApplicationDepartments ad
+            INNER JOIN cmdb.Departments d ON ad.departmentId = d.id
+            ORDER BY d.sortOrder, d.name
+        `);
+
+        const deptMap = {};
+        for (const dr of allDeptRows) {
+            if (!deptMap[dr.applicationId]) deptMap[dr.applicationId] = [];
+            deptMap[dr.applicationId].push({ id: dr.id, name: dr.name });
+        }
+
         const applications = rows.map(row => ({
             id: row.id,
             name: row.name,
@@ -845,6 +895,7 @@ router.get("/", async (_req, res) => {
             notes: row.notes,
             primaryUseCases: row.primaryUseCases,
             departmentsSupported: row.departmentsSupported,
+            departments: deptMap[row.id] || [],
             accessRequestProcess: row.accessRequestProcess,
             trainingDocumentationUrl: row.trainingDocumentationUrl,
         }));
@@ -972,6 +1023,16 @@ router.get("/:id", async (req, res) => {
             method: row.method,
         }));
 
+        const deptRows = await query(`
+            SELECT d.id, d.name
+            FROM cmdb.ApplicationDepartments ad
+            INNER JOIN cmdb.Departments d ON ad.departmentId = d.id
+            WHERE ad.applicationId = @id
+            ORDER BY d.sortOrder, d.name
+        `, { id });
+
+        const departments = deptRows.map(r => ({ id: r.id, name: r.name }));
+
         const row = rows[0];
         const application = {
             id: row.id,
@@ -1011,6 +1072,7 @@ router.get("/:id", async (req, res) => {
             notes: row.notes,
             primaryUseCases: row.primaryUseCases,
             departmentsSupported: row.departmentsSupported,
+            departments,
             accessRequestProcess: row.accessRequestProcess,
             trainingDocumentationUrl: row.trainingDocumentationUrl,
             integrations,

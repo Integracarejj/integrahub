@@ -6,6 +6,12 @@ export type BusinessCriticality = "High" | "Medium" | "Low";
 
 export type HostingModel = "SaaS" | "Azure" | "On-Prem" | "Hybrid";
 
+export interface Department {
+    id: string;
+    name: string;
+    sortOrder?: number;
+}
+
 export interface ApplicationCapability {
     name: string;
     description?: string;
@@ -80,6 +86,7 @@ export interface Application {
 
     primaryUseCases?: string | null;
     departmentsSupported?: string | null;
+    departments?: { id: string; name: string }[];
     accessRequestProcess?: string | null;
     trainingDocumentationUrl?: string | null;
 }

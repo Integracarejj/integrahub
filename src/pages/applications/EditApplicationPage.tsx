@@ -52,6 +52,9 @@ export default function EditApplicationPage() {
         "System Reports", "Manual Export", "Mixed",
     ];
 
+    const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+    const [loadingDepartments, setLoadingDepartments] = useState(true);
+
     const [form, setForm] = useState({
         name: "",
         capabilityId: "",
@@ -78,6 +81,7 @@ export default function EditApplicationPage() {
         notes: "",
         primaryUseCases: "",
         departmentsSupported: "",
+        departmentIds: [] as string[],
         accessRequestProcess: "",
         trainingDocumentationUrl: "",
     });
@@ -91,9 +95,11 @@ export default function EditApplicationPage() {
                 if (!res.ok) throw new Error("Application not found");
                 return res.json();
             }),
+            fetch("/api/departments").then((res) => res.json()),
         ])
-            .then(([capsData, appData]) => {
+            .then(([capsData, appData, deptData]) => {
                 setCapabilities(capsData);
+                setDepartments(deptData);
                 setForm({
                     name: appData.name || "",
                     capabilityId: appData.capabilityId || "",
@@ -120,14 +126,17 @@ export default function EditApplicationPage() {
                     notes: appData.notes || "",
                     primaryUseCases: appData.primaryUseCases || "",
                     departmentsSupported: appData.departmentsSupported || "",
+                    departmentIds: (appData.departments || []).map((d: { id: string }) => d.id),
                     accessRequestProcess: appData.accessRequestProcess || "",
                     trainingDocumentationUrl: appData.trainingDocumentationUrl || "",
                 });
+                setLoadingDepartments(false);
                 setLoadingCapabilities(false);
                 setLoadingApp(false);
             })
             .catch((err) => {
                 setError(err.message || "Failed to load application");
+                setLoadingDepartments(false);
                 setLoadingCapabilities(false);
                 setLoadingApp(false);
             });
@@ -150,6 +159,16 @@ export default function EditApplicationPage() {
                 return next;
             });
         }
+    }
+
+    function handleDepartmentToggle(deptId: string) {
+        setForm((prev) => {
+            const current: string[] = prev.departmentIds || [];
+            const next = current.includes(deptId)
+                ? current.filter((id) => id !== deptId)
+                : [...current, deptId];
+            return { ...prev, departmentIds: next };
+        });
     }
 
     async function handleSubmit(e: React.FormEvent) {
@@ -362,7 +381,9 @@ export default function EditApplicationPage() {
                     <h2 className="form-section-title">Operational Context</h2>
                     <div className="form-grid">
                         <div className="form-field">
-                            <label htmlFor="mobileSupportType">Mobile Support</label>
+                            <label htmlFor="mobileSupportType">Mobile Support
+                                <span className="field-tooltip" title="Indicates whether the system has a mobile experience, such as native iOS/Android or mobile web.">ⓘ</span>
+                            </label>
                             <select
                                 id="mobileSupportType"
                                 value={form.mobileSupportType}
@@ -377,7 +398,9 @@ export default function EditApplicationPage() {
                         </div>
 
                         <div className="form-field">
-                            <label htmlFor="apiAvailability">API Availability</label>
+                            <label htmlFor="apiAvailability">API Availability
+                                <span className="field-tooltip" title="Indicates whether the system can exchange data programmatically through a vendor, internal, or limited API.">ⓘ</span>
+                            </label>
                             <select
                                 id="apiAvailability"
                                 value={form.apiAvailability}
@@ -418,16 +441,46 @@ export default function EditApplicationPage() {
                             />
                         </div>
 
-                        <div className="form-field">
-                            <label htmlFor="departmentsSupported">Departments Supported</label>
-                            <input
+                        <div className="form-field full-width">
+                            <label htmlFor="departmentsSupported">
+                                Department Usage Notes
+                                <span className="field-tooltip" title="Free-text notes explaining how departments use the system, including role-specific context.">ⓘ</span>
+                            </label>
+                            <textarea
                                 id="departmentsSupported"
-                                type="text"
                                 value={form.departmentsSupported}
                                 onChange={(e) => handleChange("departmentsSupported", e.target.value)}
-                                placeholder="e.g., HR, Finance, Clinical Operations"
+                                placeholder="Describe how each department uses this system..."
+                                rows={3}
                                 disabled={submitting}
                             />
+                        </div>
+
+                        <div className="form-field full-width">
+                            <label>Departments Supported
+                                <span className="field-tooltip" title="Structured list of departments that use or depend on this system. Used for filtering, reporting, ownership, and impact analysis.">ⓘ</span>
+                            </label>
+                            <div className="department-checkbox-group">
+                                {loadingDepartments ? (
+                                    <span className="field-hint">Loading departments...</span>
+                                ) : departments.length === 0 ? (
+                                    <span className="field-hint">No departments configured</span>
+                                ) : (
+                                    <div className="department-checkbox-grid">
+                                        {departments.map((dept) => (
+                                            <label key={dept.id} className="department-checkbox-label">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={(form.departmentIds || []).includes(dept.id)}
+                                                    onChange={() => handleDepartmentToggle(dept.id)}
+                                                    disabled={submitting}
+                                                />
+                                                <span>{dept.name}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <div className="form-field full-width">
