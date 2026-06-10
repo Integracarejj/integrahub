@@ -27,7 +27,7 @@
 
 .home-stats {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 16px;
     margin-bottom: 48px;
 }
@@ -65,6 +65,22 @@
 
 .stat-orange {
     border-left: 4px solid #f59e0b;
+}
+
+.stat-indigo {
+    border-left: 4px solid #6366f1;
+}
+
+.stat-teal {
+    border-left: 4px solid #14b8a6;
+}
+
+.stat-amber {
+    border-left: 4px solid #f59e0b;
+}
+
+.stat-red {
+    border-left: 4px solid #ef4444;
 }
 
 .stat-value {
@@ -241,6 +257,10 @@
 @media (max-width: 768px) {
     .home-stats {
         grid-template-columns: repeat(2, 1fr);
+    }
+
+    .home-stats .stat-card:nth-child(5) {
+        grid-column: span 2;
     }
 
     .capability-grid {

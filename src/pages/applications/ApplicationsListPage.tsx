@@ -1,4 +1,3 @@
-// src/pages/applications/ApplicationsListPage.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { usePermissions, isPlatformAdmin } from "../../hooks/usePermissions";
@@ -14,6 +13,9 @@ interface ApiApplication {
     type?: string;
     systemCategory?: string | null;
     architectureType?: string | null;
+    mobileSupportType?: string | null;
+    apiAvailability?: string | null;
+    reportingSource?: string | null;
     purpose?: string;
     vendor?: string;
     businessContext: {
@@ -32,19 +34,43 @@ interface Capability {
     name: string;
 }
 
-function filterApplications(
-    apps: ApiApplication[],
-    query: string
-): ApiApplication[] {
+type SortField = "name" | "criticality" | "capability" | "status" | "architecture";
+type SortDir = "asc" | "desc";
+
+const CRITICALITY_ORDER: Record<string, number> = {
+    Critical: 1,
+    High: 2,
+    Medium: 3,
+    Low: 4,
+};
+
+const STATUS_ORDER: Record<string, number> = {
+    Active: 1,
+    Planned: 2,
+    Retired: 3,
+};
+
+const CRITICALITY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+    Critical: { bg: "#fef2f2", text: "#991b1b", border: "#fecaca" },
+    High: { bg: "#fff7ed", text: "#c2410c", border: "#fed7aa" },
+    Medium: { bg: "#fefce8", text: "#a16207", border: "#fde047" },
+    Low: { bg: "#f0fdf4", text: "#15803d", border: "#bbf7d0" },
+};
+
+function isValueUseful(val: string | null | undefined): boolean {
+    if (!val) return false;
+    const v = val.trim().toLowerCase();
+    return v !== "" && v !== "none" && v !== "no" && v !== "unknown";
+}
+
+function filterApplications(apps: ApiApplication[], query: string): ApiApplication[] {
     const terms = query
         .trim()
         .toLowerCase()
         .split(/\s+/)
         .filter((t) => t.length > 0);
 
-    if (terms.length === 0) {
-        return apps;
-    }
+    if (terms.length === 0) return apps;
 
     return apps.filter((app) => {
         const purpose = app.purpose ?? app.businessContext.purpose;
@@ -67,29 +93,6 @@ function filterApplications(
     });
 }
 
-const CRITICALITY_ORDER: Record<string, number> = {
-    Critical: 1,
-    High: 2,
-    Medium: 3,
-    Low: 4,
-};
-
-const CRITICALITY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-    Critical: { bg: "#fef2f2", text: "#991b1b", border: "#fecaca" },
-    High: { bg: "#fff7ed", text: "#c2410c", border: "#fed7aa" },
-    Medium: { bg: "#fefce8", text: "#a16207", border: "#fde047" },
-    Low: { bg: "#f0fdf4", text: "#15803d", border: "#bbf7d0" },
-};
-
-function sortApplications(apps: ApiApplication[]): ApiApplication[] {
-    return [...apps].sort((a, b) => {
-        const critA = CRITICALITY_ORDER[a.businessContext.businessCriticality] ?? 99;
-        const critB = CRITICALITY_ORDER[b.businessContext.businessCriticality] ?? 99;
-        if (critA !== critB) return critA - critB;
-        return a.name.localeCompare(b.name);
-    });
-}
-
 export default function ApplicationsListPage() {
     const [applications, setApplications] = useState<ApiApplication[]>([]);
     const [capabilities, setCapabilities] = useState<Capability[]>([]);
@@ -100,6 +103,9 @@ export default function ApplicationsListPage() {
     const [selectedOwner, setSelectedOwner] = useState("");
     const [savingOwner, setSavingOwner] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
+
+    const [sortField, setSortField] = useState<SortField>("name");
+    const [sortDir, setSortDir] = useState<SortDir>("asc");
 
     const { permissions } = usePermissions();
     const isAdmin = isPlatformAdmin(permissions);
@@ -183,6 +189,66 @@ export default function ApplicationsListPage() {
         setCriticalityFilter(searchParams.get("criticality") || "");
     }, [searchParams]);
 
+    function handleSort(field: SortField) {
+        if (sortField === field) {
+            setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        } else {
+            setSortField(field);
+            setSortDir("asc");
+        }
+    }
+
+    function sortApps(apps: ApiApplication[]): ApiApplication[] {
+        return [...apps].sort((a, b) => {
+            let cmp = 0;
+            switch (sortField) {
+                case "name":
+                    cmp = a.name.localeCompare(b.name);
+                    break;
+                case "criticality": {
+                    const ca = CRITICALITY_ORDER[a.businessContext.businessCriticality] ?? 99;
+                    const cb = CRITICALITY_ORDER[b.businessContext.businessCriticality] ?? 99;
+                    cmp = ca - cb;
+                    break;
+                }
+                case "capability":
+                    cmp = (a.capabilityName || "").localeCompare(b.capabilityName || "");
+                    break;
+                case "status": {
+                    const sa = STATUS_ORDER[a.status] ?? 99;
+                    const sb = STATUS_ORDER[b.status] ?? 99;
+                    cmp = sa - sb;
+                    break;
+                }
+                case "architecture":
+                    cmp = (a.architectureType || "").localeCompare(b.architectureType || "");
+                    break;
+            }
+            return sortDir === "asc" ? cmp : -cmp;
+        });
+    }
+
+    function renderSortIndicator(field: SortField): string {
+        if (sortField !== field) return "";
+        return sortDir === "asc" ? " ▲" : " ▼";
+    }
+
+    function computeCompleteness(app: ApiApplication): number {
+        const fields = [
+            app.ownership.businessOwner,
+            app.ownership.technicalOwner,
+            app.vendor,
+            app.systemCategory,
+            app.architectureType,
+            app.businessContext.businessCriticality,
+            app.mobileSupportType,
+            app.apiAvailability,
+            app.reportingSource,
+        ];
+        const filled = fields.filter((f) => isValueUseful(f)).length;
+        return Math.round((filled / fields.length) * 100);
+    }
+
     const filteredApps = useMemo(() => {
         let result = applications;
 
@@ -230,8 +296,8 @@ export default function ApplicationsListPage() {
             });
         }
 
-        return sortApplications(result);
-    }, [applications, search, capabilityFilter, statusFilter, criticalityFilter, systemCategoryFilter, ownershipFilter, showInactive]);
+        return sortApps(result);
+    }, [applications, search, capabilityFilter, statusFilter, criticalityFilter, systemCategoryFilter, ownershipFilter, showInactive, sortField, sortDir]);
 
     async function handleSaveOwner(appId: string) {
         if (!selectedOwner) return;
@@ -420,14 +486,26 @@ export default function ApplicationsListPage() {
             <table className="applications-table">
                 <thead>
                     <tr>
-                        <th>System</th>
-                        <th>Capability</th>
-                        <th>Status</th>
-                        <th>Architecture</th>
-                        <th>Criticality</th>
+                        <th className="sortable" onClick={() => handleSort("name")}>
+                            System<span className="sort-indicator">{renderSortIndicator("name")}</span>
+                        </th>
+                        <th className="sortable" onClick={() => handleSort("capability")}>
+                            Capability<span className="sort-indicator">{renderSortIndicator("capability")}</span>
+                        </th>
+                        <th className="sortable" onClick={() => handleSort("status")}>
+                            Status<span className="sort-indicator">{renderSortIndicator("status")}</span>
+                        </th>
+                        <th className="sortable" onClick={() => handleSort("architecture")}>
+                            Architecture<span className="sort-indicator">{renderSortIndicator("architecture")}</span>
+                        </th>
+                        <th className="sortable" onClick={() => handleSort("criticality")}>
+                            Criticality<span className="sort-indicator">{renderSortIndicator("criticality")}</span>
+                        </th>
+                        <th>System Signals</th>
                         <th>Business Owner</th>
                         <th>Technical Owner</th>
                         <th>Vendor</th>
+                        <th>Completeness</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -435,6 +513,10 @@ export default function ApplicationsListPage() {
                     {filteredApps.map((app) => {
                         const colors = CRITICALITY_COLORS[app.businessContext.businessCriticality] || CRITICALITY_COLORS.Low;
                         const missingOwner = !app.ownership.technicalOwner;
+                        const hasMobile = isValueUseful(app.mobileSupportType);
+                        const hasApi = isValueUseful(app.apiAvailability);
+                        const hasReporting = isValueUseful(app.reportingSource);
+                        const completeness = computeCompleteness(app);
                         return (
                             <tr key={app.id}>
                                 <td>
@@ -460,6 +542,16 @@ export default function ApplicationsListPage() {
                                     >
                                         {app.businessContext.businessCriticality}
                                     </span>
+                                </td>
+                                <td>
+                                    <div className="system-signals">
+                                        {hasMobile && <span className="signal-badge signal-mobile">Mobile</span>}
+                                        {hasApi && <span className="signal-badge signal-api">API</span>}
+                                        {hasReporting && <span className="signal-badge signal-reporting">Reporting</span>}
+                                        {!hasMobile && !hasApi && !hasReporting && (
+                                            <span className="signal-none">—</span>
+                                        )}
+                                    </div>
                                 </td>
                                 <td>
                                     {app.ownership.businessOwner ? (
@@ -544,6 +636,17 @@ export default function ApplicationsListPage() {
                                 </td>
                                 <td>{app.vendor || "—"}</td>
                                 <td>
+                                    <div className="completeness-cell">
+                                        <span className="completeness-pct">{completeness}%</span>
+                                        <div className="completeness-bar-track">
+                                            <div
+                                                className="completeness-bar-fill"
+                                                style={{ width: `${completeness}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
                                     <Link
                                         to={`/applications/${app.id}`}
                                         className="action-link"
@@ -557,7 +660,7 @@ export default function ApplicationsListPage() {
 
                     {filteredApps.length === 0 && (
                         <tr>
-                            <td colSpan={9} className="empty">
+                            <td colSpan={11} className="empty">
                                 No applications match the current filters.
                             </td>
                         </tr>

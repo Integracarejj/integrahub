@@ -8,14 +8,30 @@ interface ApiApplication {
     id: string;
     name: string;
     status: string;
+    systemCategory?: string | null;
+    architectureType?: string | null;
+    mobileSupportType?: string | null;
+    apiAvailability?: string | null;
+    reportingSource?: string | null;
+    vendor?: string;
     businessContext: {
         businessCriticality?: string;
+    };
+    ownership: {
+        businessOwner: string;
+        technicalOwner?: string;
     };
 }
 
 interface Capability {
     id: string;
     name: string;
+}
+
+function isValueUseful(val: string | null | undefined): boolean {
+    if (!val) return false;
+    const v = val.trim().toLowerCase();
+    return v !== "" && v !== "none" && v !== "no" && v !== "unknown";
 }
 
 export default function HomePage() {
@@ -56,14 +72,20 @@ export default function HomePage() {
 
     const stats = useMemo(() => {
         const total = applications.length;
+        const mobileCapable = applications.filter((app) =>
+            isValueUseful(app.mobileSupportType)
+        ).length;
+        const apiEnabled = applications.filter((app) =>
+            isValueUseful(app.apiAvailability)
+        ).length;
+        const reportingSource = applications.filter((app) =>
+            isValueUseful(app.reportingSource)
+        ).length;
         const critical = applications.filter(
-            (app) => (app as { businessContext?: { businessCriticality?: string } }).businessContext?.businessCriticality === "Critical"
+            (app) => app.businessContext?.businessCriticality === "Critical"
         ).length;
-        const planned = applications.filter(
-            (app) => app.status === "Planned"
-        ).length;
-        return { total, critical, planned, capabilities: capabilities.length };
-    }, [applications, capabilities]);
+        return { total, mobileCapable, apiEnabled, reportingSource, critical };
+    }, [applications]);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -97,19 +119,23 @@ export default function HomePage() {
             <section className="home-stats">
                 <Link to="/applications" className="stat-card stat-blue">
                     <span className="stat-value">{stats.total}</span>
-                    <span className="stat-label">Total Applications</span>
+                    <span className="stat-label">Total Systems</span>
                 </Link>
-                <Link to="/applications?criticality=Critical" className="stat-card stat-green">
+                <Link to="/applications" className="stat-card stat-indigo">
+                    <span className="stat-value">{stats.mobileCapable}</span>
+                    <span className="stat-label">Mobile Capable</span>
+                </Link>
+                <Link to="/applications" className="stat-card stat-teal">
+                    <span className="stat-value">{stats.apiEnabled}</span>
+                    <span className="stat-label">API Enabled</span>
+                </Link>
+                <Link to="/applications" className="stat-card stat-amber">
+                    <span className="stat-value">{stats.reportingSource}</span>
+                    <span className="stat-label">Reporting Source</span>
+                </Link>
+                <Link to="/applications?criticality=Critical" className="stat-card stat-red">
                     <span className="stat-value">{stats.critical}</span>
-                    <span className="stat-label">Critical Applications</span>
-                </Link>
-                <Link to="/applications?status=Planned" className="stat-card stat-purple">
-                    <span className="stat-value">{stats.planned}</span>
-                    <span className="stat-label">Planned</span>
-                </Link>
-                <Link to="/applications" className="stat-card stat-orange">
-                    <span className="stat-value">{stats.capabilities}</span>
-                    <span className="stat-label">Capabilities</span>
+                    <span className="stat-label">Critical Systems</span>
                 </Link>
             </section>
 
