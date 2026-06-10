@@ -18,6 +18,15 @@ const VALID_ARCHITECTURE_TYPES = [
 ];
 const MAX_NOTES_LENGTH = 1000;
 
+function normalizeDate(d) {
+    if (!d) return "";
+    const ds = String(d);
+    if (ds.startsWith("1900") || ds.startsWith("0001")) return "";
+    const dt = new Date(ds);
+    if (isNaN(dt.getTime())) return "";
+    return dt.toISOString().split("T")[0];
+}
+
 function getUpdatedBy(user) {
     if (!user) return "unknown";
     return user.email || user.id || "unknown";
@@ -159,7 +168,7 @@ router.post("/", async (req, res) => {
                 mfaEnabled: mfaEnabled || "",
                 dataClassification: dataClassification || "",
                 userCountBand: userCountBand || "",
-                lastReviewedAt: lastReviewedAt || "",
+                lastReviewedAt: normalizeDate(lastReviewedAt) || null,
                 notes: notes || "",
                 primaryUseCases: primaryUseCases || null,
                 departmentsSupported: departmentsSupported || null,
@@ -191,7 +200,7 @@ router.post("/", async (req, res) => {
             mfaEnabled: mfaEnabled || "",
             dataClassification: dataClassification || "",
             userCountBand: userCountBand || "",
-            lastReviewedAt: lastReviewedAt || "",
+            lastReviewedAt: normalizeDate(lastReviewedAt),
             notes: notes || "",
             primaryUseCases: primaryUseCases || null,
             departmentsSupported: departmentsSupported || null,
@@ -227,6 +236,8 @@ router.put("/:id", async (req, res) => {
             apiAvailability,
             reportingSource,
             businessOwner,
+            technicalOwner,
+            vendor,
             businessCriticality,
             impactIfDown,
             websiteUrl,
@@ -322,7 +333,7 @@ router.put("/:id", async (req, res) => {
                  mobileSupportType = @mobileSupportType,
                  apiAvailability = @apiAvailability,
                  reportingSource = @reportingSource,
-                 businessOwner = @businessOwner, technicalOwner = @technicalOwner, businessCriticality = @businessCriticality, impactIfDown = @impactIfDown,
+                 businessOwner = @businessOwner, technicalOwner = @technicalOwner, vendor = @vendor, businessCriticality = @businessCriticality, impactIfDown = @impactIfDown,
                  websiteUrl = @websiteUrl, loginUrl = @loginUrl, backupOwner = @backupOwner,
                  ssoSupported = @ssoSupported, ssoEnabled = @ssoEnabled,
                  mfaSupported = @mfaSupported, mfaEnabled = @mfaEnabled,
@@ -337,6 +348,7 @@ router.put("/:id", async (req, res) => {
                 name: normalizedName,
                 capabilityId,
                 technicalOwner: technicalOwner || null,
+                vendor: vendor || "",
                 status: status || "",
                 type: type || "",
                 systemCategory: systemCategory || null,
@@ -378,6 +390,8 @@ router.put("/:id", async (req, res) => {
             apiAvailability: apiAvailability || null,
             reportingSource: reportingSource || null,
             businessOwner: businessOwner || "",
+            technicalOwner: technicalOwner || null,
+            vendor: vendor || "",
             businessCriticality: businessCriticality || "",
             impactIfDown: impactIfDown || "",
             websiteUrl: websiteUrl || "",
@@ -389,7 +403,7 @@ router.put("/:id", async (req, res) => {
             mfaEnabled: mfaEnabled || "",
             dataClassification: dataClassification || "",
             userCountBand: userCountBand || "",
-            lastReviewedAt: lastReviewedAt || "",
+            lastReviewedAt: normalizeDate(lastReviewedAt),
             notes: notes || "",
             primaryUseCases: primaryUseCases || null,
             departmentsSupported: departmentsSupported || null,
@@ -597,7 +611,7 @@ router.patch("/:id", async (req, res) => {
 
         if (body.lastReviewedAt !== undefined) {
             setClauses.push("lastReviewedAt = @lastReviewedAt");
-            params.lastReviewedAt = body.lastReviewedAt || "";
+            params.lastReviewedAt = normalizeDate(body.lastReviewedAt) || null;
         }
 
         if (body.notes !== undefined) {
@@ -731,7 +745,7 @@ router.patch("/:id", async (req, res) => {
                 dataClassification: row.dataClassification,
             },
             userCountBand: row.userCountBand,
-            lastReviewedAt: row.lastReviewedAt,
+            lastReviewedAt: normalizeDate(row.lastReviewedAt),
             notes: row.notes,
             primaryUseCases: row.primaryUseCases,
             departmentsSupported: row.departmentsSupported,
@@ -825,7 +839,7 @@ router.get("/", async (_req, res) => {
                 dataClassification: row.dataClassification,
             },
             userCountBand: row.userCountBand,
-            lastReviewedAt: row.lastReviewedAt,
+            lastReviewedAt: normalizeDate(row.lastReviewedAt),
             notes: row.notes,
             primaryUseCases: row.primaryUseCases,
             departmentsSupported: row.departmentsSupported,
@@ -991,7 +1005,7 @@ router.get("/:id", async (req, res) => {
                 dataClassification: row.dataClassification,
             },
             userCountBand: row.userCountBand,
-            lastReviewedAt: row.lastReviewedAt,
+            lastReviewedAt: normalizeDate(row.lastReviewedAt),
             notes: row.notes,
             primaryUseCases: row.primaryUseCases,
             departmentsSupported: row.departmentsSupported,
