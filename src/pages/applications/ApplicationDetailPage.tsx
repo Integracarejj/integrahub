@@ -564,16 +564,36 @@ export default function ApplicationDetailPage() {
                         <h2 className="detail-section-title">Platform Information</h2>
                         <dl className="detail-definition-list">
                             <div className="detail-definition-item">
+                                <dt>Architecture Type</dt>
+                                <dd>{application.architectureType || "Unknown"}</dd>
+                            </div>
+                            <div className="detail-definition-item">
                                 <dt>Mobile Support</dt>
-                                <dd>{application.mobileSupportType || "—"}</dd>
+                                <dd>{application.mobileSupportType || "Unknown"}</dd>
                             </div>
                             <div className="detail-definition-item">
                                 <dt>API Availability</dt>
-                                <dd>{application.apiAvailability || "—"}</dd>
+                                <dd>{application.apiAvailability || "Unknown"}</dd>
                             </div>
                             <div className="detail-definition-item">
                                 <dt>Reporting Source</dt>
-                                <dd>{application.reportingSource || "—"}</dd>
+                                <dd>{application.reportingSource || "Unknown"}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>SSO Supported</dt>
+                                <dd>{application.security?.ssoSupported || "Unknown"}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>SSO Enabled</dt>
+                                <dd>{application.security?.ssoEnabled || "Unknown"}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>MFA Supported</dt>
+                                <dd>{application.security?.mfaSupported || "Unknown"}</dd>
+                            </div>
+                            <div className="detail-definition-item">
+                                <dt>MFA Enabled</dt>
+                                <dd>{application.security?.mfaEnabled || "Unknown"}</dd>
                             </div>
                         </dl>
                     </section>
