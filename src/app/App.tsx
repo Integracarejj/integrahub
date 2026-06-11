@@ -18,6 +18,7 @@ import AdminDataQualityPage from "../pages/admin/AdminDataQualityPage";
 import IntegrationsPage from "../pages/integrations/IntegrationsPage";
 import PlatformsPage from "../pages/platforms/PlatformsPage";
 import CapabilityViewPage from "../pages/explore/CapabilityViewPage";
+import DepartmentViewPage from "../pages/explore/DepartmentViewPage";
 
 function NoAccessScreen() {
     const [showRequest, setShowRequest] = useState(false);
@@ -107,6 +108,7 @@ function AuthAwareRouter() {
                 <Route path="/integrations" element={<IntegrationsPage />} />
                 <Route path="/platforms" element={<PlatformsPage />} />
                 <Route path="/capability-view" element={<CapabilityViewPage />} />
+                <Route path="/department-view" element={<DepartmentViewPage />} />
 
                 <Route path="*" element={<Navigate to="/applications" replace />} />
             </Route>

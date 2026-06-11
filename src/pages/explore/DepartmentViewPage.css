@@ -1,0 +1,275 @@
+.dv-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 40px 60px;
+}
+
+.dv-loading {
+    font-size: 16px;
+    color: #6b7280;
+    padding: 40px 0;
+}
+
+.dv-header {
+    margin-bottom: 28px;
+}
+
+.dv-header h1 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 700;
+    color: #111827;
+    letter-spacing: -0.02em;
+}
+
+.dv-subtitle {
+    margin: 6px 0 0;
+    font-size: 15px;
+    color: #6b7280;
+}
+
+/* Summary strip */
+
+.dv-summary {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.dv-summary-card {
+    flex: 1;
+    min-width: 140px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.dv-summary-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.1;
+}
+
+.dv-summary-critical {
+    color: #dc2626;
+}
+
+.dv-summary-reporting {
+    color: #ca8a04;
+}
+
+.dv-summary-mobile {
+    color: #2563eb;
+}
+
+.dv-summary-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #6b7280;
+    line-height: 1.3;
+}
+
+/* Filter chips */
+
+.dv-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.dv-filter-chip {
+    padding: 7px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid #d1d5db;
+    border-radius: 20px;
+    background: #fff;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.15s;
+    line-height: 1.4;
+}
+
+.dv-filter-chip:hover {
+    border-color: #9ca3af;
+    background: #f9fafb;
+}
+
+.dv-filter-chip.active {
+    background: #111827;
+    color: #fff;
+    border-color: #111827;
+}
+
+/* Department card grid */
+
+.dv-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 20px;
+}
+
+.dv-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.dv-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid #f3f4f6;
+    gap: 12px;
+}
+
+.dv-card-header-text {
+    min-width: 0;
+    flex: 1;
+}
+
+.dv-card-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #111827;
+}
+
+.dv-card-meta {
+    margin: 4px 0 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #6b7280;
+}
+
+.dv-card-count {
+    font-size: 13px;
+    font-weight: 600;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 2px 11px;
+    border-radius: 12px;
+    line-height: 22px;
+    flex-shrink: 0;
+}
+
+.dv-system-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex: 1;
+}
+
+.dv-system-item {
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.dv-system-item:last-child {
+    border-bottom: none;
+}
+
+.dv-system-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    text-decoration: none;
+    transition: background 0.12s;
+    gap: 12px;
+}
+
+.dv-system-link:hover {
+    background: #f3f4f6;
+}
+
+.dv-system-link:active {
+    background: #e5e7eb;
+}
+
+.dv-system-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #111827;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: color 0.12s;
+}
+
+.dv-system-link:hover .dv-system-name {
+    color: #2563eb;
+}
+
+.dv-system-chips {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.dv-chip {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 12px;
+    line-height: 18px;
+    white-space: nowrap;
+}
+
+.dv-chip-critical {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.dv-chip-mobile {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.dv-chip-reporting {
+    background: #fefce8;
+    color: #a16207;
+}
+
+.dv-chip-api {
+    background: #f0fdf4;
+    color: #15803d;
+}
+
+.dv-empty {
+    padding: 24px 20px;
+    text-align: center;
+    font-size: 13px;
+    color: #9ca3af;
+}
+
+@media (max-width: 768px) {
+    .dv-page {
+        padding: 24px 16px 40px;
+    }
+    .dv-summary {
+        gap: 10px;
+    }
+    .dv-summary-card {
+        min-width: 100px;
+        padding: 12px 16px;
+    }
+    .dv-summary-value {
+        font-size: 22px;
+    }
+    .dv-grid {
+        grid-template-columns: 1fr;
+    }
+}
