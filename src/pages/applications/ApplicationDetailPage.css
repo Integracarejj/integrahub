@@ -336,6 +336,17 @@
     text-decoration: underline;
 }
 
+.reporting-path {
+    margin: -8px 0 4px;
+    font-size: 15px;
+    font-weight: 500;
+    color: #374151;
+    padding: 8px 12px;
+    background: #f9fafb;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+}
+
 .detail-edit-item dd {
     display: flex;
     flex-direction: column;

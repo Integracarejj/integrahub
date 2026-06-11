@@ -1,0 +1,137 @@
+.capability-view-page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 32px;
+}
+
+.cv-header {
+    margin-bottom: 32px;
+}
+
+.cv-header h1 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.cv-subtitle {
+    margin: 6px 0 0;
+    font-size: 15px;
+    color: #6b7280;
+}
+
+.cv-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+}
+
+.cv-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.cv-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.cv-card-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #111827;
+}
+
+.cv-card-count {
+    font-size: 13px;
+    font-weight: 600;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 2px 10px;
+    border-radius: 12px;
+    line-height: 22px;
+}
+
+.cv-system-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex: 1;
+}
+
+.cv-system-item {
+    border-bottom: 1px solid #f9fafb;
+}
+
+.cv-system-item:last-child {
+    border-bottom: none;
+}
+
+.cv-system-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    text-decoration: none;
+    transition: background 0.1s;
+    gap: 12px;
+}
+
+.cv-system-link:hover {
+    background: #f9fafb;
+}
+
+.cv-system-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #2563eb;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cv-system-chips {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.cv-chip {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    line-height: 16px;
+}
+
+.cv-chip-critical {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.cv-chip-mobile {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.cv-chip-reporting {
+    background: #fefce8;
+    color: #ca8a04;
+}
+
+.cv-chip-api {
+    background: #f0fdf4;
+    color: #16a34a;
+}

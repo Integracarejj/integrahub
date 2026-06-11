@@ -36,6 +36,11 @@ function isValueUseful(val: string | null | undefined): boolean {
     return v !== "" && v !== "none" && v !== "no" && v !== "unknown" && v !== "no reporting identified";
 }
 
+function isValuePopulated(val: string | null | undefined): boolean {
+    if (!val) return false;
+    return val.trim().length > 0;
+}
+
 export default function HomePage() {
     const navigate = useNavigate();
     const [applications, setApplications] = useState<ApiApplication[]>([]);
@@ -92,6 +97,45 @@ export default function HomePage() {
         return { total, mobileCapable, apiEnabled, reportingAvailable, critical, departmentsCovered };
     }, [applications]);
 
+    const health = useMemo(() => {
+        const total = applications.length || 1;
+        const withBizOwner = applications.filter((app) => isValuePopulated(app.ownership.businessOwner)).length;
+        const withTechOwner = applications.filter((app) => isValuePopulated(app.ownership.technicalOwner)).length;
+        const withReporting = applications.filter((app) => isValueUseful(app.reportingAvailability)).length;
+        const withMobile = applications.filter((app) => isValueUseful(app.mobileSupportType)).length;
+        const withApi = applications.filter((app) => isValueUseful(app.apiAvailability)).length;
+        const withDept = applications.filter((app) => app.departments && app.departments.length > 0).length;
+
+        function needsReview(app: ApiApplication): boolean {
+            const missing: string[] = [];
+            if (!isValuePopulated(app.ownership.businessOwner)) missing.push("businessOwner");
+            if (!isValuePopulated(app.ownership.technicalOwner)) missing.push("technicalOwner");
+            if (!isValueUseful(app.reportingAvailability)) missing.push("reportingAvailability");
+            if (!isValuePopulated(app.systemCategory)) missing.push("systemCategory");
+            if (!isValuePopulated(app.architectureType)) missing.push("architectureType");
+            return missing.length >= 2;
+        }
+
+        const needsReviewCount = applications.filter(needsReview).length;
+
+        return {
+            ownershipPct: Math.round((withBizOwner / total) * 100),
+            ownershipCount: withBizOwner,
+            techOwnershipPct: Math.round((withTechOwner / total) * 100),
+            techOwnershipCount: withTechOwner,
+            reportingPct: Math.round((withReporting / total) * 100),
+            reportingCount: withReporting,
+            mobilePct: Math.round((withMobile / total) * 100),
+            mobileCount: withMobile,
+            apiPct: Math.round((withApi / total) * 100),
+            apiCount: withApi,
+            deptPct: Math.round((withDept / total) * 100),
+            deptCount: withDept,
+            criticalCount: stats.critical,
+            needsReviewCount,
+        };
+    }, [applications, stats.critical]);
+
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
         if (search.trim()) {
@@ -146,6 +190,53 @@ export default function HomePage() {
                     <span className="stat-value">{stats.departmentsCovered}</span>
                     <span className="stat-label">Dept. Coverage</span>
                 </Link>
+            </section>
+
+            <section className="arch-health">
+                <h2 className="section-title">Architecture Health</h2>
+                <p className="arch-health-subtitle">Coverage across {stats.total} systems</p>
+                <div className="arch-health-grid">
+                    <div className="arch-card">
+                        <span className="arch-value">{health.ownershipPct}%</span>
+                        <span className="arch-label">Ownership Coverage</span>
+                        <span className="arch-sub">{health.ownershipCount} of {stats.total} systems</span>
+                    </div>
+                    <div className="arch-card">
+                        <span className="arch-value">{health.techOwnershipPct}%</span>
+                        <span className="arch-label">Tech Ownership Coverage</span>
+                        <span className="arch-sub">{health.techOwnershipCount} of {stats.total} systems</span>
+                    </div>
+                    <div className="arch-card">
+                        <span className="arch-value">{health.reportingPct}%</span>
+                        <span className="arch-label">Reporting Coverage</span>
+                        <span className="arch-sub">{health.reportingCount} of {stats.total} systems</span>
+                    </div>
+                    <div className="arch-card">
+                        <span className="arch-value">{health.mobilePct}%</span>
+                        <span className="arch-label">Mobile Coverage</span>
+                        <span className="arch-sub">{health.mobileCount} of {stats.total} systems</span>
+                    </div>
+                    <div className="arch-card">
+                        <span className="arch-value">{health.apiPct}%</span>
+                        <span className="arch-label">API Coverage</span>
+                        <span className="arch-sub">{health.apiCount} of {stats.total} systems</span>
+                    </div>
+                    <div className="arch-card">
+                        <span className="arch-value">{health.deptPct}%</span>
+                        <span className="arch-label">Department Coverage</span>
+                        <span className="arch-sub">{health.deptCount} of {stats.total} systems</span>
+                    </div>
+                    <div className="arch-card arch-card-critical">
+                        <span className="arch-value">{health.criticalCount}</span>
+                        <span className="arch-label">Critical Systems</span>
+                        <span className="arch-sub">Require attention</span>
+                    </div>
+                    <div className="arch-card arch-card-warn">
+                        <span className="arch-value">{health.needsReviewCount}</span>
+                        <span className="arch-label">Systems Needing Review</span>
+                        <span className="arch-sub">Missing 2+ key fields</span>
+                    </div>
+                </div>
             </section>
 
             <section className="home-capabilities">

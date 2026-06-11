@@ -615,6 +615,15 @@ export default function ApplicationDetailPage() {
 
                 <section className="detail-section detail-section-wide">
                     <h2 className="detail-section-title">Reporting & Analytics</h2>
+                    {(() => {
+                        const avail = application.reportingAvailability;
+                        const sysName = application.reportingPrimarySystemName;
+                        if (avail && avail !== "Unknown" && avail !== "No Reporting Identified") {
+                            const pathText = sysName ? `${avail} → ${sysName}` : avail;
+                            return <p className="reporting-path">{pathText}</p>;
+                        }
+                        return null;
+                    })()}
                     <dl className="detail-definition-list">
                         <div className="detail-definition-item">
                             <dt>Reporting Availability</dt>

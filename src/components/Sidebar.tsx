@@ -49,6 +49,16 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     Explore
                 </NavLink>
 
+                <NavLink
+                    to="/capability-view"
+                    className={({ isActive }) =>
+                        isActive ? "sidebar-link active" : "sidebar-link"
+                    }
+                    onClick={handleNavClick}
+                >
+                    Capability View
+                </NavLink>
+
                 {isAdmin && (
                     <NavLink
                         to="/admin"
