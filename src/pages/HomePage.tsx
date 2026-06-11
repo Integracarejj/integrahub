@@ -13,6 +13,7 @@ interface ApiApplication {
     mobileSupportType?: string | null;
     apiAvailability?: string | null;
     reportingSource?: string | null;
+    reportingAvailability?: string | null;
     vendor?: string;
     departments?: { id: string; name: string }[];
     businessContext: {
@@ -32,7 +33,7 @@ interface Capability {
 function isValueUseful(val: string | null | undefined): boolean {
     if (!val) return false;
     const v = val.trim().toLowerCase();
-    return v !== "" && v !== "none" && v !== "no" && v !== "unknown";
+    return v !== "" && v !== "none" && v !== "no" && v !== "unknown" && v !== "no reporting identified";
 }
 
 export default function HomePage() {
@@ -79,8 +80,8 @@ export default function HomePage() {
         const apiEnabled = applications.filter((app) =>
             isValueUseful(app.apiAvailability)
         ).length;
-        const reportingSource = applications.filter((app) =>
-            isValueUseful(app.reportingSource)
+        const reportingAvailable = applications.filter((app) =>
+            isValueUseful(app.reportingAvailability)
         ).length;
         const critical = applications.filter(
             (app) => app.businessContext?.businessCriticality === "Critical"
@@ -88,7 +89,7 @@ export default function HomePage() {
         const departmentsCovered = applications.filter(
             (app) => app.departments && app.departments.length > 0
         ).length;
-        return { total, mobileCapable, apiEnabled, reportingSource, critical, departmentsCovered };
+        return { total, mobileCapable, apiEnabled, reportingAvailable, critical, departmentsCovered };
     }, [applications]);
 
     const handleSearch = (e: React.FormEvent) => {
@@ -134,8 +135,8 @@ export default function HomePage() {
                     <span className="stat-label">API Enabled</span>
                 </Link>
                 <Link to="/applications" className="stat-card stat-amber">
-                    <span className="stat-value">{stats.reportingSource}</span>
-                    <span className="stat-label">Reporting Source</span>
+                    <span className="stat-value">{stats.reportingAvailable}</span>
+                    <span className="stat-label">Reporting Available</span>
                 </Link>
                 <Link to="/applications?criticality=Critical" className="stat-card stat-red">
                     <span className="stat-value">{stats.critical}</span>

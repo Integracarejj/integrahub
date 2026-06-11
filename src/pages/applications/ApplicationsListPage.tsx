@@ -16,6 +16,7 @@ interface ApiApplication {
     mobileSupportType?: string | null;
     apiAvailability?: string | null;
     reportingSource?: string | null;
+    reportingAvailability?: string | null;
     purpose?: string;
     vendor?: string;
     businessContext: {
@@ -62,7 +63,7 @@ const CRITICALITY_COLORS: Record<string, { bg: string; text: string; border: str
 function isValueUseful(val: string | null | undefined): boolean {
     if (!val) return false;
     const v = val.trim().toLowerCase();
-    return v !== "" && v !== "none" && v !== "no" && v !== "unknown";
+    return v !== "" && v !== "none" && v !== "no" && v !== "unknown" && v !== "no reporting identified";
 }
 
 function filterApplications(apps: ApiApplication[], query: string): ApiApplication[] {
@@ -245,7 +246,7 @@ export default function ApplicationsListPage() {
             app.businessContext.businessCriticality,
             app.mobileSupportType,
             app.apiAvailability,
-            app.reportingSource,
+            app.reportingAvailability,
         ];
         const filled = fields.filter((f) => isValueUseful(f)).length;
         return Math.round((filled / fields.length) * 100);
@@ -518,7 +519,7 @@ export default function ApplicationsListPage() {
                         const missingOwner = !app.ownership.technicalOwner;
                         const hasMobile = isValueUseful(app.mobileSupportType);
                         const hasApi = isValueUseful(app.apiAvailability);
-                        const hasReporting = isValueUseful(app.reportingSource);
+                        const hasReporting = isValueUseful(app.reportingAvailability);
                         const completeness = computeCompleteness(app);
                         return (
                             <tr key={app.id}>

@@ -55,6 +55,10 @@ router.post("/", async (req, res) => {
             mobileSupportType,
             apiAvailability,
             reportingSource,
+            reportingAvailability,
+            reportingPrimaryLocation,
+            reportingPrimarySystemId,
+            reportingNotes,
             businessOwner,
             businessCriticality,
             impactIfDown,
@@ -144,8 +148,8 @@ router.post("/", async (req, res) => {
         }
 
         await query(
-            `INSERT INTO cmdb.Applications (id, name, capabilityId, status, type, systemCategory, architectureType, mobileSupportType, apiAvailability, reportingSource, businessOwner, businessCriticality, impactIfDown, websiteUrl, loginUrl, backupOwner, ssoSupported, ssoEnabled, mfaSupported, mfaEnabled, dataClassification, userCountBand, lastReviewedAt, notes, primaryUseCases, departmentsSupported, accessRequestProcess, trainingDocumentationUrl)
-             VALUES (@id, @name, @capabilityId, @status, @type, @systemCategory, @architectureType, @mobileSupportType, @apiAvailability, @reportingSource, @businessOwner, @businessCriticality, @impactIfDown, @websiteUrl, @loginUrl, @backupOwner, @ssoSupported, @ssoEnabled, @mfaSupported, @mfaEnabled, @dataClassification, @userCountBand, @lastReviewedAt, @notes, @primaryUseCases, @departmentsSupported, @accessRequestProcess, @trainingDocumentationUrl)`,
+            `INSERT INTO cmdb.Applications (id, name, capabilityId, status, type, systemCategory, architectureType, mobileSupportType, apiAvailability, reportingSource, reportingAvailability, reportingPrimaryLocation, reportingPrimarySystemId, reportingNotes, businessOwner, businessCriticality, impactIfDown, websiteUrl, loginUrl, backupOwner, ssoSupported, ssoEnabled, mfaSupported, mfaEnabled, dataClassification, userCountBand, lastReviewedAt, notes, primaryUseCases, departmentsSupported, accessRequestProcess, trainingDocumentationUrl)
+             VALUES (@id, @name, @capabilityId, @status, @type, @systemCategory, @architectureType, @mobileSupportType, @apiAvailability, @reportingSource, @reportingAvailability, @reportingPrimaryLocation, @reportingPrimarySystemId, @reportingNotes, @businessOwner, @businessCriticality, @impactIfDown, @websiteUrl, @loginUrl, @backupOwner, @ssoSupported, @ssoEnabled, @mfaSupported, @mfaEnabled, @dataClassification, @userCountBand, @lastReviewedAt, @notes, @primaryUseCases, @departmentsSupported, @accessRequestProcess, @trainingDocumentationUrl)`,
             {
                 id: generatedId,
                 name: normalizedName,
@@ -157,6 +161,10 @@ router.post("/", async (req, res) => {
                 mobileSupportType: mobileSupportType || null,
                 apiAvailability: apiAvailability || null,
                 reportingSource: reportingSource || null,
+                reportingAvailability: reportingAvailability || null,
+                reportingPrimaryLocation: reportingPrimaryLocation || null,
+                reportingPrimarySystemId: reportingPrimarySystemId || null,
+                reportingNotes: reportingNotes || null,
                 businessOwner: businessOwner || "",
                 businessCriticality: businessCriticality || "",
                 impactIfDown: impactIfDown || "",
@@ -189,6 +197,10 @@ router.post("/", async (req, res) => {
             mobileSupportType: mobileSupportType || null,
             apiAvailability: apiAvailability || null,
             reportingSource: reportingSource || null,
+            reportingAvailability: reportingAvailability || null,
+            reportingPrimaryLocation: reportingPrimaryLocation || null,
+            reportingPrimarySystemId: reportingPrimarySystemId || null,
+            reportingNotes: reportingNotes || null,
             businessOwner: businessOwner || "",
             businessCriticality: businessCriticality || "",
             impactIfDown: impactIfDown || "",
@@ -237,6 +249,10 @@ router.put("/:id", async (req, res) => {
             mobileSupportType,
             apiAvailability,
             reportingSource,
+            reportingAvailability,
+            reportingPrimaryLocation,
+            reportingPrimarySystemId,
+            reportingNotes,
             businessOwner,
             technicalOwner,
             vendor,
@@ -335,6 +351,10 @@ router.put("/:id", async (req, res) => {
                  mobileSupportType = @mobileSupportType,
                  apiAvailability = @apiAvailability,
                  reportingSource = @reportingSource,
+                 reportingAvailability = @reportingAvailability,
+                 reportingPrimaryLocation = @reportingPrimaryLocation,
+                 reportingPrimarySystemId = @reportingPrimarySystemId,
+                 reportingNotes = @reportingNotes,
                  businessOwner = @businessOwner, technicalOwner = @technicalOwner, vendor = @vendor, businessCriticality = @businessCriticality, impactIfDown = @impactIfDown,
                  websiteUrl = @websiteUrl, loginUrl = @loginUrl, backupOwner = @backupOwner,
                  ssoSupported = @ssoSupported, ssoEnabled = @ssoEnabled,
@@ -358,6 +378,10 @@ router.put("/:id", async (req, res) => {
             mobileSupportType: mobileSupportType || null,
             apiAvailability: apiAvailability || null,
             reportingSource: reportingSource || null,
+            reportingAvailability: reportingAvailability || null,
+            reportingPrimaryLocation: reportingPrimaryLocation || null,
+            reportingPrimarySystemId: reportingPrimarySystemId || null,
+            reportingNotes: reportingNotes || null,
             businessOwner: businessOwner || "",
             businessCriticality: businessCriticality || "",
             impactIfDown: impactIfDown || "",
@@ -417,6 +441,10 @@ router.put("/:id", async (req, res) => {
             mobileSupportType: mobileSupportType || null,
             apiAvailability: apiAvailability || null,
             reportingSource: reportingSource || null,
+            reportingAvailability: reportingAvailability || null,
+            reportingPrimaryLocation: reportingPrimaryLocation || null,
+            reportingPrimarySystemId: reportingPrimarySystemId || null,
+            reportingNotes: reportingNotes || null,
             businessOwner: businessOwner || "",
             technicalOwner: technicalOwner || null,
             vendor: vendor || "",
@@ -687,6 +715,26 @@ router.patch("/:id", async (req, res) => {
             params.reportingSource = body.reportingSource || null;
         }
 
+        if (body.reportingAvailability !== undefined) {
+            setClauses.push("reportingAvailability = @reportingAvailability");
+            params.reportingAvailability = body.reportingAvailability || null;
+        }
+
+        if (body.reportingPrimaryLocation !== undefined) {
+            setClauses.push("reportingPrimaryLocation = @reportingPrimaryLocation");
+            params.reportingPrimaryLocation = body.reportingPrimaryLocation || null;
+        }
+
+        if (body.reportingPrimarySystemId !== undefined) {
+            setClauses.push("reportingPrimarySystemId = @reportingPrimarySystemId");
+            params.reportingPrimarySystemId = body.reportingPrimarySystemId || null;
+        }
+
+        if (body.reportingNotes !== undefined) {
+            setClauses.push("reportingNotes = @reportingNotes");
+            params.reportingNotes = body.reportingNotes || null;
+        }
+
         if (setClauses.length === 0) {
             return res.status(400).json({ error: "No fields to update" });
         }
@@ -712,6 +760,11 @@ router.patch("/:id", async (req, res) => {
                 a.mobileSupportType,
                 a.apiAvailability,
                 a.reportingSource,
+                a.reportingAvailability,
+                a.reportingPrimaryLocation,
+                a.reportingPrimarySystemId,
+                rs.name AS reportingPrimarySystemName,
+                a.reportingNotes,
                 a.description,
                 a.technicalOwner,
                 a.vendor,
@@ -737,6 +790,8 @@ router.patch("/:id", async (req, res) => {
             FROM cmdb.Applications a
             INNER JOIN cmdb.Capabilities c
                 ON a.capabilityId = c.id
+            LEFT JOIN cmdb.Applications rs
+                ON a.reportingPrimarySystemId = rs.id
             WHERE a.id = @id
         `, { id });
 
@@ -761,6 +816,11 @@ router.patch("/:id", async (req, res) => {
             mobileSupportType: row.mobileSupportType,
             apiAvailability: row.apiAvailability,
             reportingSource: row.reportingSource,
+            reportingAvailability: row.reportingAvailability || null,
+            reportingPrimaryLocation: row.reportingPrimaryLocation || null,
+            reportingPrimarySystemId: row.reportingPrimarySystemId || null,
+            reportingPrimarySystemName: row.reportingPrimarySystemName || null,
+            reportingNotes: row.reportingNotes || null,
             description: row.description,
             technicalOwner: row.technicalOwner,
             vendor: row.vendor,
@@ -816,6 +876,11 @@ router.get("/", async (_req, res) => {
                 a.mobileSupportType,
                 a.apiAvailability,
                 a.reportingSource,
+                a.reportingAvailability,
+                a.reportingPrimaryLocation,
+                a.reportingPrimarySystemId,
+                rs.name AS reportingPrimarySystemName,
+                a.reportingNotes,
                 a.description,
                 a.technicalOwner,
                 a.vendor,
@@ -841,6 +906,8 @@ router.get("/", async (_req, res) => {
             FROM cmdb.Applications a
             INNER JOIN cmdb.Capabilities c
                 ON a.capabilityId = c.id
+            LEFT JOIN cmdb.Applications rs
+                ON a.reportingPrimarySystemId = rs.id
             ORDER BY a.name
         `);
 
@@ -869,6 +936,11 @@ router.get("/", async (_req, res) => {
             mobileSupportType: row.mobileSupportType,
             apiAvailability: row.apiAvailability,
             reportingSource: row.reportingSource,
+            reportingAvailability: row.reportingAvailability || null,
+            reportingPrimaryLocation: row.reportingPrimaryLocation || null,
+            reportingPrimarySystemId: row.reportingPrimarySystemId || null,
+            reportingPrimarySystemName: row.reportingPrimarySystemName || null,
+            reportingNotes: row.reportingNotes || null,
             description: row.description,
             technicalOwner: row.technicalOwner,
             vendor: row.vendor,
@@ -927,6 +999,11 @@ router.get("/:id", async (req, res) => {
                 a.mobileSupportType,
                 a.apiAvailability,
                 a.reportingSource,
+                a.reportingAvailability,
+                a.reportingPrimaryLocation,
+                a.reportingPrimarySystemId,
+                rs.name AS reportingPrimarySystemName,
+                a.reportingNotes,
                 a.description,
                 a.technicalOwner,
                 a.vendor,
@@ -952,6 +1029,8 @@ router.get("/:id", async (req, res) => {
             FROM cmdb.Applications a
             INNER JOIN cmdb.Capabilities c
                 ON a.capabilityId = c.id
+            LEFT JOIN cmdb.Applications rs
+                ON a.reportingPrimarySystemId = rs.id
             WHERE a.id = @id
         `, { id });
 
@@ -1046,6 +1125,11 @@ router.get("/:id", async (req, res) => {
             mobileSupportType: row.mobileSupportType,
             apiAvailability: row.apiAvailability,
             reportingSource: row.reportingSource,
+            reportingAvailability: row.reportingAvailability || null,
+            reportingPrimaryLocation: row.reportingPrimaryLocation || null,
+            reportingPrimarySystemId: row.reportingPrimarySystemId || null,
+            reportingPrimarySystemName: row.reportingPrimarySystemName || null,
+            reportingNotes: row.reportingNotes || null,
             description: row.description,
             technicalOwner: row.technicalOwner,
             vendor: row.vendor,

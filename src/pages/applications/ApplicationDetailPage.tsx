@@ -36,6 +36,11 @@ interface ApiApplication {
     mobileSupportType?: string | null;
     apiAvailability?: string | null;
     reportingSource?: string | null;
+    reportingAvailability?: string | null;
+    reportingPrimaryLocation?: string | null;
+    reportingPrimarySystemId?: string | null;
+    reportingPrimarySystemName?: string | null;
+    reportingNotes?: string | null;
     description?: string;
     purpose?: string;
     vendor?: string;
@@ -586,7 +591,7 @@ export default function ApplicationDetailPage() {
                             <dd>{application.apiAvailability || "Unknown"}</dd>
                         </div>
                         <div className="detail-definition-item">
-                            <dt>Reporting Source</dt>
+                            <dt>Reporting Source (legacy)</dt>
                             <dd>{application.reportingSource || "Unknown"}</dd>
                         </div>
                         <div className="detail-definition-item">
@@ -604,6 +609,36 @@ export default function ApplicationDetailPage() {
                         <div className="detail-definition-item">
                             <dt>MFA Enabled</dt>
                             <dd>{application.security?.mfaEnabled || "Unknown"}</dd>
+                        </div>
+                    </dl>
+                </section>
+
+                <section className="detail-section detail-section-wide">
+                    <h2 className="detail-section-title">Reporting & Analytics</h2>
+                    <dl className="detail-definition-list">
+                        <div className="detail-definition-item">
+                            <dt>Reporting Availability</dt>
+                            <dd>{application.reportingAvailability || "—"}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>Primary Reporting Location</dt>
+                            <dd>{application.reportingPrimaryLocation || "—"}</dd>
+                        </div>
+                        <div className="detail-definition-item">
+                            <dt>Primary Reporting System</dt>
+                            <dd>
+                                {application.reportingPrimarySystemId && application.reportingPrimarySystemName ? (
+                                    <Link to={`/applications/${application.reportingPrimarySystemId}`}>
+                                        {application.reportingPrimarySystemName}
+                                    </Link>
+                                ) : application.reportingPrimarySystemName ? (
+                                    application.reportingPrimarySystemName
+                                ) : "—"}
+                            </dd>
+                        </div>
+                        <div className="detail-definition-item full-width">
+                            <dt>Reporting Notes</dt>
+                            <dd>{application.reportingNotes || "—"}</dd>
                         </div>
                     </dl>
                 </section>

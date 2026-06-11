@@ -83,6 +83,11 @@ export interface Application {
     mobileSupportType?: string | null;
     apiAvailability?: string | null;
     reportingSource?: string | null;
+    reportingAvailability?: string | null;
+    reportingPrimaryLocation?: string | null;
+    reportingPrimarySystemId?: string | null;
+    reportingPrimarySystemName?: string | null;
+    reportingNotes?: string | null;
 
     primaryUseCases?: string | null;
     departmentsSupported?: string | null;
