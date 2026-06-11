@@ -12,6 +12,7 @@ interface ApiApplication {
     id: string;
     name: string;
     status: string;
+    systemCategory?: string | null;
     businessContext: {
         businessCriticality?: string;
     };
@@ -46,11 +47,23 @@ function matchesFilter(app: ApiApplication, filter: FilterKey): boolean {
     return true;
 }
 
+type ModalKey = FilterKey | "departments";
+
 export default function DepartmentViewPage() {
     const [departments, setDepartments] = useState<Department[]>([]);
     const [applications, setApplications] = useState<ApiApplication[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
+    const [modalKey, setModalKey] = useState<ModalKey | null>(null);
+
+    useEffect(() => {
+        if (modalKey === null) return;
+        function onKey(e: KeyboardEvent) {
+            if (e.key === "Escape") setModalKey(null);
+        }
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [modalKey]);
 
     useEffect(() => {
         Promise.all([
@@ -105,6 +118,41 @@ export default function DepartmentViewPage() {
         return map;
     }, [departments, applications]);
 
+    const modalMeta = useMemo(() => {
+        if (!modalKey) return { title: "", subtitle: "", type: "systems" as const, systems: [] as ApiApplication[], depts: [] as { name: string; systemCount: number; criticalCount: number }[] };
+        if (modalKey === "departments") {
+            const depts = departments.map((d) => {
+                const systems = deptAppMap[d.id] || [];
+                const criticalCount = systems.filter((a) => a.businessContext?.businessCriticality === "Critical").length;
+                return { name: d.name, systemCount: systems.length, criticalCount };
+            });
+            return {
+                title: "All Departments",
+                subtitle: `${departments.length} departments`,
+                type: "departments" as const,
+                depts,
+                systems: [],
+            };
+        }
+        const titleMap: Record<string, string> = {
+            all: "Assigned Systems",
+            critical: "Critical Systems",
+            reporting: "Reporting Enabled Systems",
+            mobile: "Mobile Enabled Systems",
+            api: "API Enabled Systems",
+        };
+        const systems = modalKey === "all"
+            ? assignedApps
+            : assignedApps.filter((app) => matchesFilter(app, modalKey));
+        return {
+            title: titleMap[modalKey],
+            subtitle: `${systems.length} ${systems.length === 1 ? "system" : "systems"}`,
+            type: "systems" as const,
+            systems,
+            depts: [],
+        };
+    }, [modalKey, departments, assignedApps, deptAppMap]);
+
     if (loading) {
         return <div className="dv-page"><p className="dv-loading">Loading...</p></div>;
     }
@@ -119,26 +167,26 @@ export default function DepartmentViewPage() {
             </header>
 
             <div className="dv-summary">
-                <div className="dv-summary-card">
+                <button className="dv-summary-card" onClick={() => setModalKey("departments")}>
                     <span className="dv-summary-value">{summaryStats.totalDepartments}</span>
                     <span className="dv-summary-label">Total Departments</span>
-                </div>
-                <div className="dv-summary-card">
+                </button>
+                <button className="dv-summary-card" onClick={() => setModalKey("all")}>
                     <span className="dv-summary-value">{summaryStats.totalAssigned}</span>
                     <span className="dv-summary-label">Total Assigned Systems</span>
-                </div>
-                <div className="dv-summary-card">
+                </button>
+                <button className="dv-summary-card" onClick={() => setModalKey("critical")}>
                     <span className="dv-summary-value dv-summary-critical">{summaryStats.critical}</span>
                     <span className="dv-summary-label">Critical Systems</span>
-                </div>
-                <div className="dv-summary-card">
+                </button>
+                <button className="dv-summary-card" onClick={() => setModalKey("reporting")}>
                     <span className="dv-summary-value dv-summary-reporting">{summaryStats.reporting}</span>
                     <span className="dv-summary-label">Reporting Enabled</span>
-                </div>
-                <div className="dv-summary-card">
+                </button>
+                <button className="dv-summary-card" onClick={() => setModalKey("mobile")}>
                     <span className="dv-summary-value dv-summary-mobile">{summaryStats.mobile}</span>
                     <span className="dv-summary-label">Mobile Enabled</span>
-                </div>
+                </button>
             </div>
 
             <div className="dv-filters">
@@ -205,6 +253,67 @@ export default function DepartmentViewPage() {
                     );
                 })}
             </div>
+
+            {modalKey !== null && (
+                <div className="dv-modal-backdrop" onClick={() => setModalKey(null)}>
+                    <div className="dv-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+                        <div className="dv-modal-hdr">
+                            <div className="dv-modal-hdr-text">
+                                <h2 className="dv-modal-title">{modalMeta.title}</h2>
+                                <p className="dv-modal-subtitle">{modalMeta.subtitle}</p>
+                            </div>
+                            <button className="dv-modal-close" onClick={() => setModalKey(null)} aria-label="Close">&times;</button>
+                        </div>
+                        {modalMeta.type === "departments" ? (
+                            <ul className="dv-modal-list">
+                                {modalMeta.depts.map((d) => (
+                                    <li key={d.name} className="dv-modal-item">
+                                        <div className="dv-modal-dept">
+                                            <span className="dv-modal-dept-name">{d.name}</span>
+                                            <span className="dv-modal-dept-meta">
+                                                {d.systemCount} {d.systemCount === 1 ? "system" : "systems"}
+                                                {d.criticalCount > 0 ? ` · ${d.criticalCount} critical` : ""}
+                                            </span>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : modalMeta.systems.length === 0 ? (
+                            <div className="dv-modal-empty">No systems found.</div>
+                        ) : (
+                            <ul className="dv-modal-list">
+                                {modalMeta.systems.map((app) => {
+                                    const isCritical = app.businessContext?.businessCriticality === "Critical";
+                                    const hasMobile = isValueUseful(app.mobileSupportType);
+                                    const hasReporting = isValueUseful(app.reportingAvailability);
+                                    const hasApi = isValueUseful(app.apiAvailability);
+                                    const deptNames = (app.departments || []).map((d) => d.name).join(", ");
+
+                                    return (
+                                        <li key={app.id} className="dv-modal-item">
+                                            <Link to={`/applications/${app.id}`} className="dv-modal-link" onClick={() => setModalKey(null)}>
+                                                <div className="dv-modal-item-main">
+                                                    <span className="dv-modal-item-name">{app.name}</span>
+                                                    <span className="dv-modal-item-secondary">
+                                                        {deptNames}
+                                                        {app.systemCategory ? ` · ${app.systemCategory}` : ""}
+                                                    </span>
+                                                </div>
+                                                <span className="dv-system-chips">
+                                                    {isCritical && <span className="dv-chip dv-chip-critical">Critical</span>}
+                                                    {hasMobile && <span className="dv-chip dv-chip-mobile">Mobile</span>}
+                                                    {hasReporting && <span className="dv-chip dv-chip-reporting">Reporting</span>}
+                                                    {hasApi && <span className="dv-chip dv-chip-api">API</span>}
+                                                </span>
+                                            </Link>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
