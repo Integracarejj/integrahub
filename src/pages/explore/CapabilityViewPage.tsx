@@ -18,11 +18,6 @@ interface ApiApplication {
     };
 }
 
-interface CapabilityGroup {
-    name: string;
-    systems: ApiApplication[];
-}
-
 function isValueUseful(val: string | null | undefined): boolean {
     if (!val) return false;
     const v = val.trim().toLowerCase();
