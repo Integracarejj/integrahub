@@ -130,6 +130,16 @@ export default function CapabilityViewPage() {
     const [applications, setApplications] = useState<ApiApplication[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
+    const [modalFilter, setModalFilter] = useState<FilterKey | null>(null);
+
+    useEffect(() => {
+        if (modalFilter === null) return;
+        function onKey(e: KeyboardEvent) {
+            if (e.key === "Escape") setModalFilter(null);
+        }
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [modalFilter]);
 
     useEffect(() => {
         fetch("/api/applications")
@@ -174,6 +184,21 @@ export default function CapabilityViewPage() {
         return { total, critical, reporting, mobile, api };
     }, [applications]);
 
+    const modalMeta = useMemo(() => {
+        if (!modalFilter) return { title: "", systems: [] as ApiApplication[] };
+        const titleMap: Record<FilterKey, string> = {
+            all: "All Systems",
+            critical: "Critical Systems",
+            reporting: "Reporting Enabled Systems",
+            mobile: "Mobile Enabled Systems",
+            api: "API Enabled Systems",
+        };
+        const systems = modalFilter === "all"
+            ? applications
+            : applications.filter((app) => matchesFilter(app, modalFilter));
+        return { title: titleMap[modalFilter], systems };
+    }, [modalFilter, applications]);
+
     if (loading) {
         return <div className="capability-view-page"><p className="cv-loading">Loading...</p></div>;
     }
@@ -188,26 +213,26 @@ export default function CapabilityViewPage() {
             </header>
 
             <div className="cv-summary">
-                <div className="cv-summary-card">
+                <button className="cv-summary-card" onClick={() => setModalFilter("all")}>
                     <span className="cv-summary-value">{summaryStats.total}</span>
                     <span className="cv-summary-label">Total Systems</span>
-                </div>
-                <div className="cv-summary-card">
+                </button>
+                <button className="cv-summary-card" onClick={() => setModalFilter("critical")}>
                     <span className="cv-summary-value cv-summary-critical">{summaryStats.critical}</span>
                     <span className="cv-summary-label">Critical</span>
-                </div>
-                <div className="cv-summary-card">
+                </button>
+                <button className="cv-summary-card" onClick={() => setModalFilter("reporting")}>
                     <span className="cv-summary-value cv-summary-reporting">{summaryStats.reporting}</span>
                     <span className="cv-summary-label">Reporting Enabled</span>
-                </div>
-                <div className="cv-summary-card">
+                </button>
+                <button className="cv-summary-card" onClick={() => setModalFilter("mobile")}>
                     <span className="cv-summary-value cv-summary-mobile">{summaryStats.mobile}</span>
                     <span className="cv-summary-label">Mobile Enabled</span>
-                </div>
-                <div className="cv-summary-card">
+                </button>
+                <button className="cv-summary-card" onClick={() => setModalFilter("api")}>
                     <span className="cv-summary-value cv-summary-api">{summaryStats.api}</span>
                     <span className="cv-summary-label">API Enabled</span>
-                </div>
+                </button>
             </div>
 
             <div className="cv-filters">
@@ -264,6 +289,50 @@ export default function CapabilityViewPage() {
                     );
                 })}
             </div>
+
+            {modalFilter !== null && (
+                <div className="cv-modal-backdrop" onClick={() => setModalFilter(null)}>
+                    <div className="cv-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+                        <div className="cv-modal-hdr">
+                            <div className="cv-modal-hdr-text">
+                                <h2 className="cv-modal-title">{modalMeta.title}</h2>
+                                <p className="cv-modal-subtitle">{modalMeta.systems.length} {modalMeta.systems.length === 1 ? "system" : "systems"}</p>
+                            </div>
+                            <button className="cv-modal-close" onClick={() => setModalFilter(null)} aria-label="Close">&times;</button>
+                        </div>
+                        {modalMeta.systems.length === 0 ? (
+                            <div className="cv-modal-empty">No systems found.</div>
+                        ) : (
+                            <ul className="cv-modal-list">
+                                {modalMeta.systems.map((app) => {
+                                    const groupName = mapGroup(app);
+                                    const isCritical = app.businessContext?.businessCriticality === "Critical";
+                                    const hasMobile = isValueUseful(app.mobileSupportType);
+                                    const hasReporting = isValueUseful(app.reportingAvailability);
+                                    const hasApi = isValueUseful(app.apiAvailability);
+
+                                    return (
+                                        <li key={app.id} className="cv-modal-item">
+                                            <Link to={`/applications/${app.id}`} className="cv-modal-link" onClick={() => setModalFilter(null)}>
+                                                <div className="cv-modal-item-main">
+                                                    <span className="cv-modal-item-name">{app.name}</span>
+                                                    <span className="cv-modal-item-group">{groupName}</span>
+                                                </div>
+                                                <span className="cv-system-chips">
+                                                    {isCritical && <span className="cv-chip cv-chip-critical">Critical</span>}
+                                                    {hasMobile && <span className="cv-chip cv-chip-mobile">Mobile</span>}
+                                                    {hasReporting && <span className="cv-chip cv-chip-reporting">Reporting</span>}
+                                                    {hasApi && <span className="cv-chip cv-chip-api">API</span>}
+                                                </span>
+                                            </Link>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
