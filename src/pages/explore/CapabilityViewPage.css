@@ -1,18 +1,25 @@
 .capability-view-page {
-    max-width: 1100px;
+    max-width: 1200px;
     margin: 0 auto;
-    padding: 40px 32px;
+    padding: 40px 40px 60px;
+}
+
+.cv-loading {
+    font-size: 16px;
+    color: #6b7280;
+    padding: 40px 0;
 }
 
 .cv-header {
-    margin-bottom: 32px;
+    margin-bottom: 28px;
 }
 
 .cv-header h1 {
     margin: 0;
-    font-size: 24px;
+    font-size: 26px;
     font-weight: 700;
     color: #111827;
+    letter-spacing: -0.02em;
 }
 
 .cv-subtitle {
@@ -21,9 +28,95 @@
     color: #6b7280;
 }
 
+/* Summary strip */
+
+.cv-summary {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.cv-summary-card {
+    flex: 1;
+    min-width: 140px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cv-summary-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.1;
+}
+
+.cv-summary-critical {
+    color: #dc2626;
+}
+
+.cv-summary-reporting {
+    color: #ca8a04;
+}
+
+.cv-summary-mobile {
+    color: #2563eb;
+}
+
+.cv-summary-api {
+    color: #16a34a;
+}
+
+.cv-summary-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #6b7280;
+    line-height: 1.3;
+}
+
+/* Filter chips */
+
+.cv-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.cv-filter-chip {
+    padding: 7px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid #d1d5db;
+    border-radius: 20px;
+    background: #fff;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.15s;
+    line-height: 1.4;
+}
+
+.cv-filter-chip:hover {
+    border-color: #9ca3af;
+    background: #f9fafb;
+}
+
+.cv-filter-chip.active {
+    background: #111827;
+    color: #fff;
+    border-color: #111827;
+}
+
+/* Capability card grid */
+
 .cv-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
     gap: 20px;
 }
 
@@ -34,14 +127,21 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .cv-card-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    padding: 16px 20px 12px;
+    padding: 18px 20px 14px;
     border-bottom: 1px solid #f3f4f6;
+    gap: 12px;
+}
+
+.cv-card-header-text {
+    min-width: 0;
+    flex: 1;
 }
 
 .cv-card-title {
@@ -51,14 +151,26 @@
     color: #111827;
 }
 
+.cv-card-desc {
+    margin: 4px 0 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #6b7280;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
 .cv-card-count {
     font-size: 13px;
     font-weight: 600;
     color: #6b7280;
     background: #f3f4f6;
-    padding: 2px 10px;
+    padding: 2px 11px;
     border-radius: 12px;
     line-height: 22px;
+    flex-shrink: 0;
 }
 
 .cv-system-list {
@@ -69,7 +181,7 @@
 }
 
 .cv-system-item {
-    border-bottom: 1px solid #f9fafb;
+    border-bottom: 1px solid #f3f4f6;
 }
 
 .cv-system-item:last-child {
@@ -80,24 +192,33 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 20px;
+    padding: 12px 20px;
     text-decoration: none;
-    transition: background 0.1s;
+    transition: background 0.12s;
     gap: 12px;
 }
 
 .cv-system-link:hover {
-    background: #f9fafb;
+    background: #f3f4f6;
+}
+
+.cv-system-link:active {
+    background: #e5e7eb;
 }
 
 .cv-system-name {
     font-size: 14px;
     font-weight: 500;
-    color: #2563eb;
+    color: #111827;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    transition: color 0.12s;
+}
+
+.cv-system-link:hover .cv-system-name {
+    color: #2563eb;
 }
 
 .cv-system-chips {
@@ -107,31 +228,56 @@
 }
 
 .cv-chip {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    line-height: 16px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    line-height: 18px;
+    white-space: nowrap;
 }
 
 .cv-chip-critical {
     background: #fef2f2;
-    color: #dc2626;
+    color: #b91c1c;
 }
 
 .cv-chip-mobile {
     background: #eff6ff;
-    color: #2563eb;
+    color: #1d4ed8;
 }
 
 .cv-chip-reporting {
     background: #fefce8;
-    color: #ca8a04;
+    color: #a16207;
 }
 
 .cv-chip-api {
     background: #f0fdf4;
-    color: #16a34a;
+    color: #15803d;
+}
+
+.cv-empty {
+    padding: 24px 20px;
+    text-align: center;
+    font-size: 13px;
+    color: #9ca3af;
+}
+
+@media (max-width: 768px) {
+    .capability-view-page {
+        padding: 24px 16px 40px;
+    }
+    .cv-summary {
+        gap: 10px;
+    }
+    .cv-summary-card {
+        min-width: 100px;
+        padding: 12px 16px;
+    }
+    .cv-summary-value {
+        font-size: 22px;
+    }
+    .cv-grid {
+        grid-template-columns: 1fr;
+    }
 }
