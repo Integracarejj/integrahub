@@ -87,10 +87,12 @@ export default function DepartmentViewPage() {
         let critical = 0;
         let reporting = 0;
         let mobile = 0;
+        let api = 0;
         for (const app of assignedApps) {
             if (app.businessContext?.businessCriticality === "Critical") critical++;
             if (isValueUseful(app.reportingAvailability)) reporting++;
             if (isValueUseful(app.mobileSupportType)) mobile++;
+            if (isValueUseful(app.apiAvailability)) api++;
         }
         return {
             totalDepartments: departments.length,
@@ -98,6 +100,7 @@ export default function DepartmentViewPage() {
             critical,
             reporting,
             mobile,
+            api,
         };
     }, [departments, assignedApps]);
 
@@ -187,6 +190,12 @@ export default function DepartmentViewPage() {
                     <span className="dv-summary-value dv-summary-mobile">{summaryStats.mobile}</span>
                     <span className="dv-summary-label">Mobile Enabled</span>
                 </button>
+                {summaryStats.api > 0 && (
+                    <button className="dv-summary-card" onClick={() => setModalKey("api")}>
+                        <span className="dv-summary-value dv-summary-api">{summaryStats.api}</span>
+                        <span className="dv-summary-label">API Enabled</span>
+                    </button>
+                )}
             </div>
 
             <div className="dv-filters">
