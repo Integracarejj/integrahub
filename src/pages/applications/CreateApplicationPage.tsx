@@ -30,7 +30,7 @@ export default function CreateApplicationPage() {
     const ARCHITECTURE_TYPES = [
         "SaaS", "Database", "Platform", "Identity Provider", "Reporting",
         "File Repository", "Integration Layer", "Internal Application",
-        "External Vendor", "Manual Process", "Unknown",
+        "External Vendor", "Manual Process", "Web Platform", "Unknown",
     ];
 
     const MOBILE_SUPPORT_TYPES = [

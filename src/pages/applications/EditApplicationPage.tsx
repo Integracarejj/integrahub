@@ -34,7 +34,7 @@ export default function EditApplicationPage() {
     const ARCHITECTURE_TYPES = [
         "SaaS", "Database", "Platform", "Identity Provider", "Reporting",
         "File Repository", "Integration Layer", "Internal Application",
-        "External Vendor", "Manual Process", "Unknown",
+        "External Vendor", "Manual Process", "Web Platform", "Unknown",
     ];
 
     const MOBILE_SUPPORT_TYPES = [
@@ -328,9 +328,15 @@ export default function EditApplicationPage() {
                                 disabled={submitting}
                             >
                                 <option value="">Select architecture type</option>
-                                {ARCHITECTURE_TYPES.map((t) => (
-                                    <option key={t} value={t}>{t}</option>
-                                ))}
+                                {(() => {
+                                    const options = [...ARCHITECTURE_TYPES];
+                                    if (form.architectureType && !ARCHITECTURE_TYPES.includes(form.architectureType)) {
+                                        options.push(form.architectureType);
+                                    }
+                                    return options.map((t) => (
+                                        <option key={t} value={t}>{t}</option>
+                                    ));
+                                })()}
                             </select>
                         </div>
                     </div>

@@ -15,7 +15,7 @@ const VALID_USER_COUNT_BAND = ["1_10", "11_30", "31_60", "61_plus", "Unknown"];
 const VALID_ARCHITECTURE_TYPES = [
     "SaaS", "Database", "Platform", "Identity Provider", "Reporting",
     "File Repository", "Integration Layer", "Internal Application",
-    "External Vendor", "Manual Process", "Unknown",
+    "External Vendor", "Manual Process", "Web Platform", "Unknown",
 ];
 const MAX_NOTES_LENGTH = 1000;
 
