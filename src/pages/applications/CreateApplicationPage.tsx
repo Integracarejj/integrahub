@@ -129,7 +129,7 @@ export default function CreateApplicationPage() {
             const data = await res.json();
 
             if (!res.ok) {
-                setError(data.error || "Failed to create application");
+                setError(data.detail || data.error || "Failed to create application");
                 return;
             }
 
@@ -218,6 +218,9 @@ export default function CreateApplicationPage() {
                                 <option value="Standard">Standard</option>
                                 <option value="Platform">Platform</option>
                                 <option value="SaaS">SaaS</option>
+                                <option value="Internal Application">Internal Application</option>
+                                <option value="External Vendor">External Vendor</option>
+                                <option value="Unknown">Unknown</option>
                             </select>
                         </div>
 
@@ -513,6 +516,8 @@ export default function CreateApplicationPage() {
                                 <option value="General">General</option>
                                 <option value="Confidential">Confidential</option>
                                 <option value="Restricted">Restricted</option>
+                                <option value="Public / Confidential">Public / Confidential</option>
+                                <option value="Internal">Internal</option>
                                 <option value="Unknown">Unknown</option>
                             </select>
                         </div>
@@ -531,6 +536,11 @@ export default function CreateApplicationPage() {
                                 <option value="31_60">31-60</option>
                                 <option value="61_plus">61+</option>
                                 <option value="Unknown">Unknown</option>
+                                <option value="External">External</option>
+                                <option value="11-50">11-50</option>
+                                <option value="51-100">51-100</option>
+                                <option value="101-500">101-500</option>
+                                <option value="500+">500+</option>
                             </select>
                         </div>
                     </div>

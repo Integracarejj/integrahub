@@ -7,11 +7,11 @@ const router = Router();
 
 const VALID_CRITICALITY = ["Low", "Medium", "High", "Critical"];
 const VALID_STATUS = ["Active", "Planned", "Retired"];
-const VALID_TYPE = ["Standard", "Platform", "SaaS"];
+const VALID_TYPE = ["Standard", "Platform", "SaaS", "Internal Application", "External Vendor", "Unknown"];
 const VALID_SSO = ["Yes", "No", "Unknown"];
 const VALID_MFA = ["Yes", "No", "Unknown"];
-const VALID_DATA_CLASSIFICATION = ["Public", "General", "Confidential", "Restricted", "Unknown"];
-const VALID_USER_COUNT_BAND = ["1_10", "11_30", "31_60", "61_plus", "Unknown"];
+const VALID_DATA_CLASSIFICATION = ["Public", "General", "Confidential", "Restricted", "Public / Confidential", "Internal", "Unknown"];
+const VALID_USER_COUNT_BAND = ["1_10", "11_30", "31_60", "61_plus", "Unknown", "External", "11-50", "51-100", "101-500", "500+"];
 const VALID_ARCHITECTURE_TYPES = [
     "SaaS", "Database", "Platform", "Identity Provider", "Reporting",
     "File Repository", "Integration Layer", "Internal Application",
@@ -80,43 +80,43 @@ router.post("/", async (req, res) => {
         } = req.body;
 
         if (!name) {
-            return res.status(400).json({ error: "name is required" });
+            return res.status(400).json({ error: "Validation failed", field: "name", detail: "name is required" });
         }
         if (!capabilityId) {
-            return res.status(400).json({ error: "capabilityId is required" });
+            return res.status(400).json({ error: "Validation failed", field: "capabilityId", detail: "capabilityId is required" });
         }
         if (status && !VALID_STATUS.includes(status)) {
-            return res.status(400).json({ error: "status must be Active, Planned, or Retired" });
+            return res.status(400).json({ error: "Validation failed", field: "status", detail: `status '${status}' is not allowed. Allowed: ${VALID_STATUS.join(", ")}` });
         }
         if (type && !VALID_TYPE.includes(type)) {
-            return res.status(400).json({ error: "type must be Standard, SaaS, or Custom" });
+            return res.status(400).json({ error: "Validation failed", field: "type", detail: `type '${type}' is not allowed. Allowed: ${VALID_TYPE.join(", ")}` });
         }
         if (businessCriticality && !VALID_CRITICALITY.includes(businessCriticality)) {
-            return res.status(400).json({ error: "businessCriticality must be Low, Medium, High, or Critical" });
+            return res.status(400).json({ error: "Validation failed", field: "businessCriticality", detail: `businessCriticality '${businessCriticality}' is not allowed. Allowed: ${VALID_CRITICALITY.join(", ")}` });
         }
         if (ssoSupported && !VALID_SSO.includes(ssoSupported)) {
-            return res.status(400).json({ error: "ssoSupported must be Yes, No, or Unknown" });
+            return res.status(400).json({ error: "Validation failed", field: "ssoSupported", detail: `ssoSupported '${ssoSupported}' is not allowed. Allowed: ${VALID_SSO.join(", ")}` });
         }
         if (ssoEnabled && !VALID_SSO.includes(ssoEnabled)) {
-            return res.status(400).json({ error: "ssoEnabled must be Yes, No, or Unknown" });
+            return res.status(400).json({ error: "Validation failed", field: "ssoEnabled", detail: `ssoEnabled '${ssoEnabled}' is not allowed. Allowed: ${VALID_SSO.join(", ")}` });
         }
         if (mfaSupported && !VALID_MFA.includes(mfaSupported)) {
-            return res.status(400).json({ error: "mfaSupported must be Yes, No, or Unknown" });
+            return res.status(400).json({ error: "Validation failed", field: "mfaSupported", detail: `mfaSupported '${mfaSupported}' is not allowed. Allowed: ${VALID_MFA.join(", ")}` });
         }
         if (mfaEnabled && !VALID_MFA.includes(mfaEnabled)) {
-            return res.status(400).json({ error: "mfaEnabled must be Yes, No, or Unknown" });
+            return res.status(400).json({ error: "Validation failed", field: "mfaEnabled", detail: `mfaEnabled '${mfaEnabled}' is not allowed. Allowed: ${VALID_MFA.join(", ")}` });
         }
         if (dataClassification && !VALID_DATA_CLASSIFICATION.includes(dataClassification)) {
-            return res.status(400).json({ error: "dataClassification must be Public, General, Confidential, Restricted, or Unknown" });
+            return res.status(400).json({ error: "Validation failed", field: "dataClassification", detail: `dataClassification '${dataClassification}' is not allowed. Allowed: ${VALID_DATA_CLASSIFICATION.join(", ")}` });
         }
         if (userCountBand && !VALID_USER_COUNT_BAND.includes(userCountBand)) {
-            return res.status(400).json({ error: "userCountBand must be 1_10, 11_30, 31_60, 61_plus, or Unknown" });
+            return res.status(400).json({ error: "Validation failed", field: "userCountBand", detail: `userCountBand '${userCountBand}' is not allowed. Allowed: ${VALID_USER_COUNT_BAND.join(", ")}` });
         }
         if (notes && notes.length > MAX_NOTES_LENGTH) {
-            return res.status(400).json({ error: `notes must be ${MAX_NOTES_LENGTH} characters or less` });
+            return res.status(400).json({ error: "Validation failed", field: "notes", detail: `notes must be ${MAX_NOTES_LENGTH} characters or less` });
         }
         if (architectureType && !VALID_ARCHITECTURE_TYPES.includes(architectureType)) {
-            return res.status(400).json({ error: "Validation failed", detail: `architectureType '${architectureType}' is not allowed. Allowed: ${VALID_ARCHITECTURE_TYPES.join(", ")}` });
+            return res.status(400).json({ error: "Validation failed", field: "architectureType", detail: `architectureType '${architectureType}' is not allowed. Allowed: ${VALID_ARCHITECTURE_TYPES.join(", ")}` });
         }
 
         const normalizedName = normalizeName(name);
@@ -277,43 +277,43 @@ router.put("/:id", async (req, res) => {
         } = req.body;
 
         if (!name) {
-            return res.status(400).json({ error: "name is required" });
+            return res.status(400).json({ error: "Validation failed", field: "name", rejectedValue: name, detail: "name is required" });
         }
         if (!capabilityId) {
-            return res.status(400).json({ error: "capabilityId is required" });
+            return res.status(400).json({ error: "Validation failed", field: "capabilityId", rejectedValue: capabilityId, detail: "capabilityId is required" });
         }
         if (status && !VALID_STATUS.includes(status)) {
-            return res.status(400).json({ error: "status must be Active, Planned, or Retired" });
+            return res.status(400).json({ error: "Validation failed", field: "status", rejectedValue: status, detail: `status '${status}' is not allowed. Allowed: ${VALID_STATUS.join(", ")}` });
         }
         if (type && !VALID_TYPE.includes(type)) {
-            return res.status(400).json({ error: "type must be Standard, SaaS, or Custom" });
+            return res.status(400).json({ error: "Validation failed", field: "type", rejectedValue: type, detail: `type '${type}' is not allowed. Allowed: ${VALID_TYPE.join(", ")}` });
         }
         if (businessCriticality && !VALID_CRITICALITY.includes(businessCriticality)) {
-            return res.status(400).json({ error: "businessCriticality must be Low, Medium, High, or Critical" });
+            return res.status(400).json({ error: "Validation failed", field: "businessCriticality", rejectedValue: businessCriticality, detail: `businessCriticality '${businessCriticality}' is not allowed. Allowed: ${VALID_CRITICALITY.join(", ")}` });
         }
         if (ssoSupported && !VALID_SSO.includes(ssoSupported)) {
-            return res.status(400).json({ error: "ssoSupported must be Yes, No, or Unknown" });
+            return res.status(400).json({ error: "Validation failed", field: "ssoSupported", rejectedValue: ssoSupported, detail: `ssoSupported '${ssoSupported}' is not allowed. Allowed: ${VALID_SSO.join(", ")}` });
         }
         if (ssoEnabled && !VALID_SSO.includes(ssoEnabled)) {
-            return res.status(400).json({ error: "ssoEnabled must be Yes, No, or Unknown" });
+            return res.status(400).json({ error: "Validation failed", field: "ssoEnabled", rejectedValue: ssoEnabled, detail: `ssoEnabled '${ssoEnabled}' is not allowed. Allowed: ${VALID_SSO.join(", ")}` });
         }
         if (mfaSupported && !VALID_MFA.includes(mfaSupported)) {
-            return res.status(400).json({ error: "mfaSupported must be Yes, No, or Unknown" });
+            return res.status(400).json({ error: "Validation failed", field: "mfaSupported", rejectedValue: mfaSupported, detail: `mfaSupported '${mfaSupported}' is not allowed. Allowed: ${VALID_MFA.join(", ")}` });
         }
         if (mfaEnabled && !VALID_MFA.includes(mfaEnabled)) {
-            return res.status(400).json({ error: "mfaEnabled must be Yes, No, or Unknown" });
+            return res.status(400).json({ error: "Validation failed", field: "mfaEnabled", rejectedValue: mfaEnabled, detail: `mfaEnabled '${mfaEnabled}' is not allowed. Allowed: ${VALID_MFA.join(", ")}` });
         }
         if (dataClassification && !VALID_DATA_CLASSIFICATION.includes(dataClassification)) {
-            return res.status(400).json({ error: "dataClassification must be Public, General, Confidential, Restricted, or Unknown" });
+            return res.status(400).json({ error: "Validation failed", field: "dataClassification", rejectedValue: dataClassification, detail: `dataClassification '${dataClassification}' is not allowed. Allowed: ${VALID_DATA_CLASSIFICATION.join(", ")}` });
         }
         if (userCountBand && !VALID_USER_COUNT_BAND.includes(userCountBand)) {
-            return res.status(400).json({ error: "userCountBand must be 1_10, 11_30, 31_60, 61_plus, or Unknown" });
+            return res.status(400).json({ error: "Validation failed", field: "userCountBand", rejectedValue: userCountBand, detail: `userCountBand '${userCountBand}' is not allowed. Allowed: ${VALID_USER_COUNT_BAND.join(", ")}` });
         }
         if (notes && notes.length > MAX_NOTES_LENGTH) {
-            return res.status(400).json({ error: `notes must be ${MAX_NOTES_LENGTH} characters or less` });
+            return res.status(400).json({ error: "Validation failed", field: "notes", rejectedValue: notes, detail: `notes must be ${MAX_NOTES_LENGTH} characters or less (was ${notes.length} characters)` });
         }
         if (architectureType && !VALID_ARCHITECTURE_TYPES.includes(architectureType)) {
-            return res.status(400).json({ error: "Validation failed", detail: `architectureType '${architectureType}' is not allowed. Allowed: ${VALID_ARCHITECTURE_TYPES.join(", ")}` });
+            return res.status(400).json({ error: "Validation failed", field: "architectureType", rejectedValue: architectureType, detail: `architectureType '${architectureType}' is not allowed. Allowed: ${VALID_ARCHITECTURE_TYPES.join(", ")}` });
         }
 
         const existing = await query(
@@ -339,7 +339,7 @@ router.put("/:id", async (req, res) => {
             { capabilityId }
         );
         if (capabilityCheck.length === 0) {
-            return res.status(400).json({ error: "capabilityId does not exist" });
+            return res.status(400).json({ error: "Validation failed", field: "capabilityId", rejectedValue: capabilityId, detail: `capabilityId '${capabilityId}' does not exist` });
         }
 
         const updatedBy = getUpdatedBy(req.user);
@@ -547,7 +547,7 @@ router.patch("/:id", async (req, res) => {
 
         if (body.type !== undefined) {
             if (!VALID_TYPE.includes(body.type)) {
-                return res.status(400).json({ error: "type must be Standard, SaaS, or Custom" });
+                return res.status(400).json({ error: "Validation failed", field: "type", detail: `type '${body.type}' is not allowed. Allowed: ${VALID_TYPE.join(", ")}` });
             }
             setClauses.push("type = @type");
             params.type = body.type;
@@ -560,7 +560,7 @@ router.patch("/:id", async (req, res) => {
 
         if (body.architectureType !== undefined) {
             if (body.architectureType && !VALID_ARCHITECTURE_TYPES.includes(body.architectureType)) {
-                return res.status(400).json({ error: "Validation failed", detail: `architectureType '${body.architectureType}' is not allowed. Allowed: ${VALID_ARCHITECTURE_TYPES.join(", ")}` });
+                return res.status(400).json({ error: "Validation failed", field: "architectureType", detail: `architectureType '${body.architectureType}' is not allowed. Allowed: ${VALID_ARCHITECTURE_TYPES.join(", ")}` });
             }
             setClauses.push("architectureType = @architectureType");
             params.architectureType = body.architectureType || null;
@@ -653,7 +653,7 @@ router.patch("/:id", async (req, res) => {
 
         if (body.dataClassification !== undefined) {
             if (!VALID_DATA_CLASSIFICATION.includes(body.dataClassification)) {
-                return res.status(400).json({ error: "dataClassification must be Public, General, Confidential, Restricted, or Unknown" });
+                return res.status(400).json({ error: "Validation failed", field: "dataClassification", detail: `dataClassification '${body.dataClassification}' is not allowed. Allowed: ${VALID_DATA_CLASSIFICATION.join(", ")}` });
             }
             setClauses.push("dataClassification = @dataClassification");
             params.dataClassification = body.dataClassification;
@@ -661,7 +661,7 @@ router.patch("/:id", async (req, res) => {
 
         if (body.userCountBand !== undefined) {
             if (!VALID_USER_COUNT_BAND.includes(body.userCountBand)) {
-                return res.status(400).json({ error: "userCountBand must be 1_10, 11_30, 31_60, 61_plus, or Unknown" });
+                return res.status(400).json({ error: "Validation failed", field: "userCountBand", detail: `userCountBand '${body.userCountBand}' is not allowed. Allowed: ${VALID_USER_COUNT_BAND.join(", ")}` });
             }
             setClauses.push("userCountBand = @userCountBand");
             params.userCountBand = body.userCountBand;

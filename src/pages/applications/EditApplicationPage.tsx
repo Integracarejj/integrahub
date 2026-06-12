@@ -211,7 +211,7 @@ export default function EditApplicationPage() {
             const data = await res.json();
 
             if (!res.ok) {
-                setError(data.error || "Failed to update application");
+                setError(data.detail || data.error || "Failed to update application");
                 return;
             }
 
@@ -302,9 +302,15 @@ export default function EditApplicationPage() {
                                 disabled={submitting}
                             >
                                 <option value="">Select type</option>
-                                <option value="Standard">Standard</option>
-                                <option value="Platform">Platform</option>
-                                <option value="SaaS">SaaS</option>
+                                {(() => {
+                                    const options = ["Standard", "Platform", "SaaS", "Internal Application", "External Vendor", "Unknown"];
+                                    if (form.type && !options.includes(form.type)) {
+                                        options.push(form.type);
+                                    }
+                                    return options.map((t) => (
+                                        <option key={t} value={t}>{t}</option>
+                                    ));
+                                })()}
                             </select>
                         </div>
 
@@ -317,9 +323,15 @@ export default function EditApplicationPage() {
                                 disabled={submitting}
                             >
                                 <option value="">Select category</option>
-                                {SYSTEM_CATEGORIES.map((cat) => (
-                                    <option key={cat} value={cat}>{cat}</option>
-                                ))}
+                                {(() => {
+                                    const options = [...SYSTEM_CATEGORIES];
+                                    if (form.systemCategory && !SYSTEM_CATEGORIES.includes(form.systemCategory)) {
+                                        options.push(form.systemCategory);
+                                    }
+                                    return options.map((cat) => (
+                                        <option key={cat} value={cat}>{cat}</option>
+                                    ));
+                                })()}
                             </select>
                         </div>
 
@@ -697,11 +709,15 @@ export default function EditApplicationPage() {
                                 disabled={submitting}
                             >
                                 <option value="">Select</option>
-                                <option value="Public">Public</option>
-                                <option value="General">General</option>
-                                <option value="Confidential">Confidential</option>
-                                <option value="Restricted">Restricted</option>
-                                <option value="Unknown">Unknown</option>
+                                {(() => {
+                                    const options = ["Public", "General", "Confidential", "Restricted", "Public / Confidential", "Internal", "Unknown"];
+                                    if (form.dataClassification && !options.includes(form.dataClassification)) {
+                                        options.push(form.dataClassification);
+                                    }
+                                    return options.map((t) => (
+                                        <option key={t} value={t}>{t}</option>
+                                    ));
+                                })()}
                             </select>
                         </div>
 
@@ -714,11 +730,19 @@ export default function EditApplicationPage() {
                                 disabled={submitting}
                             >
                                 <option value="">Select</option>
-                                <option value="1_10">1-10</option>
-                                <option value="11_30">11-30</option>
-                                <option value="31_60">31-60</option>
-                                <option value="61_plus">61+</option>
-                                <option value="Unknown">Unknown</option>
+                                {(() => {
+                                    const options = ["1_10", "11_30", "31_60", "61_plus", "Unknown", "External", "11-50", "51-100", "101-500", "500+"];
+                                    if (form.userCountBand && !options.includes(form.userCountBand)) {
+                                        options.push(form.userCountBand);
+                                    }
+                                    const labelMap: Record<string, string> = {
+                                        "1_10": "1-10", "11_30": "11-30", "31_60": "31-60",
+                                        "61_plus": "61+", "Unknown": "Unknown",
+                                    };
+                                    return options.map((t) => (
+                                        <option key={t} value={t}>{labelMap[t] || t}</option>
+                                    ));
+                                })()}
                             </select>
                         </div>
                     </div>
