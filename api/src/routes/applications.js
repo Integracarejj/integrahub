@@ -21,10 +21,10 @@ const MAX_NOTES_LENGTH = 1000;
 
 function normalizeDate(d) {
     if (!d) return "";
-    const ds = String(d);
-    if (ds.startsWith("1900") || ds.startsWith("0001")) return "";
-    const dt = new Date(ds);
+    const dt = new Date(d);
     if (isNaN(dt.getTime())) return "";
+    const y = dt.getFullYear();
+    if (y <= 1900 || y === 1) return "";
     return dt.toISOString().split("T")[0];
 }
 
@@ -116,7 +116,7 @@ router.post("/", async (req, res) => {
             return res.status(400).json({ error: `notes must be ${MAX_NOTES_LENGTH} characters or less` });
         }
         if (architectureType && !VALID_ARCHITECTURE_TYPES.includes(architectureType)) {
-            return res.status(400).json({ error: `architectureType must be one of: ${VALID_ARCHITECTURE_TYPES.join(", ")}` });
+            return res.status(400).json({ error: "Validation failed", detail: `architectureType '${architectureType}' is not allowed. Allowed: ${VALID_ARCHITECTURE_TYPES.join(", ")}` });
         }
 
         const normalizedName = normalizeName(name);
@@ -313,7 +313,7 @@ router.put("/:id", async (req, res) => {
             return res.status(400).json({ error: `notes must be ${MAX_NOTES_LENGTH} characters or less` });
         }
         if (architectureType && !VALID_ARCHITECTURE_TYPES.includes(architectureType)) {
-            return res.status(400).json({ error: `architectureType must be one of: ${VALID_ARCHITECTURE_TYPES.join(", ")}` });
+            return res.status(400).json({ error: "Validation failed", detail: `architectureType '${architectureType}' is not allowed. Allowed: ${VALID_ARCHITECTURE_TYPES.join(", ")}` });
         }
 
         const existing = await query(
@@ -560,7 +560,7 @@ router.patch("/:id", async (req, res) => {
 
         if (body.architectureType !== undefined) {
             if (body.architectureType && !VALID_ARCHITECTURE_TYPES.includes(body.architectureType)) {
-                return res.status(400).json({ error: `architectureType must be one of: ${VALID_ARCHITECTURE_TYPES.join(", ")}` });
+                return res.status(400).json({ error: "Validation failed", detail: `architectureType '${body.architectureType}' is not allowed. Allowed: ${VALID_ARCHITECTURE_TYPES.join(", ")}` });
             }
             setClauses.push("architectureType = @architectureType");
             params.architectureType = body.architectureType || null;
