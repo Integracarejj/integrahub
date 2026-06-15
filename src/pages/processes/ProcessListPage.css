@@ -123,3 +123,11 @@
     font-weight: 500;
     color: #6366f1;
 }
+
+.process-card-owner {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 500;
+    color: #6b7280;
+    margin-top: 8px;
+}

@@ -771,6 +771,114 @@
     margin: 0;
 }
 
+/* ─── Meta Chips ─── */
+
+.pv-meta-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.pv-meta-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #374151;
+}
+
+.pv-meta-chip-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.pv-meta-chip-value {
+    font-weight: 600;
+    color: #1f2937;
+}
+
+/* Risk levels */
+.pv-risk-low {
+    border-color: #d1d5db;
+    background: #f9fafb;
+}
+
+.pv-risk-medium {
+    border-color: #fde68a;
+    background: #fffbeb;
+}
+
+.pv-risk-high {
+    border-color: #fdba74;
+    background: #fff7ed;
+}
+
+.pv-risk-critical {
+    border-color: #fca5a5;
+    background: #fef2f2;
+}
+
+.pv-risk-critical .pv-meta-chip-value {
+    color: #dc2626;
+}
+
+/* Effort levels */
+.pv-effort-low {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+}
+
+.pv-effort-low .pv-meta-chip-value {
+    color: #16a34a;
+}
+
+.pv-effort-medium {
+    border-color: #fde68a;
+    background: #fffbeb;
+}
+
+.pv-effort-high {
+    border-color: #fdba74;
+    background: #fff7ed;
+}
+
+.pv-effort-high .pv-meta-chip-value {
+    color: #c2410c;
+}
+
+/* Automation Potential levels */
+.pv-auto-low {
+    border-color: #fde68a;
+    background: #fffbeb;
+}
+
+.pv-auto-medium {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+}
+
+.pv-auto-medium .pv-meta-chip-value {
+    color: #16a34a;
+}
+
+.pv-auto-high {
+    border-color: #a5f3fc;
+    background: #ecfeff;
+}
+
+.pv-auto-high .pv-meta-chip-value {
+    color: #0891b2;
+}
+
 /* ─── Responsive ─── */
 
 @media (max-width: 1024px) {

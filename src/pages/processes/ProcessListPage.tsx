@@ -63,6 +63,9 @@ export default function ProcessListPage() {
                                 {p.description && (
                                     <p className="process-card-desc">{p.description}</p>
                                 )}
+                                {p.processOwner && (
+                                    <span className="process-card-owner">Owner: {p.processOwner}</span>
+                                )}
                             </div>
                             <div className="process-card-footer">
                                 <span className="process-card-link">View Process</span>

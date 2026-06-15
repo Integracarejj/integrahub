@@ -3,6 +3,10 @@ export interface BusinessProcess {
     processName: string;
     processCategory: string | null;
     description: string | null;
+    processOwner?: string | null;
+    businessRisk?: string | null;
+    manualEffort?: string | null;
+    automationPotential?: string | null;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;

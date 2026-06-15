@@ -11,7 +11,7 @@ const router = Router();
 router.get("/", async (_req, res, next) => {
     try {
         const rows = await query(`
-            SELECT id, processName, processCategory, description, isActive, createdAt, updatedAt
+            SELECT id, processName, processCategory, description, processOwner, businessRisk, manualEffort, automationPotential, isActive, createdAt, updatedAt
             FROM cmdb.BusinessProcesses
             WHERE isActive = 1
             ORDER BY processName
@@ -42,7 +42,7 @@ router.get("/by-application/:applicationId", async (req, res, next) => {
 router.get("/:id", async (req, res, next) => {
     try {
         const processes = await query(`
-            SELECT id, processName, processCategory, description, isActive, createdAt, updatedAt
+            SELECT id, processName, processCategory, description, processOwner, businessRisk, manualEffort, automationPotential, isActive, createdAt, updatedAt
             FROM cmdb.BusinessProcesses
             WHERE id = @id
         `, { id: req.params.id });
@@ -141,25 +141,29 @@ router.post("/", async (req, res, next) => {
     if (!isPlatformAdmin(req.user)) return forbidden(res);
 
     try {
-        const { processName, processCategory, description } = req.body;
+        const { processName, processCategory, description, processOwner, businessRisk, manualEffort, automationPotential } = req.body;
         if (!processName || !processName.trim()) {
             return res.status(400).json({ error: "processName is required" });
         }
 
         const result = await query(`
-            INSERT INTO cmdb.BusinessProcesses (processName, processCategory, description, isActive, createdAt, updatedAt)
+            INSERT INTO cmdb.BusinessProcesses (processName, processCategory, description, processOwner, businessRisk, manualEffort, automationPotential, isActive, createdAt, updatedAt)
             OUTPUT INSERTED.id
-            VALUES (@processName, @processCategory, @description, 1, GETDATE(), GETDATE())
+            VALUES (@processName, @processCategory, @description, @processOwner, @businessRisk, @manualEffort, @automationPotential, 1, GETDATE(), GETDATE())
         `, {
             processName: processName.trim(),
             processCategory: processCategory?.trim() || null,
             description: description?.trim() || null,
+            processOwner: processOwner?.trim() || null,
+            businessRisk: businessRisk?.trim() || null,
+            manualEffort: manualEffort?.trim() || null,
+            automationPotential: automationPotential?.trim() || null,
         });
 
         const newId = result[0].id;
 
         const rows = await query(`
-            SELECT id, processName, processCategory, description, isActive, createdAt, updatedAt
+            SELECT id, processName, processCategory, description, processOwner, businessRisk, manualEffort, automationPotential, isActive, createdAt, updatedAt
             FROM cmdb.BusinessProcesses
             WHERE id = @id
         `, { id: newId });
@@ -175,13 +179,17 @@ router.put("/:id", async (req, res, next) => {
     if (!isPlatformAdmin(req.user)) return forbidden(res);
 
     try {
-        const { processName, processCategory, description } = req.body;
+        const { processName, processCategory, description, processOwner, businessRisk, manualEffort, automationPotential } = req.body;
 
         await query(`
             UPDATE cmdb.BusinessProcesses
             SET processName = @processName,
                 processCategory = @processCategory,
                 description = @description,
+                processOwner = @processOwner,
+                businessRisk = @businessRisk,
+                manualEffort = @manualEffort,
+                automationPotential = @automationPotential,
                 updatedAt = GETDATE()
             WHERE id = @id
         `, {
@@ -189,10 +197,14 @@ router.put("/:id", async (req, res, next) => {
             processName: processName?.trim() || "",
             processCategory: processCategory?.trim() || null,
             description: description?.trim() || null,
+            processOwner: processOwner?.trim() || null,
+            businessRisk: businessRisk?.trim() || null,
+            manualEffort: manualEffort?.trim() || null,
+            automationPotential: automationPotential?.trim() || null,
         });
 
         const rows = await query(`
-            SELECT id, processName, processCategory, description, isActive, createdAt, updatedAt
+            SELECT id, processName, processCategory, description, processOwner, businessRisk, manualEffort, automationPotential, isActive, createdAt, updatedAt
             FROM cmdb.BusinessProcesses
             WHERE id = @id
         `, { id: req.params.id });

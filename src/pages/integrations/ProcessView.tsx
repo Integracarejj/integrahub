@@ -121,6 +121,32 @@ export default function ProcessView() {
                                     <h2 className="pv-name">{detail.processName}</h2>
                                     {detail.processCategory && <span className="pv-category">{detail.processCategory}</span>}
                                     {detail.description && <p className="pv-description">{detail.description}</p>}
+                                    <div className="pv-meta-chips">
+                                        {detail.processOwner && (
+                                            <span className="pv-meta-chip">
+                                                <span className="pv-meta-chip-label">Owner</span>
+                                                <span className="pv-meta-chip-value">{detail.processOwner}</span>
+                                            </span>
+                                        )}
+                                        {detail.businessRisk && (
+                                            <span className={`pv-meta-chip pv-risk-${detail.businessRisk.toLowerCase()}`}>
+                                                <span className="pv-meta-chip-label">Risk</span>
+                                                <span className="pv-meta-chip-value">{detail.businessRisk}</span>
+                                            </span>
+                                        )}
+                                        {detail.manualEffort && (
+                                            <span className={`pv-meta-chip pv-effort-${detail.manualEffort.toLowerCase()}`}>
+                                                <span className="pv-meta-chip-label">Manual Effort</span>
+                                                <span className="pv-meta-chip-value">{detail.manualEffort}</span>
+                                            </span>
+                                        )}
+                                        {detail.automationPotential && (
+                                            <span className={`pv-meta-chip pv-auto-${detail.automationPotential.toLowerCase()}`}>
+                                                <span className="pv-meta-chip-label">Auto Potential</span>
+                                                <span className="pv-meta-chip-value">{detail.automationPotential}</span>
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
