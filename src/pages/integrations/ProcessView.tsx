@@ -128,12 +128,6 @@ export default function ProcessView() {
                                                 <span className="pv-meta-chip-value">{detail.processOwner}</span>
                                             </span>
                                         )}
-                                        {detail.businessRisk && (
-                                            <span className={`pv-meta-chip pv-risk-${detail.businessRisk.toLowerCase()}`}>
-                                                <span className="pv-meta-chip-label">Risk</span>
-                                                <span className="pv-meta-chip-value">{detail.businessRisk}</span>
-                                            </span>
-                                        )}
                                         {detail.manualEffort && (
                                             <span className={`pv-meta-chip pv-effort-${detail.manualEffort.toLowerCase()}`}>
                                                 <span className="pv-meta-chip-label">Manual Effort</span>

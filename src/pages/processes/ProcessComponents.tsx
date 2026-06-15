@@ -168,6 +168,15 @@ function splitDelimited(value: string | null): string[] {
     return parts.length > 1 ? parts : [];
 }
 
+function toLineList(value: string | null): string[] {
+    if (!value) return [];
+    return value
+        .split(/\r?\n/)
+        .flatMap(line => line.split(/\s{2,}/))
+        .map(s => s.trim())
+        .filter(Boolean);
+}
+
 export function ProcessDrawerSystemCard({ system }: { system: BusinessProcessStepSystem }) {
     return (
         <div className="pv-drawer-system">
@@ -251,8 +260,8 @@ export function ProcessStageDrawer({ stage, onClose }: { stage: BusinessProcessS
     const actor = getActorLabel(stage);
     const businessPurpose = stage.businessPurpose || stage.stepDescription;
     const keyActivityItems = splitDelimited(stage.keyActivities);
-    const manualActivityItems = splitDelimited(stage.manualActivities ?? null);
-    const automationOpportunityItems = splitDelimited(stage.automationOpportunities ?? null);
+    const manualActivityItems = toLineList(stage.manualActivities ?? null);
+    const automationOpportunityItems = toLineList(stage.automationOpportunities ?? null);
     const actorItems = splitDelimited(stage.primaryActors);
     const inputItems = splitDelimited(stage.inputs);
     const outputItems = splitDelimited(stage.outputs);
@@ -304,22 +313,14 @@ export function ProcessStageDrawer({ stage, onClose }: { stage: BusinessProcessS
                 )}
 
                 {stage.manualActivities && (
-                    <DrawerSection title="Manual Activities">
-                        {manualActivityItems.length > 0 ? (
-                            <DrawerBulletList items={manualActivityItems} />
-                        ) : (
-                            <p className="pv-drawer-text">{stage.manualActivities}</p>
-                        )}
+                    <DrawerSection title="Manual Activities" count={manualActivityItems.length}>
+                        <DrawerBulletList items={manualActivityItems} />
                     </DrawerSection>
                 )}
 
                 {stage.automationOpportunities && (
-                    <DrawerSection title="Automation Opportunities">
-                        {automationOpportunityItems.length > 0 ? (
-                            <DrawerBulletList items={automationOpportunityItems} />
-                        ) : (
-                            <p className="pv-drawer-text">{stage.automationOpportunities}</p>
-                        )}
+                    <DrawerSection title="Automation Opportunities" count={automationOpportunityItems.length}>
+                        <DrawerBulletList items={automationOpportunityItems} />
                     </DrawerSection>
                 )}
 
