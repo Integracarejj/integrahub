@@ -167,7 +167,7 @@ function computeKpis(communities: CommunityDisplay[]): KpiConfig[] {
 
 /* ─── Modal content helpers ─── */
 
-function KpiModalContent({ kpi, communities, snapshot }: { kpi: KpiConfig; communities: CommunityDisplay[]; snapshot: PerformanceMetricSnapshot | null; onClose: () => void }) {
+function KpiModalContent({ kpi, communities, snapshot, onClose }: { kpi: KpiConfig; communities: CommunityDisplay[]; snapshot: PerformanceMetricSnapshot | null; onClose: () => void }) {
     return (
         <div className="mcom-modal-overlay" onClick={onClose}>
             <div className="mcom-modal" onClick={e => e.stopPropagation()}>
