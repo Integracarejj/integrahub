@@ -27,13 +27,13 @@
 .mcom-header h1 {
     font-size: 24px;
     font-weight: 700;
-    color: #111827;
+    color: #0f172a;
     margin: 0 0 6px 0;
 }
 
 .mcom-subtitle {
     font-size: 14px;
-    color: #4b5563;
+    color: #475569;
     margin: 0 0 10px 0;
     line-height: 1.5;
 }
@@ -57,9 +57,9 @@
 .mcom-draft-banner {
     font-size: 12px;
     font-weight: 500;
-    color: #6b7280;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
+    color: #64748b;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
     border-radius: 6px;
     padding: 8px 14px;
     margin-bottom: 18px;
@@ -79,8 +79,8 @@
     width: 100%;
     text-align: left;
     background: #fff;
-    border: 1px solid #e5e7eb;
-    border-left: 3px solid #e5e7eb;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #e2e8f0;
     border-radius: 8px;
     padding: 14px 14px 10px;
     cursor: pointer;
@@ -91,7 +91,7 @@
 
 .mcom-kpi-card:hover {
     border-color: #cbd5e1;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
 }
 
 .mcom-kpi-card:focus-visible {
@@ -115,14 +115,14 @@
 .mcom-kpi-value {
     font-size: 24px;
     font-weight: 700;
-    color: #111827;
+    color: #0f172a;
     line-height: 1.2;
 }
 
 .mcom-kpi-status {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
-    padding: 2px 8px;
+    padding: 2px 10px;
     border-radius: 99px;
     white-space: nowrap;
 }
@@ -136,14 +136,14 @@
     display: block;
     font-size: 13px;
     font-weight: 600;
-    color: #374151;
-    margin-top: 2px;
+    color: #334155;
+    margin-top: 3px;
 }
 
 .mcom-kpi-subtext {
     display: block;
     font-size: 12px;
-    color: #4b5563;
+    color: #475569;
     margin-top: 3px;
 }
 
@@ -181,13 +181,13 @@
 .mcom-section-title {
     font-size: 16px;
     font-weight: 600;
-    color: #111827;
+    color: #0f172a;
     margin: 0 0 6px 0;
 }
 
 .mcom-section-helper {
     font-size: 13px;
-    color: #4b5563;
+    color: #475569;
     margin: 0 0 12px 0;
     line-height: 1.5;
 }
@@ -217,7 +217,7 @@
 }
 
 .mcom-bar-row:hover {
-    background: #f9fafb;
+    background: #f8fafc;
 }
 
 .mcom-bar-row:focus-visible {
@@ -229,14 +229,14 @@
     width: 180px;
     font-size: 13px;
     font-weight: 500;
-    color: #374151;
+    color: #334155;
     flex-shrink: 0;
 }
 
 .mcom-bar-track {
     flex: 1;
     height: 16px;
-    background: #f3f4f6;
+    background: #f1f5f9;
     border-radius: 8px;
     overflow: hidden;
 }
@@ -255,7 +255,7 @@
     width: 24px;
     font-size: 14px;
     font-weight: 700;
-    color: #111827;
+    color: #0f172a;
     text-align: right;
     flex-shrink: 0;
 }
@@ -288,7 +288,7 @@
     gap: 5px;
     font-size: 11px;
     font-weight: 500;
-    color: #6b7280;
+    color: #64748b;
 }
 
 .mcom-legend-dot {
@@ -344,16 +344,16 @@
 }
 
 .mcom-snapshot-card {
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
     border-radius: 8px;
     padding: 12px 14px;
 }
 
 .mcom-snapshot-title {
     font-size: 12px;
-    font-weight: 600;
-    color: #374151;
+    font-weight: 700;
+    color: #334155;
     margin: 0 0 5px 0;
     text-transform: uppercase;
     letter-spacing: 0.3px;
@@ -367,7 +367,7 @@
 
 .mcom-snapshot-list li {
     font-size: 13px;
-    color: #4b5563;
+    color: #334155;
     line-height: 1.7;
     padding-left: 10px;
     position: relative;
@@ -390,7 +390,7 @@
 
 .mcom-focus-card {
     background: #fff;
-    border: 1px solid #e5e7eb;
+    border: 1px solid #e2e8f0;
     border-radius: 8px;
     padding: 14px;
 }
@@ -398,22 +398,28 @@
 .mcom-focus-title {
     font-size: 14px;
     font-weight: 600;
-    color: #111827;
+    color: #0f172a;
     margin: 0 0 6px 0;
 }
 
 .mcom-focus-text {
     font-size: 12px;
-    color: #4b5563;
-    margin: 0 0 2px 0;
+    color: #475569;
+    margin: 0 0 3px 0;
     line-height: 1.5;
 }
 
 .mcom-focus-label {
-    font-weight: 600;
-    color: #374151;
     display: inline-block;
-    min-width: 80px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    background: #64748b;
+    padding: 1px 7px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-right: 4px;
 }
 
 /* ─── Related ─── */
@@ -428,7 +434,7 @@
 
 .mcom-related-text {
     font-size: 14px;
-    color: #4b5563;
+    color: #475569;
     margin: 6px 0 0 0;
 }
 
@@ -437,7 +443,7 @@
 .mcom-modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(15, 23, 42, 0.3);
     z-index: 100;
     display: flex;
     align-items: center;
@@ -458,7 +464,7 @@
     max-height: calc(100vh - 60px);
     overflow-y: auto;
     padding: 24px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.15);
     animation: mcom-slide-up 0.15s ease;
 }
 
@@ -481,7 +487,7 @@
 .mcom-modal-title {
     font-size: 18px;
     font-weight: 700;
-    color: #111827;
+    color: #0f172a;
     margin: 0;
 }
 
@@ -494,29 +500,29 @@
     border: none;
     border-radius: 4px;
     background: transparent;
-    color: #6b7280;
+    color: #64748b;
     font-size: 20px;
     cursor: pointer;
     transition: background 0.1s;
 }
 
 .mcom-modal-close:hover {
-    background: #f3f4f6;
-    color: #1f2937;
+    background: #f1f5f9;
+    color: #0f172a;
 }
 
 .mcom-modal-desc {
     font-size: 14px;
-    color: #4b5563;
+    color: #334155;
     margin: 0 0 8px 0;
-    line-height: 1.6;
+    line-height: 1.7;
 }
 
 .mcom-modal-draft {
     font-size: 11px;
     font-weight: 500;
-    color: #9ca3af;
-    margin: 0 0 14px 0;
+    color: #94a3b8;
+    margin: 0 0 16px 0;
 }
 
 .mcom-modal-table-wrap {
@@ -532,23 +538,23 @@
 .mcom-modal-table th {
     text-align: left;
     font-size: 11px;
-    font-weight: 600;
-    color: #6b7280;
+    font-weight: 700;
+    color: #475569;
     text-transform: uppercase;
     letter-spacing: 0.3px;
-    padding: 8px 10px;
-    border-bottom: 1px solid #e5e7eb;
+    padding: 10px 10px;
+    border-bottom: 1px solid #e2e8f0;
     white-space: nowrap;
 }
 
 .mcom-modal-table td {
-    padding: 8px 10px;
-    border-bottom: 1px solid #f3f4f6;
-    color: #374151;
+    padding: 9px 10px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
 }
 
 .mcom-modal-table tbody tr:hover {
-    background: #f9fafb;
+    background: #f8fafc;
 }
 
 .mcom-table-sev {
@@ -562,7 +568,7 @@
 .mcom-table-sev.sev-watch { color: #a16207; background: #fefce8; }
 
 .mcom-table-zero {
-    color: #9ca3af;
+    color: #94a3b8;
 }
 
 /* ─── Community Detail ─── */
@@ -578,7 +584,7 @@
     align-items: center;
     gap: 10px;
     padding: 8px 10px;
-    background: #f9fafb;
+    background: #f8fafc;
     border-radius: 6px;
 }
 
@@ -586,13 +592,13 @@
     flex: 1;
     font-size: 13px;
     font-weight: 500;
-    color: #6b7280;
+    color: #64748b;
 }
 
 .mcom-detail-value {
     font-size: 14px;
     font-weight: 700;
-    color: #111827;
+    color: #0f172a;
 }
 
 /* ─── Responsive ─── */

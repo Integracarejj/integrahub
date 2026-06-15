@@ -6,6 +6,7 @@ interface DomainCard {
     description: string;
     sourceSystems: string[];
     status: "Future" | "Planned";
+    accent: string;
     route?: string;
 }
 
@@ -16,6 +17,7 @@ const domains: DomainCard[] = [
             "Track facilities, work orders, room readiness, preventive maintenance, and regulatory compliance.",
         sourceSystems: ["TELS"],
         status: "Planned",
+        accent: "orange",
         route: "/performance/maintenance-compliance",
     },
     {
@@ -24,6 +26,7 @@ const domains: DomainCard[] = [
             "Track leads, inquiries, tours, move-ins, occupancy, and conversion performance.",
         sourceSystems: ["WelcomeHome", "APFM", "ECP", "Power BI"],
         status: "Future",
+        accent: "blue",
     },
     {
         title: "Workforce",
@@ -31,6 +34,7 @@ const domains: DomainCard[] = [
             "Track hiring, onboarding, training, engagement, scheduling, and retention.",
         sourceSystems: ["Paycor", "TalentLMS", "Bonusly", "OnShift", "Azure AD"],
         status: "Future",
+        accent: "purple",
     },
     {
         title: "Resident Care",
@@ -38,6 +42,7 @@ const domains: DomainCard[] = [
             "Track care delivery, wellness, service requests, incidents, and resident support workflows.",
         sourceSystems: ["ECP", "PointClickCare", "TELS"],
         status: "Future",
+        accent: "green",
     },
     {
         title: "Financial Performance",
@@ -45,6 +50,7 @@ const domains: DomainCard[] = [
             "Track billing, AP, revenue cycle, budget activity, and financial workflow performance.",
         sourceSystems: ["Acumatica", "Power BI"],
         status: "Future",
+        accent: "teal",
     },
 ];
 
@@ -60,7 +66,8 @@ export default function PerformancePage() {
 
             <div className="perf-grid">
                 {domains.map(d => (
-                    <div key={d.title} className="perf-card">
+                    <div key={d.title} className={`perf-card perf-card-${d.accent}`}>
+                        <div className="perf-card-accent" />
                         <div className="perf-card-body">
                             <div className="perf-card-top">
                                 <h2 className="perf-card-title">{d.title}</h2>
