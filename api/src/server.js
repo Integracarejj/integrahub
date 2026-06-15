@@ -12,6 +12,7 @@ import adminUsersRouter from "./routes/adminUsers.js";
 import adminApplicationsRouter from "./routes/adminApplications.js";
 import dashboardRouter from "./routes/dashboard.js";
 import departmentsRouter from "./routes/departments.js";
+import performanceMetricsRouter from "./routes/performanceMetrics.js";
 import { resolveCurrentUser } from "./middleware/resolveCurrentUser.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -66,6 +67,7 @@ app.use("/api/admin/applications", adminApplicationsRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/business-processes", businessProcessesRouter);
 app.use("/api/departments", departmentsRouter);
+app.use("/api/performance-metrics", performanceMetricsRouter);
 
 app.use((req, res, _next) => {
     if (req.path.startsWith("/health") || req.path.startsWith("/api")) return res.status(404).json({ error: "Not found" });
