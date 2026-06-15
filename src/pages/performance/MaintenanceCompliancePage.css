@@ -1,0 +1,231 @@
+.mcom-page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px;
+}
+
+.mcom-top-bar {
+    margin-bottom: 16px;
+}
+
+.mcom-back-link {
+    font-size: 14px;
+    font-weight: 500;
+    color: #6366f1;
+    text-decoration: none;
+}
+
+.mcom-back-link:hover {
+    text-decoration: underline;
+}
+
+.mcom-header {
+    margin-bottom: 28px;
+}
+
+.mcom-header h1 {
+    font-size: 26px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0 0 8px 0;
+}
+
+.mcom-subtitle {
+    font-size: 15px;
+    color: #6b7280;
+    margin: 0 0 12px 0;
+    line-height: 1.5;
+}
+
+.mcom-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.mcom-source-chip {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #4338ca;
+    background: #eef2ff;
+    padding: 4px 12px;
+    border-radius: 99px;
+}
+
+.mcom-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+}
+
+.mcom-kpi-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+}
+
+.mcom-kpi-value {
+    display: block;
+    font-size: 24px;
+    font-weight: 700;
+    color: #9ca3af;
+    line-height: 1.2;
+}
+
+.mcom-kpi-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+.mcom-kpi-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    color: #9ca3af;
+    background: #f3f4f6;
+    padding: 2px 8px;
+    border-radius: 99px;
+    margin-top: 8px;
+}
+
+.mcom-section {
+    margin-bottom: 32px;
+}
+
+.mcom-section-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0 0 4px 0;
+}
+
+.mcom-section-note {
+    font-size: 12px;
+    color: #9ca3af;
+    margin: 0 0 16px 0;
+}
+
+.mcom-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.mcom-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.mcom-bar-label {
+    width: 120px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    flex-shrink: 0;
+}
+
+.mcom-bar-track {
+    flex: 1;
+    height: 20px;
+    background: #f3f4f6;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.mcom-bar-fill {
+    height: 100%;
+    border-radius: 10px;
+    background: linear-gradient(90deg, #6366f1, #8b5cf6);
+    transition: width 0.3s ease;
+}
+
+.mcom-bar-value {
+    width: 40px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #6b7280;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.mcom-trend-placeholder {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 24px;
+}
+
+.mcom-trend-line {
+    height: 100px;
+}
+
+.mcom-trend-svg {
+    width: 100%;
+    height: 100%;
+}
+
+.mcom-focus-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+}
+
+.mcom-focus-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 18px;
+}
+
+.mcom-focus-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0 0 8px 0;
+}
+
+.mcom-focus-measures,
+.mcom-focus-examples {
+    font-size: 13px;
+    color: #6b7280;
+    margin: 0 0 4px 0;
+    line-height: 1.5;
+}
+
+.mcom-focus-measures strong,
+.mcom-focus-examples strong {
+    color: #374151;
+}
+
+.mcom-related {
+    padding-top: 8px;
+}
+
+.mcom-related-content {
+    margin-top: 8px;
+}
+
+.mcom-related-text {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 8px 0 0 0;
+}
+
+@media (max-width: 768px) {
+    .mcom-kpi-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .mcom-bar-label {
+        width: 90px;
+        font-size: 13px;
+    }
+}

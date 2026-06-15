@@ -50,6 +50,16 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 </NavLink>
 
                 <NavLink
+                    to="/performance"
+                    className={({ isActive }) =>
+                        isActive ? "sidebar-link active" : "sidebar-link"
+                    }
+                    onClick={handleNavClick}
+                >
+                    Performance
+                </NavLink>
+
+                <NavLink
                     to="/integrations"
                     className={({ isActive }) =>
                         isActive ? "sidebar-link active" : "sidebar-link"
