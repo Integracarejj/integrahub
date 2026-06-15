@@ -48,6 +48,8 @@ export interface BusinessProcessStep {
     stepDescription: string | null;
     businessPurpose: string | null;
     keyActivities: string | null;
+    manualActivities?: string | null;
+    automationOpportunities?: string | null;
     primaryActors: string | null;
     inputs: string | null;
     outputs: string | null;

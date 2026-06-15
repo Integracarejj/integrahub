@@ -251,6 +251,8 @@ export function ProcessStageDrawer({ stage, onClose }: { stage: BusinessProcessS
     const actor = getActorLabel(stage);
     const businessPurpose = stage.businessPurpose || stage.stepDescription;
     const keyActivityItems = splitDelimited(stage.keyActivities);
+    const manualActivityItems = splitDelimited(stage.manualActivities ?? null);
+    const automationOpportunityItems = splitDelimited(stage.automationOpportunities ?? null);
     const actorItems = splitDelimited(stage.primaryActors);
     const inputItems = splitDelimited(stage.inputs);
     const outputItems = splitDelimited(stage.outputs);
@@ -297,6 +299,26 @@ export function ProcessStageDrawer({ stage, onClose }: { stage: BusinessProcessS
                             <DrawerBulletList items={keyActivityItems} />
                         ) : (
                             <p className="pv-drawer-text">{stage.keyActivities}</p>
+                        )}
+                    </DrawerSection>
+                )}
+
+                {stage.manualActivities && (
+                    <DrawerSection title="Manual Activities">
+                        {manualActivityItems.length > 0 ? (
+                            <DrawerBulletList items={manualActivityItems} />
+                        ) : (
+                            <p className="pv-drawer-text">{stage.manualActivities}</p>
+                        )}
+                    </DrawerSection>
+                )}
+
+                {stage.automationOpportunities && (
+                    <DrawerSection title="Automation Opportunities">
+                        {automationOpportunityItems.length > 0 ? (
+                            <DrawerBulletList items={automationOpportunityItems} />
+                        ) : (
+                            <p className="pv-drawer-text">{stage.automationOpportunities}</p>
                         )}
                     </DrawerSection>
                 )}

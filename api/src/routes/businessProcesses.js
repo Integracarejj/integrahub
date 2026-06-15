@@ -59,6 +59,8 @@ router.get("/:id", async (req, res, next) => {
                 stepDescription AS stepDescription,
                 businessPurpose AS businessPurpose,
                 keyActivities AS keyActivities,
+                manualActivities AS manualActivities,
+                automationOpportunities AS automationOpportunities,
                 primaryActors AS primaryActors,
                 inputs AS inputs,
                 outputs AS outputs,
