@@ -801,7 +801,7 @@ export default function ApplicationDetailPage() {
                     ) : (
                         <div className="bp-list">
                             {bpProcesses.map(p => (
-                                <Link key={p.id} to="/integrations" className="bp-item">
+                                <Link key={p.id} to={`/processes/${p.id}`} className="bp-item">
                                     <span className="bp-item-name">{p.processName}</span>
                                     {p.processCategory && <span className="bp-item-category">{p.processCategory}</span>}
                                     {p.description && <span className="bp-item-desc">{p.description}</span>}

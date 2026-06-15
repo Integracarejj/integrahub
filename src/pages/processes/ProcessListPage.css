@@ -1,0 +1,125 @@
+.process-list-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 24px;
+}
+
+.process-list-header {
+    margin-bottom: 32px;
+}
+
+.process-list-header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0 0 8px 0;
+}
+
+.process-list-subtitle {
+    font-size: 15px;
+    color: #6b7280;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.process-list-loading,
+.process-list-error {
+    text-align: center;
+    padding: 64px 24px;
+    font-size: 15px;
+    color: #6b7280;
+}
+
+.process-list-error {
+    color: #dc2626;
+}
+
+.process-list-empty {
+    text-align: center;
+    padding: 64px 24px;
+}
+
+.process-list-empty h2 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0 0 8px 0;
+}
+
+.process-list-empty p {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0;
+    max-width: 480px;
+    line-height: 1.6;
+    margin: 0 auto;
+}
+
+.process-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 20px;
+}
+
+.process-card {
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 24px;
+    text-decoration: none;
+    color: inherit;
+    transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.process-card:hover {
+    border-color: #d1d5db;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.process-card-body {
+    flex: 1;
+}
+
+.process-card-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0 0 8px 0;
+    line-height: 1.3;
+}
+
+.process-card-category {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 500;
+    color: #6366f1;
+    background: #eef2ff;
+    padding: 3px 10px;
+    border-radius: 99px;
+    margin-bottom: 10px;
+}
+
+.process-card-desc {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.process-card-footer {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid #f3f4f6;
+}
+
+.process-card-link {
+    font-size: 14px;
+    font-weight: 500;
+    color: #6366f1;
+}

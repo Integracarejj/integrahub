@@ -19,6 +19,8 @@ import IntegrationsPage from "../pages/integrations/IntegrationsPage";
 import PlatformsPage from "../pages/platforms/PlatformsPage";
 import CapabilityViewPage from "../pages/explore/CapabilityViewPage";
 import DepartmentViewPage from "../pages/explore/DepartmentViewPage";
+import ProcessListPage from "../pages/processes/ProcessListPage";
+import ProcessDetailPage from "../pages/processes/ProcessDetailPage";
 
 function NoAccessScreen() {
     const [showRequest, setShowRequest] = useState(false);
@@ -105,6 +107,8 @@ function AuthAwareRouter() {
                 <Route path="/admin/application-import" element={<AdminApplicationImportPage />} />
                 <Route path="/admin/data-quality" element={<AdminDataQualityPage />} />
 
+                <Route path="/processes" element={<ProcessListPage />} />
+                <Route path="/processes/:id" element={<ProcessDetailPage />} />
                 <Route path="/integrations" element={<IntegrationsPage />} />
                 <Route path="/platforms" element={<PlatformsPage />} />
                 <Route path="/capability-view" element={<CapabilityViewPage />} />
