@@ -168,6 +168,17 @@ function computeKpis(communities: CommunityDisplay[]): KpiConfig[] {
 /* ─── Modal content helpers ─── */
 
 function KpiModalContent({ kpi, communities, snapshot, onClose }: { kpi: KpiConfig; communities: CommunityDisplay[]; snapshot: PerformanceMetricSnapshot | null; onClose: () => void }) {
+    const sorted = useMemo(() => {
+        const copy = [...communities];
+        const key = kpi.key;
+        if (key === "30day-wo") copy.sort((a, b) => b.days30Plus - a.days30Plus);
+        else if (key === "reg-overdue") copy.sort((a, b) => b.regulatoryOverdue - a.regulatoryOverdue);
+        else if (key === "pm-overdue") copy.sort((a, b) => b.pmOverdue - a.pmOverdue);
+        else if (key === "mobile-adoption") copy.sort((a, b) => b.mobilePct - a.mobilePct);
+        else if (key === "asset-tagging") copy.sort((a, b) => b.taggedPct - a.taggedPct);
+        return copy;
+    }, [communities, kpi.key]);
+
     return (
         <div className="mcom-modal-overlay" onClick={onClose}>
             <div className="mcom-modal" onClick={e => e.stopPropagation()}>
@@ -187,7 +198,7 @@ function KpiModalContent({ kpi, communities, snapshot, onClose }: { kpi: KpiConf
                             <tr>{kpiModalColumns(kpi.key).map(col => <th key={col}>{col}</th>)}</tr>
                         </thead>
                         <tbody>
-                            {communities.map(c => (
+                            {sorted.map(c => (
                                 <tr key={c.name}>
                                     {kpiModalCells(kpi.key, c).map((cell, i) => <td key={i}>{cell}</td>)}
                                 </tr>
@@ -205,15 +216,15 @@ function kpiModalColumns(key: string): string[] {
         case "open-wo":
             return ["Community", "Newly Opened", "Closed", "Total Open", "30+ Days Open"];
         case "30day-wo":
-            return ["Community", "30+ Days Open", "Total Open", "Attention Status"];
+            return ["Community", "30+ Day Open Work Orders"];
         case "reg-overdue":
-            return ["Community", "Regulatory Overdue", "Skipped", "Attention Status"];
+            return ["Community", "Regulatory Overdue"];
         case "pm-overdue":
-            return ["Community", "PM Overdue", "Skipped", "Attention Status"];
+            return ["Community", "PM Overdue"];
         case "mobile-adoption":
-            return ["Community", "Mobile Sign Ins", "Web Sign Ins", "Mobile %"];
+            return ["Community", "Mobile Sign Ins", "Web Sign Ins", "Adoption %"];
         case "asset-tagging":
-            return ["Community", "Tagged Assets", "Total Active", "Untagged", "Tagged %"];
+            return ["Community", "Tagged Assets", "Total Assets", "Tagging %"];
         default:
             return [];
     }
@@ -224,15 +235,15 @@ function kpiModalCells(key: string, c: CommunityDisplay): (string | number)[] {
         case "open-wo":
             return [c.name, c.newlyOpened, c.closed, c.totalOpen, c.days30Plus];
         case "30day-wo":
-            return [c.name, c.days30Plus, c.totalOpen, c.attentionStatus];
+            return [c.name, c.days30Plus];
         case "reg-overdue":
-            return [c.name, c.regulatoryOverdue, c.skipped, c.attentionStatus];
+            return [c.name, c.regulatoryOverdue];
         case "pm-overdue":
-            return [c.name, c.pmOverdue, c.skipped, c.attentionStatus];
+            return [c.name, c.pmOverdue];
         case "mobile-adoption":
             return [c.name, c.mobileSignIns, c.webSignIns, `${c.mobilePct}%`];
         case "asset-tagging":
-            return [c.name, c.taggedAssets, c.totalActiveAssets, c.untaggedAssets, `${c.taggedPct}%`];
+            return [c.name, c.taggedAssets, c.totalActiveAssets, `${c.taggedPct}%`];
         default:
             return [];
     }
