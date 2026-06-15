@@ -1,11 +1,12 @@
 .mcom-page {
     max-width: 1100px;
     margin: 0 auto;
-    padding: 32px 24px;
+    padding: 20px 24px;
+    background: #fff;
 }
 
 .mcom-top-bar {
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 }
 
 .mcom-back-link {
@@ -20,20 +21,20 @@
 }
 
 .mcom-header {
-    margin-bottom: 28px;
+    margin-bottom: 16px;
 }
 
 .mcom-header h1 {
-    font-size: 26px;
+    font-size: 24px;
     font-weight: 700;
     color: #111827;
-    margin: 0 0 8px 0;
+    margin: 0 0 6px 0;
 }
 
 .mcom-subtitle {
-    font-size: 15px;
+    font-size: 14px;
     color: #6b7280;
-    margin: 0 0 12px 0;
+    margin: 0 0 10px 0;
     line-height: 1.5;
 }
 
@@ -53,80 +54,81 @@
     border-radius: 99px;
 }
 
+.mcom-draft-banner {
+    font-size: 12px;
+    font-weight: 500;
+    color: #b45309;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 6px;
+    padding: 8px 14px;
+    margin-bottom: 20px;
+}
+
 .mcom-kpi-row {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 32px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 24px;
 }
 
 .mcom-kpi-card {
     background: #fff;
     border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    padding: 16px;
+    border-radius: 8px;
+    padding: 14px;
     text-align: center;
 }
 
 .mcom-kpi-value {
     display: block;
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 700;
-    color: #9ca3af;
+    color: #1f2937;
     line-height: 1.2;
 }
 
 .mcom-kpi-label {
     display: block;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
     color: #6b7280;
+    margin-top: 3px;
+}
+
+.mcom-kpi-subtext {
+    display: block;
+    font-size: 11px;
+    color: #9ca3af;
     margin-top: 4px;
 }
 
-.mcom-kpi-badge {
-    display: inline-block;
-    font-size: 10px;
-    font-weight: 600;
-    color: #9ca3af;
-    background: #f3f4f6;
-    padding: 2px 8px;
-    border-radius: 99px;
-    margin-top: 8px;
-}
-
 .mcom-section {
-    margin-bottom: 32px;
+    margin-bottom: 24px;
 }
 
 .mcom-section-title {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
     color: #111827;
-    margin: 0 0 4px 0;
-}
-
-.mcom-section-note {
-    font-size: 12px;
-    color: #9ca3af;
-    margin: 0 0 16px 0;
+    margin: 0 0 10px 0;
 }
 
 .mcom-bars {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
 
 .mcom-bar-row {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
 }
 
 .mcom-bar-label {
-    width: 120px;
-    font-size: 14px;
+    width: 200px;
+    font-size: 13px;
     font-weight: 500;
     color: #374151;
     flex-shrink: 0;
@@ -134,98 +136,134 @@
 
 .mcom-bar-track {
     flex: 1;
-    height: 20px;
+    height: 18px;
     background: #f3f4f6;
-    border-radius: 10px;
+    border-radius: 9px;
     overflow: hidden;
 }
 
 .mcom-bar-fill {
     height: 100%;
-    border-radius: 10px;
-    background: linear-gradient(90deg, #6366f1, #8b5cf6);
+    border-radius: 9px;
+    background: linear-gradient(90deg, #f59e0b, #ef4444);
     transition: width 0.3s ease;
 }
 
 .mcom-bar-value {
-    width: 40px;
+    width: 28px;
     font-size: 13px;
-    font-weight: 600;
-    color: #6b7280;
+    font-weight: 700;
+    color: #1f2937;
     text-align: right;
     flex-shrink: 0;
 }
 
-.mcom-trend-placeholder {
-    background: #fff;
+.mcom-snapshot-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+
+.mcom-snapshot-card {
+    background: #f9fafb;
     border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    padding: 24px;
+    border-radius: 8px;
+    padding: 12px 14px;
 }
 
-.mcom-trend-line {
-    height: 100px;
+.mcom-snapshot-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    margin: 0 0 6px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
 }
 
-.mcom-trend-svg {
-    width: 100%;
-    height: 100%;
+.mcom-snapshot-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.mcom-snapshot-list li {
+    font-size: 13px;
+    color: #6b7280;
+    line-height: 1.6;
+    padding-left: 10px;
+    position: relative;
+}
+
+.mcom-snapshot-list li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: #6366f1;
 }
 
 .mcom-focus-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 10px;
 }
 
 .mcom-focus-card {
     background: #fff;
     border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    padding: 18px;
+    border-radius: 8px;
+    padding: 14px;
 }
 
 .mcom-focus-title {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
     color: #111827;
-    margin: 0 0 8px 0;
+    margin: 0 0 6px 0;
 }
 
-.mcom-focus-measures,
-.mcom-focus-examples {
-    font-size: 13px;
+.mcom-focus-text {
+    font-size: 12px;
     color: #6b7280;
-    margin: 0 0 4px 0;
+    margin: 0 0 3px 0;
     line-height: 1.5;
 }
 
-.mcom-focus-measures strong,
-.mcom-focus-examples strong {
+.mcom-focus-text strong {
     color: #374151;
 }
 
 .mcom-related {
-    padding-top: 8px;
+    padding-top: 4px;
 }
 
 .mcom-related-content {
-    margin-top: 8px;
+    margin-top: 6px;
 }
 
 .mcom-related-text {
     font-size: 14px;
     color: #6b7280;
-    margin: 8px 0 0 0;
+    margin: 6px 0 0 0;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
     .mcom-kpi-row {
         grid-template-columns: repeat(2, 1fr);
     }
+    .mcom-snapshot-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
 
+@media (max-width: 640px) {
+    .mcom-kpi-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
     .mcom-bar-label {
-        width: 90px;
-        font-size: 13px;
+        width: 130px;
+        font-size: 12px;
+    }
+    .mcom-snapshot-grid {
+        grid-template-columns: 1fr;
     }
 }

@@ -2,18 +2,64 @@ import { Link } from "react-router-dom";
 import "./MaintenanceCompliancePage.css";
 
 const kpis = [
-    { label: "Compliance Score", value: "—" },
-    { label: "Open Work Orders", value: "—" },
-    { label: "30+ Day Work Orders", value: "—" },
-    { label: "Room Readiness", value: "—" },
+    {
+        label: "Open Work Orders",
+        value: "46",
+        subtext: "155 opened / 153 closed",
+    },
+    {
+        label: "30+ Day Work Orders",
+        value: "20",
+        subtext: "Aging backlog",
+    },
+    {
+        label: "Regulatory Overdue",
+        value: "59",
+        subtext: "Compliance tasks overdue",
+    },
+    {
+        label: "PM Overdue",
+        value: "48",
+        subtext: "Preventive maintenance overdue",
+    },
+    {
+        label: "Mobile Adoption",
+        value: "64%",
+        subtext: "207 mobile / 115 web",
+    },
+    {
+        label: "Asset Tagging",
+        value: "98%",
+        subtext: "4,050 of 4,122 active assets tagged",
+    },
 ];
 
 const communities = [
-    { name: "Clearview", value: 82 },
-    { name: "Maple Ridge", value: 67 },
-    { name: "Riverbend", value: 54 },
-    { name: "Lakeside", value: 43 },
+    { name: "Exton Senior Living", issues: 90 },
+    { name: "Glen Mills Senior Living", issues: 48 },
+    { name: "Chestnut Ridge Retirement Living", issues: 7 },
 ];
+
+const snapshotItems = [
+    {
+        title: "Work Order Movement",
+        lines: ["155 opened", "153 closed"],
+    },
+    {
+        title: "Compliance Pressure",
+        lines: ["59 regulatory overdue", "48 PM overdue"],
+    },
+    {
+        title: "Adoption",
+        lines: ["64% mobile sign-in rate"],
+    },
+    {
+        title: "Asset Readiness",
+        lines: ["98% tagged"],
+    },
+];
+
+const maxIssues = Math.max(...communities.map(c => c.issues));
 
 const focusAreas = [
     {
@@ -62,46 +108,51 @@ export default function MaintenanceCompliancePage() {
                 </div>
             </header>
 
+            <div className="mcom-draft-banner">
+                Draft data from TELS scorecard &middot; Week of 6/7/2026–6/13/2026 &middot; Not live feed
+            </div>
+
             <div className="mcom-kpi-row">
                 {kpis.map(k => (
                     <div key={k.label} className="mcom-kpi-card">
                         <span className="mcom-kpi-value">{k.value}</span>
                         <span className="mcom-kpi-label">{k.label}</span>
-                        <span className="mcom-kpi-badge">Coming soon</span>
+                        <span className="mcom-kpi-subtext">{k.subtext}</span>
                     </div>
                 ))}
             </div>
 
             <section className="mcom-section">
                 <h2 className="mcom-section-title">Communities Requiring Attention</h2>
-                <p className="mcom-section-note">Sample visualization only — pending TELS data feed.</p>
                 <div className="mcom-bars">
                     {communities.map(c => (
                         <div key={c.name} className="mcom-bar-row">
                             <span className="mcom-bar-label">{c.name}</span>
                             <div className="mcom-bar-track">
-                                <div className="mcom-bar-fill" style={{ width: `${c.value}%` }} />
+                                <div
+                                    className="mcom-bar-fill"
+                                    style={{ width: `${(c.issues / maxIssues) * 100}%` }}
+                                />
                             </div>
-                            <span className="mcom-bar-value">{c.value}%</span>
+                            <span className="mcom-bar-value">{c.issues}</span>
                         </div>
                     ))}
                 </div>
             </section>
 
             <section className="mcom-section">
-                <h2 className="mcom-section-title">Compliance Score Trend</h2>
-                <p className="mcom-section-note">Sample trend only — pending TELS data feed.</p>
-                <div className="mcom-trend-placeholder">
-                    <div className="mcom-trend-line">
-                        <svg viewBox="0 0 400 100" className="mcom-trend-svg" preserveAspectRatio="none">
-                            <polyline
-                                points="0,80 50,60 100,70 150,40 200,50 250,30 300,35 350,20 400,25"
-                                fill="none"
-                                stroke="#6366f1"
-                                strokeWidth="2"
-                            />
-                        </svg>
-                    </div>
+                <h2 className="mcom-section-title">Operational Snapshot</h2>
+                <div className="mcom-snapshot-grid">
+                    {snapshotItems.map(s => (
+                        <div key={s.title} className="mcom-snapshot-card">
+                            <h3 className="mcom-snapshot-title">{s.title}</h3>
+                            <ul className="mcom-snapshot-list">
+                                {s.lines.map((line, i) => (
+                                    <li key={i}>{line}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    ))}
                 </div>
             </section>
 
@@ -111,8 +162,8 @@ export default function MaintenanceCompliancePage() {
                     {focusAreas.map(f => (
                         <div key={f.title} className="mcom-focus-card">
                             <h3 className="mcom-focus-title">{f.title}</h3>
-                            <p className="mcom-focus-measures"><strong>What it measures:</strong> {f.measures}</p>
-                            <p className="mcom-focus-examples"><strong>Future metrics:</strong> {f.examples}</p>
+                            <p className="mcom-focus-text"><strong>What it measures:</strong> {f.measures}</p>
+                            <p className="mcom-focus-text"><strong>Future metrics:</strong> {f.examples}</p>
                         </div>
                     ))}
                 </div>
@@ -123,8 +174,7 @@ export default function MaintenanceCompliancePage() {
                 <div className="mcom-related-content">
                     <span className="mcom-source-chip">TELS</span>
                 </div>
-
-                <h2 className="mcom-section-title" style={{ marginTop: 20 }}>Related Process</h2>
+                <h2 className="mcom-section-title" style={{ marginTop: 16 }}>Related Process</h2>
                 <p className="mcom-related-text">Process mapping planned.</p>
             </section>
         </div>
