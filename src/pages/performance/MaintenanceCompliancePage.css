@@ -433,6 +433,28 @@
     margin: 6px 0 0 0;
 }
 
+.mcom-source-link {
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.mcom-source-link:hover {
+    background: #e0e7ff;
+}
+
+.mcom-related-link {
+    display: inline-block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #6366f1;
+    text-decoration: none;
+    margin: 6px 0 0 0;
+}
+
+.mcom-related-link:hover {
+    text-decoration: underline;
+}
+
 /* ─── Modal ─── */
 
 .mcom-modal-overlay {

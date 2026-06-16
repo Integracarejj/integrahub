@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { getLatestMaintenanceComplianceMetrics } from "../../services/performanceMetricsService";
+import { getBusinessProcesses } from "../../services/businessProcessService";
 import type { CommunityBreakdown, PerformanceMetricSnapshot } from "../../types/performanceMetrics";
+import type { BusinessProcess } from "../../types/businessProcess";
 import "./MaintenanceCompliancePage.css";
 
 /* ─── Helpers ─── */
@@ -21,6 +23,10 @@ function formatSnapshotDate(d: string | Date): string {
 function pct(a: number, b: number): number {
     if (b === 0) return 0;
     return Math.round((a / b) * 100);
+}
+
+function toAppId(systemName: string): string {
+    return "app-" + systemName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 }
 
 /* ─── Map DB → display ─── */
@@ -372,6 +378,7 @@ export default function MaintenanceCompliancePage() {
     const [error, setError] = useState<string | null>(null);
     const [isFallback, setIsFallback] = useState(false);
     const [hasData, setHasData] = useState(true);
+    const [relatedProcess, setRelatedProcess] = useState<BusinessProcess | null | undefined>(undefined);
 
     useEffect(() => {
         let cancelled = false;
@@ -403,6 +410,21 @@ export default function MaintenanceCompliancePage() {
         }
 
         load();
+        return () => { cancelled = true; };
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        getBusinessProcesses()
+            .then(processes => {
+                if (cancelled) return;
+                const match = processes.find(p => p.processName === "Maintenance & Compliance");
+                setRelatedProcess(match ?? null);
+            })
+            .catch(() => {
+                if (cancelled) return;
+                setRelatedProcess(null);
+            });
         return () => { cancelled = true; };
     }, []);
 
@@ -620,10 +642,22 @@ export default function MaintenanceCompliancePage() {
             <section className="mcom-section mcom-related">
                 <h2 className="mcom-section-title">Related System</h2>
                 <div className="mcom-related-content">
-                    <span className="mcom-source-chip">TELS</span>
+                    {snapshot ? (
+                        <Link to={`/applications/${toAppId(snapshot.sourceSystem)}`} className="mcom-source-chip mcom-source-link">
+                            {snapshot.sourceSystem}
+                        </Link>
+                    ) : (
+                        <span className="mcom-source-chip">TELS</span>
+                    )}
                 </div>
                 <h2 className="mcom-section-title" style={{ marginTop: 14 }}>Related Process</h2>
-                <p className="mcom-related-text">Process mapping planned.</p>
+                {relatedProcess ? (
+                    <Link to={`/processes/${relatedProcess.id}`} className="mcom-related-link">
+                        {relatedProcess.processName}
+                    </Link>
+                ) : (
+                    <p className="mcom-related-text">Process mapping planned.</p>
+                )}
             </section>
 
             {activeModal === "all-communities" && (
