@@ -29,7 +29,25 @@ export interface CommunityBreakdown {
     createdAt: string;
 }
 
+export interface TrendDataPoint {
+    periodLabel: string;
+    periodStartDate: string;
+    periodEndDate: string;
+    value: number;
+}
+
+export interface MetricTrend {
+    metricKey: string;
+    label: string;
+    metricType: "count" | "percentage";
+    data: TrendDataPoint[];
+}
+
 export interface MaintenanceComplianceResponse {
     snapshot: PerformanceMetricSnapshot | null;
     communities: CommunityBreakdown[];
+}
+
+export interface TrendsResponse {
+    trends: MetricTrend[];
 }

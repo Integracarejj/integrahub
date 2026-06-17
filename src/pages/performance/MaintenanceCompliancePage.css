@@ -161,6 +161,104 @@
     opacity: 1;
 }
 
+/* ─── KPI Trend Indicators ─── */
+
+.mcom-kpi-trend {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.mcom-kpi-trend-arrow {
+    font-size: 11px;
+    line-height: 1;
+}
+
+.mcom-kpi-trend-text {
+    font-size: 11px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.mcom-trend-up .mcom-kpi-trend-arrow { color: #22c55e; }
+.mcom-trend-down .mcom-kpi-trend-arrow { color: #22c55e; }
+.mcom-trend-flat .mcom-kpi-trend-arrow { color: #64748b; }
+
+/* ─── Executive Trends Section ─── */
+
+.mcom-trend-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+}
+
+.mcom-trend-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 16px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.mcom-trend-card:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.mcom-trend-card-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 2px;
+}
+
+.mcom-trend-card-value {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.mcom-trend-card-change {
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.mcom-trend-card-change.mcom-trend-up { color: #22c55e; }
+.mcom-trend-card-change.mcom-trend-down { color: #22c55e; }
+.mcom-trend-card-change.mcom-trend-flat { color: #64748b; }
+
+.mcom-trend-card-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0 0 8px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.mcom-trend-chart-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.mcom-chart-ylabel {
+    font-size: 9px;
+    font-weight: 600;
+    fill: #94a3b8;
+}
+
+.mcom-chart-xlabel {
+    font-size: 9px;
+    fill: #94a3b8;
+}
+
 /* ─── Two-column layout ─── */
 
 .mcom-two-col {
@@ -650,6 +748,9 @@
     .mcom-kpi-row {
         grid-template-columns: repeat(2, 1fr);
     }
+    .mcom-trend-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
     .mcom-snapshot-grid {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -661,6 +762,9 @@
 
 @media (max-width: 640px) {
     .mcom-kpi-row {
+        grid-template-columns: 1fr;
+    }
+    .mcom-trend-grid {
         grid-template-columns: 1fr;
     }
     .mcom-bar-label {

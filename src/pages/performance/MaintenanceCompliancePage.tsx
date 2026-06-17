@@ -1,8 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { getLatestMaintenanceComplianceMetrics } from "../../services/performanceMetricsService";
+import {
+    getLatestMaintenanceComplianceMetrics,
+    getMaintenanceComplianceTrends,
+} from "../../services/performanceMetricsService";
 import { getBusinessProcesses } from "../../services/businessProcessService";
-import type { CommunityBreakdown, PerformanceMetricSnapshot } from "../../types/performanceMetrics";
+import type { CommunityBreakdown, PerformanceMetricSnapshot, MetricTrend } from "../../types/performanceMetrics";
 import type { BusinessProcess } from "../../types/businessProcess";
 import "./MaintenanceCompliancePage.css";
 
@@ -86,6 +89,59 @@ const FALLBACK_COMMUNITIES: CommunityDisplay[] = [
     { name: "Harmony Village", attentionScore: 0, newlyOpened: 10, closed: 11, totalOpen: 1, days30Plus: 1, regulatoryOverdue: 0, pmOverdue: 0, skipped: 0, attentionStatus: "Healthy", mobileSignIns: 15, webSignIns: 5, mobilePct: 75, taggedAssets: 862, totalActiveAssets: 885, untaggedAssets: 23, taggedPct: 97 },
 ];
 
+/* ─── Fallback trend data ─── */
+
+const FALLBACK_TRENDS: MetricTrend[] = [
+    {
+        metricKey: "open-wo",
+        label: "Open Work Orders",
+        metricType: "count",
+        data: [
+            { periodLabel: "5/16", periodStartDate: "2026-05-10", periodEndDate: "2026-05-16", value: 62 },
+            { periodLabel: "5/23", periodStartDate: "2026-05-17", periodEndDate: "2026-05-23", value: 58 },
+            { periodLabel: "5/30", periodStartDate: "2026-05-24", periodEndDate: "2026-05-30", value: 55 },
+            { periodLabel: "6/6",  periodStartDate: "2026-05-31", periodEndDate: "2026-06-06", value: 50 },
+            { periodLabel: "6/13", periodStartDate: "2026-06-07", periodEndDate: "2026-06-13", value: 46 },
+        ],
+    },
+    {
+        metricKey: "pm-overdue",
+        label: "PM Overdue",
+        metricType: "count",
+        data: [
+            { periodLabel: "5/16", periodStartDate: "2026-05-10", periodEndDate: "2026-05-16", value: 73 },
+            { periodLabel: "5/23", periodStartDate: "2026-05-17", periodEndDate: "2026-05-23", value: 68 },
+            { periodLabel: "5/30", periodStartDate: "2026-05-24", periodEndDate: "2026-05-30", value: 61 },
+            { periodLabel: "6/6",  periodStartDate: "2026-05-31", periodEndDate: "2026-06-06", value: 55 },
+            { periodLabel: "6/13", periodStartDate: "2026-06-07", periodEndDate: "2026-06-13", value: 48 },
+        ],
+    },
+    {
+        metricKey: "mobile-adoption",
+        label: "Mobile Adoption",
+        metricType: "percentage",
+        data: [
+            { periodLabel: "5/16", periodStartDate: "2026-05-10", periodEndDate: "2026-05-16", value: 49 },
+            { periodLabel: "5/23", periodStartDate: "2026-05-17", periodEndDate: "2026-05-23", value: 53 },
+            { periodLabel: "5/30", periodStartDate: "2026-05-24", periodEndDate: "2026-05-30", value: 57 },
+            { periodLabel: "6/6",  periodStartDate: "2026-05-31", periodEndDate: "2026-06-06", value: 61 },
+            { periodLabel: "6/13", periodStartDate: "2026-06-07", periodEndDate: "2026-06-13", value: 64 },
+        ],
+    },
+    {
+        metricKey: "asset-tagging",
+        label: "Asset Tagging",
+        metricType: "percentage",
+        data: [
+            { periodLabel: "5/16", periodStartDate: "2026-05-10", periodEndDate: "2026-05-16", value: 89 },
+            { periodLabel: "5/23", periodStartDate: "2026-05-17", periodEndDate: "2026-05-23", value: 91 },
+            { periodLabel: "5/30", periodStartDate: "2026-05-24", periodEndDate: "2026-05-30", value: 94 },
+            { periodLabel: "6/6",  periodStartDate: "2026-05-31", periodEndDate: "2026-06-06", value: 96 },
+            { periodLabel: "6/13", periodStartDate: "2026-06-07", periodEndDate: "2026-06-13", value: 98 },
+        ],
+    },
+];
+
 /* ─── KPI computation ─── */
 
 interface KpiConfig {
@@ -96,9 +152,27 @@ interface KpiConfig {
     status: string;
     accent: string;
     description: string;
+    trendText: string;
+    trendDirection: "up" | "down" | "flat";
 }
 
-function computeKpis(communities: CommunityDisplay[]): KpiConfig[] {
+function computeTrendInfo(metricKey: string, trends: MetricTrend[], isPct: boolean): { text: string; direction: "up" | "down" | "flat" } {
+    const trend = trends.find(t => t.metricKey === metricKey);
+    if (!trend || trend.data.length < 2) return { text: "", direction: "flat" };
+    const first = trend.data[0].value;
+    const last = trend.data[trend.data.length - 1].value;
+    let ch: number;
+    if (isPct) {
+        ch = Math.round(last - first);
+    } else {
+        ch = first !== 0 ? Math.round(((last - first) / first) * 100) : 0;
+    }
+    const dir: "up" | "down" | "flat" = ch > 0 ? "up" : ch < 0 ? "down" : "flat";
+    const abs = Math.abs(ch);
+    return { text: `${abs}% vs 4 weeks ago`, direction: dir };
+}
+
+function computeKpis(communities: CommunityDisplay[], trends: MetricTrend[]): KpiConfig[] {
     const sumNewlyOpened = communities.reduce((s, c) => s + c.newlyOpened, 0);
     const sumClosed = communities.reduce((s, c) => s + c.closed, 0);
     const sumTotalOpen = communities.reduce((s, c) => s + c.totalOpen, 0);
@@ -113,6 +187,11 @@ function computeKpis(communities: CommunityDisplay[]): KpiConfig[] {
     const mobilePct = pct(sumMobile, sumMobile + sumWeb);
     const taggedPct = pct(sumTagged, sumTotal);
 
+    const tiOpenWo = computeTrendInfo("open-wo", trends, false);
+    const tiPmOverdue = computeTrendInfo("pm-overdue", trends, false);
+    const tiMobile = computeTrendInfo("mobile-adoption", trends, true);
+    const tiTagging = computeTrendInfo("asset-tagging", trends, true);
+
     return [
         {
             key: "open-wo",
@@ -122,6 +201,8 @@ function computeKpis(communities: CommunityDisplay[]): KpiConfig[] {
             status: sumTotalOpen >= 30 ? "Elevated" : "Watch",
             accent: "orange",
             description: "Total open work orders across all communities. Includes newly opened items not yet closed. A lower number indicates healthier facilities operations.",
+            trendText: tiOpenWo.text,
+            trendDirection: tiOpenWo.direction,
         },
         {
             key: "30day-wo",
@@ -131,6 +212,8 @@ function computeKpis(communities: CommunityDisplay[]): KpiConfig[] {
             status: sumDays30 >= 10 ? "Critical" : sumDays30 >= 1 ? "Elevated" : "Healthy",
             accent: "red",
             description: "Work orders open longer than 30 days. Aging backlogs increase operational risk and may indicate resource or process gaps.",
+            trendText: "",
+            trendDirection: "flat",
         },
         {
             key: "reg-overdue",
@@ -140,6 +223,8 @@ function computeKpis(communities: CommunityDisplay[]): KpiConfig[] {
             status: sumRegOverdue >= 20 ? "Critical" : sumRegOverdue >= 1 ? "Elevated" : "Healthy",
             accent: "red",
             description: "Regulatory and compliance-related tasks past their due date. Includes inspections, license renewals, and mandated reporting.",
+            trendText: "",
+            trendDirection: "flat",
         },
         {
             key: "pm-overdue",
@@ -149,6 +234,8 @@ function computeKpis(communities: CommunityDisplay[]): KpiConfig[] {
             status: sumPMOverdue >= 20 ? "Critical" : sumPMOverdue >= 1 ? "Elevated" : "Healthy",
             accent: "red",
             description: "Scheduled preventive maintenance tasks that have passed their due date. Overdue PM increases risk of equipment failure and unplanned repairs.",
+            trendText: tiPmOverdue.text,
+            trendDirection: tiPmOverdue.direction,
         },
         {
             key: "mobile-adoption",
@@ -158,6 +245,8 @@ function computeKpis(communities: CommunityDisplay[]): KpiConfig[] {
             status: "Adoption",
             accent: "blue",
             description: "Percentage of TELS sign-ins occurring via mobile devices. Higher mobile adoption correlates with faster work order response times.",
+            trendText: tiMobile.text,
+            trendDirection: tiMobile.direction,
         },
         {
             key: "asset-tagging",
@@ -167,6 +256,8 @@ function computeKpis(communities: CommunityDisplay[]): KpiConfig[] {
             status: taggedPct >= 95 ? "Healthy" : taggedPct >= 80 ? "Adoption" : "Elevated",
             accent: "green",
             description: "Percentage of active assets that have been tagged and inventoried in TELS. Full tagging enables accurate maintenance tracking and compliance reporting.",
+            trendText: tiTagging.text,
+            trendDirection: tiTagging.direction,
         },
     ];
 }
@@ -368,12 +459,61 @@ function AllCommunitiesModal({ communities, snapshot, onClose }: { communities: 
     );
 }
 
+/* ─── Trend chart ─── */
+
+function TrendChart({ data, accentColor, metricType }: { data: { value: number; label: string }[]; accentColor: string; metricType: "count" | "percentage" }) {
+    if (data.length < 2) return null;
+
+    const values = data.map(d => d.value);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min || 1;
+
+    const width = 280;
+    const height = 90;
+    const pad = { top: 8, right: 8, bottom: 22, left: 32 };
+    const chartW = width - pad.left - pad.right;
+    const chartH = height - pad.top - pad.bottom;
+
+    const points = data.map((d, i) => {
+        const x = pad.left + (i / (data.length - 1)) * chartW;
+        const y = pad.top + chartH - ((d.value - min) / range) * chartH;
+        return { x, y };
+    });
+
+    const linePoints = points.map(p => `${p.x},${p.y}`).join(" ");
+
+    return (
+        <svg viewBox={`0 0 ${width} ${height}`} className="mcom-trend-chart-svg">
+            <text x={pad.left - 6} y={pad.top + 10} textAnchor="end" className="mcom-chart-ylabel">{max}</text>
+            <text x={pad.left - 6} y={pad.top + chartH + 3} textAnchor="end" className="mcom-chart-ylabel">{min}</text>
+
+            <line x1={pad.left} y1={pad.top} x2={pad.left + chartW} y2={pad.top} stroke="#f1f5f9" strokeWidth="1" />
+            <line x1={pad.left} y1={pad.top + chartH} x2={pad.left + chartW} y2={pad.top + chartH} stroke="#f1f5f9" strokeWidth="1" />
+
+            <polyline fill="none" stroke={accentColor} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" points={linePoints} />
+
+            {points.map((p, i) => (
+                <circle key={i} cx={p.x} cy={p.y} r="3" fill={accentColor} stroke="#fff" strokeWidth="1.5" />
+            ))}
+
+            {data.map((d, i) => {
+                const x = pad.left + (i / (data.length - 1)) * chartW;
+                return (
+                    <text key={i} x={x} y={height - 4} textAnchor="middle" className="mcom-chart-xlabel">{d.label}</text>
+                );
+            })}
+        </svg>
+    );
+}
+
 /* ─── Main page ─── */
 
 export default function MaintenanceCompliancePage() {
     const [activeModal, setActiveModal] = useState<"all-communities" | string | null>(null);
     const [snapshot, setSnapshot] = useState<PerformanceMetricSnapshot | null>(null);
     const [communities, setCommunities] = useState<CommunityDisplay[]>([]);
+    const [trends, setTrends] = useState<MetricTrend[]>(FALLBACK_TRENDS);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isFallback, setIsFallback] = useState(false);
@@ -385,22 +525,30 @@ export default function MaintenanceCompliancePage() {
 
         async function load() {
             try {
-                const result = await getLatestMaintenanceComplianceMetrics();
+                const [metricsResult, trendsResult] = await Promise.all([
+                    getLatestMaintenanceComplianceMetrics(),
+                    getMaintenanceComplianceTrends(),
+                ]);
                 if (cancelled) return;
 
-                if (result.snapshot && result.communities.length > 0) {
-                    setSnapshot(result.snapshot);
-                    setCommunities(toDisplay(result.communities));
+                if (metricsResult.snapshot && metricsResult.communities.length > 0) {
+                    setSnapshot(metricsResult.snapshot);
+                    setCommunities(toDisplay(metricsResult.communities));
                     setHasData(true);
                 } else {
                     setSnapshot(null);
                     setCommunities([]);
                     setHasData(false);
                 }
+
+                if (trendsResult.trends && trendsResult.trends.length > 0) {
+                    setTrends(trendsResult.trends);
+                }
             } catch {
                 if (cancelled) return;
                 setSnapshot(null);
                 setCommunities(FALLBACK_COMMUNITIES);
+                setTrends(FALLBACK_TRENDS);
                 setIsFallback(true);
                 setError("Using local fallback draft data.");
                 setHasData(true);
@@ -433,7 +581,7 @@ export default function MaintenanceCompliancePage() {
     function openAllCommunities() { setActiveModal("all-communities"); }
     function closeModal() { setActiveModal(null); }
 
-    const kpis = useMemo(() => computeKpis(communities), [communities]);
+    const kpis = useMemo(() => computeKpis(communities, trends), [communities, trends]);
 
     const selectedKpi = typeof activeModal === "string" && activeModal?.startsWith("kpi-")
         ? kpis.find(k => `kpi-${k.key}` === activeModal) ?? null
@@ -526,12 +674,59 @@ export default function MaintenanceCompliancePage() {
                             <span className="mcom-kpi-value">{k.value}</span>
                             <span className={`mcom-kpi-status mcom-kpi-status-${k.accent}`}>{k.status}</span>
                         </div>
+                        {k.trendText && (
+                            <div className={`mcom-kpi-trend mcom-trend-${k.trendDirection}`}>
+                                <span className="mcom-kpi-trend-arrow">{k.trendDirection === "up" ? "↑" : k.trendDirection === "down" ? "↓" : "→"}</span>
+                                <span className="mcom-kpi-trend-text">{k.trendText}</span>
+                            </div>
+                        )}
                         <span className="mcom-kpi-label">{k.label}</span>
                         <span className="mcom-kpi-subtext">{k.subtext}</span>
                         <span className="mcom-kpi-detail-link">View details</span>
                     </button>
                 ))}
             </div>
+
+            {/* ─── Executive Trends ─── */}
+            {(() => {
+                const openWo = trends.find(t => t.metricKey === "open-wo");
+                const pmOverdue = trends.find(t => t.metricKey === "pm-overdue");
+                const mobile = trends.find(t => t.metricKey === "mobile-adoption");
+                const showTrends = openWo && pmOverdue && mobile;
+                if (!showTrends) return null;
+
+                const tiOpen = computeTrendInfo("open-wo", trends, false);
+                const tiPm = computeTrendInfo("pm-overdue", trends, false);
+                const tiMobile = computeTrendInfo("mobile-adoption", trends, true);
+
+                interface TrendCard { title: string; value: string; trend: typeof tiOpen; accent: string; data: { value: number; label: string }[]; metricType: "count" | "percentage" }
+                const trendCards: TrendCard[] = [
+                    { title: "Open Work Orders Trend", value: String(openWo.data[openWo.data.length - 1].value), trend: tiOpen, accent: "#f97316", data: openWo.data, metricType: "count" },
+                    { title: "PM Overdue Trend", value: String(pmOverdue.data[pmOverdue.data.length - 1].value), trend: tiPm, accent: "#ef4444", data: pmOverdue.data, metricType: "count" },
+                    { title: "Mobile Adoption Trend", value: `${mobile.data[mobile.data.length - 1].value}%`, trend: tiMobile, accent: "#3b82f6", data: mobile.data, metricType: "percentage" },
+                ];
+
+                return (
+                    <section className="mcom-section">
+                        <h2 className="mcom-section-title">Executive Trends</h2>
+                        <p className="mcom-section-helper">4-week performance trajectory across key operational indicators.</p>
+                        <div className="mcom-trend-grid">
+                            {trendCards.map(card => (
+                                <div key={card.title} className="mcom-trend-card">
+                                    <div className="mcom-trend-card-hdr">
+                                        <span className="mcom-trend-card-value" style={{ color: card.accent }}>{card.value}</span>
+                                        <span className={`mcom-trend-card-change mcom-trend-${card.trend.direction}`}>
+                                            {card.trend.direction === "up" ? "↑" : card.trend.direction === "down" ? "↓" : "→"} {card.trend.text}
+                                        </span>
+                                    </div>
+                                    <h3 className="mcom-trend-card-title">{card.title}</h3>
+                                    <TrendChart data={card.data} accentColor={card.accent} metricType={card.metricType} />
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                );
+            })()}
 
             <div className="mcom-two-col">
                 <section className="mcom-section mcom-col">
