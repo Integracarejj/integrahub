@@ -461,7 +461,7 @@ function AllCommunitiesModal({ communities, snapshot, onClose }: { communities: 
 
 /* ─── Trend chart ─── */
 
-function TrendChart({ data, accentColor, metricType }: { data: { value: number; label: string }[]; accentColor: string; metricType: "count" | "percentage" }) {
+function TrendChart({ data, accentColor }: { data: { value: number; label: string }[]; accentColor: string }) {
     if (data.length < 2) return null;
 
     const values = data.map(d => d.value);
@@ -699,11 +699,11 @@ export default function MaintenanceCompliancePage() {
                 const tiPm = computeTrendInfo("pm-overdue", trends, false);
                 const tiMobile = computeTrendInfo("mobile-adoption", trends, true);
 
-                interface TrendCard { title: string; value: string; trend: typeof tiOpen; accent: string; data: { value: number; label: string }[]; metricType: "count" | "percentage" }
-                const trendCards: TrendCard[] = [
-                    { title: "Open Work Orders Trend", value: String(openWo.data[openWo.data.length - 1].value), trend: tiOpen, accent: "#f97316", data: openWo.data, metricType: "count" },
-                    { title: "PM Overdue Trend", value: String(pmOverdue.data[pmOverdue.data.length - 1].value), trend: tiPm, accent: "#ef4444", data: pmOverdue.data, metricType: "count" },
-                    { title: "Mobile Adoption Trend", value: `${mobile.data[mobile.data.length - 1].value}%`, trend: tiMobile, accent: "#3b82f6", data: mobile.data, metricType: "percentage" },
+                const toChartData = (t: typeof openWo) => t.data.map(p => ({ label: p.periodLabel, value: p.value }));
+                const trendCards = [
+                    { title: "Open Work Orders Trend", value: String(openWo.data[openWo.data.length - 1].value), trend: tiOpen, accent: "#f97316", data: toChartData(openWo) },
+                    { title: "PM Overdue Trend", value: String(pmOverdue.data[pmOverdue.data.length - 1].value), trend: tiPm, accent: "#ef4444", data: toChartData(pmOverdue) },
+                    { title: "Mobile Adoption Trend", value: `${mobile.data[mobile.data.length - 1].value}%`, trend: tiMobile, accent: "#3b82f6", data: toChartData(mobile) },
                 ];
 
                 return (
@@ -720,7 +720,7 @@ export default function MaintenanceCompliancePage() {
                                         </span>
                                     </div>
                                     <h3 className="mcom-trend-card-title">{card.title}</h3>
-                                    <TrendChart data={card.data} accentColor={card.accent} metricType={card.metricType} />
+                                    <TrendChart data={card.data} accentColor={card.accent} />
                                 </div>
                             ))}
                         </div>
