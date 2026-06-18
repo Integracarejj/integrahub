@@ -43,6 +43,7 @@ export default function ProcessDetailPage() {
     const [error, setError] = useState<string | null>(null);
     const [expandedStages, setExpandedStages] = useState<Set<number>>(new Set());
     const [selectedStage, setSelectedStage] = useState<BusinessProcessStep | null>(null);
+    const [showSystemsModal, setShowSystemsModal] = useState(false);
 
     useEffect(() => {
         if (!id) return;
@@ -392,11 +393,15 @@ export default function ProcessDetailPage() {
                                 </Link>
                             ))}
                             {uniqueSystemsList.length > 4 && (
-                                <span className="pd-rel-more">+{uniqueSystemsList.length - 4} more</span>
+                                <button className="pd-rel-chip-more" onClick={() => setShowSystemsModal(true)}>
+                                    +{uniqueSystemsList.length - 4} more
+                                </button>
                             )}
                         </div>
                         <div className="pd-rel-action">
-                            <Link to="/integrations" className="pd-rel-link">View all systems &rarr;</Link>
+                            <button className="pd-rel-link pd-rel-link-btn" onClick={() => setShowSystemsModal(true)}>
+                                View connected systems &rarr;
+                            </button>
                         </div>
                     </div>
 
@@ -419,9 +424,6 @@ export default function ProcessDetailPage() {
                             ) : (
                                 <span className="pd-rel-empty">No capabilities linked</span>
                             )}
-                        </div>
-                        <div className="pd-rel-action">
-                            <Link to="/capability-view" className="pd-rel-link">View capabilities &rarr;</Link>
                         </div>
                     </div>
 
@@ -451,12 +453,61 @@ export default function ProcessDetailPage() {
                             )}
                         </div>
                         <div className="pd-rel-action">
-                            <Link to="/performance" className="pd-rel-link">View performance &rarr;</Link>
+                            {perfAreas.length > 0 && perfAreas[0].route ? (
+                                <Link to={perfAreas[0].route} className="pd-rel-link">
+                                    Go to {perfAreas[0].label} &rarr;
+                                </Link>
+                            ) : (
+                                <Link to="/performance" className="pd-rel-link">View performance &rarr;</Link>
+                            )}
                         </div>
                     </div>
 
                 </div>
             </section>
+
+            {/* ─── Systems Modal ─── */}
+            {showSystemsModal && (
+                <div className="pd-modal-backdrop" onClick={() => setShowSystemsModal(false)}>
+                    <div className="pd-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+                        <div className="pd-modal-hdr">
+                            <div className="pd-modal-hdr-text">
+                                <h2 className="pd-modal-title">Connected Systems</h2>
+                                <p className="pd-modal-subtitle">{uniqueSystemsList.length} {uniqueSystemsList.length === 1 ? "system" : "systems"} supporting this process.</p>
+                            </div>
+                            <button className="pd-modal-close" onClick={() => setShowSystemsModal(false)} aria-label="Close">&times;</button>
+                        </div>
+                        <div className="pd-modal-body">
+                            {uniqueSystemsList.map(sys => {
+                                const useCase = primaryUseCaseMap.get(sys.applicationId);
+                                return (
+                                    <Link key={sys.mappingId} to={`/applications/${sys.applicationId}`} className="pd-modal-item" onClick={() => setShowSystemsModal(false)}>
+                                        <div className="pd-modal-item-top">
+                                            <span className="pd-modal-item-name">{sys.applicationName}</span>
+                                            <div className="pd-system-card-badges">
+                                                {sys.systemCategory && (
+                                                    <span className="pv-badge">{sys.systemCategory}</span>
+                                                )}
+                                                {sys.businessCriticality && (
+                                                    <span className={`pv-badge pv-crit-${sys.businessCriticality.toLowerCase()}`}>
+                                                        {sys.businessCriticality}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {useCase && (
+                                            <p className="pd-modal-item-use-case">{useCase}</p>
+                                        )}
+                                        <div className="pd-modal-item-footer">
+                                            <span className="pd-system-card-link">View System &rarr;</span>
+                                        </div>
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ─── Stage Drawer ─── */}
             {selectedStage && <div className="pv-drawer-backdrop" onClick={closeDrawer} />}

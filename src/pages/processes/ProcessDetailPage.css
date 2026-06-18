@@ -524,6 +524,161 @@
     text-decoration: underline;
 }
 
+.pd-rel-link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: #6366f1;
+}
+
+.pd-rel-link-btn:hover {
+    text-decoration: underline;
+}
+
+.pd-rel-chip-more {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6366f1;
+    padding: 2px 0;
+    line-height: 1.5;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.pd-rel-chip-more:hover {
+    text-decoration: underline;
+}
+
+/* ─── Systems Modal ─── */
+
+.pd-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 24px;
+}
+
+.pd-modal {
+    background: #fff;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 640px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+}
+
+.pd-modal-hdr {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid #f3f4f6;
+    gap: 16px;
+    flex-shrink: 0;
+}
+
+.pd-modal-hdr-text {
+    min-width: 0;
+}
+
+.pd-modal-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.pd-modal-subtitle {
+    margin: 4px 0 0;
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.pd-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.pd-modal-close:hover {
+    color: #374151;
+}
+
+.pd-modal-body {
+    overflow-y: auto;
+    flex: 1;
+    padding: 8px 0;
+}
+
+.pd-modal-item {
+    display: flex;
+    flex-direction: column;
+    padding: 14px 24px;
+    text-decoration: none;
+    border-bottom: 1px solid #f9fafb;
+    transition: background 0.1s;
+}
+
+.pd-modal-item:hover {
+    background: #f9fafb;
+}
+
+.pd-modal-item-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.pd-modal-item-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: #2563eb;
+    line-height: 1.4;
+    flex-shrink: 0;
+    max-width: 55%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pd-modal-item:hover .pd-modal-item-name {
+    text-decoration: underline;
+}
+
+.pd-modal-item-use-case {
+    font-size: 12px;
+    color: #6b7280;
+    line-height: 1.45;
+    margin: 6px 0 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.pd-modal-item-footer {
+    margin-top: 6px;
+}
+
 /* ─── Responsive ─── */
 
 @media (max-width: 900px) {
