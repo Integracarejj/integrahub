@@ -28,7 +28,6 @@ export default function HomePage() {
     const [search, setSearch] = useState("");
 
     const popular = BUSINESS_TOPICS.filter(t => POPULAR_SLUGS.includes(t.slug));
-    const others = BUSINESS_TOPICS.filter(t => !POPULAR_SLUGS.includes(t.slug));
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
