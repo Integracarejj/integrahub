@@ -150,6 +150,19 @@ export default function ProcessDetailPage() {
         ]).size;
     }, [detail]);
 
+    const connectedCapabilities = useMemo(() => {
+        const names = new Set<string>();
+        const connectedAppIds = new Set(uniqueSystemsList.map(sys => sys.applicationId));
+        for (const app of apps) {
+            if (connectedAppIds.has(app.id) && app.capabilities) {
+                for (const cap of app.capabilities) {
+                    if (cap.name) names.add(cap.name);
+                }
+            }
+        }
+        return Array.from(names).sort();
+    }, [uniqueSystemsList, apps]);
+
     /* ─── Render states ─── */
 
     if (loading) {
@@ -346,26 +359,101 @@ export default function ProcessDetailPage() {
             <section className="pd-section">
                 <h2 className="pd-section-title">Relationship Navigator</h2>
                 <p className="pd-section-helper">How this process connects across the operational landscape.</p>
-                <div className="pd-nav-strip">
-                    <div className="pd-nav-node pd-nav-active">
-                        <span className="pd-nav-label">Process</span>
-                        <span className="pd-nav-name">{detail.processName}</span>
+                <div className="pd-rel-grid">
+
+                    {/* ── Group 1: Process ── */}
+                    <div className="pd-rel-card">
+                        <div className="pd-rel-hdr">
+                            <span className="pd-rel-title">Process</span>
+                            <span className="pd-rel-value">{detail.processName}</span>
+                        </div>
+                        <div className="pd-rel-chips">
+                            {detail.processCategory && (
+                                <span className="pd-rel-chip pd-rel-chip-cat">{detail.processCategory}</span>
+                            )}
+                            {detail.processOwner && (
+                                <span className="pd-rel-chip pd-rel-chip-meta">{detail.processOwner}</span>
+                            )}
+                        </div>
+                        <div className="pd-rel-action">
+                            <Link to="/processes" className="pd-rel-link">&larr; All Processes</Link>
+                        </div>
                     </div>
-                    <span className="pd-nav-arrow">→</span>
-                    <Link to={`/integrations`} className="pd-nav-node pd-nav-link">
-                        <span className="pd-nav-label">Systems</span>
-                        <span className="pd-nav-name">{uniqueSystemsList.length} connected</span>
-                    </Link>
-                    <span className="pd-nav-arrow">→</span>
-                    <Link to="/capability-view" className="pd-nav-node pd-nav-link">
-                        <span className="pd-nav-label">Capabilities</span>
-                        <span className="pd-nav-name">View all</span>
-                    </Link>
-                    <span className="pd-nav-arrow">→</span>
-                    <Link to="/performance" className="pd-nav-node pd-nav-link">
-                        <span className="pd-nav-label">Performance</span>
-                        <span className="pd-nav-name">{perfAreas.length > 0 ? `${perfAreas.length} related` : "View areas"}</span>
-                    </Link>
+
+                    {/* ── Group 2: Connected Systems ── */}
+                    <div className="pd-rel-card">
+                        <div className="pd-rel-hdr">
+                            <span className="pd-rel-title">Connected Systems</span>
+                            <span className="pd-rel-value">{uniqueSystemsList.length}</span>
+                        </div>
+                        <div className="pd-rel-chips">
+                            {uniqueSystemsList.slice(0, 4).map(sys => (
+                                <Link
+                                    key={sys.mappingId}
+                                    to={`/applications/${sys.applicationId}`}
+                                    className="pd-rel-chip pd-rel-chip-sys"
+                                >
+                                    {sys.applicationName}
+                                </Link>
+                            ))}
+                            {uniqueSystemsList.length > 4 && (
+                                <span className="pd-rel-more">+{uniqueSystemsList.length - 4} more</span>
+                            )}
+                        </div>
+                        <div className="pd-rel-action">
+                            <Link to="/integrations" className="pd-rel-link">View all systems &rarr;</Link>
+                        </div>
+                    </div>
+
+                    {/* ── Group 3: Capabilities ── */}
+                    <div className="pd-rel-card">
+                        <div className="pd-rel-hdr">
+                            <span className="pd-rel-title">Capabilities</span>
+                            <span className="pd-rel-value">{connectedCapabilities.length}</span>
+                        </div>
+                        <div className="pd-rel-chips">
+                            {connectedCapabilities.length > 0 ? (
+                                <>
+                                    {connectedCapabilities.slice(0, 4).map(cap => (
+                                        <span key={cap} className="pd-rel-chip pd-rel-chip-cap">{cap}</span>
+                                    ))}
+                                    {connectedCapabilities.length > 4 && (
+                                        <span className="pd-rel-more">+{connectedCapabilities.length - 4} more</span>
+                                    )}
+                                </>
+                            ) : (
+                                <span className="pd-rel-empty">No capabilities linked</span>
+                            )}
+                        </div>
+                        <div className="pd-rel-action">
+                            <Link to="/capability-view" className="pd-rel-link">View capabilities &rarr;</Link>
+                        </div>
+                    </div>
+
+                    {/* ── Group 4: Performance Areas ── */}
+                    <div className="pd-rel-card">
+                        <div className="pd-rel-hdr">
+                            <span className="pd-rel-title">Performance Areas</span>
+                            <span className="pd-rel-value">{perfAreas.length}</span>
+                        </div>
+                        <div className="pd-rel-chips">
+                            {perfAreas.length > 0 ? (
+                                <>
+                                    {perfAreas.slice(0, 4).map(pa => (
+                                        <span key={pa.label} className={`pd-rel-chip pd-rel-chip-perf pd-rel-perf-${pa.status.toLowerCase()}`}>
+                                            {pa.label}
+                                        </span>
+                                    ))}
+                                </>
+                            ) : (
+                                <span className="pd-rel-empty">Not yet mapped</span>
+                            )}
+                        </div>
+                        <div className="pd-rel-action">
+                            <Link to="/performance" className="pd-rel-link">View performance &rarr;</Link>
+                        </div>
+                    </div>
+
                 </div>
             </section>
 

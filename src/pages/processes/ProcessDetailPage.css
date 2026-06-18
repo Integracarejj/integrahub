@@ -382,40 +382,35 @@
 
 /* ─── Section 5: Relationship Navigator ─── */
 
-.pd-nav-strip {
-    display: flex;
-    align-items: stretch;
-    gap: 0;
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    overflow: hidden;
+.pd-rel-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
 }
 
-.pd-nav-node {
-    flex: 1;
+.pd-rel-card {
     display: flex;
     flex-direction: column;
-    gap: 3px;
-    padding: 16px 18px;
-    text-decoration: none;
-    min-width: 0;
-    transition: background 0.12s;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.pd-nav-node:not(:last-child) {
-    border-right: 1px solid #e5e7eb;
+.pd-rel-card:hover {
+    border-color: #bfdbfe;
+    box-shadow: 0 1px 6px rgba(59, 130, 246, 0.08);
 }
 
-.pd-nav-link:hover {
-    background: #f9fafb;
+.pd-rel-hdr {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 10px;
 }
 
-.pd-nav-active {
-    background: #f8fafc;
-}
-
-.pd-nav-label {
+.pd-rel-title {
     font-size: 10px;
     font-weight: 700;
     color: #6b7280;
@@ -423,27 +418,110 @@
     letter-spacing: 0.4px;
 }
 
-.pd-nav-name {
-    font-size: 13px;
-    font-weight: 600;
+.pd-rel-value {
+    font-size: 15px;
+    font-weight: 700;
     color: #111827;
+    line-height: 1.3;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.pd-nav-link:hover .pd-nav-name {
-    color: #2563eb;
+.pd-rel-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    min-height: 24px;
+    align-content: flex-start;
+    flex: 1;
 }
 
-.pd-nav-arrow {
-    display: flex;
-    align-items: center;
-    padding: 0 8px;
-    font-size: 18px;
-    color: #d1d5db;
-    font-weight: 300;
-    flex-shrink: 0;
+.pd-rel-chip {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    line-height: 1.5;
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.pd-rel-chip-cat {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.pd-rel-chip-meta {
+    background: #eef2ff;
+    color: #4338ca;
+}
+
+.pd-rel-chip-sys {
+    background: #eff6ff;
+    color: #2563eb;
+    transition: background 0.1s;
+}
+
+.pd-rel-chip-sys:hover {
+    background: #dbeafe;
+    text-decoration: underline;
+}
+
+.pd-rel-chip-cap {
+    background: #f0fdf4;
+    color: #16a34a;
+}
+
+.pd-rel-chip-perf {
+    background: #f8fafc;
+    color: #374151;
+}
+
+.pd-rel-perf-active {
+    background: #f0fdf4;
+    color: #16a34a;
+}
+
+.pd-rel-perf-future {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.pd-rel-more {
+    font-size: 11px;
+    font-weight: 600;
+    color: #9ca3af;
+    padding: 2px 0;
+    line-height: 1.5;
+}
+
+.pd-rel-empty {
+    font-size: 11px;
+    color: #9ca3af;
+    font-style: italic;
+    padding: 2px 0;
+    line-height: 1.5;
+}
+
+.pd-rel-action {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid #f3f4f6;
+}
+
+.pd-rel-link {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6366f1;
+    text-decoration: none;
+}
+
+.pd-rel-link:hover {
+    text-decoration: underline;
 }
 
 /* ─── Responsive ─── */
@@ -458,15 +536,8 @@
     .pd-summary-card {
         min-width: 0;
     }
-    .pd-nav-strip {
-        flex-direction: column;
-    }
-    .pd-nav-node:not(:last-child) {
-        border-right: none;
-        border-bottom: 1px solid #e5e7eb;
-    }
-    .pd-nav-arrow {
-        display: none;
+    .pd-rel-grid {
+        grid-template-columns: repeat(2, 1fr);
     }
     .pd-systems-grid {
         grid-template-columns: 1fr;
@@ -485,5 +556,8 @@
     }
     .pd-header-top {
         flex-direction: column;
+    }
+    .pd-rel-grid {
+        grid-template-columns: 1fr;
     }
 }
