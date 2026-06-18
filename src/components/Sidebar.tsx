@@ -26,7 +26,17 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     }
                     onClick={handleNavClick}
                 >
-                    Dashboard
+                    Home
+                </NavLink>
+
+                <NavLink
+                    to="/topics"
+                    className={({ isActive }) =>
+                        isActive ? "sidebar-link active" : "sidebar-link"
+                    }
+                    onClick={handleNavClick}
+                >
+                    Business Topics
                 </NavLink>
 
                 <NavLink
@@ -67,26 +77,6 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     onClick={handleNavClick}
                 >
                     Explore
-                </NavLink>
-
-                <NavLink
-                    to="/capability-view"
-                    className={({ isActive }) =>
-                        isActive ? "sidebar-link active" : "sidebar-link"
-                    }
-                    onClick={handleNavClick}
-                >
-                    Capability View
-                </NavLink>
-
-                <NavLink
-                    to="/department-view"
-                    className={({ isActive }) =>
-                        isActive ? "sidebar-link active" : "sidebar-link"
-                    }
-                    onClick={handleNavClick}
-                >
-                    Department View
                 </NavLink>
 
                 {isAdmin && (
