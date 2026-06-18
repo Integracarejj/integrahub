@@ -1,0 +1,489 @@
+/* ─── Process Detail Page ─── */
+/* Extends ProcessView.css — uses pd- prefix to avoid conflicts */
+
+.pd-page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 32px 60px;
+}
+
+.pd-top-bar {
+    margin-bottom: 16px;
+}
+
+.pd-back-link {
+    font-size: 14px;
+    font-weight: 500;
+    color: #6366f1;
+    text-decoration: none;
+}
+
+.pd-back-link:hover {
+    text-decoration: underline;
+}
+
+/* ─── Header ─── */
+
+.pd-header {
+    margin-bottom: 28px;
+}
+
+.pd-header-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.pd-name {
+    font-size: 26px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0 0 6px;
+    letter-spacing: -0.02em;
+}
+
+.pd-category {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 500;
+    color: #374151;
+    background: #e5e7eb;
+    padding: 2px 10px;
+    border-radius: 10px;
+}
+
+.pd-description {
+    font-size: 15px;
+    color: #4b5563;
+    margin: 10px 0 0;
+    line-height: 1.6;
+    max-width: 720px;
+}
+
+/* ─── Meta Chips ─── */
+
+.pd-meta-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.pd-meta-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #374151;
+}
+
+.pd-meta-chip-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.pd-meta-chip-value {
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.pd-effort-low { border-color: #bbf7d0; background: #f0fdf4; }
+.pd-effort-low .pd-meta-chip-value { color: #16a34a; }
+.pd-effort-medium { border-color: #fde68a; background: #fffbeb; }
+.pd-effort-high { border-color: #fdba74; background: #fff7ed; }
+.pd-effort-high .pd-meta-chip-value { color: #c2410c; }
+
+.pd-auto-low { border-color: #fde68a; background: #fffbeb; }
+.pd-auto-medium { border-color: #bbf7d0; background: #f0fdf4; }
+.pd-auto-medium .pd-meta-chip-value { color: #16a34a; }
+.pd-auto-high { border-color: #a5f3fc; background: #ecfeff; }
+.pd-auto-high .pd-meta-chip-value { color: #0891b2; }
+
+/* ─── Summary Cards (Explore-style) ─── */
+
+.pd-summary {
+    display: flex;
+    gap: 14px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+
+.pd-summary-card {
+    flex: 1;
+    min-width: 140px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    text-align: left;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.pd-summary-card:hover {
+    border-color: #9ca3af;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.pd-summary-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.1;
+}
+
+.pd-summary-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #6b7280;
+    line-height: 1.3;
+}
+
+/* ─── Section Common ─── */
+
+.pd-section {
+    margin-bottom: 36px;
+}
+
+.pd-section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0 0 4px;
+}
+
+.pd-section-helper {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0 0 16px;
+    line-height: 1.5;
+}
+
+/* ─── Section 2: Business Flow ─── */
+
+.pd-flow {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.pd-flow-step-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.pd-flow-arrow {
+    text-align: center;
+    font-size: 16px;
+    color: #9ca3af;
+    padding: 2px 0;
+    line-height: 1;
+    font-weight: 300;
+}
+
+/* Override pv-stages for detail page */
+.pd-section .pv-stages {
+    max-width: 100%;
+}
+
+/* ─── Section 3: Connected Systems ─── */
+
+.pd-systems-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+}
+
+.pd-system-card {
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 12px 14px;
+    text-decoration: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.pd-system-card:hover {
+    border-color: #bfdbfe;
+    box-shadow: 0 1px 6px rgba(59, 130, 246, 0.08);
+}
+
+.pd-system-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.pd-system-card-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: #2563eb;
+    line-height: 1.4;
+    flex-shrink: 0;
+    max-width: 55%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pd-system-card:hover .pd-system-card-name {
+    text-decoration: underline;
+}
+
+.pd-system-card-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    justify-content: flex-end;
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.pd-system-card-use-case {
+    font-size: 12px;
+    color: #6b7280;
+    line-height: 1.45;
+    margin: 8px 0 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.pd-system-card-footer {
+    margin-top: auto;
+    padding-top: 8px;
+}
+
+.pd-system-card-link {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6366f1;
+    text-decoration: none;
+}
+
+.pd-system-card:hover .pd-system-card-link {
+    text-decoration: underline;
+}
+
+/* ─── Badges (shared with ProcessView.css style) ─── */
+
+.pd-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    line-height: 1.5;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.pd-crit-critical { background: #fef2f2; color: #dc2626; }
+.pd-crit-high { background: #fff7ed; color: #c2410c; }
+.pd-crit-medium { background: #fffbeb; color: #b45309; }
+.pd-crit-low { background: #f8fafc; color: #6b7280; }
+
+/* ─── Section 4: Performance Impact ─── */
+
+.pd-perf-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+}
+
+.pd-perf-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.pd-perf-card:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.pd-perf-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.pd-perf-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #111827;
+}
+
+.pd-perf-status {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 10px;
+    border-radius: 99px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.pd-perf-status-active { color: #16a34a; background: #f0fdf4; }
+.pd-perf-status-future { color: #6b7280; background: #f3f4f6; }
+
+.pd-perf-desc {
+    font-size: 12px;
+    color: #6b7280;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.pd-perf-footer {
+    margin-top: auto;
+    padding-top: 4px;
+}
+
+.pd-perf-link {
+    font-size: 13px;
+    font-weight: 600;
+    color: #6366f1;
+    text-decoration: none;
+}
+
+.pd-perf-link:hover {
+    text-decoration: underline;
+}
+
+.pd-perf-link-disabled {
+    color: #9ca3af;
+    cursor: default;
+    font-weight: 500;
+}
+
+.pd-perf-link-disabled:hover {
+    text-decoration: none;
+}
+
+/* ─── Section 5: Relationship Navigator ─── */
+
+.pd-nav-strip {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.pd-nav-node {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 16px 18px;
+    text-decoration: none;
+    min-width: 0;
+    transition: background 0.12s;
+}
+
+.pd-nav-node:not(:last-child) {
+    border-right: 1px solid #e5e7eb;
+}
+
+.pd-nav-link:hover {
+    background: #f9fafb;
+}
+
+.pd-nav-active {
+    background: #f8fafc;
+}
+
+.pd-nav-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.pd-nav-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #111827;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pd-nav-link:hover .pd-nav-name {
+    color: #2563eb;
+}
+
+.pd-nav-arrow {
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    font-size: 18px;
+    color: #d1d5db;
+    font-weight: 300;
+    flex-shrink: 0;
+}
+
+/* ─── Responsive ─── */
+
+@media (max-width: 900px) {
+    .pd-page {
+        padding: 16px 20px 40px;
+    }
+    .pd-summary {
+        flex-direction: column;
+    }
+    .pd-summary-card {
+        min-width: 0;
+    }
+    .pd-nav-strip {
+        flex-direction: column;
+    }
+    .pd-nav-node:not(:last-child) {
+        border-right: none;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    .pd-nav-arrow {
+        display: none;
+    }
+    .pd-systems-grid {
+        grid-template-columns: 1fr;
+    }
+    .pd-perf-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .pd-page {
+        padding: 12px 14px 32px;
+    }
+    .pd-name {
+        font-size: 22px;
+    }
+    .pd-header-top {
+        flex-direction: column;
+    }
+}
