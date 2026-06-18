@@ -34,7 +34,7 @@ jobs:
           cp api/package-lock.json deploy/
           cp api/src/server.js deploy/server.js
           cp -r api/src deploy/src
-          cp -r dist deploy/
+          cp -r api/dist deploy/
 
       - name: Create deployment package
         run: cd deploy && zip -r ../deploy.zip .
