@@ -2,6 +2,15 @@ import { NavLink } from "react-router-dom";
 import { usePermissions, isPlatformAdmin } from "../hooks/usePermissions";
 import "./Sidebar.css";
 
+const NAV_ITEMS = [
+    { to: "/", label: "Home", icon: "🏠", end: true },
+    { to: "/topics", label: "Business Topics", icon: "🧭" },
+    { to: "/applications", label: "Systems", icon: "🖥️" },
+    { to: "/processes", label: "Processes", icon: "🔄" },
+    { to: "/performance", label: "Performance", icon: "📈" },
+    { to: "/integrations", label: "Explore", icon: "🗺️" },
+];
+
 interface SidebarProps {
     open: boolean;
     onClose: () => void;
@@ -17,67 +26,26 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
     return (
         <aside className={`sidebar ${open ? "sidebar--open" : ""}`}>
+            <div className="sidebar-brand">
+                <span className="sidebar-brand-icon">🔍</span>
+                <span className="sidebar-brand-text">IntegraSource</span>
+            </div>
+
             <nav className="sidebar-nav">
-                <NavLink
-                    to="/"
-                    end
-                    className={({ isActive }) =>
-                        isActive ? "sidebar-link active" : "sidebar-link"
-                    }
-                    onClick={handleNavClick}
-                >
-                    Home
-                </NavLink>
-
-                <NavLink
-                    to="/topics"
-                    className={({ isActive }) =>
-                        isActive ? "sidebar-link active" : "sidebar-link"
-                    }
-                    onClick={handleNavClick}
-                >
-                    Business Topics
-                </NavLink>
-
-                <NavLink
-                    to="/applications"
-                    className={({ isActive }) =>
-                        isActive ? "sidebar-link active" : "sidebar-link"
-                    }
-                    onClick={handleNavClick}
-                >
-                    Systems
-                </NavLink>
-
-                <NavLink
-                    to="/processes"
-                    className={({ isActive }) =>
-                        isActive ? "sidebar-link active" : "sidebar-link"
-                    }
-                    onClick={handleNavClick}
-                >
-                    Processes
-                </NavLink>
-
-                <NavLink
-                    to="/performance"
-                    className={({ isActive }) =>
-                        isActive ? "sidebar-link active" : "sidebar-link"
-                    }
-                    onClick={handleNavClick}
-                >
-                    Performance
-                </NavLink>
-
-                <NavLink
-                    to="/integrations"
-                    className={({ isActive }) =>
-                        isActive ? "sidebar-link active" : "sidebar-link"
-                    }
-                    onClick={handleNavClick}
-                >
-                    Explore
-                </NavLink>
+                {NAV_ITEMS.map(item => (
+                    <NavLink
+                        key={item.to}
+                        to={item.to}
+                        end={item.end}
+                        className={({ isActive }) =>
+                            isActive ? "sidebar-link active" : "sidebar-link"
+                        }
+                        onClick={handleNavClick}
+                    >
+                        <span className="sidebar-link-icon">{item.icon}</span>
+                        <span className="sidebar-link-label">{item.label}</span>
+                    </NavLink>
+                ))}
 
                 {isAdmin && (
                     <NavLink
@@ -87,10 +55,16 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                         }
                         onClick={handleNavClick}
                     >
-                        Admin
+                        <span className="sidebar-link-icon">⚙️</span>
+                        <span className="sidebar-link-label">Admin</span>
                     </NavLink>
                 )}
             </nav>
+
+            <div className="sidebar-footer">
+                <span className="sidebar-footer-version">IntegraSource v2.0</span>
+                <span className="sidebar-footer-copy">&copy; 2025 IntegraCare</span>
+            </div>
         </aside>
     );
 }

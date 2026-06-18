@@ -1,13 +1,21 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { BUSINESS_TOPICS, searchTopics } from "../../data/topics";
+import { BUSINESS_TOPICS, searchTopics, TOPIC_STYLES } from "../../data/topics";
 import "./TopicsPage.css";
 
 const GROUP_ORDER = ["Operations", "Workforce", "Finance", "Sales"];
 
+const GROUP_ACCENTS: Record<string, { color: string; bg: string }> = {
+    Operations: { color: "#2563eb", bg: "#eff6ff" },
+    Workforce: { color: "#0d9488", bg: "#f0fdfa" },
+    Finance: { color: "#ea580c", bg: "#fff7ed" },
+    Sales: { color: "#7c3aed", bg: "#f5f3ff" },
+};
+
 export default function TopicsPage() {
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const query = searchParams.get("search") || "";
+    const [localSearch, setLocalSearch] = useState(query);
 
     const filtered = useMemo(() => {
         if (!query) return null;
@@ -26,17 +34,37 @@ export default function TopicsPage() {
         return ordered.map(g => ({ group: g, topics: map.get(g)! }));
     }, [filtered]);
 
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (localSearch.trim()) {
+            setSearchParams({ search: localSearch.trim() });
+        } else {
+            setSearchParams({});
+        }
+    };
+
     return (
         <div className="topics-page">
-            <div className="topics-hdr">
-                <h1 className="topics-title">Business Topics</h1>
-                <p className="topics-subtitle">
+            <section className="tp-hero">
+                <h1 className="tp-hero-title">Business Topics</h1>
+                <p className="tp-hero-desc">
                     Operational topics mapped to systems, processes, and performance metrics.
                 </p>
-            </div>
+                <form className="tp-search" onSubmit={handleSubmit}>
+                    <span className="tp-search-icon">🔍</span>
+                    <input
+                        type="text"
+                        className="tp-search-input"
+                        placeholder="Filter topics..."
+                        value={localSearch}
+                        onChange={e => setLocalSearch(e.target.value)}
+                    />
+                    <button type="submit" className="tp-search-btn">Search</button>
+                </form>
+            </section>
 
             {query && (
-                <div className="topics-search-status">
+                <div className="tp-search-status">
                     {filtered && filtered.length > 0 ? (
                         <span>Showing {filtered.length} result{filtered.length !== 1 ? "s" : ""} for "<strong>{query}</strong>"</span>
                     ) : (
@@ -45,31 +73,39 @@ export default function TopicsPage() {
                 </div>
             )}
 
-            {grouped.map(({ group, topics }) => (
-                <section key={group} className="topics-group">
-                    <h2 className="topics-group-title">{group}</h2>
-                    <div className="topics-grid">
-                        {topics.map(topic => (
-                            <Link key={topic.slug} to={`/topics/${topic.slug}`} className="topics-card">
-                                <h3 className="topics-card-name">{topic.name}</h3>
-                                <p className="topics-card-desc">{topic.description}</p>
-                                <div className="topics-card-meta">
-                                    {topic.relatedSystems.length > 0 && (
-                                        <span className="topics-card-stat">{topic.relatedSystems.length} system{topic.relatedSystems.length !== 1 ? "s" : ""}</span>
-                                    )}
-                                    {topic.relatedProcesses.length > 0 && (
-                                        <span className="topics-card-stat">{topic.relatedProcesses.length} process{topic.relatedProcesses.length !== 1 ? "es" : ""}</span>
-                                    )}
-                                    {topic.relatedMetrics.length > 0 && (
-                                        <span className="topics-card-stat">{topic.relatedMetrics.length} metric{topic.relatedMetrics.length !== 1 ? "s" : ""}</span>
-                                    )}
-                                </div>
-                                <span className="topics-card-link">View Topic &rarr;</span>
-                            </Link>
-                        ))}
-                    </div>
-                </section>
-            ))}
+            {grouped.map(({ group, topics }) => {
+                const accent = GROUP_ACCENTS[group] || { color: "#6366f1", bg: "#f5f3ff" };
+                return (
+                    <section key={group} className="tp-group">
+                        <h2 className="tp-group-title" style={{ color: accent.color, borderBottomColor: accent.bg }}>
+                            {group}
+                        </h2>
+                        <div className="tp-grid">
+                            {topics.map(topic => {
+                                const style = TOPIC_STYLES[topic.slug] || { icon: "📄", color: "#6366f1", bg: "#f5f3ff" };
+                                return (
+                                    <Link key={topic.slug} to={`/topics/${topic.slug}`} className="tp-card" style={{ borderColor: style.color }}>
+                                        <div className="tp-card-top">
+                                            <div className="tp-card-icon" style={{ background: style.bg, color: style.color }}>{style.icon}</div>
+                                            <div className="tp-card-meta">
+                                                {topic.relatedSystems.length > 0 && (
+                                                    <span className="tp-card-stat">{topic.relatedSystems.length} system{topic.relatedSystems.length !== 1 ? "s" : ""}</span>
+                                                )}
+                                                {topic.relatedProcesses.length > 0 && (
+                                                    <span className="tp-card-stat">{topic.relatedProcesses.length} process{topic.relatedProcesses.length !== 1 ? "es" : ""}</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <h3 className="tp-card-name">{topic.name}</h3>
+                                        <p className="tp-card-desc">{topic.description}</p>
+                                        <span className="tp-card-link">View Topic &rarr;</span>
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    </section>
+                );
+            })}
         </div>
     );
 }

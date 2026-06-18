@@ -1,12 +1,13 @@
 import { useParams, Link } from "react-router-dom";
-import { getTopicBySlug } from "../../data/topics";
+import { getTopicBySlug, TOPIC_STYLES } from "../../data/topics";
 import "./TopicDetailPage.css";
 
 export default function TopicDetailPage() {
     const { topicSlug } = useParams<{ topicSlug: string }>();
     const topic = topicSlug ? getTopicBySlug(topicSlug) : undefined;
+    const style = topicSlug ? (TOPIC_STYLES[topicSlug] || { icon: "📄", color: "#6366f1", bg: "#f5f3ff" }) : null;
 
-    if (!topic) {
+    if (!topic || !style) {
         return (
             <div className="td-page">
                 <div className="td-not-found">
@@ -24,19 +25,22 @@ export default function TopicDetailPage() {
                 <Link to="/topics" className="td-back-link">&larr; All Topics</Link>
             </div>
 
-            <header className="td-header">
-                <div className="td-header-top">
-                    <div>
-                        <h1 className="td-name">{topic.name}</h1>
-                        <span className="td-group">{topic.group}</span>
+            <header className="td-header" style={{ background: `linear-gradient(135deg, ${style.bg} 0%, #fff 80%)` }}>
+                <div className="td-header-row">
+                    <div className="td-header-icon" style={{ background: style.bg, color: style.color }}>{style.icon}</div>
+                    <div className="td-header-info">
+                        <div className="td-header-top">
+                            <h1 className="td-name">{topic.name}</h1>
+                            <span className="td-group" style={{ background: style.bg, color: style.color }}>{topic.group}</span>
+                        </div>
+                        <p className="td-description">{topic.description}</p>
                     </div>
                 </div>
-                <p className="td-description">{topic.description}</p>
             </header>
 
             <div className="td-grid">
-                <div className="td-card td-card-full">
-                    <h2 className="td-card-title">Why It Matters</h2>
+                <div className="td-card td-card-why" style={{ borderLeftColor: style.color }}>
+                    <h2 className="td-card-title" style={{ color: style.color }}>Why It Matters</h2>
                     <p className="td-card-text">{topic.whyItMatters}</p>
                 </div>
 
@@ -96,8 +100,8 @@ export default function TopicDetailPage() {
                     <h2 className="td-card-title">Common Questions</h2>
                     <div className="td-qa-list">
                         {topic.commonQuestions.map((qa, i) => (
-                            <details key={i} className="td-qa-item">
-                                <summary className="td-qa-q">{qa.question}</summary>
+                            <details key={i} className="td-qa-item" style={{ borderColor: style.bg }}>
+                                <summary className="td-qa-q" style={{ background: style.bg }}>{qa.question}</summary>
                                 <p className="td-qa-a">{qa.answer}</p>
                             </details>
                         ))}

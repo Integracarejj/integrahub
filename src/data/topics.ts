@@ -302,6 +302,28 @@ export const BUSINESS_TOPICS: BusinessTopic[] = [
     },
 ];
 
+export const TOPIC_STYLES: Record<string, { icon: string; color: string; bg: string }> = {
+    census: { icon: "🏠", color: "#2563eb", bg: "#eff6ff" },
+    occupancy: { icon: "📊", color: "#059669", bg: "#f0fdf4" },
+    "move-ins": { icon: "🚚", color: "#ea580c", bg: "#fff7ed" },
+    "resident-care": { icon: "🏥", color: "#7c3aed", bg: "#f5f3ff" },
+    maintenance: { icon: "🔧", color: "#2563eb", bg: "#eff6ff" },
+    compliance: { icon: "✅", color: "#059669", bg: "#f0fdf4" },
+    staffing: { icon: "👥", color: "#0d9488", bg: "#f0fdfa" },
+    training: { icon: "📚", color: "#7c3aed", bg: "#f5f3ff" },
+    payroll: { icon: "💰", color: "#059669", bg: "#f0fdf4" },
+    "employee-lifecycle": { icon: "🔄", color: "#0d9488", bg: "#f0fdfa" },
+    retention: { icon: "⭐", color: "#0d9488", bg: "#f0fdfa" },
+    "revenue-cycle": { icon: "💳", color: "#ea580c", bg: "#fff7ed" },
+    billing: { icon: "📄", color: "#ea580c", bg: "#fff7ed" },
+    budget: { icon: "📋", color: "#ea580c", bg: "#fff7ed" },
+    "ap-payments": { icon: "💵", color: "#ea580c", bg: "#fff7ed" },
+    "lead-generation": { icon: "📢", color: "#2563eb", bg: "#eff6ff" },
+    tours: { icon: "🚶", color: "#2563eb", bg: "#eff6ff" },
+    conversion: { icon: "📈", color: "#2563eb", bg: "#eff6ff" },
+    "referral-sources": { icon: "🔗", color: "#2563eb", bg: "#eff6ff" },
+};
+
 export function getTopicBySlug(slug: string): BusinessTopic | undefined {
     return BUSINESS_TOPICS.find(t => t.slug === slug);
 }
