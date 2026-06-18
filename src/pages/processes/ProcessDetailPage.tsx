@@ -21,106 +21,16 @@ interface PerfAreaLink {
     description: string;
 }
 
-const PERF_AREAS: PerfAreaLink[] = [
-    { label: "Maintenance & Compliance", route: "/performance/maintenance-compliance", status: "Active", description: "Work orders, preventive maintenance, regulatory compliance" },
-    { label: "Sales & Occupancy", route: "", status: "Future", description: "Leads, tours, move-ins, occupancy rates" },
-    { label: "Workforce", route: "", status: "Future", description: "Hiring, onboarding, training, retention" },
-    { label: "Resident Care", route: "", status: "Future", description: "Care delivery, wellness, service requests" },
-    { label: "Financial Performance", route: "", status: "Future", description: "Billing, AP, revenue cycle" },
-];
-
-const PERF_AREA_BY_LABEL = new Map(PERF_AREAS.map(pa => [pa.label, pa]));
-
-/* Phase 1: Explicit process name → performance area */
-const NAME_TO_AREA: Record<string, string> = {
-    "prospect to resident": "Sales & Occupancy",
-    "employee lifecycle": "Workforce",
-    "employee lifecyle": "Workforce",
-    "resident care": "Resident Care",
+const PROCESS_PERF_MAP: Record<string, PerfAreaLink> = {
+    "employee lifecycle": { label: "Workforce", route: "/performance", status: "Future", description: "Hiring, onboarding, training, retention" },
+    "prospect to resident": { label: "Sales & Occupancy", route: "/performance", status: "Future", description: "Leads, tours, move-ins, occupancy rates" },
+    "resident care": { label: "Resident Care", route: "/performance", status: "Future", description: "Care delivery, wellness, service requests" },
+    "maintenance & compliance": { label: "Maintenance & Compliance", route: "/performance/maintenance-compliance", status: "Active", description: "Work orders, preventive maintenance, regulatory compliance" },
 };
 
-/* Phase 2: Expanded keyword → performance area (first match per area) */
-const KEYWORD_TO_AREA: [string, string][] = [
-    ["work order", "Maintenance & Compliance"],
-    ["preventive maintenance", "Maintenance & Compliance"],
-    ["maintenance", "Maintenance & Compliance"],
-    ["compliance", "Maintenance & Compliance"],
-    ["asset management", "Maintenance & Compliance"],
-    ["inspection", "Maintenance & Compliance"],
-    ["facility", "Maintenance & Compliance"],
-    ["safety", "Maintenance & Compliance"],
-    ["regulatory", "Maintenance & Compliance"],
-
-    ["prospect", "Sales & Occupancy"],
-    ["lead", "Sales & Occupancy"],
-    ["tour", "Sales & Occupancy"],
-    ["occupancy", "Sales & Occupancy"],
-    ["move-in", "Sales & Occupancy"],
-    ["leasing", "Sales & Occupancy"],
-    ["rental", "Sales & Occupancy"],
-    ["sales", "Sales & Occupancy"],
-    ["inquiry", "Sales & Occupancy"],
-    ["conversion", "Sales & Occupancy"],
-    ["marketing", "Sales & Occupancy"],
-
-    ["employee lifecycle", "Workforce"],
-    ["employee", "Workforce"],
-    ["hiring", "Workforce"],
-    ["recruiting", "Workforce"],
-    ["onboarding", "Workforce"],
-    ["training", "Workforce"],
-    ["talent", "Workforce"],
-    ["human resources", "Workforce"],
-    ["payroll", "Workforce"],
-    ["benefits", "Workforce"],
-    ["time tracking", "Workforce"],
-    ["staffing", "Workforce"],
-    ["workforce", "Workforce"],
-    ["personnel", "Workforce"],
-    ["offboarding", "Workforce"],
-
-    ["clinical", "Resident Care"],
-    ["wellness", "Resident Care"],
-    ["therapy", "Resident Care"],
-    ["nursing", "Resident Care"],
-    ["care plan", "Resident Care"],
-    ["service request", "Resident Care"],
-    ["health services", "Resident Care"],
-
-    ["financial", "Financial Performance"],
-    ["billing", "Financial Performance"],
-    ["accounts payable", "Financial Performance"],
-    ["accounts receivable", "Financial Performance"],
-    ["revenue cycle", "Financial Performance"],
-    ["revenue", "Financial Performance"],
-    ["budgeting", "Financial Performance"],
-    ["accounting", "Financial Performance"],
-    ["procurement", "Financial Performance"],
-    ["purchasing", "Financial Performance"],
-    ["invoice", "Financial Performance"],
-    ["payment", "Financial Performance"],
-    ["expense", "Financial Performance"],
-];
-
-function matchPerformanceAreas(processName: string, category: string | null): PerfAreaLink[] {
-    const lowerName = processName.toLowerCase();
-    const combined = `${lowerName} ${category ?? ""}`.toLowerCase();
-    const matchedLabels = new Set<string>();
-
-    /* Phase 1: Exact process name match */
-    const exactMatch = NAME_TO_AREA[lowerName];
-    if (exactMatch) matchedLabels.add(exactMatch);
-
-    /* Phase 2: Keyword match */
-    for (const [keyword, areaLabel] of KEYWORD_TO_AREA) {
-        if (combined.includes(keyword)) {
-            matchedLabels.add(areaLabel);
-        }
-    }
-
-    return Array.from(matchedLabels)
-        .map(label => PERF_AREA_BY_LABEL.get(label))
-        .filter((pa): pa is PerfAreaLink => pa !== undefined);
+function matchPerformanceAreas(processName: string): PerfAreaLink[] {
+    const match = PROCESS_PERF_MAP[processName.toLowerCase()];
+    return match ? [match] : [];
 }
 
 /* ─── Main page ─── */
@@ -224,7 +134,7 @@ export default function ProcessDetailPage() {
 
     const perfAreas = useMemo(() => {
         if (!detail) return [];
-        return matchPerformanceAreas(detail.processName, detail.processCategory);
+        return matchPerformanceAreas(detail.processName);
     }, [detail]);
 
     const uniqueSystems = useMemo(() => {
