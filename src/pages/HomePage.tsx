@@ -43,7 +43,7 @@ export default function HomePage() {
                 <div className="hp-hero-content">
                     <h1 className="hp-hero-title">Welcome to IntegraSource</h1>
                     <p className="hp-hero-subtitle">
-                        Your operational intelligence hub for understanding how the business operates and performs.
+                        Understand how the business operates and performs.
                     </p>
                     <form className="hp-search" onSubmit={handleSearch}>
                         <span className="hp-search-icon">🔍</span>
@@ -97,10 +97,6 @@ export default function HomePage() {
                     })}
                 </div>
             </section>
-
-            <div className="hp-scroll-cue">
-                Continue for operations, performance, and system intelligence &darr;
-            </div>
 
             <section className="hp-section hp-section-panel">
                 <h2 className="hp-section-title">How the Business Operates</h2>
