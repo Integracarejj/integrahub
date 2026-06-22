@@ -25,7 +25,8 @@ const PERF_ITEMS = [
 export default function HomePage() {
     const navigate = useNavigate();
     const [search, setSearch] = useState("");
-    const [openPillar, setOpenPillar] = useState<"operates" | "performs" | null>(null);
+    const [operatesOpen, setOperatesOpen] = useState(false);
+    const [performsOpen, setPerformsOpen] = useState(false);
 
     const popular = BUSINESS_TOPICS.filter(t => POPULAR_SLUGS.includes(t.slug));
 
@@ -36,9 +37,8 @@ export default function HomePage() {
         }
     };
 
-    const togglePillar = (name: "operates" | "performs") => {
-        setOpenPillar(prev => prev === name ? null : name);
-    };
+    const toggleOperates = () => setOperatesOpen(prev => !prev);
+    const togglePerforms = () => setPerformsOpen(prev => !prev);
 
     return (
         <div className="home-page">
@@ -111,11 +111,12 @@ export default function HomePage() {
 
             <div className="hp-pillars">
                 {/* How the Business Operates */}
-                <div className={`hp-pillar ${openPillar === "operates" ? "hp-pillar--open" : ""}`}>
+                <div className={`hp-pillar ${operatesOpen ? "hp-pillar--open" : ""}`}>
                     <button
                         className="hp-pillar-header"
-                        onClick={() => togglePillar("operates")}
-                        aria-expanded={openPillar === "operates"}
+                        onClick={toggleOperates}
+                        aria-expanded={operatesOpen}
+                        aria-label={operatesOpen ? "Collapse How the Business Operates" : "Expand How the Business Operates"}
                     >
                         <div className="hp-pillar-header-text">
                             <span className="hp-pillar-header-icon">🖥️</span>
@@ -130,8 +131,8 @@ export default function HomePage() {
                                 <span className="hp-pillar-chip">25 systems</span>
                                 <span className="hp-pillar-chip">10 integrations</span>
                             </div>
-                            <span className={`hp-pillar-chevron ${openPillar === "operates" ? "hp-pillar-chevron--open" : ""}`}>
-                                &#9662;
+                            <span className="hp-pillar-chevron-btn" aria-hidden="true">
+                                {operatesOpen ? "▲" : "▼"}
                             </span>
                         </div>
                     </button>
@@ -152,11 +153,12 @@ export default function HomePage() {
                 </div>
 
                 {/* How the Business Performs */}
-                <div className={`hp-pillar ${openPillar === "performs" ? "hp-pillar--open" : ""}`}>
+                <div className={`hp-pillar ${performsOpen ? "hp-pillar--open" : ""}`}>
                     <button
                         className="hp-pillar-header"
-                        onClick={() => togglePillar("performs")}
-                        aria-expanded={openPillar === "performs"}
+                        onClick={togglePerforms}
+                        aria-expanded={performsOpen}
+                        aria-label={performsOpen ? "Collapse How the Business Performs" : "Expand How the Business Performs"}
                     >
                         <div className="hp-pillar-header-text">
                             <span className="hp-pillar-header-icon">📈</span>
@@ -171,8 +173,8 @@ export default function HomePage() {
                                 <span className="hp-pillar-chip">TELS active</span>
                                 <span className="hp-pillar-chip">More coming</span>
                             </div>
-                            <span className={`hp-pillar-chevron ${openPillar === "performs" ? "hp-pillar-chevron--open" : ""}`}>
-                                &#9662;
+                            <span className="hp-pillar-chevron-btn" aria-hidden="true">
+                                {performsOpen ? "▲" : "▼"}
                             </span>
                         </div>
                     </button>
