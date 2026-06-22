@@ -4,28 +4,28 @@ import { BUSINESS_TOPICS, TOPIC_STYLES } from "../data/topics";
 import "./HomePage.css";
 
 const POPULAR_SLUGS = [
-    "census", "occupancy", "move-ins", "resident-care", "maintenance",
-    "compliance", "staffing", "revenue-cycle",
+    "census", "occupancy", "staffing", "revenue-cycle",
 ];
 
-const PERF_AREAS = [
-    { label: "Sales & Occupancy", icon: "📈", route: "/performance", desc: "Lead-to-move-in funnel and occupancy rates" },
-    { label: "Resident Care", icon: "🏥", route: "/performance", desc: "Care quality, clinical compliance, wellness" },
-    { label: "Workforce", icon: "👥", route: "/performance", desc: "Staffing, retention, training, labor costs" },
-    { label: "Financial Performance", icon: "💳", route: "/performance", desc: "Revenue, billing, budget, AP" },
-    { label: "Maintenance & Compliance", icon: "🔧", route: "/performance/maintenance-compliance", desc: "Work orders, PM, safety, regulatory" },
+const OPS_ITEMS = [
+    { icon: "🖥️", title: "Systems", desc: "Browse all applications and their capabilities", link: "/applications", cta: "View Systems" },
+    { icon: "🔄", title: "Processes", desc: "Explore business processes and workflows", link: "/processes", cta: "View Processes" },
+    { icon: "🔗", title: "Integrations", desc: "View system connections and data flow", link: "/integrations", cta: "View Integrations" },
+    { icon: "🏢", title: "Departments & Capabilities", desc: "Understand system coverage by department", link: "/department-view", cta: "View Coverage" },
 ];
 
-const OPS_CARDS = [
-    { title: "Systems", icon: "🖥️", desc: "Browse all applications and their capabilities", link: "/applications", cta: "View Systems" },
-    { title: "Processes", icon: "🔄", desc: "Explore business processes and workflows", link: "/processes", cta: "View Processes" },
-    { title: "Integrations", icon: "🔗", desc: "View system connections and data flow", link: "/integrations", cta: "View Integrations" },
-    { title: "Departments & Capabilities", icon: "🏢", desc: "Understand system coverage by department", link: "/capability-view", cta: "View Coverage" },
+const PERF_ITEMS = [
+    { icon: "📈", title: "Sales & Occupancy", desc: "Lead-to-move-in funnel and occupancy rates", link: "/performance", cta: "View Performance" },
+    { icon: "🏥", title: "Resident Care", desc: "Care quality, clinical compliance, wellness", link: "/performance", cta: "View Performance" },
+    { icon: "👥", title: "Workforce", desc: "Staffing, retention, training, labor costs", link: "/performance", cta: "View Performance" },
+    { icon: "💳", title: "Financial Performance", desc: "Revenue, billing, budget, AP", link: "/performance", cta: "View Performance" },
+    { icon: "🔧", title: "Maintenance & Compliance", desc: "Work orders, PM, safety, regulatory", link: "/performance/maintenance-compliance", cta: "View Performance" },
 ];
 
 export default function HomePage() {
     const navigate = useNavigate();
     const [search, setSearch] = useState("");
+    const [openPillar, setOpenPillar] = useState<"operates" | "performs" | null>(null);
 
     const popular = BUSINESS_TOPICS.filter(t => POPULAR_SLUGS.includes(t.slug));
 
@@ -34,6 +34,10 @@ export default function HomePage() {
         if (search.trim()) {
             navigate(`/topics?search=${encodeURIComponent(search.trim())}`);
         }
+    };
+
+    const togglePillar = (name: "operates" | "performs") => {
+        setOpenPillar(prev => prev === name ? null : name);
     };
 
     return (
@@ -98,39 +102,96 @@ export default function HomePage() {
                 </div>
             </section>
 
-            <section className="hp-section hp-section-panel">
-                <h2 className="hp-section-title">How the Business Operates</h2>
-                <p className="hp-section-desc">
-                    Explore the systems, processes, and structure that keep the organization running.
+            <div className="hp-pillar-cue">
+                <h2 className="hp-pillar-cue-title">Explore IntegraSource by business pillar</h2>
+                <p className="hp-pillar-cue-desc">
+                    Start with how the business operates, or jump into how it performs.
                 </p>
-                <div className="hp-ops-grid">
-                    {OPS_CARDS.map(card => (
-                        <Link key={card.title} to={card.link} className="hp-ops-card">
-                            <span className="hp-ops-card-icon">{card.icon}</span>
-                            <h3 className="hp-ops-card-title">{card.title}</h3>
-                            <p className="hp-ops-card-desc">{card.desc}</p>
-                            <span className="hp-ops-card-link">{card.cta} &rarr;</span>
-                        </Link>
-                    ))}
-                </div>
-            </section>
+            </div>
 
-            <section className="hp-section hp-section-panel">
-                <h2 className="hp-section-title">How the Business Performs</h2>
-                <p className="hp-section-desc">
-                    Monitor performance across key operational areas.
-                </p>
-                <div className="hp-perf-grid">
-                    {PERF_AREAS.map(pa => (
-                        <Link key={pa.label} to={pa.route} className="hp-perf-card">
-                            <span className="hp-perf-icon">{pa.icon}</span>
-                            <span className="hp-perf-label">{pa.label}</span>
-                            <span className="hp-perf-desc">{pa.desc}</span>
-                            <span className="hp-perf-link">View Performance &rarr;</span>
-                        </Link>
-                    ))}
+            <div className="hp-pillars">
+                {/* How the Business Operates */}
+                <div className={`hp-pillar ${openPillar === "operates" ? "hp-pillar--open" : ""}`}>
+                    <button
+                        className="hp-pillar-header"
+                        onClick={() => togglePillar("operates")}
+                        aria-expanded={openPillar === "operates"}
+                    >
+                        <div className="hp-pillar-header-text">
+                            <span className="hp-pillar-header-icon">🖥️</span>
+                            <div>
+                                <span className="hp-pillar-header-title">How the Business Operates</span>
+                                <span className="hp-pillar-header-sub">Explore systems, processes, integrations, and coverage.</span>
+                            </div>
+                        </div>
+                        <div className="hp-pillar-header-right">
+                            <div className="hp-pillar-chips">
+                                <span className="hp-pillar-chip">{OPS_ITEMS.length} pathways</span>
+                                <span className="hp-pillar-chip">25 systems</span>
+                                <span className="hp-pillar-chip">10 integrations</span>
+                            </div>
+                            <span className={`hp-pillar-chevron ${openPillar === "operates" ? "hp-pillar-chevron--open" : ""}`}>
+                                &#9662;
+                            </span>
+                        </div>
+                    </button>
+                    <div className="hp-pillar-body">
+                        <div className="hp-pillar-grid">
+                            {OPS_ITEMS.map(item => (
+                                <Link key={item.title} to={item.link} className="hp-pillar-card">
+                                    <span className="hp-pillar-card-icon">{item.icon}</span>
+                                    <div className="hp-pillar-card-info">
+                                        <span className="hp-pillar-card-title">{item.title}</span>
+                                        <span className="hp-pillar-card-desc">{item.desc}</span>
+                                    </div>
+                                    <span className="hp-pillar-card-link">{item.cta} &rarr;</span>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
                 </div>
-            </section>
+
+                {/* How the Business Performs */}
+                <div className={`hp-pillar ${openPillar === "performs" ? "hp-pillar--open" : ""}`}>
+                    <button
+                        className="hp-pillar-header"
+                        onClick={() => togglePillar("performs")}
+                        aria-expanded={openPillar === "performs"}
+                    >
+                        <div className="hp-pillar-header-text">
+                            <span className="hp-pillar-header-icon">📈</span>
+                            <div>
+                                <span className="hp-pillar-header-title">How the Business Performs</span>
+                                <span className="hp-pillar-header-sub">Monitor operational performance across key business areas.</span>
+                            </div>
+                        </div>
+                        <div className="hp-pillar-header-right">
+                            <div className="hp-pillar-chips">
+                                <span className="hp-pillar-chip">{PERF_ITEMS.length} areas</span>
+                                <span className="hp-pillar-chip">TELS active</span>
+                                <span className="hp-pillar-chip">More coming</span>
+                            </div>
+                            <span className={`hp-pillar-chevron ${openPillar === "performs" ? "hp-pillar-chevron--open" : ""}`}>
+                                &#9662;
+                            </span>
+                        </div>
+                    </button>
+                    <div className="hp-pillar-body">
+                        <div className="hp-pillar-grid">
+                            {PERF_ITEMS.map(item => (
+                                <Link key={item.title} to={item.link} className="hp-pillar-card">
+                                    <span className="hp-pillar-card-icon">{item.icon}</span>
+                                    <div className="hp-pillar-card-info">
+                                        <span className="hp-pillar-card-title">{item.title}</span>
+                                        <span className="hp-pillar-card-desc">{item.desc}</span>
+                                    </div>
+                                    <span className="hp-pillar-card-link">{item.cta} &rarr;</span>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

@@ -126,13 +126,6 @@
     margin-bottom: 28px;
 }
 
-.hp-section-panel {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 24px;
-}
-
 .hp-section-title {
     font-size: 20px;
     font-weight: 700;
@@ -173,7 +166,7 @@
 
 .hp-topic-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: 12px;
 }
 
@@ -234,128 +227,212 @@
     text-decoration: underline;
 }
 
-/* ─── How the Business Operates ─── */
+/* ─── Pillar Cue ─── */
 
-.hp-ops-grid {
+.hp-pillar-cue {
+    margin-bottom: 16px;
+}
+
+.hp-pillar-cue-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 2px;
+}
+
+.hp-pillar-cue-desc {
+    font-size: 13px;
+    color: #64748b;
+    margin: 0;
+}
+
+/* ─── Pillars ─── */
+
+.hp-pillars {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: 1fr 1fr;
     gap: 14px;
+    margin-bottom: 28px;
 }
 
-.hp-ops-card {
-    display: flex;
-    flex-direction: column;
-    background: #f8fafc;
+.hp-pillar {
+    background: #fff;
     border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 22px;
-    text-decoration: none;
-    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+    border-radius: 12px;
+    overflow: hidden;
 }
 
-.hp-ops-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
-    border-color: #bfdbfe;
-}
-
-.hp-ops-card-icon {
-    font-size: 26px;
-    margin-bottom: 12px;
-    line-height: 1;
-}
-
-.hp-ops-card-title {
-    font-size: 16px;
-    font-weight: 700;
-    color: #0f172a;
-    margin: 0 0 6px;
-}
-
-.hp-ops-card-desc {
-    font-size: 13px;
-    color: #64748b;
-    margin: 0 0 16px;
-    line-height: 1.5;
-    flex: 1;
-}
-
-.hp-ops-card-link {
-    font-size: 13px;
-    font-weight: 600;
-    color: #4f46e5;
-}
-
-.hp-ops-card:hover .hp-ops-card-link {
-    text-decoration: underline;
-}
-
-/* ─── How the Business Performs ─── */
-
-.hp-perf-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 12px;
-}
-
-.hp-perf-card {
+.hp-pillar-header {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    text-align: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 18px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    transition: background 0.1s;
+}
+
+.hp-pillar-header:hover {
     background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 22px 12px;
-    text-decoration: none;
-    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
 }
 
-.hp-perf-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
-    border-color: #bfdbfe;
+.hp-pillar-header-text {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
 }
 
-.hp-perf-icon {
-    font-size: 28px;
-    margin-bottom: 10px;
+.hp-pillar-header-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    font-size: 17px;
+    background: #f1f5f9;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.hp-pillar-header-title {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.3;
+}
+
+.hp-pillar-header-sub {
+    display: block;
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.3;
+    margin-top: 1px;
+}
+
+.hp-pillar-header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.hp-pillar-chips {
+    display: flex;
+    gap: 4px;
+}
+
+.hp-pillar-chip {
+    font-size: 10px;
+    font-weight: 600;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 2px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.hp-pillar-chevron {
+    font-size: 18px;
+    color: #94a3b8;
+    transition: transform 0.2s;
     line-height: 1;
 }
 
-.hp-perf-label {
+.hp-pillar-chevron--open {
+    transform: rotate(180deg);
+}
+
+.hp-pillar-body {
+    display: none;
+    border-top: 1px solid #e2e8f0;
+    padding: 14px;
+}
+
+.hp-pillar--open .hp-pillar-body {
+    display: block;
+}
+
+.hp-pillar-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.hp-pillar-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.hp-pillar-card:hover {
+    border-color: #bfdbfe;
+    box-shadow: 0 1px 4px rgba(59, 130, 246, 0.06);
+}
+
+.hp-pillar-card-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    font-size: 15px;
+    background: #f1f5f9;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.hp-pillar-card-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.hp-pillar-card-title {
+    display: block;
     font-size: 13px;
     font-weight: 700;
     color: #0f172a;
-    margin-bottom: 6px;
+    line-height: 1.3;
 }
 
-.hp-perf-desc {
+.hp-pillar-card-desc {
+    display: block;
     font-size: 11px;
     color: #64748b;
-    line-height: 1.4;
-    margin-bottom: 12px;
-    flex: 1;
+    line-height: 1.3;
+    margin-top: 1px;
 }
 
-.hp-perf-link {
-    font-size: 11px;
+.hp-pillar-card-link {
+    font-size: 12px;
     font-weight: 600;
-    color: #4f46e5;
+    color: #6366f1;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
-.hp-perf-card:hover .hp-perf-link {
+.hp-pillar-card:hover .hp-pillar-card-link {
     text-decoration: underline;
 }
 
 /* ─── Responsive ─── */
 
-@media (max-width: 900px) {
-    .hp-ops-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    .hp-perf-grid {
-        grid-template-columns: repeat(3, 1fr);
+@media (max-width: 800px) {
+    .hp-pillars {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -371,12 +448,6 @@
         font-size: 26px;
     }
     .hp-topic-grid {
-        grid-template-columns: 1fr 1fr;
-    }
-    .hp-ops-grid {
-        grid-template-columns: 1fr;
-    }
-    .hp-perf-grid {
         grid-template-columns: 1fr 1fr;
     }
 }
