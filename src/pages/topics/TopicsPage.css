@@ -15,14 +15,14 @@
 .tp-hero-title {
     font-size: 26px;
     font-weight: 800;
-    color: #0f172a;
+    color: var(--is-text-heading, #0f172a);
     margin: 0 0 4px;
     letter-spacing: -0.02em;
 }
 
 .tp-hero-desc {
     font-size: 14px;
-    color: #334155;
+    color: var(--is-text-helper, #334155);
     margin: 0 0 20px;
 }
 
@@ -45,7 +45,7 @@
 .tp-search-icon {
     padding: 0 6px 0 12px;
     font-size: 14px;
-    color: #64748b;
+    color: #64748b; /* icon only — not meaningful text */
     flex-shrink: 0;
 }
 
@@ -136,7 +136,7 @@
 .tp-group-count {
     font-size: 12px;
     font-weight: 500;
-    color: #64748b;
+    color: #64748b; /* metadata count — intentionally subdued */
     margin-left: 8px;
 }
 
@@ -150,7 +150,7 @@
 .tp-back-top-link {
     font-size: 13px;
     font-weight: 600;
-    color: #2563eb;
+    color: var(--is-link, #2563eb);
     text-decoration: none;
 }
 
@@ -162,7 +162,7 @@
 
 .tp-search-status {
     font-size: 14px;
-    color: #475569;
+    color: var(--is-text-helper, #334155);
     margin-bottom: 24px;
     padding: 12px 16px;
     background: #fff;
@@ -197,11 +197,11 @@
     display: flex;
     flex-direction: column;
     background: #fff;
-    border: 1px solid #93c5fd;
+    border: 1px solid var(--is-border, #93c5fd);
     border-radius: 10px;
     padding: 18px;
     text-decoration: none;
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    box-shadow: var(--is-shadow-card, 0 8px 20px rgba(15, 23, 42, 0.08));
     transition: transform 0.15s, box-shadow 0.15s;
 }
 
@@ -238,7 +238,7 @@
 .tp-card-stat {
     font-size: 10px;
     font-weight: 600;
-    color: #475569;
+    color: var(--is-text-helper, #334155);
     background: #eef2ff;
     border: 1px solid #c7d2fe;
     padding: 2px 7px;
@@ -249,17 +249,17 @@
 .tp-card-name {
     font-size: 15px;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--is-text-heading, #0f172a);
     margin: 0 0 4px;
 }
 
 .tp-card:hover .tp-card-name {
-    color: #2563eb;
+    color: var(--is-link, #2563eb);
 }
 
 .tp-card-desc {
     font-size: 12px;
-    color: #475569;
+    color: var(--is-text-helper, #334155);
     margin: 0 0 14px;
     line-height: 1.5;
     flex: 1;
@@ -268,7 +268,7 @@
 .tp-card-link {
     font-size: 12px;
     font-weight: 600;
-    color: #2563eb;
+    color: var(--is-link, #2563eb);
 }
 
 .tp-card:hover .tp-card-link {

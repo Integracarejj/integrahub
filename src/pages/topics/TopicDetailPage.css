@@ -16,7 +16,7 @@
 .td-back-link {
     font-size: 14px;
     font-weight: 500;
-    color: #2563eb;
+    color: var(--is-link, #2563eb);
     text-decoration: none;
 }
 
@@ -32,7 +32,7 @@
 .td-nav-arrow {
     font-size: 13px;
     font-weight: 500;
-    color: #2563eb;
+    color: var(--is-link, #2563eb);
     text-decoration: none;
     white-space: nowrap;
 }
@@ -49,13 +49,13 @@
 .td-not-found h1 {
     font-size: 22px;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--is-text-heading, #0f172a);
     margin: 0 0 8px;
 }
 
 .td-not-found p {
     font-size: 14px;
-    color: #475569;
+    color: var(--is-text-helper, #334155);
     margin: 0 0 20px;
 }
 
@@ -101,7 +101,7 @@
 .td-name {
     font-size: 24px;
     font-weight: 800;
-    color: #0f172a;
+    color: var(--is-text-heading, #0f172a);
     margin: 0;
     letter-spacing: -0.02em;
 }
@@ -117,7 +117,7 @@
 
 .td-description {
     font-size: 14px;
-    color: #1e293b;
+    color: var(--is-text-body, #111827);
     margin: 0;
     line-height: 1.6;
 }
@@ -135,11 +135,11 @@
 }
 
 .td-card {
-    background: #fff;
-    border: 1px solid #93c5fd;
+    background: var(--is-card-bg, #ffffff);
+    border: 1px solid var(--is-border, #93c5fd);
     border-radius: 10px;
     padding: 20px;
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    box-shadow: var(--is-shadow-card, 0 8px 20px rgba(15, 23, 42, 0.08));
 }
 
 .td-card-why {
@@ -150,7 +150,7 @@
 .td-card-title {
     font-size: 13px;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--is-text-heading, #0f172a);
     margin: 0 0 12px;
     text-transform: uppercase;
     letter-spacing: 0.3px;
@@ -158,14 +158,14 @@
 
 .td-card-text {
     font-size: 14px;
-    color: #1e293b;
+    color: var(--is-text-body, #111827);
     margin: 0;
     line-height: 1.7;
 }
 
 .td-empty {
     font-size: 13px;
-    color: #64748b;
+    color: #64748b; /* empty/disabled state — not meaningful content */
     font-style: italic;
     margin: 0;
 }
@@ -265,7 +265,7 @@
 .td-qa-q {
     font-size: 14px;
     font-weight: 600;
-    color: #0f172a;
+    color: var(--is-text-heading, #0f172a);
     padding: 12px 14px;
     cursor: pointer;
     transition: background 0.1s;
@@ -277,14 +277,14 @@
 }
 
 .td-qa-item[open] .td-qa-q {
-    color: #2563eb;
+    color: var(--is-link, #2563eb);
     font-weight: 700;
     border-radius: 7px 7px 0 0;
 }
 
 .td-qa-a {
     font-size: 14px;
-    color: #334155;
+    color: var(--is-text-helper, #334155);
     margin: 0;
     padding: 12px 14px 16px;
     line-height: 1.6;
@@ -299,7 +299,7 @@
 .td-section-title {
     font-size: 16px;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--is-text-heading, #0f172a);
     margin: 0 0 12px;
 }
 
@@ -314,11 +314,11 @@
     align-items: center;
     gap: 10px;
     padding: 14px;
-    background: #fff;
-    border: 1px solid #93c5fd;
+    background: var(--is-card-bg, #ffffff);
+    border: 1px solid var(--is-border, #93c5fd);
     border-radius: 10px;
     text-decoration: none;
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    box-shadow: var(--is-shadow-card, 0 8px 20px rgba(15, 23, 42, 0.08));
     transition: border-color 0.15s, box-shadow 0.15s;
 }
 
@@ -349,13 +349,13 @@
 .td-step-title {
     font-size: 13px;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--is-text-heading, #0f172a);
     line-height: 1.3;
 }
 
 .td-step-desc {
     font-size: 11px;
-    color: #334155;
+    color: var(--is-text-helper, #334155);
     line-height: 1.3;
 }
 
@@ -379,7 +379,7 @@
     justify-content: space-between;
     gap: 12px;
     padding: 10px 12px;
-    background: #fff;
+    background: var(--is-card-bg, #ffffff);
     border: 1px solid #cbd5e1;
     border-radius: 8px;
     box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
@@ -395,12 +395,12 @@
 .td-reporting-label {
     font-size: 13px;
     font-weight: 600;
-    color: #0f172a;
+    color: var(--is-text-heading, #0f172a);
 }
 
 .td-reporting-desc {
     font-size: 11px;
-    color: #334155;
+    color: var(--is-text-helper, #334155);
 }
 
 .td-reporting-right {
@@ -410,7 +410,7 @@
 .td-reporting-link {
     font-size: 13px;
     font-weight: 600;
-    color: #2563eb;
+    color: var(--is-link, #2563eb);
     text-decoration: none;
     white-space: nowrap;
 }
@@ -439,7 +439,7 @@
 
 .td-reporting-status--unknown {
     background: #f1f5f9;
-    color: #64748b;
+    color: #64748b; /* status badge — not meaningful content text */
 }
 
 /* ─── Responsive ─── */

@@ -9,6 +9,17 @@
   --card-bg: #ffffff;
   --page-bg: #ffffff;
 
+  --is-text-heading: #0f172a;
+  --is-text-body: #111827;
+  --is-text-secondary: #1f2937;
+  --is-text-helper: #334155;
+  --is-link: #2563eb;
+  --is-card-bg: #ffffff;
+  --is-page-bg: #ffffff;
+  --is-border: #93c5fd;
+  --is-border-soft: #bfdbfe;
+  --is-shadow-card: 0 8px 20px rgba(15, 23, 42, 0.08);
+
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
