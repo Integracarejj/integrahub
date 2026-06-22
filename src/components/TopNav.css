@@ -28,7 +28,7 @@
     cursor: pointer;
     padding: 6px;
     border-radius: 4px;
-    color: #4b5563;
+    color: #1f2937;
 }
 
 .sidebar-toggle:hover {
@@ -86,11 +86,11 @@
 }
 
 .logo-source {
-    color: #6b7280;
+    color: #475569;
 }
 
 .brand:hover .logo-source {
-    color: #9ca3af;
+    color: #64748b;
 }
 
 .top-nav-right {
@@ -127,5 +127,5 @@
 
 .user-role {
     font-size: 11px;
-    color: #6b7280;
+    color: #475569;
 }

@@ -97,17 +97,38 @@
     padding: 6px 16px;
     font-size: 13px;
     font-weight: 600;
-    color: #334155;
-    background: #f1f5f9;
-    border: 1px solid #e2e8f0;
     border-radius: 20px;
     text-decoration: none;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.tp-jump-item:nth-child(1) {
+    color: #1d4ed8;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+}
+
+.tp-jump-item:nth-child(2) {
+    color: #0f766e;
+    background: #f0fdfa;
+    border: 1px solid #a7f3d0;
+}
+
+.tp-jump-item:nth-child(3) {
+    color: #c2410c;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+}
+
+.tp-jump-item:nth-child(4) {
+    color: #7c3aed;
+    background: #f5f3ff;
+    border: 1px solid #ddd6fe;
 }
 
 .tp-jump-item:hover {
-    background: #e0edff;
-    color: #1d4ed8;
+    filter: brightness(0.94);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 }
 
 /* ─── Group Count ─── */
@@ -176,11 +197,11 @@
     display: flex;
     flex-direction: column;
     background: #fff;
-    border: 1px solid #cbd5e1;
+    border: 1px solid #93c5fd;
     border-radius: 10px;
     padding: 18px;
     text-decoration: none;
-    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
     transition: transform 0.15s, box-shadow 0.15s;
 }
 
@@ -247,7 +268,7 @@
 .tp-card-link {
     font-size: 12px;
     font-weight: 600;
-    color: #6366f1;
+    color: #2563eb;
 }
 
 .tp-card:hover .tp-card-link {
