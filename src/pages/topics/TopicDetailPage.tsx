@@ -3,6 +3,35 @@ import { useParams, Link } from "react-router-dom";
 import { BUSINESS_TOPICS, getTopicBySlug, TOPIC_STYLES } from "../../data/topics";
 import "./TopicDetailPage.css";
 
+const SYSTEM_ROUTES: Record<string, string> = {
+    "ECP": "/applications/app-ecp",
+    "WelcomeHome": "/applications/app-welcomehome",
+    "Power BI": "/applications/app-powerbi",
+    "TELS": "/applications/app-tels",
+    "Azure AD": "/applications/app-azuread",
+    "Azure SQL Database": "/applications/app-azure-sql-db",
+    "TalentLMS": "/applications/app-talentlms",
+    "Paycor": "/applications/app-paycor",
+    "OnShift": "/applications/app-onshift",
+    "Acumatica": "/applications/app-acumatica",
+    "SharePoint": "/applications/app-sharepoint",
+};
+
+const PROCESS_ROUTES: Record<string, string> = {
+    "Prospect to Resident": "/processes",
+    "Employee Lifecycle": "/processes",
+    "Resident Care": "/processes",
+    "Maintenance & Compliance": "/processes",
+};
+
+const PERF_ROUTES: Record<string, string> = {
+    "Sales & Occupancy": "/performance",
+    "Workforce": "/performance",
+    "Financial Performance": "/performance",
+    "Resident Care": "/performance",
+    "Maintenance & Compliance": "/performance/maintenance-compliance",
+};
+
 export default function TopicDetailPage() {
     const { topicSlug } = useParams<{ topicSlug: string }>();
     const topic = topicSlug ? getTopicBySlug(topicSlug) : undefined;
@@ -17,6 +46,34 @@ export default function TopicDetailPage() {
             next: idx < BUSINESS_TOPICS.length - 1 ? BUSINESS_TOPICS[idx + 1] : null,
         };
     }, [topicSlug]);
+
+    const nextSteps = useMemo(() => {
+        if (!topic) return [];
+        const steps: { icon: string; title: string; desc: string; href: string }[] = [];
+
+        const firstSysRoute = topic.relatedSystems
+            .map(s => SYSTEM_ROUTES[s])
+            .find(Boolean);
+        if (firstSysRoute) {
+            steps.push({ icon: "🖥️", title: "View Related Systems", desc: "Explore the applications that support this business area.", href: firstSysRoute });
+        }
+
+        const firstProcRoute = topic.relatedProcesses
+            .map(p => PROCESS_ROUTES[p])
+            .find(Boolean);
+        if (firstProcRoute) {
+            steps.push({ icon: "🔄", title: "View Related Process", desc: "See how this topic fits into the broader workflow.", href: firstProcRoute });
+        }
+
+        const firstPerfRoute = topic.relatedPerformanceAreas
+            .map(p => PERF_ROUTES[p])
+            .find(Boolean);
+        if (firstPerfRoute) {
+            steps.push({ icon: "📈", title: "View Performance Area", desc: "Track performance metrics and KPIs for this area.", href: firstPerfRoute });
+        }
+
+        return steps;
+    }, [topic]);
 
     if (!topic || !style) {
         return (
@@ -55,6 +112,24 @@ export default function TopicDetailPage() {
                 </div>
             </header>
 
+            {nextSteps.length > 0 && (
+                <section className="td-section td-section-steps">
+                    <h2 className="td-section-title">Recommended Next Steps</h2>
+                    <div className="td-steps-grid">
+                        {nextSteps.map(step => (
+                            <Link key={step.title} to={step.href} className="td-step-card" style={{ borderColor: style.bg }}>
+                                <span className="td-step-icon" style={{ background: style.bg }}>{step.icon}</span>
+                                <div className="td-step-info">
+                                    <span className="td-step-title">{step.title}</span>
+                                    <span className="td-step-desc">{step.desc}</span>
+                                </div>
+                                <span className="td-step-arrow" style={{ color: style.color }}>&rarr;</span>
+                            </Link>
+                        ))}
+                    </div>
+                </section>
+            )}
+
             <div className="td-grid">
                 <div className="td-card td-card-why" style={{ borderLeftColor: style.color }}>
                     <h2 className="td-card-title" style={{ color: style.color }}>Why It Matters</h2>
@@ -65,9 +140,14 @@ export default function TopicDetailPage() {
                     <h2 className="td-card-title">Related Systems</h2>
                     {topic.relatedSystems.length > 0 ? (
                         <div className="td-chip-list">
-                            {topic.relatedSystems.map(sys => (
-                                <span key={sys} className="td-chip td-chip-sys">{sys}</span>
-                            ))}
+                            {topic.relatedSystems.map(sys => {
+                                const route = SYSTEM_ROUTES[sys];
+                                return route ? (
+                                    <Link key={sys} to={route} className="td-chip td-chip-sys td-chip-link">{sys}</Link>
+                                ) : (
+                                    <span key={sys} className="td-chip td-chip-sys">{sys}</span>
+                                );
+                            })}
                         </div>
                     ) : (
                         <p className="td-empty">None identified</p>
@@ -78,9 +158,14 @@ export default function TopicDetailPage() {
                     <h2 className="td-card-title">Related Processes</h2>
                     {topic.relatedProcesses.length > 0 ? (
                         <div className="td-chip-list">
-                            {topic.relatedProcesses.map(proc => (
-                                <span key={proc} className="td-chip td-chip-proc">{proc}</span>
-                            ))}
+                            {topic.relatedProcesses.map(proc => {
+                                const route = PROCESS_ROUTES[proc];
+                                return route ? (
+                                    <Link key={proc} to={route} className="td-chip td-chip-proc td-chip-link">{proc}</Link>
+                                ) : (
+                                    <span key={proc} className="td-chip td-chip-proc">{proc}</span>
+                                );
+                            })}
                         </div>
                     ) : (
                         <p className="td-empty">None identified</p>
@@ -91,9 +176,14 @@ export default function TopicDetailPage() {
                     <h2 className="td-card-title">Performance Areas</h2>
                     {topic.relatedPerformanceAreas.length > 0 ? (
                         <div className="td-chip-list">
-                            {topic.relatedPerformanceAreas.map(pa => (
-                                <span key={pa} className="td-chip td-chip-perf">{pa}</span>
-                            ))}
+                            {topic.relatedPerformanceAreas.map(pa => {
+                                const route = PERF_ROUTES[pa];
+                                return route ? (
+                                    <Link key={pa} to={route} className="td-chip td-chip-perf td-chip-link">{pa}</Link>
+                                ) : (
+                                    <span key={pa} className="td-chip td-chip-perf">{pa}</span>
+                                );
+                            })}
                         </div>
                     ) : (
                         <p className="td-empty">None identified</p>
@@ -112,6 +202,31 @@ export default function TopicDetailPage() {
                         <p className="td-empty">None identified</p>
                     )}
                 </div>
+
+                {topic.reportingLinks && topic.reportingLinks.length > 0 && (
+                    <div className="td-card td-card-full">
+                        <h2 className="td-card-title">Reporting & Dashboards</h2>
+                        <div className="td-reporting-list">
+                            {topic.reportingLinks.map((rl, i) => (
+                                <div key={i} className="td-reporting-item">
+                                    <div className="td-reporting-info">
+                                        <span className="td-reporting-label">{rl.label}</span>
+                                        <span className="td-reporting-desc">{rl.description}</span>
+                                    </div>
+                                    <div className="td-reporting-right">
+                                        {rl.href ? (
+                                            <Link to={rl.href} className="td-reporting-link">View &rarr;</Link>
+                                        ) : (
+                                            <span className={`td-reporting-status td-reporting-status--${(rl.status || "Unknown").toLowerCase()}`}>
+                                                {rl.status || "Unknown"}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 <div className="td-card td-card-full">
                     <h2 className="td-card-title">Common Questions</h2>

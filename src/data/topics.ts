@@ -9,6 +9,7 @@ export interface BusinessTopic {
     relatedPerformanceAreas: string[];
     relatedMetrics: string[];
     commonQuestions: { question: string; answer: string }[];
+    reportingLinks?: { label: string; description: string; href?: string; status?: "Available" | "Planned" | "Unknown" }[];
 }
 
 export const BUSINESS_TOPICS: BusinessTopic[] = [
@@ -28,6 +29,9 @@ export const BUSINESS_TOPICS: BusinessTopic[] = [
             { question: "How often is it updated?", answer: "Census data is updated daily via overnight batch syncs from ECP and WelcomeHome into the data warehouse." },
             { question: "Who owns the data?", answer: "Census data ownership is shared between Clinical Operations (for resident counts) and Sales/Marketing (for occupancy and move activity)." },
         ],
+        reportingLinks: [
+            { label: "Occupancy / Census Reporting", description: "Executive dashboard for daily census, occupancy trends, and move activity.", status: "Planned" },
+        ],
     },
     {
         slug: "occupancy",
@@ -43,6 +47,9 @@ export const BUSINESS_TOPICS: BusinessTopic[] = [
             { question: "How is occupancy calculated?", answer: "Occupancy = (filled units or beds) / (total available units or beds). The definition varies slightly by community type (IL, AL, MC, SNF)." },
             { question: "What is a healthy occupancy rate?", answer: "Target occupancy varies by care level: Independent Living targets 92-95%, Assisted Living 88-92%, Skilled Nursing 80-85%." },
             { question: "How does seasonality affect occupancy?", answer: "Occupancy typically dips in winter months (fewer move-ins) and peaks in late summer/early fall." },
+        ],
+        reportingLinks: [
+            { label: "Sales & Occupancy Dashboard", description: "Track occupancy rates, net move-ins, and community performance.", status: "Planned" },
         ],
     },
     {
@@ -89,6 +96,9 @@ export const BUSINESS_TOPICS: BusinessTopic[] = [
             { question: "How are work orders created?", answer: "Work orders can be created by community staff via TELS, automated from preventive maintenance schedules, or submitted by residents." },
             { question: "What is the preventive maintenance schedule?", answer: "PM schedules are managed in TELS based on equipment type, manufacturer recommendations, and regulatory requirements." },
         ],
+        reportingLinks: [
+            { label: "Maintenance & Compliance Performance", description: "Track work orders, PM completion, compliance scores, and safety metrics.", href: "/performance/maintenance-compliance", status: "Available" },
+        ],
     },
     {
         slug: "compliance",
@@ -104,6 +114,9 @@ export const BUSINESS_TOPICS: BusinessTopic[] = [
             { question: "What regulations apply?", answer: "Communities must comply with federal, state, and local regulations including OSHA, life safety codes, health department requirements, and CMS conditions of participation." },
             { question: "How is compliance tracked?", answer: "Compliance is tracked through TELS for maintenance/safety, ECP for clinical, and manual audit processes for other areas." },
         ],
+        reportingLinks: [
+            { label: "Maintenance & Compliance Performance", description: "Monitor regulatory compliance, inspection results, and safety metrics.", href: "/performance/maintenance-compliance", status: "Available" },
+        ],
     },
     {
         slug: "staffing",
@@ -118,6 +131,9 @@ export const BUSINESS_TOPICS: BusinessTopic[] = [
         commonQuestions: [
             { question: "How are staffing targets set?", answer: "Staffing targets are based on resident acuity, census, and budgeted hours per resident per day by department." },
             { question: "Which scheduling system is used?", answer: "PointRight is used for clinical staff scheduling. ADP is used for time tracking and payroll across all staff." },
+        ],
+        reportingLinks: [
+            { label: "Workforce Performance", description: "View staffing levels, turnover, labor costs, and scheduling efficiency.", status: "Planned" },
         ],
     },
     {
@@ -193,6 +209,9 @@ export const BUSINESS_TOPICS: BusinessTopic[] = [
         commonQuestions: [
             { question: "How are residents billed?", answer: "Rent and care charges are generated in Yardi Voyager based on lease terms and care level assessments from ECP." },
             { question: "What payment sources are managed?", answer: "Payment sources include private pay, Medicare, Medicaid, insurance, and veterans benefits." },
+        ],
+        reportingLinks: [
+            { label: "Financial Performance Dashboard", description: "Track revenue, AR aging, billing accuracy, and collection rates.", status: "Planned" },
         ],
     },
     {
