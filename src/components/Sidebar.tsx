@@ -26,11 +26,6 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
     return (
         <aside className={`sidebar ${open ? "sidebar--open" : ""}`}>
-            <div className="sidebar-brand">
-                <span className="sidebar-brand-icon">🔍</span>
-                <span className="sidebar-brand-text">IntegraSource</span>
-            </div>
-
             <nav className="sidebar-nav">
                 {NAV_ITEMS.map(item => (
                     <NavLink

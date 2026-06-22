@@ -13,29 +13,6 @@
     flex-direction: column;
 }
 
-/* ─── Brand ─── */
-
-.sidebar-brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 20px 16px 12px;
-    border-bottom: 1px solid #e2e8f0;
-    margin-bottom: 8px;
-}
-
-.sidebar-brand-icon {
-    font-size: 22px;
-    line-height: 1;
-}
-
-.sidebar-brand-text {
-    font-size: 16px;
-    font-weight: 700;
-    color: #0f172a;
-    letter-spacing: -0.02em;
-}
-
 /* ─── Nav ─── */
 
 .sidebar-nav {
