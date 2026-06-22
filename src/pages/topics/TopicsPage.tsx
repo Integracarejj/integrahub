@@ -65,7 +65,7 @@ export default function TopicsPage() {
 
             {!query && (
                 <nav className="tp-jump">
-                    {grouped.map(({ group, topics }) => (
+                    {grouped.map(({ group }) => (
                         <a key={group} href={`#${group.toLowerCase()}`} className="tp-jump-item">
                             {group}
                         </a>
