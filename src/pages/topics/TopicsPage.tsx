@@ -63,6 +63,16 @@ export default function TopicsPage() {
                 </form>
             </section>
 
+            {!query && (
+                <nav className="tp-jump">
+                    {grouped.map(({ group, topics }) => (
+                        <a key={group} href={`#${group.toLowerCase()}`} className="tp-jump-item">
+                            {group}
+                        </a>
+                    ))}
+                </nav>
+            )}
+
             {query && (
                 <div className="tp-search-status">
                     {filtered && filtered.length > 0 ? (
@@ -76,9 +86,9 @@ export default function TopicsPage() {
             {grouped.map(({ group, topics }) => {
                 const accent = GROUP_ACCENTS[group] || { color: "#6366f1", bg: "#f5f3ff" };
                 return (
-                    <section key={group} className="tp-group">
+                    <section key={group} id={group.toLowerCase()} className="tp-group">
                         <h2 className="tp-group-title" style={{ color: accent.color, borderBottomColor: accent.bg }}>
-                            {group}
+                            {group} <span className="tp-group-count">{topics.length} topic{topics.length !== 1 ? "s" : ""}</span>
                         </h2>
                         <div className="tp-grid">
                             {topics.map(topic => {
@@ -106,6 +116,10 @@ export default function TopicsPage() {
                     </section>
                 );
             })}
+
+            <div className="tp-back-top">
+                <a href="#top" className="tp-back-top-link">Back to top &uarr;</a>
+            </div>
         </div>
     );
 }

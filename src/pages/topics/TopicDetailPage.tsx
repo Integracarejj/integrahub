@@ -1,11 +1,22 @@
+import { useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getTopicBySlug, TOPIC_STYLES } from "../../data/topics";
+import { BUSINESS_TOPICS, getTopicBySlug, TOPIC_STYLES } from "../../data/topics";
 import "./TopicDetailPage.css";
 
 export default function TopicDetailPage() {
     const { topicSlug } = useParams<{ topicSlug: string }>();
     const topic = topicSlug ? getTopicBySlug(topicSlug) : undefined;
     const style = topicSlug ? (TOPIC_STYLES[topicSlug] || { icon: "📄", color: "#6366f1", bg: "#f5f3ff" }) : null;
+
+    const nav = useMemo(() => {
+        if (!topicSlug) return null;
+        const idx = BUSINESS_TOPICS.findIndex(t => t.slug === topicSlug);
+        if (idx === -1) return null;
+        return {
+            prev: idx > 0 ? BUSINESS_TOPICS[idx - 1] : null,
+            next: idx < BUSINESS_TOPICS.length - 1 ? BUSINESS_TOPICS[idx + 1] : null,
+        };
+    }, [topicSlug]);
 
     if (!topic || !style) {
         return (
@@ -23,6 +34,12 @@ export default function TopicDetailPage() {
         <div className="td-page">
             <div className="td-top-bar">
                 <Link to="/topics" className="td-back-link">&larr; All Topics</Link>
+                {nav && (
+                    <div className="td-nav-arrows">
+                        {nav.prev && <Link to={`/topics/${nav.prev.slug}`} className="td-nav-arrow">&larr; {nav.prev.name}</Link>}
+                        {nav.next && <Link to={`/topics/${nav.next.slug}`} className="td-nav-arrow">{nav.next.name} &rarr;</Link>}
+                    </div>
+                )}
             </div>
 
             <header className="td-header" style={{ background: `linear-gradient(135deg, ${style.bg} 0%, #fff 80%)` }}>

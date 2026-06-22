@@ -5,7 +5,7 @@ import "./HomePage.css";
 
 const POPULAR_SLUGS = [
     "census", "occupancy", "move-ins", "resident-care", "maintenance",
-    "compliance", "staffing", "revenue-cycle", "lead-generation", "conversion",
+    "compliance", "staffing", "revenue-cycle",
 ];
 
 const PERF_AREAS = [
@@ -74,10 +74,15 @@ export default function HomePage() {
             </section>
 
             <section className="hp-section">
-                <h2 className="hp-section-title">Popular Business Topics</h2>
-                <p className="hp-section-desc">
-                    Start with the topics that matter most to your role.
-                </p>
+                <div className="hp-section-hdr">
+                    <div>
+                        <h2 className="hp-section-title">Popular Business Topics</h2>
+                        <p className="hp-section-desc">
+                            Start with the topics that matter most to your role.
+                        </p>
+                    </div>
+                    <Link to="/topics" className="hp-section-link">View all topics &rarr;</Link>
+                </div>
                 <div className="hp-topic-grid">
                     {popular.map(topic => {
                         const style = TOPIC_STYLES[topic.slug] || { icon: "📄", color: "#6366f1", bg: "#f5f3ff" };
@@ -92,6 +97,10 @@ export default function HomePage() {
                     })}
                 </div>
             </section>
+
+            <div className="hp-scroll-cue">
+                Continue for operations, performance, and system intelligence &darr;
+            </div>
 
             <section className="hp-section hp-section-panel">
                 <h2 className="hp-section-title">How the Business Operates</h2>

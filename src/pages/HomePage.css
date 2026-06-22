@@ -149,6 +149,28 @@
     margin: 0 0 20px;
 }
 
+.hp-section-hdr {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 0;
+}
+
+.hp-section-link {
+    font-size: 13px;
+    font-weight: 600;
+    color: #6366f1;
+    text-decoration: none;
+    white-space: nowrap;
+    margin-top: 4px;
+    flex-shrink: 0;
+}
+
+.hp-section-link:hover {
+    text-decoration: underline;
+}
+
 /* ─── Topic Cards ─── */
 
 .hp-topic-grid {
@@ -212,6 +234,17 @@
 
 .hp-topic-card:hover .hp-topic-link {
     text-decoration: underline;
+}
+
+/* ─── Scroll Cue ─── */
+
+.hp-scroll-cue {
+    text-align: center;
+    padding: 4px 0 32px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #64748b;
+    letter-spacing: 0.3px;
 }
 
 /* ─── How the Business Operates ─── */

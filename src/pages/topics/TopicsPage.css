@@ -77,6 +77,65 @@
     background: #4338ca;
 }
 
+/* ─── Jump Nav ─── */
+
+.tp-jump {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    gap: 6px;
+    padding: 10px 0 18px;
+    margin-bottom: 4px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(6px);
+    flex-wrap: wrap;
+}
+
+.tp-jump-item {
+    display: inline-block;
+    padding: 6px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+    background: #f1f5f9;
+    border-radius: 20px;
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+}
+
+.tp-jump-item:hover {
+    background: #e0edff;
+    color: #1d4ed8;
+}
+
+/* ─── Group Count ─── */
+
+.tp-group-count {
+    font-size: 12px;
+    font-weight: 500;
+    color: #94a3b8;
+    margin-left: 8px;
+}
+
+/* ─── Back to Top ─── */
+
+.tp-back-top {
+    text-align: center;
+    padding: 20px 0 10px;
+}
+
+.tp-back-top-link {
+    font-size: 13px;
+    font-weight: 600;
+    color: #6366f1;
+    text-decoration: none;
+}
+
+.tp-back-top-link:hover {
+    text-decoration: underline;
+}
+
 /* ─── Search Status ─── */
 
 .tp-search-status {
