@@ -36,6 +36,9 @@ router.get("/", async (req, res) => {
     const principalName = getPrincipalName(req);
     const resolvedEmail = getResolvedEmail(req);
 
+    const portalRole = req.user?.portalRole || null;
+    const isPortalUser = !!portalRole;
+
     if (req.authInfo) {
         return res.json({
             isAuthenticated: true,
@@ -46,6 +49,8 @@ router.get("/", async (req, res) => {
             principalName,
             userRecord: null,
             accessReason: req.authInfo.reason,
+            portalRole: null,
+            isPortalUser: false,
         });
     }
 
@@ -74,6 +79,8 @@ router.get("/", async (req, res) => {
             principalName,
             userRecord,
             accessReason: null,
+            portalRole,
+            isPortalUser,
         });
     }
 
@@ -86,6 +93,8 @@ router.get("/", async (req, res) => {
         principalName,
         userRecord: null,
         accessReason: null,
+        portalRole: null,
+        isPortalUser: false,
     });
 });
 

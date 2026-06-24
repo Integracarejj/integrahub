@@ -76,12 +76,19 @@ export async function resolveCurrentUser(req, res, next) {
             return next();
         }
 
+        // TODO: Load portalRole from cmdb.UserRoles once that table exists.
+        //       For now, portalRole defaults to null (no portal access).
+        //       Role mapping: if user.role is one of the portal roles, infer it.
+        const portalRoles = ["ExternalBroker", "ExternalBuyer", "DDTeam"];
+        const portalRole = portalRoles.includes(user.role) ? user.role : null;
+
         req.user = {
             id: user.id,
             entraObjectId: user.entraObjectId || null,
             email: user.email,
             name: user.displayName,
             globalRole: user.role || "Viewer",
+            portalRole,
         };
     } catch (err) {
         console.error("resolveCurrentUser: lookup failed:", err.message);

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { CurrentUserProvider, useCurrentUser } from "../hooks/useCurrentUser";
 import AppLayout from "../layouts/AppLayout";
+import PortalLayout from "../layouts/PortalLayout";
 
 import HomePage from "../pages/HomePage";
 import ApplicationsListPage from "../pages/applications/ApplicationsListPage";
@@ -25,6 +26,53 @@ import PerformancePage from "../pages/performance/PerformancePage";
 import MaintenanceCompliancePage from "../pages/performance/MaintenanceCompliancePage";
 import TopicsPage from "../pages/topics/TopicsPage";
 import TopicDetailPage from "../pages/topics/TopicDetailPage";
+
+import PortalOverview from "../pages/portal/PortalOverview";
+import PortalTransactions from "../pages/portal/PortalTransactions";
+import PortalRequests from "../pages/portal/PortalRequests";
+import PortalQuestions from "../pages/portal/PortalQuestions";
+import PortalClarifications from "../pages/portal/PortalClarifications";
+import PortalNewRequest from "../pages/portal/PortalNewRequest";
+import PortalDocuments from "../pages/portal/PortalDocuments";
+import PortalHelp from "../pages/portal/PortalHelp";
+
+/**
+ * Guards internal routes from external portal users.
+ * Portal-only users are redirected to /portal.
+ * Internal users (including DDTeam with both accesses) can proceed.
+ */
+function InternalGuard({ children }: { children: React.ReactNode }) {
+    const { user, loading } = useCurrentUser();
+
+    if (loading) return null;
+
+    if (user?.isPortalUser && !user?.hasAppAccess) {
+        return <Navigate to="/portal" replace />;
+    }
+
+    return <>{children}</>;
+}
+
+/**
+ * Guards portal routes from purely internal users.
+ * Pure internal users see a 403-style message.
+ */
+function PortalGuard({ children }: { children: React.ReactNode }) {
+    const { user, loading } = useCurrentUser();
+
+    if (loading) return null;
+
+    if (!user?.isPortalUser) {
+        return (
+            <div className="no-access-screen">
+                <h2>Portal Access Required</h2>
+                <p>You do not have access to the Recapitalization Portal. Contact the DD team for access.</p>
+            </div>
+        );
+    }
+
+    return <>{children}</>;
+}
 
 function NoAccessScreen() {
     const [showRequest, setShowRequest] = useState(false);
@@ -82,13 +130,13 @@ function AuthAwareRouter() {
         );
     }
 
-    if (user.isAuthenticated && !user.hasAppAccess) {
+    if (user.isAuthenticated && !user.hasAppAccess && !user.isPortalUser) {
         return <NoAccessScreen />;
     }
 
     return (
         <Routes>
-            <Route element={<AppLayout />}>
+            <Route element={<InternalGuard><AppLayout /></InternalGuard>}>
                 <Route path="/" element={<HomePage />} />
 
                 <Route path="/applications" element={<ApplicationsListPage />} />
@@ -123,6 +171,17 @@ function AuthAwareRouter() {
                 <Route path="/topics/:topicSlug" element={<TopicDetailPage />} />
 
                 <Route path="*" element={<Navigate to="/applications" replace />} />
+            </Route>
+
+            <Route element={<PortalGuard><PortalLayout /></PortalGuard>}>
+                <Route path="/portal" element={<PortalOverview />} />
+                <Route path="/portal/transactions" element={<PortalTransactions />} />
+                <Route path="/portal/requests" element={<PortalRequests />} />
+                <Route path="/portal/questions" element={<PortalQuestions />} />
+                <Route path="/portal/clarifications" element={<PortalClarifications />} />
+                <Route path="/portal/new-request" element={<PortalNewRequest />} />
+                <Route path="/portal/documents" element={<PortalDocuments />} />
+                <Route path="/portal/help" element={<PortalHelp />} />
             </Route>
         </Routes>
     );

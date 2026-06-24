@@ -17,6 +17,10 @@ export interface CurrentUserResponse {
     resolvedEmail: string;
     userRecord: UserRecord | null;
     accessReason: string | null;
+    /** Portal role for external Recapitalization Portal users. null = not a portal user. */
+    portalRole: string | null;
+    /** True if the user has any portal-level role assignment. */
+    isPortalUser: boolean;
 }
 
 export interface CurrentUser {
