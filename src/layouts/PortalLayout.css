@@ -1,3 +1,21 @@
+.portal-preview-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: linear-gradient(90deg, #fef3c7, #fde68a);
+    border-bottom: 1px solid #f59e0b;
+    font-size: 13px;
+    font-weight: 600;
+    color: #92400e;
+    z-index: 101;
+}
+
+.portal-preview-icon {
+    font-size: 15px;
+}
+
 .portal-shell {
     display: flex;
     flex-direction: column;

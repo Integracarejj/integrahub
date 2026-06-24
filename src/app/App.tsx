@@ -56,11 +56,22 @@ function InternalGuard({ children }: { children: React.ReactNode }) {
 /**
  * Guards portal routes from purely internal users.
  * Pure internal users see a 403-style message.
+ *
+ * Exceptions for preview:
+ * - Internal PlatformAdmin users can preview /portal with mock data.
+ * - DDTeam users already have isPortalUser and pass through naturally.
  */
 function PortalGuard({ children }: { children: React.ReactNode }) {
     const { user, loading } = useCurrentUser();
 
     if (loading) return null;
+
+    const isPreviewAllowed = user?.hasAppAccess
+        && user?.userRecord?.role === "PlatformAdmin";
+
+    if (isPreviewAllowed) {
+        return <>{children}</>;
+    }
 
     if (!user?.isPortalUser) {
         return (

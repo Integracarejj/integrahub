@@ -54,6 +54,19 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                         <span className="sidebar-link-label">Admin</span>
                     </NavLink>
                 )}
+
+                {isAdmin && (
+                    <NavLink
+                        to="/portal"
+                        className={({ isActive }) =>
+                            isActive ? "sidebar-link active" : "sidebar-link"
+                        }
+                        onClick={handleNavClick}
+                    >
+                        <span className="sidebar-link-icon">🔐</span>
+                        <span className="sidebar-link-label">External Portal Preview</span>
+                    </NavLink>
+                )}
             </nav>
 
             <div className="sidebar-footer">

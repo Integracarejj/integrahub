@@ -12,8 +12,16 @@ export default function PortalLayout() {
         || user?.principalName
         || "Signed In";
 
+    const isPreviewMode = user?.hasAppAccess && !user?.isPortalUser;
+
     return (
         <div className="portal-shell">
+            {isPreviewMode && (
+                <div className="portal-preview-banner">
+                    <span className="portal-preview-icon">&#128274;</span>
+                    <span>Preview Mode — Internal Only. Data shown is mock/sample data.</span>
+                </div>
+            )}
             <header className="portal-topnav">
                 <div className="portal-topnav-inner">
                     <div className="portal-topnav-left">
@@ -34,7 +42,7 @@ export default function PortalLayout() {
                     <div className="portal-topnav-right">
                         <div className="portal-user-profile">
                             <span className="portal-user-name">{displayName}</span>
-                            <span className="portal-user-role">Portal Access</span>
+                            <span className="portal-user-role">{isPreviewMode ? "Preview Mode" : "Portal Access"}</span>
                         </div>
                     </div>
                 </div>
