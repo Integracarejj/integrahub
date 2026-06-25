@@ -36,7 +36,6 @@ const PRIORITY_BADGE: Record<string, string> = {
 
 function readinessScore(item: { status: string; assignedTo?: string | null; owner?: string | null }): { score: number; label: string; factors: { label: string; met: boolean }[] } {
     const isAssigned = !!(item.assignedTo || item.owner);
-    const isOpen = item.status === "Open" || item.status === "Awaiting Review";
     const isInProgress = item.status === "In Progress" || item.status === "Assigned";
     const isProvided = item.status === "Provided" || item.status === "Converted" || item.status === "Under Review";
     const factors = [
@@ -91,7 +90,7 @@ export default function RecapitalizationWorkspace() {
         { id: "wn1", author: "David Park", text: "Initial review — needs owner assignment", timestamp: "2026-06-25" },
         { id: "wn2", author: "Sarah Chen", text: "Contacted broker for more details on scope", timestamp: "2026-06-26" },
     ]);
-    const [questions, setQuestions] = useState<WorkspaceQuestion[]>([
+    const [questions] = useState<WorkspaceQuestion[]>([
         { id: "q1", from: "Marcus & Associates", question: "Should the Phase I ESA include asbestos testing or just standard environmental assessment?", response: "Standard Phase I only. Asbestos scope to be handled separately if flagged.", status: "Answered", timestamp: "2026-06-24" },
         { id: "q2", from: "Marcus & Associates", question: "What is the preferred format for financial statements — scanned PDF or native Excel?", response: null, status: "Open", timestamp: "2026-06-27" },
     ]);
