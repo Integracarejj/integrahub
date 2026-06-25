@@ -46,6 +46,7 @@ export interface RecapRequest {
 
 export interface RecapIntakeItem {
     id: string;
+    intakeId: string;
     type: "Broker Upload" | "External Question" | "External Clarification" | "External New Request" | "Access Request" | "Manual Internal Request";
     status: "Awaiting Review" | "Assigned" | "Converted" | "Duplicate" | "Rejected" | "Not Applicable";
     title: string;
@@ -222,6 +223,7 @@ const MOCK_REQUESTS: RecapRequest[] = [
 const MOCK_INTAKE_ITEMS: RecapIntakeItem[] = [
     {
         id: "int-001",
+        intakeId: "UPLOAD-2026-001",
         type: "Broker Upload",
         status: "Awaiting Review",
         title: "Valstone DD Package v2.xlsx",
@@ -243,6 +245,7 @@ const MOCK_INTAKE_ITEMS: RecapIntakeItem[] = [
     },
     {
         id: "int-002",
+        intakeId: "INTAKE-2026-001",
         type: "External Question",
         status: "Awaiting Review",
         title: "How should rent roll data be normalized across properties?",
@@ -262,6 +265,7 @@ const MOCK_INTAKE_ITEMS: RecapIntakeItem[] = [
     },
     {
         id: "int-003",
+        intakeId: "INTAKE-2026-002",
         type: "External Clarification",
         status: "Awaiting Review",
         title: "Insurance coverage limits for DD-2026-004 need clarification",
@@ -281,6 +285,7 @@ const MOCK_INTAKE_ITEMS: RecapIntakeItem[] = [
     },
     {
         id: "int-004",
+        intakeId: "INTAKE-2026-003",
         type: "External New Request",
         status: "Awaiting Review",
         title: "Vendor contract copies for Magnolia Place",
@@ -300,6 +305,7 @@ const MOCK_INTAKE_ITEMS: RecapIntakeItem[] = [
     },
     {
         id: "int-005",
+        intakeId: "INTAKE-2026-004",
         type: "Access Request",
         status: "Awaiting Review",
         title: "Portal access for John Miller (Valstone analyst)",
@@ -314,6 +320,7 @@ const MOCK_INTAKE_ITEMS: RecapIntakeItem[] = [
     },
     {
         id: "int-006",
+        intakeId: "INTAKE-2026-005",
         type: "External Question",
         status: "Awaiting Review",
         title: "How are community-level financials aggregated to portfolio?",
@@ -333,6 +340,7 @@ const MOCK_INTAKE_ITEMS: RecapIntakeItem[] = [
     },
     {
         id: "int-007",
+        intakeId: "UPLOAD-2026-002",
         type: "Broker Upload",
         status: "Awaiting Review",
         title: "IntegraCare Midwest Updated Package.xlsx",
@@ -354,6 +362,7 @@ const MOCK_INTAKE_ITEMS: RecapIntakeItem[] = [
     },
     {
         id: "int-008",
+        intakeId: "INTAKE-2026-006",
         type: "Manual Internal Request",
         status: "Awaiting Review",
         title: "Property condition assessment for Cedar Ridge",
@@ -373,6 +382,7 @@ const MOCK_INTAKE_ITEMS: RecapIntakeItem[] = [
     },
     {
         id: "int-009",
+        intakeId: "INTAKE-2026-007",
         type: "External New Request",
         status: "Assigned",
         title: "Sunshine Healthcare rent roll data (last 12 months)",
@@ -392,6 +402,7 @@ const MOCK_INTAKE_ITEMS: RecapIntakeItem[] = [
     },
     {
         id: "int-010",
+        intakeId: "INTAKE-2026-008",
         type: "External Clarification",
         status: "Awaiting Review",
         title: "Clarify scope of Phase I environmental for Sunset Bay",
@@ -411,6 +422,7 @@ const MOCK_INTAKE_ITEMS: RecapIntakeItem[] = [
     },
     {
         id: "int-011",
+        intakeId: "INTAKE-2026-009",
         type: "Access Request",
         status: "Converted",
         title: "Portal access for HealthCap new hire",
@@ -425,6 +437,7 @@ const MOCK_INTAKE_ITEMS: RecapIntakeItem[] = [
     },
     {
         id: "int-012",
+        intakeId: "INTAKE-2026-010",
         type: "Manual Internal Request",
         status: "Awaiting Review",
         title: "Litigation history check for all Valstone properties",

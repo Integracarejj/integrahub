@@ -191,7 +191,7 @@ function AuthAwareRouter() {
                 <Route path="/recapitalization" element={<RecapitalizationOverview />} />
                 <Route path="/recapitalization/transactions" element={<RecapitalizationTransactions />} />
                 <Route path="/recapitalization/tracker" element={<RecapitalizationTracker />} />
-                <Route path="/recapitalization/intake" element={<RecapitalizationIntake />} />
+                <Route path="/recapitalization/intake/*" element={<RecapitalizationIntake />} />
                 <Route path="/recapitalization/my-work" element={<RecapitalizationMyWork />} />
                 <Route path="/recapitalization/documents" element={<RecapitalizationDocuments />} />
                 <Route path="/recapitalization/reports" element={<RecapitalizationReports />} />

@@ -127,7 +127,7 @@ function IntakeDrawer({
                 <div className="rc-drawer-body">
                     <div className="rc-drawer-section">
                         <div className="rc-drawer-section-title">Summary</div>
-                        <p style={{ fontSize: 13, color: "#475569", lineHeight: 1.5, margin: 0 }}>
+                        <p style={{ fontSize: 13, color: "#334155", lineHeight: 1.5, margin: 0 }}>
                             {item.description}
                         </p>
                     </div>
@@ -210,7 +210,7 @@ function IntakeDrawer({
                             <div className="rc-timeline-item">
                                 <div className="rc-timeline-dot" style={{ background: "#e2e8f0" }} />
                                 <div className="rc-timeline-content">
-                                    <span className="rc-timeline-desc" style={{ color: "#94a3b8" }}>Awaiting review</span>
+                                    <span className="rc-timeline-desc" style={{ color: "#64748b" }}>Awaiting review</span>
                                     <span className="rc-timeline-meta">Pending action</span>
                                 </div>
                             </div>
@@ -256,8 +256,12 @@ function BrokerUploadCard({
 
     return (
         <div className="iq-broker-card" onClick={onOpen}>
+            <div className="iq-broker-card-id">
+                <span className="iq-id-label">Upload ID</span>
+                <span className="iq-id-value">{item.intakeId}</span>
+            </div>
             <div className="iq-broker-card-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
                     <polyline points="13 2 13 9 20 9" />
                     <path d="M9 15l3 3 3-3" />
@@ -306,6 +310,10 @@ function IntakeRow({
 
     return (
         <div className="iq-inbox-row" onClick={onSelect}>
+            <div className="iq-inbox-row-id">
+                <span className="iq-id-label">Intake ID</span>
+                <span className="iq-id-value">{item.intakeId}</span>
+            </div>
             <div className="iq-inbox-row-left">
                 <span className="iq-source-icon">{config.icon}</span>
                 <div className="iq-inbox-row-info">
@@ -326,11 +334,11 @@ function IntakeRow({
                     <span className="iq-meta-label">Broker</span>
                     <span className="iq-meta-value">{item.submittedBy}</span>
                 </div>
-                <div className="iq-inbox-meta-item">
+                <div className="iq-inbox-meta-item iq-meta-community">
                     <span className="iq-meta-label">Community</span>
-                    <span className="iq-meta-value">
+                    <span className="iq-meta-value iq-meta-community-value">
                         {item.communityNames.length > 0
-                            ? item.communityNames.join(", ")
+                            ? item.communityNames.slice(0, 2).join(", ") + (item.communityNames.length > 2 ? ` +${item.communityNames.length - 2}` : "")
                             : "\u2014"}
                     </span>
                 </div>
@@ -348,7 +356,7 @@ function IntakeRow({
                     <span className="iq-meta-label">Assigned To</span>
                     <span className="iq-meta-value">
                         {item.assignedTo || (
-                            <span style={{ color: "#f97316", fontWeight: 600 }}>Unassigned</span>
+                            <span style={{ color: "#d97706", fontWeight: 600 }}>Unassigned</span>
                         )}
                     </span>
                 </div>
