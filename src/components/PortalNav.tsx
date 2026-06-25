@@ -5,10 +5,8 @@ const PORTAL_NAV_ITEMS = [
     { to: "/portal", label: "Overview", end: true },
     { to: "/portal/transactions", label: "Transactions", end: false },
     { to: "/portal/requests", label: "Requests", end: false },
-    { to: "/portal/questions", label: "Ask Question", end: false },
-    { to: "/portal/clarifications", label: "Request Clarification", end: false },
-    { to: "/portal/new-request", label: "Submit New Request", end: false },
-    { to: "/portal/documents", label: "Documents", end: false },
+    { to: "/portal/submit", label: "Submit / Communicate", end: false },
+    { to: "/portal/documents", label: "Available Documents", end: false },
     { to: "/portal/help", label: "Help", end: false },
 ];
 

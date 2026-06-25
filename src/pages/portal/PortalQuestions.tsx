@@ -31,7 +31,7 @@ export default function PortalQuestions() {
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         console.log("Submitting question:", { transactionId: txnId, questionType: qType, subject, details });
-        submitPortalQuestion({ transactionId: txnId, questionType: qType, subject, details });
+        submitPortalQuestion({ transactionId: txnId, questionType: qType, subject, details, communityIds: [] });
         setSubmitted(true);
         setSubject("");
         setDetails("");

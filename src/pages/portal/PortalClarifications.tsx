@@ -29,7 +29,7 @@ export default function PortalClarifications() {
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         console.log("Submitting clarification request:", { transactionId: txnId, requestId, details });
-        submitPortalClarification({ transactionId: txnId, requestId, details });
+        submitPortalClarification({ transactionId: txnId, requestId, details, communityIds: [] });
         setSubmitted(true);
         setDetails("");
         setTimeout(() => setSubmitted(false), 3000);

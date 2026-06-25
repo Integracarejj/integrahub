@@ -18,7 +18,7 @@ export default function PortalNewRequest() {
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         console.log("Submitting new request:", { transactionId: txnId, category, title, details, priority, neededBy });
-        submitPortalNewRequest({ transactionId: txnId, category, title, details, priority, neededBy });
+        submitPortalNewRequest({ transactionId: txnId, category, title, details, priority, neededBy, communityIds: [] });
         setSubmitted(true);
         setTitle("");
         setDetails("");

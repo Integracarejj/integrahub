@@ -91,17 +91,17 @@ export default function PortalOverview() {
             </div>
 
             <div className="po-action-row">
-                <button className="po-action-card" onClick={() => navigate("/portal/questions")}>
+                <button className="po-action-card" onClick={() => navigate("/portal/submit?type=question")}>
                     <span className="po-action-icon">&#63;</span>
                     <span className="po-action-title">Ask a General Question</span>
                     <span className="po-action-desc">Submit a question about any transaction</span>
                 </button>
-                <button className="po-action-card" onClick={() => navigate("/portal/clarifications")}>
+                <button className="po-action-card" onClick={() => navigate("/portal/submit?type=clarification")}>
                     <span className="po-action-icon">&#33;</span>
                     <span className="po-action-title">Clarify Existing Request</span>
                     <span className="po-action-desc">Request clarification on a previous submission</span>
                 </button>
-                <button className="po-action-card" onClick={() => navigate("/portal/new-request")}>
+                <button className="po-action-card" onClick={() => navigate("/portal/submit?type=new-request")}>
                     <span className="po-action-icon">&#43;</span>
                     <span className="po-action-title">Submit New Request</span>
                     <span className="po-action-desc">Submit a new due diligence request</span>

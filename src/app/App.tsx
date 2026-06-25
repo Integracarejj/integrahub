@@ -30,9 +30,7 @@ import TopicDetailPage from "../pages/topics/TopicDetailPage";
 import PortalOverview from "../pages/portal/PortalOverview";
 import PortalTransactions from "../pages/portal/PortalTransactions";
 import PortalRequests from "../pages/portal/PortalRequests";
-import PortalQuestions from "../pages/portal/PortalQuestions";
-import PortalClarifications from "../pages/portal/PortalClarifications";
-import PortalNewRequest from "../pages/portal/PortalNewRequest";
+import PortalSubmit from "../pages/portal/PortalSubmit";
 import PortalDocuments from "../pages/portal/PortalDocuments";
 import PortalHelp from "../pages/portal/PortalHelp";
 
@@ -188,11 +186,13 @@ function AuthAwareRouter() {
                 <Route path="/portal" element={<PortalOverview />} />
                 <Route path="/portal/transactions" element={<PortalTransactions />} />
                 <Route path="/portal/requests" element={<PortalRequests />} />
-                <Route path="/portal/questions" element={<PortalQuestions />} />
-                <Route path="/portal/clarifications" element={<PortalClarifications />} />
-                <Route path="/portal/new-request" element={<PortalNewRequest />} />
+                <Route path="/portal/submit" element={<PortalSubmit />} />
                 <Route path="/portal/documents" element={<PortalDocuments />} />
                 <Route path="/portal/help" element={<PortalHelp />} />
+
+                <Route path="/portal/questions" element={<Navigate to="/portal/submit?type=question" replace />} />
+                <Route path="/portal/clarifications" element={<Navigate to="/portal/submit?type=clarification" replace />} />
+                <Route path="/portal/new-request" element={<Navigate to="/portal/submit?type=new-request" replace />} />
             </Route>
         </Routes>
     );
