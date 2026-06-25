@@ -1,5 +1,11 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getPortalUserContext, getPortalRequests, getPortalTransactions } from "../../services/portalMockData";
+import {
+    getPortalUserContext, getPortalRequests, getPortalTransactions,
+    getActivePersona, submitBrokerUploadPackage, confirmBrokerPackage,
+    getPortalDocuments, getPortalClarifications, getPortalQuestions,
+} from "../../services/portalMockData";
+import type { ExternalDemoPersona } from "../../services/portalMockData";
 import "./PortalOverview.css";
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -8,6 +14,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
     "Clarification Needed": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
     "Under Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
     "Open": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
+    "Overdue": { bg: "#fef2f2", text: "#991b1b", border: "#fecaca" },
     "Answered": { bg: "#f0fdf4", text: "#166534", border: "#bbf7d0" },
 };
 
@@ -20,129 +27,396 @@ function StatusBadge({ status }: { status: string }) {
     );
 }
 
-export default function PortalOverview() {
+/* ── Broker Overview ────────────────────────────────────────── */
+
+function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
     const navigate = useNavigate();
-    const userContext = getPortalUserContext();
-    const requests = getPortalRequests().slice(0, 5);
+    const requests = getPortalRequests();
     const transactions = getPortalTransactions();
+    const txn = transactions[0];
+    const [uploadState, setUploadState] = useState<"idle" | "analyzing" | "complete">("idle");
+    const [analysis, setAnalysis] = useState<{ detected: number; needsReview: number; duplicates: number; followUp: number; categories: string[] } | null>(null);
+    const [submitted, setSubmitted] = useState(false);
 
-    const totalRequests = requests.length;
-    const providedCount = requests.filter(r => r.status === "Provided").length;
-    const inProgressCount = requests.filter(r => r.status === "In Progress").length;
-    const clarificationNeededCount = requests.filter(r => r.status === "Clarification Needed").length;
-    const newSubmittedCount = requests.filter(r => r.status === "Under Review").length;
+    const needingClarification = requests.filter(r => r.status === "Clarification Needed").length;
+    const waitingOnInternal = requests.filter(r => r.status === "In Progress" || r.status === "Open").length;
+    const provided = requests.filter(r => r.status === "Provided" || r.status === "Under Review").length;
 
-    const recentUpdates = [
-        { date: "2026-06-16", text: "Property Appraisals moved to Under Review" },
-        { date: "2026-06-15", text: "Clarification requested on Staffing Ratios (Facility #7)" },
-        { date: "2026-06-14", text: "Staff turnover question submitted" },
-        { date: "2026-06-12", text: "Staffing Ratio data uploaded" },
-        { date: "2026-06-11", text: "Litigation overview question answered" },
-    ];
+    const handleBrowsePackage = () => {
+        setUploadState("analyzing");
+        setTimeout(() => {
+            const result = submitBrokerUploadPackage();
+            setAnalysis(result);
+            setUploadState("complete");
+        }, 1500);
+    };
+
+    const handleSubmitPackage = () => {
+        confirmBrokerPackage();
+        setSubmitted(true);
+    };
 
     return (
         <div className="portal-overview">
             <div className="po-welcome">
                 <div className="po-welcome-text">
-                    <h1 className="po-welcome-title">Welcome, {userContext.displayName}</h1>
-                    <p className="po-welcome-sub">
-                        {userContext.companyName} &middot; {userContext.role === "ExternalBuyer" ? "Buyer" : "Broker"} &middot; {transactions.length} active transaction{transactions.length !== 1 ? "s" : ""}
-                    </p>
+                    <h1 className="po-welcome-title">Broker Dashboard</h1>
+                    <p className="po-welcome-sub">{persona.companyName} &middot; {txn?.name || "ABC Company Portfolio"}</p>
                 </div>
             </div>
 
-            <div className="po-summary-row">
-                {transactions.map(txn => (
-                    <div key={txn.id} className="po-txn-card" onClick={() => navigate("/portal/transactions")}>
-                        <div className="po-txn-card-top">
-                            <span className="po-txn-name">{txn.name}</span>
-                            <StatusBadge status={txn.status} />
+            {!submitted && (
+                <div className="po-upload-section" style={{ border: "2px dashed #cbd5e1", borderRadius: 14, padding: 28, marginBottom: 20, textAlign: "center", background: "#fafbfc", cursor: "pointer" }}
+                    onClick={handleBrowsePackage}
+                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = "#4f46e5"; e.currentTarget.style.background = "#f8faff"; }}
+                    onDragLeave={(e) => { e.currentTarget.style.borderColor = "#cbd5e1"; e.currentTarget.style.background = "#fafbfc"; }}
+                    onDrop={(e) => { e.preventDefault(); handleBrowsePackage(); }}
+                >
+                    {uploadState === "idle" && (
+                        <>
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 10px" }}>
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="17 8 12 3 7 8" />
+                                <line x1="12" y1="3" x2="12" y2="15" />
+                            </svg>
+                            <h3 style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", margin: "0 0 4px" }}>Upload Due Diligence Package</h3>
+                            <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 16px" }}>Upload Excel request list or ZIP package containing requests and supporting documents.</p>
+                            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                                <button className="rc-btn rc-btn-primary" onClick={(e) => { e.stopPropagation(); handleBrowsePackage(); }}>Browse Files</button>
+                                <button className="rc-btn rc-btn-secondary" onClick={(e) => { e.stopPropagation(); handleBrowsePackage(); }}>Load ABC Gold Standard Demo Package</button>
+                            </div>
+                        </>
+                    )}
+                    {uploadState === "analyzing" && (
+                        <div>
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 10px" }}>
+                                <polyline points="23 4 23 10 17 10" />
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                            </svg>
+                            <h3 style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", margin: "0 0 4px" }}>Analyzing package...</h3>
+                            <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>Running classification engine on uploaded package.</p>
+                            <div style={{ width: "60%", height: 6, background: "#e2e8f0", borderRadius: 3, margin: "12px auto 0", overflow: "hidden" }}>
+                                <div style={{ width: "60%", height: "100%", background: "#4f46e5", borderRadius: 3 }} />
+                            </div>
                         </div>
-                        <p className="po-txn-desc">{txn.description}</p>
-                        <div className="po-txn-meta">
-                            <span>Buyer: {txn.buyerName}</span>
-                            <span>Target Close: {txn.targetClose}</span>
+                    )}
+                    {uploadState === "complete" && analysis && (
+                        <div>
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 10px" }}>
+                                <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            <h3 style={{ fontSize: 16, fontWeight: 700, color: "#166534", margin: "0 0 4px" }}>Package Analyzed</h3>
+                            <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 14px" }}>ABC Gold Standard DD Package &mdash; classification complete.</p>
+                            <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap", marginBottom: 14 }}>
+                                <div style={{ textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 700, color: "#1e293b" }}>{analysis.detected}</div><div style={{ fontSize: 11, color: "#64748b" }}>Requests</div></div>
+                                <div style={{ textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 700, color: "#1d4ed8" }}>{analysis.needsReview}</div><div style={{ fontSize: 11, color: "#64748b" }}>Needs Review</div></div>
+                                <div style={{ textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 700, color: "#92400e" }}>{analysis.duplicates}</div><div style={{ fontSize: 11, color: "#64748b" }}>Duplicates</div></div>
+                                <div style={{ textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 700, color: "#92400e" }}>{analysis.followUp}</div><div style={{ fontSize: 11, color: "#64748b" }}>Follow-Up</div></div>
+                            </div>
+                            <div style={{ display: "flex", gap: 4, justifyContent: "center", flexWrap: "wrap", marginBottom: 14 }}>
+                                {analysis.categories.map((cat) => (
+                                    <span key={cat} style={{ fontSize: 10, padding: "2px 8px", background: "#eef2ff", color: "#4338ca", borderRadius: 4, fontWeight: 600 }}>{cat}</span>
+                                ))}
+                            </div>
+                            <button className="rc-btn rc-btn-primary" onClick={(e) => { e.stopPropagation(); handleSubmitPackage(); }}>Submit Package to IntegraCare</button>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {submitted && (
+                <div className="po-upload-section" style={{ border: "1px solid #bbf7d0", borderRadius: 14, padding: 20, marginBottom: 20, background: "#f0fdf4" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        <div>
+                            <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#166534" }}>Package submitted successfully!</span>
+                            <span style={{ display: "block", fontSize: 12, color: "#475569" }}>300 requests published to the request tracker. <a href="/recapitalization/tracker" style={{ color: "#4f46e5", fontWeight: 600 }}>Open Tracker</a></span>
                         </div>
                     </div>
-                ))}
+                </div>
+            )}
+
+            <div className="po-stats-row">
+                <div className="po-stat-card">
+                    <span className="po-stat-value">{requests.length}</span>
+                    <span className="po-stat-label">Total Requests</span>
+                </div>
+                <div className="po-stat-card">
+                    <span className="po-stat-value po-stat-value--green">{provided}</span>
+                    <span className="po-stat-label">Provided</span>
+                </div>
+                <div className="po-stat-card">
+                    <span className="po-stat-value po-stat-value--blue">{waitingOnInternal}</span>
+                    <span className="po-stat-label">Waiting on Internal</span>
+                </div>
+                <div className="po-stat-card">
+                    <span className="po-stat-value po-stat-value--amber">{needingClarification}</span>
+                    <span className="po-stat-label">Needs Clarification</span>
+                </div>
+            </div>
+
+            <div className="po-section">
+                <h2 className="po-section-title">Recent Requests</h2>
+                <div className="po-requests-table">
+                    <div className="po-requests-header">
+                        <span>Title</span><span>Community</span><span>Status</span><span>Priority</span><span>Needed By</span><span>Owner</span>
+                    </div>
+                    {requests.slice(0, 10).map((req) => (
+                        <div key={req.id} className="po-requests-row" onClick={() => navigate("/portal/requests")} style={{ cursor: "pointer" }}>
+                            <span className="po-requests-title">{req.title}</span>
+                            <span style={{ fontSize: 12, color: "#64748b" }}>{req.communityNames[0] || "\u2014"}</span>
+                            <span><StatusBadge status={req.status} /></span>
+                            <span className={`po-priority po-priority--${req.priority.toLowerCase()}`}>{req.priority}</span>
+                            <span className="po-needed-by">{req.neededBy}</span>
+                            <span style={{ fontSize: 12, color: req.owner ? "#1e293b" : "#94a3b8" }}>{req.owner || "Unassigned"}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/* ── Owner/Seller Overview ──────────────────────────────────── */
+
+function OwnerSellerOverview({ persona }: { persona: ExternalDemoPersona }) {
+    const navigate = useNavigate();
+    const requests = getPortalRequests();
+    const missingDocs = requests.filter(r => r.status === "Open" || r.status === "Overdue");
+    const readyToUpload = requests.filter(r => r.status === "In Progress" || r.status === "Clarification Needed");
+    const provided = requests.filter(r => r.status === "Provided" || r.status === "Under Review");
+    const clarificationsNeeded = getPortalClarifications().filter(c => c.status === "Open");
+    const transactions = getPortalTransactions();
+    const txn = transactions[0];
+
+    const communities = txn?.communities || [];
+    const communityProgress = communities.map((c) => {
+        const total = requests.filter(r => r.communityNames.includes(c.name)).length;
+        const done = requests.filter(r => r.communityNames.includes(c.name) && (r.status === "Provided" || r.status === "Under Review")).length;
+        return { name: c.name, total, done };
+    });
+
+    return (
+        <div className="portal-overview">
+            <div className="po-welcome">
+                <div className="po-welcome-text">
+                    <h1 className="po-welcome-title">Owner / Seller Dashboard</h1>
+                    <p className="po-welcome-sub">{persona.companyName} &middot; {txn?.name || "ABC Company Portfolio"}</p>
+                </div>
             </div>
 
             <div className="po-stats-row">
                 <div className="po-stat-card">
-                    <span className="po-stat-value">{totalRequests}</span>
-                    <span className="po-stat-label">Total Requests</span>
+                    <span className="po-stat-value po-stat-value--amber">{missingDocs.length}</span>
+                    <span className="po-stat-label">Documents Requested</span>
                 </div>
                 <div className="po-stat-card">
-                    <span className="po-stat-value po-stat-value--green">{providedCount}</span>
+                    <span className="po-stat-value po-stat-value--blue">{readyToUpload.length}</span>
+                    <span className="po-stat-label">Ready to Upload</span>
+                </div>
+                <div className="po-stat-card">
+                    <span className="po-stat-value po-stat-value--green">{provided.length}</span>
                     <span className="po-stat-label">Provided</span>
                 </div>
                 <div className="po-stat-card">
-                    <span className="po-stat-value po-stat-value--blue">{inProgressCount}</span>
-                    <span className="po-stat-label">In Progress</span>
-                </div>
-                <div className="po-stat-card">
-                    <span className="po-stat-value po-stat-value--amber">{clarificationNeededCount}</span>
-                    <span className="po-stat-label">Clarification Needed</span>
-                </div>
-                <div className="po-stat-card">
-                    <span className="po-stat-value po-stat-value--purple">{newSubmittedCount}</span>
-                    <span className="po-stat-label">New Submitted</span>
+                    <span className="po-stat-value po-stat-value--amber">{clarificationsNeeded.length}</span>
+                    <span className="po-stat-label">Clarifications Needing Response</span>
                 </div>
             </div>
 
             <div className="po-action-row">
-                <button className="po-action-card" onClick={() => navigate("/portal/submit?type=question")}>
-                    <span className="po-action-icon">&#63;</span>
-                    <span className="po-action-title">Ask a General Question</span>
-                    <span className="po-action-desc">Submit a question about any transaction</span>
+                <button className="po-action-card" onClick={() => navigate("/portal/requests")}>
+                    <span className="po-action-icon">&#128196;</span>
+                    <span className="po-action-title">Upload Documents</span>
+                    <span className="po-action-desc">Upload requested documents for the due diligence process</span>
                 </button>
                 <button className="po-action-card" onClick={() => navigate("/portal/submit?type=clarification")}>
-                    <span className="po-action-icon">&#33;</span>
-                    <span className="po-action-title">Clarify Existing Request</span>
-                    <span className="po-action-desc">Request clarification on a previous submission</span>
+                    <span className="po-action-icon">&#9993;</span>
+                    <span className="po-action-title">Respond to Clarifications</span>
+                    <span className="po-action-desc">{clarificationsNeeded.length} clarification{clarificationsNeeded.length !== 1 ? "s" : ""} need{clarificationsNeeded.length === 1 ? "s" : ""} your response</span>
+                </button>
+                <button className="po-action-card" onClick={() => navigate("/portal/submit")}>
+                    <span className="po-action-icon">&#9997;</span>
+                    <span className="po-action-title">Submit Documents</span>
+                    <span className="po-action-desc">Upload supporting documents for open requests</span>
+                </button>
+            </div>
+
+            <div className="po-section">
+                <h2 className="po-section-title">Documents Requested from ABC Company</h2>
+                <div className="po-requests-table">
+                    <div className="po-requests-header">
+                        <span>Title</span><span>Community</span><span>Status</span><span>Priority</span><span>Needed By</span><span></span>
+                    </div>
+                    {missingDocs.concat(readyToUpload).slice(0, 8).map((req) => (
+                        <div key={req.id} className="po-requests-row" onClick={() => navigate("/portal/requests")} style={{ cursor: "pointer" }}>
+                            <span className="po-requests-title">{req.title}</span>
+                            <span style={{ fontSize: 12, color: "#64748b" }}>{req.communityNames[0] || "\u2014"}</span>
+                            <span><StatusBadge status={req.status} /></span>
+                            <span className={`po-priority po-priority--${req.priority.toLowerCase()}`}>{req.priority}</span>
+                            <span className="po-needed-by">{req.neededBy}</span>
+                            <span><button className="rc-btn rc-btn-primary rc-btn-sm" onClick={(e) => { e.stopPropagation(); alert("Upload document mock"); }}>Upload</button></span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <div className="po-section">
+                <h2 className="po-section-title">Progress by Community</h2>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
+                    {communityProgress.map((cp) => (
+                        <div key={cp.name} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 14, background: "#fff" }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", marginBottom: 6 }}>{cp.name}</div>
+                            <div style={{ height: 8, background: "#f1f5f9", borderRadius: 4, overflow: "hidden", marginBottom: 4 }}>
+                                <div style={{ height: "100%", width: cp.total > 0 ? `${(cp.done / cp.total) * 100}%` : "0%", background: "#166534", borderRadius: 4 }} />
+                            </div>
+                            <div style={{ fontSize: 11, color: "#64748b" }}>{cp.done}/{cp.total} provided</div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/* ── Buyer Overview ─────────────────────────────────────────── */
+
+function BuyerOverview({ persona }: { persona: ExternalDemoPersona }) {
+    const navigate = useNavigate();
+    const requests = getPortalRequests();
+    const documents = getPortalDocuments();
+    const transactions = getPortalTransactions();
+    const txn = transactions[0];
+    const openClarifications = getPortalClarifications().filter(c => c.status === "Open");
+    const openQuestions = getPortalQuestions().filter(q => q.status === "Open");
+
+    const availableDocs = documents.filter(d => d.externalVisible !== false).length;
+    const provided = requests.filter(r => r.status === "Provided" || r.status === "Under Review").length;
+    const inProgress = requests.filter(r => r.status === "In Progress").length;
+    const open = requests.filter(r => r.status === "Open").length;
+
+    const recentPublished = documents.slice(0, 3);
+
+    return (
+        <div className="portal-overview">
+            <div className="po-welcome">
+                <div className="po-welcome-text">
+                    <h1 className="po-welcome-title">Buyer Dashboard</h1>
+                    <p className="po-welcome-sub">{persona.companyName} &middot; {txn?.name || "ABC Company Portfolio"}</p>
+                </div>
+            </div>
+
+            <div className="po-stats-row">
+                <div className="po-stat-card">
+                    <span className="po-stat-value po-stat-value--green">{availableDocs}</span>
+                    <span className="po-stat-label">Available Documents</span>
+                </div>
+                <div className="po-stat-card">
+                    <span className="po-stat-value po-stat-value--blue">{inProgress}</span>
+                    <span className="po-stat-label">In Progress</span>
+                </div>
+                <div className="po-stat-card">
+                    <span className="po-stat-value po-stat-value--green">{provided}</span>
+                    <span className="po-stat-label">Provided</span>
+                </div>
+                <div className="po-stat-card">
+                    <span className="po-stat-value po-stat-value--amber">{open}</span>
+                    <span className="po-stat-label">Open Requests</span>
+                </div>
+            </div>
+
+            <div className="po-action-row">
+                <button className="po-action-card" onClick={() => navigate("/portal/documents")}>
+                    <span className="po-action-icon">&#128193;</span>
+                    <span className="po-action-title">Browse Available Documents</span>
+                    <span className="po-action-desc">{availableDocs} documents available across 5 communities</span>
                 </button>
                 <button className="po-action-card" onClick={() => navigate("/portal/submit?type=new-request")}>
                     <span className="po-action-icon">&#43;</span>
-                    <span className="po-action-title">Submit New Request</span>
-                    <span className="po-action-desc">Submit a new due diligence request</span>
+                    <span className="po-action-title">Submit New DD Request</span>
+                    <span className="po-action-desc">Submit a new due diligence request for review</span>
+                </button>
+                <button className="po-action-card" onClick={() => navigate("/portal/requests")}>
+                    <span className="po-action-icon">&#128202;</span>
+                    <span className="po-action-title">Track Diligence Progress</span>
+                    <span className="po-action-desc">View status of all due diligence requests</span>
                 </button>
             </div>
 
             <div className="po-bottom-row">
                 <div className="po-section">
-                    <h2 className="po-section-title">My Recent Requests</h2>
-                    <div className="po-requests-table">
-                        <div className="po-requests-header">
-                            <span>Title</span>
-                            <span>Transaction</span>
-                            <span>Status</span>
-                            <span>Priority</span>
-                            <span>Needed By</span>
-                        </div>
-                        {requests.map(req => (
-                            <div key={req.id} className="po-requests-row">
-                                <span className="po-requests-title">{req.title}</span>
-                                <span className="po-requests-txn">{req.transactionName}</span>
-                                <span><StatusBadge status={req.status} /></span>
-                                <span className={`po-priority po-priority--${req.priority.toLowerCase()}`}>{req.priority}</span>
-                                <span className="po-needed-by">{req.neededBy}</span>
+                    <h2 className="po-section-title">Recently Published Documents</h2>
+                    {recentPublished.length === 0 ? (
+                        <div style={{ padding: 16, fontSize: 13, color: "#64748b" }}>No documents published yet.</div>
+                    ) : (
+                        <div className="po-requests-table">
+                            <div className="po-requests-header">
+                                <span>Name</span><span>Category</span><span>Community</span><span>Uploaded</span>
                             </div>
-                        ))}
-                    </div>
+                            {recentPublished.map((doc) => (
+                                <div key={doc.id} className="po-requests-row" onClick={() => navigate("/portal/documents")} style={{ cursor: "pointer" }}>
+                                    <span className="po-requests-title">{doc.name}</span>
+                                    <span style={{ fontSize: 12, color: "#64748b" }}>{doc.category}</span>
+                                    <span style={{ fontSize: 12, color: "#64748b" }}>{doc.communityNames[0] || "\u2014"}</span>
+                                    <span className="po-needed-by">{doc.uploadedAt}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 <div className="po-section po-section--narrow">
-                    <h2 className="po-section-title">Recent Updates</h2>
-                    <div className="po-updates-list">
-                        {recentUpdates.map((u, i) => (
-                            <div key={i} className="po-update-item">
-                                <span className="po-update-date">{u.date}</span>
-                                <span className="po-update-text">{u.text}</span>
+                    <h2 className="po-section-title">Open Items</h2>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                        {open > 0 && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: 10, background: "#fff7ed", borderRadius: 8, border: "1px solid #fed7aa" }}>
+                                <span style={{ fontSize: 16 }}>&#9888;</span>
+                                <div>
+                                    <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#92400e" }}>{open} open request{open !== 1 ? "s" : ""}</span>
+                                    <span style={{ fontSize: 11, color: "#64748b" }}>Awaiting seller response</span>
+                                </div>
                             </div>
-                        ))}
+                        )}
+                        {openClarifications.length > 0 && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: 10, background: "#eff6ff", borderRadius: 8, border: "1px solid #bfdbfe" }}>
+                                <span style={{ fontSize: 16 }}>&#9993;</span>
+                                <div>
+                                    <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#1d4ed8" }}>{openClarifications.length} clarification{openClarifications.length !== 1 ? "s" : ""} pending</span>
+                                    <span style={{ fontSize: 11, color: "#64748b" }}>Awaiting response</span>
+                                </div>
+                            </div>
+                        )}
+                        {openQuestions.length > 0 && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: 10, background: "#f0fdf4", borderRadius: 8, border: "1px solid #bbf7d0" }}>
+                                <span style={{ fontSize: 16 }}>&#63;</span>
+                                <div>
+                                    <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#166534" }}>{openQuestions.length} open question{openQuestions.length !== 1 ? "s" : ""}</span>
+                                    <span style={{ fontSize: 11, color: "#64748b" }}>Awaiting answer</span>
+                                </div>
+                            </div>
+                        )}
+                        {open === 0 && openClarifications.length === 0 && openQuestions.length === 0 && (
+                            <div style={{ fontSize: 13, color: "#64748b", padding: 10 }}>No open items.</div>
+                        )}
                     </div>
                 </div>
             </div>
         </div>
     );
+}
+
+/* ── Main Export ────────────────────────────────────────────── */
+
+export default function PortalOverview() {
+    const navigate = useNavigate();
+    const userContext = getPortalUserContext();
+    const persona = getActivePersona();
+
+    if (persona.role === "Broker") return <BrokerOverview persona={persona} />;
+    if (persona.role === "Owner / Seller") return <OwnerSellerOverview persona={persona} />;
+    if (persona.role === "Buyer") return <BuyerOverview persona={persona} />;
+
+    return <BrokerOverview persona={persona} />;
 }

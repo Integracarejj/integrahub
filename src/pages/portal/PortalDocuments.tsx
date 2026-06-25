@@ -1,95 +1,105 @@
-import { getPortalDocuments } from "../../services/portalMockData";
+import { useState, useMemo } from "react";
+import { getPortalDocuments, getActivePersona, getPortalTransactions } from "../../services/portalMockData";
 import "./PortalOverview.css";
 
 export default function PortalDocuments() {
     const documents = getPortalDocuments();
+    const persona = getActivePersona();
+    const txn = getPortalTransactions()[0];
+    const communities = txn?.communities || [];
+
+    const [groupBy, setGroupBy] = useState<"community" | "category">("category");
+
+    const groups = useMemo(() => {
+        const map: Record<string, typeof documents> = {};
+        documents.forEach((doc) => {
+            const key = groupBy === "category" ? doc.category : (doc.communityNames[0] || "Other");
+            if (!map[key]) map[key] = [];
+            map[key].push(doc);
+        });
+        return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
+    }, [documents, groupBy]);
+
+    const personaIntro = {
+        "Broker": "Documents uploaded and published across communities. Group by category or community to browse.",
+        "Owner / Seller": "Documents you have uploaded and those published by the DD team. Group by category or community.",
+        "Buyer": "Documents made available for your review. Group by category or community to browse.",
+    };
 
     return (
         <div className="portal-overview">
             <h1 className="po-welcome-title">Available Documents</h1>
             <p className="po-welcome-sub" style={{ marginBottom: 8 }}>
-                Documents are stored in <strong>SharePoint</strong>. This page shows documents that have been marked externally visible for your transactions.
+                {personaIntro[persona.role] || "Documents across the ABC Company Portfolio transaction."}
             </p>
             <p className="po-welcome-sub" style={{ marginBottom: 20, fontSize: 13, color: "#475569" }}>
-                To request access to a document or report an issue, use the <strong>Submit / Communicate</strong> page.
+                Documents are stored in <strong>SharePoint</strong>. This page shows documents marked externally visible for this transaction.
             </p>
 
-            <div style={{ border: "1px solid var(--is-border, #93c5fd)", borderRadius: 10, overflow: "hidden", boxShadow: "var(--is-shadow-card, 0 8px 20px rgba(15, 23, 42, 0.08))" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 1fr 0.8fr 0.8fr 0.8fr", gap: 8, padding: "10px 14px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                    <span>Document Name</span>
-                    <span>Transaction</span>
-                    <span>Category</span>
-                    <span>Community</span>
-                    <span>Uploaded</span>
-                    <span>Source</span>
+            <div style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center" }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Group by:</span>
+                <div className="rc-toggle-group">
+                    <button className={`rc-toggle-btn${groupBy === "category" ? " rc-toggle-active" : ""}`} onClick={() => setGroupBy("category")}>Category</button>
+                    <button className={`rc-toggle-btn${groupBy === "community" ? " rc-toggle-active" : ""}`} onClick={() => setGroupBy("community")}>Community</button>
                 </div>
-                {documents.map(doc => (
-                    <div key={doc.id} style={{
-                        display: "grid", gridTemplateColumns: "2fr 1.5fr 1fr 0.8fr 0.8fr 0.8fr", gap: 8,
-                        padding: "10px 14px", borderBottom: "1px solid #f1f5f9", fontSize: 13, alignItems: "center"
-                    }}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                            <span style={{ fontWeight: 600, color: "var(--is-text-heading, #0f172a)" }}>{doc.name}</span>
-                            {doc.relatedRequestTitle && (
-                                <span style={{ fontSize: 11, color: "#64748b" }}>Related: {doc.relatedRequestTitle}</span>
-                            )}
-                        </div>
-                        <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{doc.transactionName}</span>
-                        <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{doc.category}</span>
-                        <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {doc.communityNames.length > 0 ? doc.communityNames.join(", ") : "—"}
-                        </span>
-                        <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{doc.uploadedAt}</span>
-                        <span>
-                            <span style={{
-                                display: "inline-flex", alignItems: "center", gap: 4,
-                                fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 4,
-                                background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0",
-                                whiteSpace: "nowrap",
-                            }}>
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                    <polyline points="7 10 12 15 17 10" />
-                                    <line x1="12" y1="15" x2="12" y2="3" />
-                                </svg>
-                                SharePoint
-                            </span>
-                        </span>
-                    </div>
-                ))}
-                {documents.length === 0 && (
-                    <div style={{ padding: "24px", textAlign: "center", fontSize: 13, color: "#64748b" }}>
-                        No documents are currently available for your transactions.
-                    </div>
-                )}
+                <span style={{ fontSize: 12, color: "#64748b" }}>{documents.length} documents</span>
             </div>
 
-            <div style={{
-                marginTop: 20, border: "1px dashed #d1d5db", borderRadius: 10, padding: "18px 20px",
-                background: "#f9fafb", display: "flex", alignItems: "center", gap: 12,
-            }}>
-                <div style={{
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    width: 40, height: 40, background: "#eef2ff", borderRadius: 8, flexShrink: 0,
-                    color: "#4f46e5", fontWeight: 700, fontSize: 18,
-                }}>
-                    &#8679;
+            {groups.map(([key, docs]) => (
+                <div key={key} style={{ marginBottom: 16 }}>
+                    <h3 style={{ fontSize: 14, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", display: "flex", alignItems: "center", gap: 8 }}>
+                        {groupBy === "category" ? (
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4338ca", display: "inline-block" }} />
+                        ) : (
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#1d4ed8", display: "inline-block" }} />
+                        )}
+                        {key}
+                        <span style={{ fontSize: 11, fontWeight: 400, color: "#94a3b8" }}>({docs.length})</span>
+                    </h3>
+                    <div style={{ border: "1px solid var(--is-border, #e2e8f0)", borderRadius: 10, overflow: "hidden", boxShadow: "var(--is-shadow-card, 0 8px 20px rgba(15, 23, 42, 0.08))" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 0.8fr 0.7fr", gap: 8, padding: "8px 14px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                            <span>Name</span>
+                            <span>{groupBy === "category" ? "Community" : "Category"}</span>
+                            <span>Related Request</span>
+                            <span>Uploaded</span>
+                            <span></span>
+                        </div>
+                        {docs.map((doc) => (
+                            <div key={doc.id} style={{
+                                display: "grid", gridTemplateColumns: "2fr 1fr 1fr 0.8fr 0.7fr", gap: 8,
+                                padding: "8px 14px", borderBottom: "1px solid #f1f5f9", fontSize: 12, alignItems: "center",
+                            }}>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                                    <span style={{ fontWeight: 600, color: "var(--is-text-heading, #0f172a)" }}>{doc.name}</span>
+                                    <span style={{ fontSize: 10, color: "#94a3b8" }}>{doc.size}</span>
+                                </div>
+                                <span style={{ color: "#475569" }}>
+                                    {groupBy === "category" ? (doc.communityNames[0] || "\u2014") : doc.category}
+                                </span>
+                                <span style={{ fontSize: 11, color: "#64748b" }}>{doc.relatedRequestTitle || "\u2014"}</span>
+                                <span style={{ color: "#64748b" }}>{doc.uploadedAt}</span>
+                                <span>
+                                    {persona.role === "Buyer" && (
+                                        <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 10 }} onClick={() => window.alert("Download mock")}>Download</button>
+                                    )}
+                                    {persona.role === "Owner / Seller" && (
+                                        <span style={{ fontSize: 10, color: "#166534", fontWeight: 600 }}>Uploaded</span>
+                                    )}
+                                    {persona.role === "Broker" && (
+                                        <span style={{ fontSize: 10, color: "#4f46e5", fontWeight: 600 }}>Published</span>
+                                    )}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-                <div style={{ flex: 1 }}>
-                    <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: "var(--is-text-heading, #0f172a)", marginBottom: 2 }}>
-                        Bulk Upload to SharePoint
-                    </span>
-                    <span style={{ display: "block", fontSize: 12, color: "#64748b", lineHeight: 1.4 }}>
-                        Bulk document upload and direct integration with SharePoint is planned as a future enhancement. For now, contact the DD team to upload documents.
-                    </span>
+            ))}
+
+            {documents.length === 0 && (
+                <div style={{ padding: 24, textAlign: "center", fontSize: 13, color: "#64748b", border: "1px solid #e2e8f0", borderRadius: 10 }}>
+                    No documents are currently available for your transactions.
                 </div>
-                <span style={{
-                    fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 4,
-                    background: "#f8fafc", color: "#94a3b8", border: "1px solid #e2e8f0",
-                }}>
-                    Future
-                </span>
-            </div>
+            )}
         </div>
     );
 }

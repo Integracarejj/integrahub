@@ -223,3 +223,15 @@ export function isDemoActive(): boolean {
 export function getDemoTransaction(): RecapTransaction | null {
     return Demo.getDemoTransaction();
 }
+
+export function getDemoRequests() {
+    return Demo.getDemoRequests();
+}
+
+export function getDemoDocuments() {
+    return Demo.getDemoDocuments();
+}
+
+export function getDemoStatusCounts() {
+    return Demo.getDemoStatusCounts();
+}
