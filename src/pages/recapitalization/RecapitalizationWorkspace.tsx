@@ -453,18 +453,26 @@ export default function RecapitalizationWorkspace() {
                                 <h3>Actions</h3>
                             </div>
                             <div className="ws-card-body ws-action-list">
+                                <div className="ws-actions-group-label">Work</div>
                                 <button className="rc-btn rc-btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => toast("Assign — local mock only")}>Assign</button>
                                 <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => toast("Route to Team — local mock only")}>Route to Team</button>
                                 {isIntake && <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => toast("Convert to Official Request — local mock only")}>Convert to Official Request</button>}
+
+                                <div className="ws-actions-group-label">Communication</div>
                                 <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => toast("Respond Externally — coming next sprint")}>Respond Externally</button>
+                                <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => toast("Publish Update — coming next sprint")}>Publish Update</button>
+
+                                <div className="ws-actions-group-label">Resolution</div>
                                 <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center", color: "#92400e" }} onClick={() => toast("Mark Duplicate — local mock only")}>Mark Duplicate</button>
                                 <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center" }} onClick={() => toast("Reuse Existing Deliverable — coming next sprint")}>Reuse Existing Deliverable</button>
                                 <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center", color: "#92400e" }} onClick={() => toast("Mark Not Applicable — local mock only")}>Mark Not Applicable</button>
                                 <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center", color: "#991b1b" }} onClick={() => toast("Reject — local mock only")}>Reject</button>
-                                <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => toast("Publish Update — coming next sprint")}>Publish Update</button>
-                                <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2000); }}>
-                                    {saved ? "Saved!" : "Save Draft"}
-                                </button>
+
+                                <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 8, marginTop: 4 }}>
+                                    <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2000); }}>
+                                        {saved ? "Saved!" : "Save Draft"}
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -482,7 +490,7 @@ export default function RecapitalizationWorkspace() {
                                     <ul className="ws-readiness-factors">
                                         {rs.factors.map((f, i) => (
                                             <li key={i} className={f.met ? "ws-factor-met" : "ws-factor-unmet"}>
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={f.met ? "#166534" : "#94a3b8"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={f.met ? "#166534" : "#64748b"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                                     {f.met ? <polyline points="20 6 9 17 4 12" /> : <line x1="18" y1="6" x2="6" y2="18" />}
                                                 </svg>
                                                 {f.label}

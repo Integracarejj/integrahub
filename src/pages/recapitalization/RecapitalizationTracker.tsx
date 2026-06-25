@@ -1,15 +1,26 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { getRequests, getTransactions, getTeamMembers, getTeams } from "../../services/recapMockData";
+import { getRequests, getTransactions, getTeamMembers, getTeams, updateRequestStatus, updateRequestOwner, updateRequestTeam, updateRequestPriority, updateRequestDueDate } from "../../services/recapMockData";
+import type { RecapRequest } from "../../services/recapMockData";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
+interface BulkEdit {
+    owner: string;
+    team: string;
+    priority: string;
+    status: string;
+    dueDate: string;
+    visible: string;
+}
+
 export default function RecapitalizationTracker() {
     const navigate = useNavigate();
-    const allRequests = getRequests();
     const transactions = getTransactions();
     const members = getTeamMembers();
     const teams = getTeams();
+    const [refreshKey, setRefreshKey] = useState(0);
+    const allRequests = useMemo(() => getRequests(), [refreshKey]);
 
     const [search, setSearch] = useState("");
     const [filterTxn, setFilterTxn] = useState("all");
@@ -21,6 +32,10 @@ export default function RecapitalizationTracker() {
     const [overdueOnly, setOverdueOnly] = useState(false);
     const [myItems, setMyItems] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+    const [bulkModalOpen, setBulkModalOpen] = useState(false);
+    const [bulkEdit, setBulkEdit] = useState<BulkEdit>({ owner: "", team: "", priority: "", status: "", dueDate: "", visible: "" });
+    const [bulkToast, setBulkToast] = useState("");
 
     const selectAllRef = useRef<HTMLInputElement>(null);
 
@@ -79,6 +94,26 @@ export default function RecapitalizationTracker() {
         setSelectedIds(new Set());
     }
 
+    function handleBulkChange(field: keyof BulkEdit, value: string) {
+        setBulkEdit(prev => ({ ...prev, [field]: value }));
+    }
+
+    function handleBulkApply() {
+        const ids = [...selectedIds];
+        ids.forEach(id => {
+            if (bulkEdit.owner) updateRequestOwner(id, bulkEdit.owner === "__unset" ? null : bulkEdit.owner);
+            if (bulkEdit.team) updateRequestTeam(id, bulkEdit.team);
+            if (bulkEdit.priority) updateRequestPriority(id, bulkEdit.priority as RecapRequest["priority"]);
+            if (bulkEdit.status) updateRequestStatus(id, bulkEdit.status as RecapRequest["status"]);
+            if (bulkEdit.dueDate) updateRequestDueDate(id, bulkEdit.dueDate);
+        });
+        setRefreshKey(k => k + 1);
+        setBulkModalOpen(false);
+        setBulkEdit({ owner: "", team: "", priority: "", status: "", dueDate: "", visible: "" });
+        setBulkToast(`Updated ${ids.length} request${ids.length !== 1 ? "s" : ""}`);
+        setTimeout(() => setBulkToast(""), 2500);
+    }
+
     return (
         <div className="rc-page">
             <RecapSubNav />
@@ -87,7 +122,6 @@ export default function RecapitalizationTracker() {
                 <div className="rc-header-actions">
                     <button className="rc-btn rc-btn-primary" onClick={() => navigate("/recapitalization/intake/review")}>Import DD Package</button>
                     <button className="rc-btn rc-btn-secondary" onClick={() => window.alert("New Request — coming in next sprint")}>New Request</button>
-                    <button className="rc-btn rc-btn-secondary" onClick={() => window.alert("Bulk Update panel — coming next sprint")}>Bulk Update</button>
                     <button className="rc-btn rc-btn-secondary" onClick={() => window.alert("Export — coming next sprint")}>Export</button>
                 </div>
             </div>
@@ -134,6 +168,7 @@ export default function RecapitalizationTracker() {
                         <span className="rc-bulk-count">{selectedIds.size}</span>
                         <span>selected</span>
                         <div className="rc-bulk-sep" />
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setBulkEdit({ owner: "", team: "", priority: "", status: "", dueDate: "", visible: "" }); setBulkModalOpen(true); }}>Bulk Update</button>
                         <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => window.alert("Assign — coming next sprint")}>Assign</button>
                         <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => window.alert("Route to Team — coming next sprint")}>Route to Team</button>
                         <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => window.alert("Mark Duplicate — coming next sprint")}>Mark Duplicate</button>
@@ -145,7 +180,7 @@ export default function RecapitalizationTracker() {
                 )}
             </div>
 
-            <div className="rc-card" style={{ overflow: "auto" }}>
+            <div className="rc-table-wrap-scroll">
                 <table className="rc-table">
                     <thead>
                         <tr>
@@ -169,8 +204,8 @@ export default function RecapitalizationTracker() {
                             <th>Team</th>
                             <th>Status</th>
                             <th>Priority</th>
-                            <th>Due</th>
-                            <th>Updated</th>
+                            <th className="nowrap">Due</th>
+                            <th className="nowrap">Updated</th>
                             <th>Visible</th>
                             <th></th>
                         </tr>
@@ -186,8 +221,8 @@ export default function RecapitalizationTracker() {
                                         onChange={() => handleSelectOne(req.id)}
                                     />
                                 </td>
-                                <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#64748b" }}>{req.intakeId}</td>
-                                <td style={{ fontWeight: 600, fontSize: 12, color: "#475569" }}>{req.requestId}</td>
+                                <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#475569" }}>{req.intakeId}</td>
+                                <td style={{ fontWeight: 600, fontSize: 12, color: "#334155" }}>{req.requestId}</td>
                                 <td className="rc-truncate">{req.transactionName}</td>
                                 <td className="rc-truncate">{req.brokerBuyer}</td>
                                 <td className="rc-truncate">{req.communityNames.join(", ") || "All"}</td>
@@ -197,8 +232,8 @@ export default function RecapitalizationTracker() {
                                 <td style={{ fontSize: 12 }}>{req.team}</td>
                                 <td><span className={`rc-badge rc-badge-${req.status === "Overdue" ? "overdue" : req.status.toLowerCase().replace(/\s+/g, "-")}`}>{req.status}</span></td>
                                 <td><span className={`rc-badge rc-badge-${req.priority.toLowerCase()}`}>{req.priority}</span></td>
-                                <td style={{ fontSize: 12, color: req.status === "Overdue" ? "#991b1b" : "#475569", fontWeight: req.status === "Overdue" ? 600 : 400 }}>{req.dueDate}</td>
-                                <td style={{ fontSize: 12, color: "#64748b" }}>{req.lastUpdated}</td>
+                                <td className="nowrap" style={{ fontSize: 12, color: req.status === "Overdue" ? "#991b1b" : "#475569", fontWeight: req.status === "Overdue" ? 600 : 400 }}>{req.dueDate}</td>
+                                <td className="nowrap" style={{ fontSize: 12, color: "#475569" }}>{req.lastUpdated}</td>
                                 <td><span className={`rc-badge ${req.externalVisible ? "rc-badge-visible" : "rc-badge-hidden"}`} style={{ fontSize: 10, padding: "2px 6px" }}>{req.externalVisible ? "Yes" : "No"}</span></td>
                                 <td>
                                     <div className="rc-cell-actions">
@@ -213,6 +248,64 @@ export default function RecapitalizationTracker() {
             </div>
 
             <div style={{ fontSize: 12, color: "#64748b" }}>Showing {filtered.length} of {allRequests.length} requests</div>
+
+            {bulkModalOpen && (
+                <div className="rc-modal-overlay" onClick={() => setBulkModalOpen(false)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()}>
+                        <div className="rc-modal-header">
+                            <h2>Bulk Update ({selectedIds.size} requests)</h2>
+                            <button className="rc-modal-close" onClick={() => setBulkModalOpen(false)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body">
+                            <div className="rc-modal-field">
+                                <label>Assign Owner</label>
+                                <select value={bulkEdit.owner} onChange={e => handleBulkChange("owner", e.target.value)}>
+                                    <option value="">— No change —</option>
+                                    <option value="__unset">Unassign</option>
+                                    {members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                                </select>
+                            </div>
+                            <div className="rc-modal-field">
+                                <label>Route to Team</label>
+                                <select value={bulkEdit.team} onChange={e => handleBulkChange("team", e.target.value)}>
+                                    <option value="">— No change —</option>
+                                    {teams.map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </div>
+                            <div className="rc-modal-field">
+                                <label>Set Priority</label>
+                                <select value={bulkEdit.priority} onChange={e => handleBulkChange("priority", e.target.value)}>
+                                    <option value="">— No change —</option>
+                                    <option value="High">High</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="Low">Low</option>
+                                </select>
+                            </div>
+                            <div className="rc-modal-field">
+                                <label>Set Status</label>
+                                <select value={bulkEdit.status} onChange={e => handleBulkChange("status", e.target.value)}>
+                                    <option value="">— No change —</option>
+                                    {["Open", "In Progress", "Clarification Needed", "Under Review", "Provided", "Overdue"].map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            </div>
+                            <div className="rc-modal-field">
+                                <label>Set Due Date</label>
+                                <input type="date" value={bulkEdit.dueDate} onChange={e => handleBulkChange("dueDate", e.target.value)} />
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setBulkModalOpen(false)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" onClick={handleBulkApply} disabled={!bulkEdit.owner && !bulkEdit.team && !bulkEdit.priority && !bulkEdit.status && !bulkEdit.dueDate}>Apply to {selectedIds.size} Selected</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {bulkToast && (
+                <div style={{ position: "fixed", bottom: 24, right: 24, background: "#0f172a", color: "#fff", padding: "10px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600, zIndex: 3000, boxShadow: "0 4px 16px rgba(0,0,0,0.2)" }}>
+                    {bulkToast}
+                </div>
+            )}
         </div>
     );
 }

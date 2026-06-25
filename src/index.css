@@ -4,8 +4,8 @@
   --text-secondary: #1f2937;
   --text-muted: #334155;
   --link: #2563eb;
-  --card-border: #93c5fd;
-  --card-border-strong: #60a5fa;
+  --card-border: #e2e8f0;
+  --card-border-strong: #cbd5e1;
   --card-bg: #ffffff;
   --page-bg: #ffffff;
 
@@ -16,8 +16,8 @@
   --is-link: #2563eb;
   --is-card-bg: #ffffff;
   --is-page-bg: #ffffff;
-  --is-border: #93c5fd;
-  --is-border-soft: #bfdbfe;
+  --is-border: #e2e8f0;
+  --is-border-soft: #f1f5f9;
   --is-shadow-card: 0 8px 20px rgba(15, 23, 42, 0.08);
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;

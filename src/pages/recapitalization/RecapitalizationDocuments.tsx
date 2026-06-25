@@ -3,6 +3,8 @@ import { getDocuments, getTransactions } from "../../services/recapMockData";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
+function toast(msg: string) { window.alert(msg); }
+
 export default function RecapitalizationDocuments() {
     const documents = getDocuments();
     const transactions = getTransactions();
@@ -18,9 +20,9 @@ export default function RecapitalizationDocuments() {
             <div className="rc-header">
                 <h1>Documents</h1>
                 <div className="rc-header-actions">
-                    <button className="rc-btn rc-btn-secondary rc-btn-sm">Upload</button>
-                    <button className="rc-btn rc-btn-secondary rc-btn-sm">New Folder</button>
-                    <button className="rc-btn rc-btn-secondary rc-btn-sm">Link to Request</button>
+                    <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => toast("Upload — coming next sprint")}>Upload</button>
+                    <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => toast("New Folder — coming next sprint")}>New Folder</button>
+                    <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => toast("Link to Request — coming next sprint")}>Link to Request</button>
                 </div>
             </div>
 
@@ -84,7 +86,7 @@ export default function RecapitalizationDocuments() {
                                         <td style={{ fontSize: 12, color: "#64748b" }}>{doc.size}</td>
                                         <td style={{ fontSize: 12, color: "#64748b" }}>{doc.uploadedAt}</td>
                                         <td>
-                                            <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 12 }}>Open in SP</button>
+                                            <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 12 }} onClick={() => toast("Open in SharePoint — coming next sprint")}>Open in SP</button>
                                         </td>
                                     </tr>
                                 ))}
