@@ -1,7 +1,11 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { getRequests, getTransactions, getTeamMembers, getTeams, updateRequestStatus, updateRequestOwner, updateRequestTeam, updateRequestPriority, updateRequestDueDate } from "../../services/recapMockData";
-import type { RecapRequest } from "../../services/recapMockData";
+import {
+    getRequests, getTransactions, getTeamMembers, getTeams,
+    updateRequestStatus, updateRequestOwner, updateRequestTeam,
+    updateRequestPriority, updateRequestDueDate, isDemoActive,
+} from "../../services/recapDataService";
+import type { RecapRequest } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
@@ -119,6 +123,9 @@ export default function RecapitalizationTracker() {
             <RecapSubNav />
             <div className="rc-header">
                 <h1>Request Tracker</h1>
+                <div className="rc-header-left" style={{ gap: 8 }}>
+                    {isDemoActive() && <span className="rc-badge rc-badge-visible" style={{ fontSize: 10 }}>ABC Demo Active</span>}
+                </div>
                 <div className="rc-header-actions">
                     <button className="rc-btn rc-btn-primary" onClick={() => navigate("/recapitalization/intake/review")}>Import DD Package</button>
                     <button className="rc-btn rc-btn-secondary" onClick={() => window.alert("New Request — coming in next sprint")}>New Request</button>

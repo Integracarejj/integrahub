@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate, Routes, Route } from "react-router-dom";
-import { getIntakeItems } from "../../services/recapMockData";
-import type { RecapIntakeItem } from "../../services/recapMockData";
+import { getIntakeItems, isDemoActive, getDemoEngineSummary, publishIntake } from "../../services/recapDataService";
+import type { RecapIntakeItem } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
@@ -69,11 +69,123 @@ function timeAgo(iso: string): string {
     return formatDate(iso);
 }
 
-function ReviewPlaceholder() {
+function ImportModal({ onClose, onImport }: { onClose: () => void; onImport: (name: string) => void }) {
+    const [fileName, setFileName] = useState("");
+    const [importing, setImporting] = useState(false);
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files[0];
+        if (file) {
+            setFileName(file.name);
+            setImporting(true);
+            setTimeout(() => {
+                setImporting(false);
+                onImport(file.name);
+            }, 1200);
+        }
+    };
+
+    return (
+        <div className="rc-modal-overlay" onClick={onClose}>
+            <div className="rc-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                <div className="rc-modal-header">
+                    <h2>Import DD Package</h2>
+                    <button className="rc-modal-close" onClick={onClose}>&times;</button>
+                </div>
+                <div className="rc-modal-body" style={{ textAlign: "center", padding: "24px 20px" }}>
+                    {importing ? (
+                        <div>
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 12px" }}>
+                                <polyline points="23 4 23 10 17 10" />
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                            </svg>
+                            <p style={{ fontSize: 14, fontWeight: 600, color: "#1e293b" }}>Processing {fileName}...</p>
+                            <p style={{ fontSize: 12, color: "#64748b" }}>Running classification engine...</p>
+                            <div style={{ width: "100%", height: 6, background: "#e2e8f0", borderRadius: 3, marginTop: 12, overflow: "hidden" }}>
+                                <div style={{ width: "70%", height: "100%", background: "#4f46e5", borderRadius: 3, animation: "none" }} />
+                            </div>
+                        </div>
+                    ) : (
+                        <div
+                            style={{ border: "2px dashed #cbd5e1", borderRadius: 12, padding: "32px 20px", cursor: "pointer", transition: "border-color 0.2s" }}
+                            onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = "#4f46e5"; }}
+                            onDragLeave={(e) => { e.currentTarget.style.borderColor = "#cbd5e1"; }}
+                            onDrop={handleDrop}
+                            onClick={() => {
+                                setFileName("ABC_Company_Portfolio_Gold_Standard_DD_Package.xlsx");
+                                setImporting(true);
+                                setTimeout(() => { setImporting(false); onImport("ABC_Company_Portfolio_Gold_Standard_DD_Package.xlsx"); }, 1200);
+                            }}
+                        >
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 8px" }}>
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="17 8 12 3 7 8" />
+                                <line x1="12" y1="3" x2="12" y2="15" />
+                            </svg>
+                            <p style={{ fontSize: 13, fontWeight: 600, color: "#1e293b", margin: 0 }}>Drop your DD package here</p>
+                            <p style={{ fontSize: 11, color: "#64748b", margin: "4px 0 0" }}>or click to browse (mock import)</p>
+                        </div>
+                    )}
+                </div>
+                <div className="rc-modal-footer">
+                    <button className="rc-btn rc-btn-ghost" onClick={onClose} disabled={importing}>Cancel</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ReviewEngine() {
     const navigate = useNavigate();
+    const [published, setPublished] = useState(false);
+    const [publishing, setPublishing] = useState(false);
+
+    const summary = getDemoEngineSummary();
+
+    const handlePublish = () => {
+        setPublishing(true);
+        setTimeout(() => {
+            publishIntake();
+            setPublishing(false);
+            setPublished(true);
+        }, 1500);
+    };
+
+    if (published) {
+        return (
+            <div className="rc-page">
+                <div className="rc-header">
+                    <div className="rc-header-left">
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => navigate("/recapitalization/intake")}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="19" y1="12" x2="5" y2="12" />
+                                <polyline points="12 19 5 12 12 5" />
+                            </svg>
+                            Back to Intake
+                        </button>
+                    </div>
+                </div>
+                <div className="iq-review-placeholder">
+                    <div className="iq-review-placeholder-icon">
+                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                    </div>
+                    <h2>Published to Tracker!</h2>
+                    <p>{summary.total} DD requests are now available in the Request Tracker.</p>
+                    <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+                        <button className="rc-btn rc-btn-primary" onClick={() => navigate("/recapitalization/tracker")}>Open Tracker</button>
+                        <button className="rc-btn rc-btn-secondary" onClick={() => navigate("/recapitalization/intake")}>Return to Intake Queue</button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="rc-page">
+            <RecapSubNav />
             <div className="rc-header">
                 <div className="rc-header-left">
                     <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => navigate("/recapitalization/intake")}>
@@ -83,28 +195,114 @@ function ReviewPlaceholder() {
                         </svg>
                         Back to Intake
                     </button>
-                    <h1>Review &amp; Publish Engine</h1>
+                    <h1>Review &amp; Publish</h1>
+                    <span className="rc-badge rc-badge-import" style={{ fontSize: 10 }}>ABC Company Portfolio</span>
+                </div>
+                <div className="rc-header-actions">
+                    <button className="rc-btn rc-btn-ghost rc-btn-sm">Refresh</button>
+                    <button className={`rc-btn ${publishing ? "rc-btn-secondary" : "rc-btn-primary"}`} onClick={handlePublish} disabled={publishing}>
+                        {publishing ? "Publishing..." : `Publish ${summary.total} Requests`}
+                    </button>
                 </div>
             </div>
-            <div className="iq-review-placeholder">
-                <div className="iq-review-placeholder-icon">
-                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 20h9" />
-                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-                        <path d="M12 20h9" />
-                    </svg>
+
+            {publishing && (
+                <div style={{ padding: "8px 0", fontSize: 12, color: "#4f46e5", fontWeight: 600 }}>
+                    Converting intake items to official DD requests...
                 </div>
-                <h2>Review &amp; Publish Engine</h2>
-                <p>
-                    The engine that processes broker uploads, runs classification, detects duplicates, and publishes official DD requests is under active development. Coming next sprint.
-                </p>
-                <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-                    <button className="rc-btn rc-btn-primary" onClick={() => navigate("/recapitalization/intake")}>
-                        Return to Intake Queue
-                    </button>
-                    <button className="rc-btn rc-btn-secondary">
-                        View Sprint Board
-                    </button>
+            )}
+
+            <div className="rc-stats-row">
+                <div className="rc-stat-card" style={{ borderLeft: "3px solid #4338ca" }}>
+                    <span className="rc-stat-value">{summary.total}</span>
+                    <span className="rc-stat-label">Total Items</span>
+                </div>
+                <div className="rc-stat-card" style={{ borderLeft: "3px solid #1d4ed8" }}>
+                    <span className="rc-stat-value">{summary.needsReview}</span>
+                    <span className="rc-stat-label">Needs Review</span>
+                    <span className="rc-stat-desc">Items in Open status</span>
+                </div>
+                <div className="rc-stat-card" style={{ borderLeft: "3px solid #92400e" }}>
+                    <span className="rc-stat-value">{summary.possibleDuplicates}</span>
+                    <span className="rc-stat-label">Possible Duplicates</span>
+                    <span className="rc-stat-desc">Flagged by engine</span>
+                </div>
+                <div className="rc-stat-card" style={{ borderLeft: "3px solid #92400e" }}>
+                    <span className="rc-stat-value">{summary.needsFollowUp}</span>
+                    <span className="rc-stat-label">Needs Follow-Up</span>
+                    <span className="rc-stat-desc">Clarification recommended</span>
+                </div>
+                <div className="rc-stat-card" style={{ borderLeft: "3px solid #991b1b" }}>
+                    <span className="rc-stat-value">{summary.critical}</span>
+                    <span className="rc-stat-label">Critical</span>
+                    <span className="rc-stat-desc">High priority, open/overdue</span>
+                </div>
+            </div>
+
+            <div className="rc-two-col">
+                <div className="rc-card">
+                    <div className="rc-card-header">
+                        <h2>Classification by Category</h2>
+                    </div>
+                    <div className="rc-card-body" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {Object.entries(summary.categories).map(([cat, count]) => (
+                            <div key={cat} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                <span style={{ width: 140, fontSize: 12, fontWeight: 600, color: "#475569", flexShrink: 0 }}>{cat}</span>
+                                <div style={{ flex: 1, height: 8, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
+                                    <div style={{ height: "100%", width: `${(count / summary.total) * 100}%`, background: "#4338ca", borderRadius: 4 }} />
+                                </div>
+                                <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b", minWidth: 30, textAlign: "right" }}>{count}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="rc-card">
+                    <div className="rc-card-header">
+                        <h2>Suggested Team Routing</h2>
+                    </div>
+                    <div className="rc-card-body" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {Object.entries(summary.teams).map(([team, count]) => (
+                            <div key={team} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                <span style={{ width: 140, fontSize: 12, fontWeight: 600, color: "#475569", flexShrink: 0 }}>{team}</span>
+                                <div style={{ flex: 1, height: 8, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
+                                    <div style={{ height: "100%", width: `${(count / summary.total) * 100}%`, background: "#1d4ed8", borderRadius: 4 }} />
+                                </div>
+                                <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b", minWidth: 30, textAlign: "right" }}>{count}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            <div className="rc-card">
+                <div className="rc-card-header">
+                    <h2>Engine Warnings</h2>
+                </div>
+                <div className="rc-card-body" style={{ padding: 0 }}>
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid #f1f5f9" }}>
+                            <span style={{ fontSize: 16, lineHeight: 1 }}>&#9888;</span>
+                            <div>
+                                <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#92400e" }}>{summary.possibleDuplicates} possible duplicate{summary.possibleDuplicates !== 1 ? "s" : ""} detected</span>
+                                <span style={{ display: "block", fontSize: 11, color: "#64748b" }}>These items may already exist in other transactions. Review recommended before publishing.</span>
+                            </div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid #f1f5f9" }}>
+                            <span style={{ fontSize: 16, lineHeight: 1 }}>&#9888;</span>
+                            <div>
+                                <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#92400e" }}>{summary.needsFollowUp} item{summary.needsFollowUp !== 1 ? "s" : ""} need{summary.needsFollowUp === 1 ? "s" : ""} follow-up clarification</span>
+                                <span style={{ display: "block", fontSize: 11, color: "#64748b" }}>Some requests have incomplete or ambiguous descriptions. Consider clarifying before publishing.</span>
+                            </div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px" }}>
+                            <span style={{ fontSize: 16, lineHeight: 1 }}>&#128200;</span>
+                            <div>
+                                <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1d4ed8" }}>{Object.keys(summary.categories).length} categories detected</span>
+                                <span style={{ display: "block", fontSize: 11, color: "#64748b" }}>Classification engine assigned categories and teams. Review routing suggestions below.</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -278,7 +476,10 @@ function IntakeDrawer({
                     </div>
                 </div>
                 <div className="rc-drawer-actions iq-drawer-actions">
-                    <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => handleAction("assign")}>
+                    <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => handleAction("review")}>
+                        Open Review
+                    </button>
+                    <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => handleAction("assign")}>
                         Assign
                     </button>
                     <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => handleAction("route")}>
@@ -309,7 +510,7 @@ export default function RecapitalizationIntake() {
     return (
         <Routes>
             <Route index element={<IntakeQueue />} />
-            <Route path="review" element={<ReviewPlaceholder />} />
+            <Route path="review" element={<ReviewEngine />} />
         </Routes>
     );
 }
@@ -322,6 +523,7 @@ function IntakeQueue() {
     const [activeCardFilter, setActiveCardFilter] = useState<string | null>(null);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [notesByItem, setNotesByItem] = useState<Record<string, Note[]>>({});
+    const [importModalOpen, setImportModalOpen] = useState(false);
 
     const allItems = useMemo(() => getIntakeItems(), []);
 
@@ -439,12 +641,14 @@ function IntakeQueue() {
             <div className="rc-header">
                 <div className="rc-header-left">
                     <h1>Intake Queue</h1>
+                    {isDemoActive() && <span className="rc-badge rc-badge-visible" style={{ fontSize: 10, marginLeft: 8 }}>ABC Demo Active</span>}
                     <span className="rc-badge rc-badge-import" style={{ fontSize: 11, padding: "3px 10px" }}>
                         Command Center
                     </span>
                 </div>
                 <div className="rc-header-actions">
                     <button className="rc-btn rc-btn-ghost rc-btn-sm">Refresh</button>
+                    <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => setImportModalOpen(true)}>Import DD Package</button>
                     <button className="rc-btn rc-btn-secondary rc-btn-sm">New Intake Item</button>
                 </div>
             </div>
@@ -711,6 +915,15 @@ function IntakeQueue() {
                     onClose={() => setSelectedItem(null)}
                     notes={notesByItem[selectedItem.id] || DEFAULT_NOTES}
                     onAddNote={(body) => handleAddNote(selectedItem.id, body)}
+                />
+            )}
+
+            {importModalOpen && (
+                <ImportModal
+                    onClose={() => setImportModalOpen(false)}
+                    onImport={(name) => {
+                        setImportModalOpen(false);
+                    }}
                 />
             )}
         </div>

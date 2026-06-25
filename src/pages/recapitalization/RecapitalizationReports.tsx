@@ -1,5 +1,6 @@
 import { useState } from "react";
 import RecapSubNav from "./RecapSubNav";
+import { isDemoActive, getDemoReports } from "../../services/recapDataService";
 import "./Recapitalization.css";
 
 function toast(msg: string) { window.alert(msg); }
@@ -13,7 +14,57 @@ const REPORT_CARDS = [
     { title: "Reused Deliverables", value: "12", desc: "Across all transactions this quarter", detail: "Phase I ESA: 4 reuses\nAudited Financials: 3 reuses\nInsurance Certificates: 3 reuses\nOperating Licenses: 2 reuses", color: "#4338ca" },
 ];
 
+function buildDemoReportCards(): typeof REPORT_CARDS {
+    const r = getDemoReports();
+    return [
+        {
+            title: "Completion Rate",
+            value: `${r.completion}%`,
+            desc: `${r.readinessByCommunity.length} communities, ${r.readinessByCommunity.reduce((s, c) => s + c.total, 0)} total requests`,
+            detail: r.readinessByCommunity.map(c => `${c.name}: ${c.provided}/${c.total} provided (${Math.round(c.provided / c.total * 100)}%)`).join("\n"),
+            color: "#1d4ed8",
+        },
+        {
+            title: "Open by Category",
+            value: `${r.openByCategory[0]?.count || 0}`,
+            desc: `Most open: ${r.openByCategory[0]?.name || "N/A"}`,
+            detail: r.openByCategory.map(c => `${c.name}: ${c.count} open`).join("\n"),
+            color: "#4338ca",
+        },
+        {
+            title: "Overdue Requests",
+            value: `${r.overdue}`,
+            desc: "Items past their due date",
+            detail: `${r.overdue} overdue items across all teams\n${r.needsFollowUp} items need follow-up`,
+            color: "#991b1b",
+        },
+        {
+            title: "Open by Team",
+            value: `${r.openByTeam.reduce((s, t) => s + t.count, 0)}`,
+            desc: `Most load: ${r.openByTeam[0]?.name || "N/A"}`,
+            detail: r.openByTeam.map(t => `${t.name}: ${t.count} open`).join("\n"),
+            color: "#92400e",
+        },
+        {
+            title: "Possible Duplicates",
+            value: `${r.duplicates}`,
+            desc: "Items flagged by classification engine",
+            detail: `${r.duplicates} items marked as possible duplicates\nReview recommended before publishing`,
+            color: "#92400e",
+        },
+        {
+            title: "Needs Follow-Up",
+            value: `${r.needsFollowUp}`,
+            desc: "Clarifications pending response",
+            detail: `${r.needsFollowUp} items awaiting clarification\nAcross ${r.openByTeam.length} teams`,
+            color: "#4338ca",
+        },
+    ];
+}
+
 export default function RecapitalizationReports() {
+    const demo = isDemoActive();
+    const cards = demo ? buildDemoReportCards() : REPORT_CARDS;
     const [selectedReport, setSelectedReport] = useState<typeof REPORT_CARDS[number] | null>(null);
 
     return (
@@ -22,6 +73,7 @@ export default function RecapitalizationReports() {
             <div className="rc-header">
                 <h1>Reports</h1>
                 <div className="rc-header-actions">
+                    {demo && <span className="rc-badge rc-badge-visible" style={{ fontSize: 10, marginRight: 6 }}>Live Demo Data</span>}
                     <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => toast("Export All — coming next sprint")}>Export All</button>
                     <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => toast("Schedule — coming next sprint")}>Schedule</button>
                 </div>
@@ -31,16 +83,18 @@ export default function RecapitalizationReports() {
                 <div className="rc-placeholder-banner-icon">&#128202;</div>
                 <div>
                     <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: "var(--is-text-heading, #0f172a)", marginBottom: 4 }}>
-                        Reports Dashboard (Preview)
+                        Reports Dashboard {demo ? "(Live)" : "(Preview)"}
                     </span>
                     <span style={{ display: "block", fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
-                        Reporting will be powered by real data once the tracker is live. These cards show the planned metrics.
+                        {demo
+                            ? "Reports computed live from ABC Company Portfolio demo data across 300 requests and 5 communities."
+                            : "Reporting will be powered by real data once the tracker is live. These cards show the planned metrics."}
                     </span>
                 </div>
             </div>
 
             <div className="rc-three-col">
-                {REPORT_CARDS.map(card => (
+                {cards.map(card => (
                     <div key={card.title} className="rc-mock-report-card" style={{ borderTop: `3px solid ${card.color}`, cursor: "pointer" }} onClick={() => setSelectedReport(card)}>
                         <div className="rc-mock-report-value">{card.value}</div>
                         <div className="rc-mock-report-title">{card.title}</div>

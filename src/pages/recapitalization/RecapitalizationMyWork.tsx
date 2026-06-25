@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { getMyWork } from "../../services/recapMockData";
+import { getMyWork, isDemoActive } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
@@ -22,6 +22,7 @@ export default function RecapitalizationMyWork() {
             <div className="rc-header">
                 <div className="rc-header-left">
                     <h1>My DD Work</h1>
+                    {isDemoActive() && <span className="rc-badge rc-badge-visible" style={{ fontSize: 10, marginLeft: 8 }}>Live Demo Data</span>}
                     <span className="rc-text-muted" style={{ fontSize: 13 }}>Sarah Chen &middot; Financial Analysis</span>
                 </div>
                 <div className="rc-header-actions">

@@ -1,5 +1,9 @@
 import { useNavigate } from "react-router-dom";
-import { getActiveTransactions, getStatusCounts, getRequests, getActivity, getTeamWorkload, getOverrideRequests } from "../../services/recapMockData";
+import {
+    getActiveTransactions, getStatusCounts, getRequests,
+    getActivity, getTeamWorkload, getOverrideRequests,
+    isDemoActive,
+} from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
@@ -25,6 +29,7 @@ export default function RecapitalizationOverview() {
             <div className="rc-header">
                 <div className="rc-header-left">
                     <h1>Recapitalization</h1>
+                    {isDemoActive() && <span className="rc-badge rc-badge-visible" style={{ fontSize: 10, marginLeft: 8 }}>ABC Demo Active</span>}
                 </div>
                 <div className="rc-header-actions">
                     <button className="rc-btn rc-btn-secondary" onClick={() => navigate("/recapitalization/intake")}>

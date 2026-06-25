@@ -1,4 +1,6 @@
+import { useState, useEffect } from "react";
 import RecapSubNav from "./RecapSubNav";
+import { isDemoActive, initDemo, resetDemo, getDemoTransaction } from "../../services/recapDataService";
 import "./Recapitalization.css";
 
 const SETTING_GROUPS = [
@@ -36,6 +38,36 @@ const SETTING_GROUPS = [
 ];
 
 export default function RecapitalizationSettings() {
+    const [demoLoaded, setDemoLoaded] = useState(isDemoActive());
+    const [demoToast, setDemoToast] = useState("");
+    const [refreshKey, setRefreshKey] = useState(0);
+    const demoTxn = demoLoaded ? getDemoTransaction() : null;
+
+    const showToast = (msg: string) => {
+        setDemoToast(msg);
+        setTimeout(() => setDemoToast(""), 2500);
+    };
+
+    const handleLoadDemo = () => {
+        initDemo();
+        setDemoLoaded(true);
+        setRefreshKey(k => k + 1);
+        showToast("ABC Company Portfolio demo loaded — 300 requests, 5 communities");
+    };
+
+    const handleResetDemo = () => {
+        initDemo();
+        setRefreshKey(k => k + 1);
+        showToast("Demo data reset to initial state");
+    };
+
+    const handleClearDemo = () => {
+        resetDemo();
+        setDemoLoaded(false);
+        setRefreshKey(k => k + 1);
+        showToast("Demo data cleared — returning to standard mock data");
+    };
+
     return (
         <div className="rc-page">
             <RecapSubNav />
@@ -75,6 +107,40 @@ export default function RecapitalizationSettings() {
                     <span style={{ display: "block", fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
                         Settings pages and configuration values shown here are placeholder previews. Actual configuration will use database-backed storage once the tracker schema is deployed.
                     </span>
+                </div>
+            </div>
+
+            <div className="rc-card" style={{ border: "1px solid #dbeafe" }}>
+                <div className="rc-card-header">
+                    <h2>Demo Data</h2>
+                    <span className={`rc-badge ${demoLoaded ? "rc-badge-visible" : "rc-badge-hidden"}`} style={{ fontSize: 10 }}>
+                        {demoLoaded ? "Demo Active" : "Not Loaded"}
+                    </span>
+                </div>
+                <div className="rc-card-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {demoTxn && (
+                        <div className="rc-setting-card">
+                            <div className="rc-setting-info">
+                                <span className="rc-setting-name">{demoTxn.name}</span>
+                                <span className="rc-setting-desc">{demoTxn.description} &middot; {demoTxn.communities.length} communities &middot; {demoTxn.totalRequests} requests</span>
+                            </div>
+                            <span className="rc-setting-value">{demoTxn.status}</span>
+                        </div>
+                    )}
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        <button className="rc-btn rc-btn-primary" onClick={handleLoadDemo} disabled={demoLoaded}>
+                            Load ABC Company Portfolio Demo
+                        </button>
+                        <button className="rc-btn rc-btn-secondary" onClick={handleResetDemo} disabled={!demoLoaded}>
+                            Reset Demo Data
+                        </button>
+                        <button className="rc-btn rc-btn-ghost" onClick={handleClearDemo} disabled={!demoLoaded}>
+                            Clear Recap Demo Data
+                        </button>
+                    </div>
+                    {demoToast && (
+                        <span style={{ fontSize: 12, color: "#166534", fontWeight: 600 }}>{demoToast}</span>
+                    )}
                 </div>
             </div>
         </div>
