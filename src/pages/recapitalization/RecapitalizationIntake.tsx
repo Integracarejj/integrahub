@@ -253,7 +253,6 @@ function BrokerUploadCard({
     onOpen: () => void;
 }) {
     const navigate = useNavigate();
-    const config = SOURCE_CONFIG[item.type];
 
     return (
         <div className="iq-broker-card" onClick={onOpen}>
