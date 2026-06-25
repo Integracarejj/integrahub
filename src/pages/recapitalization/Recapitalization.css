@@ -1422,6 +1422,380 @@
     }
 }
 
+/* ── Workspace ── */
+
+.ws-not-found {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 80px 20px;
+    gap: 12px;
+    text-align: center;
+}
+.ws-not-found h2 {
+    font-size: 20px;
+    color: #0f172a;
+}
+.ws-not-found p {
+    font-size: 14px;
+    color: #64748b;
+}
+
+.ws-back {
+    margin-bottom: -12px;
+}
+
+.ws-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.ws-id-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.ws-id {
+    font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: 0.02em;
+}
+
+.ws-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 6px 0;
+    line-height: 1.3;
+}
+
+.ws-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.ws-meta-item {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.ws-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.ws-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+}
+
+.ws-chip-label {
+    font-weight: 600;
+    color: #475569;
+    white-space: nowrap;
+}
+
+.ws-chip-value {
+    color: #1e293b;
+    font-weight: 500;
+}
+
+.ws-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 20px;
+    align-items: start;
+}
+
+.ws-main {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.ws-sidebar {
+    position: sticky;
+    top: 16px;
+}
+
+.ws-sidebar-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.ws-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+    overflow: hidden;
+}
+
+.ws-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    gap: 8px;
+}
+
+.ws-card-header h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+}
+
+.ws-card-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.ws-card-body {
+    padding: 16px;
+}
+
+.ws-empty-section {
+    padding: 24px 16px;
+    text-align: center;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.ws-preview-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.ws-preview-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ws-preview-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.ws-preview-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.ws-preview-hint {
+    margin-top: 12px;
+    font-size: 11px;
+    color: #94a3b8;
+    font-style: italic;
+    padding-top: 10px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.ws-submission-text {
+    font-size: 13px;
+    color: #334155;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.ws-file-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: #f8faff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #1e293b;
+}
+
+.ws-routing-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.ws-routing-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ws-routing-field-wide {
+    grid-column: 1 / -1;
+}
+
+.ws-routing-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.ws-qa-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.ws-qa-item {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ws-qa-answered {
+    background: #fafbfc;
+}
+
+.ws-qa-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+}
+
+.ws-qa-from {
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.ws-qa-time {
+    color: #64748b;
+    margin-left: auto;
+}
+
+.ws-qa-question {
+    font-size: 13px;
+    color: #1e293b;
+    font-weight: 500;
+}
+
+.ws-qa-response {
+    font-size: 13px;
+    color: #334155;
+    padding: 8px 10px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 6px;
+    line-height: 1.5;
+}
+
+.ws-qa-response-label {
+    font-weight: 600;
+    color: #166534;
+}
+
+.ws-qa-action {
+    display: flex;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.ws-action-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ws-readiness {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    text-align: center;
+}
+
+.ws-readiness-score {
+    font-size: 36px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1;
+}
+
+.ws-readiness-bar {
+    width: 100%;
+    height: 8px;
+    background: #f1f5f9;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.ws-readiness-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s;
+}
+
+.ws-readiness-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+}
+
+.ws-readiness-factors {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    text-align: left;
+}
+
+.ws-readiness-factors li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    padding: 3px 0;
+}
+
+.ws-factor-met {
+    color: #166534;
+    font-weight: 500;
+}
+
+.ws-factor-unmet {
+    color: #64748b;
+}
+
+@media (max-width: 1100px) {
+    .ws-layout {
+        grid-template-columns: 1fr;
+    }
+    .ws-sidebar {
+        position: static;
+    }
+}
+
 .rc-tab-bar {
     display: flex;
     gap: 2px;

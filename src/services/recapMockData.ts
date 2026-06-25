@@ -9,6 +9,7 @@ export interface RecapTransaction {
     name: string;
     description: string;
     status: "Active" | "Pending" | "Completed";
+    sellerName: string;
     buyerName: string;
     brokerName: string;
     targetClose: string;
@@ -134,7 +135,8 @@ const MOCK_TRANSACTIONS: RecapTransaction[] = [
         name: "Valstone Corp Portfolio",
         description: "Multi-community portfolio acquisition across 8 Gulf Coast properties",
         status: "Active",
-        buyerName: "Valstone Corp",
+        buyerName: "Prudential Life",
+        sellerName: "Valstone Corp",
         brokerName: "Marcus & Associates",
         targetClose: "2026-09-30",
         totalRequests: 47,
@@ -158,7 +160,8 @@ const MOCK_TRANSACTIONS: RecapTransaction[] = [
         name: "IntegraCare Midwest",
         description: "Single-region acquisition of 3 Midwestern skilled nursing facilities",
         status: "Active",
-        buyerName: "IntegraCare Health",
+        sellerName: "IntegraCare Health",
+        buyerName: "Meridian Health Partners",
         brokerName: "HealthCap Advisors",
         targetClose: "2026-08-15",
         totalRequests: 23,
@@ -175,7 +178,8 @@ const MOCK_TRANSACTIONS: RecapTransaction[] = [
         name: "Sunshine Healthcare",
         description: "Florida-based assisted living portfolio",
         status: "Active",
-        buyerName: "Sunshine Healthcare Group",
+        sellerName: "Sunshine Healthcare Group",
+        buyerName: "Aetna Senior Care",
         brokerName: "Senior Living Partners",
         targetClose: "2026-11-01",
         totalRequests: 31,
@@ -192,7 +196,8 @@ const MOCK_TRANSACTIONS: RecapTransaction[] = [
         name: "Riverside Senior Living",
         description: "Ohio-based senior living community acquisition",
         status: "Pending",
-        buyerName: "Riverside Capital",
+        sellerName: "Riverside Capital",
+        buyerName: "Blue Oak Holdings",
         brokerName: "Senior Living Partners",
         targetClose: "2027-01-15",
         totalRequests: 0,
@@ -608,7 +613,19 @@ export function getStatusCounts(): Record<string, number> {
     };
 }
 
-export function getOverrideRequests(): RecapRequest[] {
+export function lookupWorkspaceItem(id: string): { type: "intake"; item: RecapIntakeItem; transaction: RecapTransaction } | { type: "request"; item: RecapRequest; transaction: RecapTransaction } | null {
+    const intake = MOCK_INTAKE_ITEMS.find(i => i.id === id || i.intakeId === id);
+    if (intake) {
+        const txn = MOCK_TRANSACTIONS.find(t => t.id === intake.transactionId);
+        return { type: "intake", item: intake, transaction: txn! };
+    }
+    const request = MOCK_REQUESTS.find(r => r.id === id || r.requestId === id || r.intakeId === id);
+    if (request) {
+        const txn = MOCK_TRANSACTIONS.find(t => t.id === request.transactionId);
+        return { type: "request", item: request, transaction: txn! };
+    }
+    return null;
+}
     const now = new Date();
     return MOCK_REQUESTS.filter((r) => {
         if (r.status === "Overdue") return true;

@@ -42,6 +42,7 @@ import RecapitalizationMyWork from "../pages/recapitalization/RecapitalizationMy
 import RecapitalizationDocuments from "../pages/recapitalization/RecapitalizationDocuments";
 import RecapitalizationReports from "../pages/recapitalization/RecapitalizationReports";
 import RecapitalizationSettings from "../pages/recapitalization/RecapitalizationSettings";
+import RecapitalizationWorkspace from "../pages/recapitalization/RecapitalizationWorkspace";
 
 /**
  * Guards internal routes from external portal users.
@@ -196,6 +197,7 @@ function AuthAwareRouter() {
                 <Route path="/recapitalization/documents" element={<RecapitalizationDocuments />} />
                 <Route path="/recapitalization/reports" element={<RecapitalizationReports />} />
                 <Route path="/recapitalization/settings" element={<RecapitalizationSettings />} />
+                <Route path="/recapitalization/workspace/:id" element={<RecapitalizationWorkspace />} />
 
                 <Route path="*" element={<Navigate to="/applications" replace />} />
             </Route>

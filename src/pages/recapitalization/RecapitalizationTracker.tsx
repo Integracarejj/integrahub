@@ -1,291 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { getRequests, getTransactions, getTeamMembers, getTeams, getActivityByTransaction, getDocumentsByTransaction, updateRequestStatus, updateRequestOwner, updateRequestPriority, updateRequestDueDate, updateRequestTeam } from "../../services/recapMockData";
-import type { RecapRequest } from "../../services/recapMockData";
+import { getRequests, getTransactions, getTeamMembers, getTeams } from "../../services/recapMockData";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
-
-interface Note {
-    id: string;
-    author: string;
-    text: string;
-    timestamp: string;
-}
-
-function RequestDrawer({ request, onClose, onUpdate }: { request: RecapRequest; onClose: () => void; onUpdate: (id: string) => void }) {
-    const activity = getActivityByTransaction(request.transactionId).slice(0, 8);
-    const documents = getDocumentsByTransaction(request.transactionId).filter(d => d.requestId === request.id);
-    const members = getTeamMembers();
-
-    const [editMode, setEditMode] = useState<string | null>(null);
-    const [statusValue, setStatusValue] = useState(request.status);
-    const [ownerValue, setOwnerValue] = useState(request.owner || "");
-    const [teamValue, setTeamValue] = useState(request.team);
-    const [priorityValue, setPriorityValue] = useState(request.priority);
-    const [dueDateValue, setDueDateValue] = useState(request.dueDate);
-
-    const [notes, setNotes] = useState<Note[]>([
-        { id: "n1", author: "David Park", text: "Requested additional supporting documentation from broker", timestamp: "2026-06-26" },
-        { id: "n2", author: "Sarah Chen", text: "Documents received, pending review", timestamp: "2026-06-27" },
-    ]);
-    const [newNoteText, setNewNoteText] = useState("");
-
-    function handleSave(field: string) {
-        switch (field) {
-            case "status": updateRequestStatus(request.id, statusValue as RecapRequest["status"]); break;
-            case "owner": updateRequestOwner(request.id, ownerValue || null); break;
-            case "team": updateRequestTeam(request.id, teamValue); break;
-            case "priority": updateRequestPriority(request.id, priorityValue as RecapRequest["priority"]); break;
-            case "dueDate": updateRequestDueDate(request.id, dueDateValue); break;
-        }
-        onUpdate(request.id);
-        setEditMode(null);
-    }
-
-    function handleAddNote() {
-        if (!newNoteText.trim()) return;
-        const note: Note = {
-            id: "n" + Date.now(),
-            author: "Sarah Chen",
-            text: newNoteText.trim(),
-            timestamp: new Date().toISOString().split("T")[0],
-        };
-        setNotes(prev => [note, ...prev]);
-        setNewNoteText("");
-    }
-
-    return (
-        <>
-            <div className="rc-drawer-overlay" onClick={onClose} />
-            <div className="rc-drawer">
-                <div className="rc-drawer-header">
-                    <div>
-                        <h2>{request.title}</h2>
-                        <div className="rc-drawer-sub">{request.requestId} &middot; {request.transactionName}</div>
-                    </div>
-                    <button className="rc-drawer-close" onClick={onClose}>&times;</button>
-                </div>
-
-                <div className="rc-drawer-body">
-                    <div className="rc-drawer-section">
-                        <div className="rc-drawer-section-title">Summary</div>
-                        <div className="rc-detail-grid">
-                            <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Transaction</span>
-                                <span className="rc-drawer-field-value" style={{ color: "#64748b" }}>{request.transactionName}</span>
-                            </div>
-                            <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Broker/Buyer</span>
-                                <span className="rc-drawer-field-value" style={{ color: "#64748b" }}>{request.brokerBuyer}</span>
-                            </div>
-                            <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Communities</span>
-                                <span className="rc-drawer-field-value" style={{ color: "#64748b" }}>{request.communityNames.join(", ") || "All Communities"}</span>
-                            </div>
-                            <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Category</span>
-                                <span className="rc-drawer-field-value">{request.category}</span>
-                            </div>
-                            <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Submitted By</span>
-                                <span className="rc-drawer-field-value" style={{ color: "#64748b" }}>{request.submittedBy}</span>
-                            </div>
-                            <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Source</span>
-                                <span className="rc-drawer-field-value">{request.source}</span>
-                            </div>
-                            <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Created</span>
-                                <span className="rc-drawer-field-value">{request.createdDate}</span>
-                            </div>
-                            <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Last Updated</span>
-                                <span className="rc-drawer-field-value">{request.lastUpdated}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <hr className="rc-divider" />
-
-                    <div className="rc-drawer-section">
-                        <div className="rc-drawer-section-title">Assignment</div>
-                        <div className="rc-detail-grid">
-                            <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Owner</span>
-                                {editMode === "owner" ? (
-                                    <div className="rc-flex-center rc-gap-sm">
-                                        <select className="rc-filter-select" value={ownerValue} onChange={e => setOwnerValue(e.target.value)}>
-                                            <option value="">Unassigned</option>
-                                            {members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
-                                        </select>
-                                        <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => handleSave("owner")}>Save</button>
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setEditMode(null)}>Cancel</button>
-                                    </div>
-                                ) : (
-                                    <div className="rc-flex-center">
-                                        <span className="rc-drawer-field-value">{request.owner || "Unassigned"}</span>
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setEditMode("owner")}>Edit</button>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Team</span>
-                                {editMode === "team" ? (
-                                    <div className="rc-flex-center rc-gap-sm">
-                                        <select className="rc-filter-select" value={teamValue} onChange={e => setTeamValue(e.target.value)}>
-                                            {getTeams().map(t => <option key={t} value={t}>{t}</option>)}
-                                        </select>
-                                        <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => handleSave("team")}>Save</button>
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setEditMode(null)}>Cancel</button>
-                                    </div>
-                                ) : (
-                                    <div className="rc-flex-center">
-                                        <span className="rc-drawer-field-value">{request.team}</span>
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setEditMode("team")}>Edit</button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    <hr className="rc-divider" />
-
-                    <div className="rc-drawer-section">
-                        <div className="rc-drawer-section-title">Status</div>
-                        <div className="rc-detail-grid">
-                            <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Current Status</span>
-                                {editMode === "status" ? (
-                                    <div className="rc-flex-center rc-gap-sm">
-                                        <select className="rc-filter-select" value={statusValue} onChange={e => setStatusValue(e.target.value as RecapRequest["status"])}>
-                                            {["Open", "In Progress", "Clarification Needed", "Under Review", "Provided", "Overdue"].map(s => <option key={s} value={s}>{s}</option>)}
-                                        </select>
-                                        <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => handleSave("status")}>Save</button>
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setEditMode(null)}>Cancel</button>
-                                    </div>
-                                ) : (
-                                    <div className="rc-flex-center">
-                                        <span className={`rc-badge rc-badge-${statusValue === "Overdue" ? "overdue" : statusValue.toLowerCase().replace(/\s+/g, "-")}`}>{statusValue}</span>
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setEditMode("status")}>Edit</button>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Priority</span>
-                                {editMode === "priority" ? (
-                                    <div className="rc-flex-center rc-gap-sm">
-                                        <select className="rc-filter-select" value={priorityValue} onChange={e => setPriorityValue(e.target.value as RecapRequest["priority"])}>
-                                            {["High", "Medium", "Low"].map(p => <option key={p} value={p}>{p}</option>)}
-                                        </select>
-                                        <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => handleSave("priority")}>Save</button>
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setEditMode(null)}>Cancel</button>
-                                    </div>
-                                ) : (
-                                    <div className="rc-flex-center">
-                                        <span className={`rc-badge rc-badge-${priorityValue.toLowerCase()}`}>{priorityValue}</span>
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setEditMode("priority")}>Edit</button>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Due Date</span>
-                                {editMode === "dueDate" ? (
-                                    <div className="rc-flex-center rc-gap-sm">
-                                        <input type="date" className="rc-filter-select" value={dueDateValue} onChange={e => setDueDateValue(e.target.value)} />
-                                        <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => handleSave("dueDate")}>Save</button>
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setEditMode(null)}>Cancel</button>
-                                    </div>
-                                ) : (
-                                    <div className="rc-flex-center">
-                                        <span className="rc-drawer-field-value">{request.dueDate}</span>
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setEditMode("dueDate")}>Edit</button>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">External Visible</span>
-                                <div className="rc-flex-center">
-                                    <span className={`rc-badge ${request.externalVisible ? "rc-badge-visible" : "rc-badge-hidden"}`}>
-                                        {request.externalVisible ? "Visible" : "Hidden"}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <hr className="rc-divider" />
-
-                    <div className="rc-drawer-section">
-                        <div className="rc-drawer-section-title">Documents ({documents.length})</div>
-                        {documents.length === 0 ? (
-                            <span className="rc-text-muted">No documents linked to this request</span>
-                        ) : documents.map(doc => (
-                            <div key={doc.id} className="rc-flex-center" style={{ justifyContent: "space-between" }}>
-                                <span style={{ fontSize: 13, color: "#1e293b" }}>{doc.name}</span>
-                                <span className="rc-text-muted">{doc.size}</span>
-                            </div>
-                        ))}
-                    </div>
-
-                    <hr className="rc-divider" />
-
-                    <div className="rc-drawer-section">
-                        <div className="rc-drawer-section-title">Activity</div>
-                        <div className="rc-timeline">
-                            {activity.map((act, i) => (
-                                <div className="rc-timeline-item" key={act.id}>
-                                    <div style={{ position: "relative" }}>
-                                        <div className="rc-timeline-dot" />
-                                        {i < activity.length - 1 && <div className="rc-timeline-line" />}
-                                    </div>
-                                    <div className="rc-timeline-content">
-                                        <span className="rc-timeline-desc">{act.description}</span>
-                                        <span className="rc-timeline-meta">{act.userName} &middot; {new Date(act.timestamp).toLocaleDateString()}</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    <hr className="rc-divider" />
-
-                    <div className="rc-drawer-section">
-                        <div className="rc-drawer-section-title">Notes & Comments</div>
-                        <div className="rc-notes-section">
-                            {notes.map(note => (
-                                <div key={note.id} className="rc-note-item">
-                                    <div className="rc-note-header">
-                                        <span className="rc-note-author">{note.author}</span>
-                                        <span>{note.timestamp}</span>
-                                    </div>
-                                    <div className="rc-note-body">{note.text}</div>
-                                </div>
-                            ))}
-                            <div className="rc-note-input">
-                                <textarea
-                                    placeholder="Add a note..."
-                                    value={newNoteText}
-                                    onChange={e => setNewNoteText(e.target.value)}
-                                />
-                                <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={handleAddNote}>Add Note</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="rc-drawer-actions">
-                    <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => { setEditMode("status"); setStatusValue(statusValue); }}>Update Status</button>
-                    <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => { setEditMode("owner"); setOwnerValue(request.owner || ""); }}>Assign Owner</button>
-                    <button className="rc-btn rc-btn-secondary rc-btn-sm">Link Document</button>
-                    <button className="rc-btn rc-btn-secondary rc-btn-sm">Internal Note</button>
-                    <button className="rc-btn rc-btn-secondary rc-btn-sm">Respond Externally</button>
-                    <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ color: "#991b1b" }}>Mark Duplicate</button>
-                    <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ color: "#991b1b" }}>N/A</button>
-                </div>
-            </div>
-        </>
-    );
-}
 
 export default function RecapitalizationTracker() {
     const navigate = useNavigate();
@@ -303,7 +20,6 @@ export default function RecapitalizationTracker() {
 
     const [overdueOnly, setOverdueOnly] = useState(false);
     const [myItems, setMyItems] = useState(false);
-    const [selectedRequest, setSelectedRequest] = useState<RecapRequest | null>(null);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
     const selectAllRef = useRef<HTMLInputElement>(null);
@@ -461,7 +177,7 @@ export default function RecapitalizationTracker() {
                     </thead>
                     <tbody>
                         {filtered.map(req => (
-                            <tr key={req.id} className="rc-row-clickable" onClick={() => setSelectedRequest(req)}>
+                            <tr key={req.id} className="rc-row-clickable" onClick={() => navigate(`/recapitalization/workspace/${req.intakeId}`)}>
                                 <td style={{ width: 36 }} onClick={e => e.stopPropagation()}>
                                     <input
                                         type="checkbox"
@@ -486,7 +202,7 @@ export default function RecapitalizationTracker() {
                                 <td><span className={`rc-badge ${req.externalVisible ? "rc-badge-visible" : "rc-badge-hidden"}`} style={{ fontSize: 10, padding: "2px 6px" }}>{req.externalVisible ? "Yes" : "No"}</span></td>
                                 <td>
                                     <div className="rc-cell-actions">
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Assign" onClick={e => { e.stopPropagation(); setSelectedRequest(req); }} style={{ fontSize: 14 }}>&#9998;</button>
+                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Open Workspace" onClick={e => { e.stopPropagation(); navigate(`/recapitalization/workspace/${req.intakeId}`); }} style={{ fontSize: 14 }}>&#9998;</button>
                                     </div>
                                 </td>
                             </tr>
@@ -497,17 +213,6 @@ export default function RecapitalizationTracker() {
             </div>
 
             <div style={{ fontSize: 12, color: "#64748b" }}>Showing {filtered.length} of {allRequests.length} requests</div>
-
-            {selectedRequest && (
-                <RequestDrawer
-                    request={selectedRequest}
-                    onClose={() => setSelectedRequest(null)}
-                    onUpdate={(id) => {
-                        const updated = allRequests.find(r => r.id === id);
-                        if (updated) setSelectedRequest({ ...updated });
-                    }}
-                />
-            )}
         </div>
     );
 }

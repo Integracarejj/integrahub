@@ -315,6 +315,7 @@ export default function RecapitalizationIntake() {
 }
 
 function IntakeQueue() {
+    const navigate = useNavigate();
     const [selectedItem, setSelectedItem] = useState<RecapIntakeItem | null>(null);
     const [filterType, setFilterType] = useState<string>("All");
     const [searchQuery, setSearchQuery] = useState("");
@@ -405,12 +406,16 @@ function IntakeQueue() {
     };
 
     const handleRowClick = (item: RecapIntakeItem) => {
-        setSelectedItem(item);
-        if (!notesByItem[item.id]) {
-            setNotesByItem((prev) => ({
-                ...prev,
-                [item.id]: DEFAULT_NOTES,
-            }));
+        if (item.type === "Broker Upload") {
+            setSelectedItem(item);
+            if (!notesByItem[item.id]) {
+                setNotesByItem((prev) => ({
+                    ...prev,
+                    [item.id]: DEFAULT_NOTES,
+                }));
+            }
+        } else {
+            navigate(`/recapitalization/workspace/${item.intakeId}`);
         }
     };
 

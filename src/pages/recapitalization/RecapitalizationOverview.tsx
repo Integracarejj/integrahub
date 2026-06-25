@@ -77,7 +77,7 @@ export default function RecapitalizationOverview() {
                                 onClick={() => navigate("/recapitalization/transactions")}>
                                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                                     <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{txn.name}</span>
-                                    <span style={{ fontSize: 11, color: "#64748b" }}>{txn.buyerName} &middot; Close: {txn.targetClose}</span>
+                                    <span style={{ fontSize: 11, color: "#64748b" }}>{txn.sellerName} &middot; Close: {txn.targetClose}</span>
                                 </div>
                                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                     <span style={{ fontSize: 11, color: "#475569" }}>{txn.communities.length} communities</span>

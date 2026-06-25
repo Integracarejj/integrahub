@@ -32,7 +32,7 @@ export default function RecapitalizationTransactions() {
                                 </span>
                             </div>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
-                                <div><span className="rc-text-muted" style={{ display: "block" }}>Buyer</span><span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{txn.buyerName}</span></div>
+                                <div><span className="rc-text-muted" style={{ display: "block" }}>Owner / Seller</span><span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{txn.sellerName}</span></div>
                                 <div><span className="rc-text-muted" style={{ display: "block" }}>Broker</span><span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{txn.brokerName}</span></div>
                                 <div><span className="rc-text-muted" style={{ display: "block" }}>Target Close</span><span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{txn.targetClose}</span></div>
                                 <div><span className="rc-text-muted" style={{ display: "block" }}>Communities</span><span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{txn.communities.length}</span></div>
