@@ -167,7 +167,7 @@ export default function RecapitalizationWorkspace() {
             </div>
 
             <div className="ws-header">
-                <div className="ws-header-main">
+                <div className="ws-header-main" style={{ flex: 1 }}>
                     <div className="ws-id-row">
                         <span className="ws-id">{displayId}</span>
                         <span className={`rc-badge ${config.cssClass}`} style={{ fontSize: 10 }}>{displayTypeLabel}</span>
@@ -195,7 +195,7 @@ export default function RecapitalizationWorkspace() {
             <div className="ws-layout">
                 <div className="ws-main">
 
-                    <div className="ws-card">
+                    <div className="ws-card ws-card-accent">
                         <div className="ws-card-header">
                             <h3>Decision Support Preview</h3>
                             <span className="rc-badge rc-badge-import" style={{ fontSize: 9 }}>Mock Preview</span>
@@ -486,7 +486,13 @@ export default function RecapitalizationWorkspace() {
                                     <div className="ws-readiness-bar">
                                         <div className="ws-readiness-fill" style={{ width: `${rs.score}%`, background: rs.score >= 80 ? "#166534" : rs.score >= 40 ? "#1d4ed8" : "#92400e" }} />
                                     </div>
-                                    <div className="ws-readiness-label">{rs.label}</div>
+                                    <div className="ws-readiness-label">
+                                        <span className={
+                                            rs.score >= 80 ? "ws-readiness-label-ready" :
+                                            rs.score >= 40 ? "ws-readiness-label-partial" :
+                                            "ws-readiness-label-attention"
+                                        }>{rs.label}</span>
+                                    </div>
                                     <ul className="ws-readiness-factors">
                                         {rs.factors.map((f, i) => (
                                             <li key={i} className={f.met ? "ws-factor-met" : "ws-factor-unmet"}>

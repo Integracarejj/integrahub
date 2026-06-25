@@ -1498,7 +1498,7 @@
 
 .ws-meta-item {
     font-size: 12px;
-    color: #64748b;
+    color: #475569;
 }
 
 .ws-chips {
@@ -1520,7 +1520,7 @@
 
 .ws-chip-label {
     font-weight: 600;
-    color: #475569;
+    color: #334155;
     white-space: nowrap;
 }
 
@@ -1558,6 +1558,7 @@
     border-radius: 10px;
     background: #fff;
     overflow: hidden;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.02);
 }
 
 .ws-card-header {
@@ -1565,8 +1566,9 @@
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
     gap: 8px;
+    background: #fafbfc;
 }
 
 .ws-card-header h3 {
@@ -1588,7 +1590,7 @@
 .ws-empty-section {
     padding: 24px 16px;
     text-align: center;
-    color: #64748b;
+    color: #475569;
     font-size: 13px;
 }
 
@@ -1607,7 +1609,7 @@
 .ws-preview-label {
     font-size: 11px;
     font-weight: 600;
-    color: #64748b;
+    color: #475569;
     text-transform: uppercase;
     letter-spacing: 0.03em;
 }
@@ -1615,7 +1617,7 @@
 .ws-preview-value {
     font-size: 13px;
     font-weight: 600;
-    color: #1e293b;
+    color: #0f172a;
 }
 
 .ws-preview-hint {
@@ -1624,13 +1626,29 @@
     color: #64748b;
     font-style: italic;
     padding-top: 10px;
-    border-top: 1px solid #f1f5f9;
+    border-top: 1px solid #e2e8f0;
+}
+
+/* Decision Support Preview accent card */
+.ws-card-accent {
+    border: 1px solid #c7d2fe;
+    background: #f8faff;
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.08);
+}
+
+.ws-card-accent .ws-card-header {
+    background: #eef2ff;
+    border-bottom: 1px solid #c7d2fe;
+}
+
+.ws-card-accent .ws-card-header h3 {
+    color: #4338ca;
 }
 
 .ws-submission-text {
     font-size: 13px;
-    color: #334155;
-    line-height: 1.6;
+    color: #1e293b;
+    line-height: 1.7;
     margin: 0;
 }
 
@@ -1639,7 +1657,7 @@
     align-items: center;
     gap: 8px;
     margin-top: 10px;
-    padding: 8px 10px;
+    padding: 10px 12px;
     background: #f8faff;
     border: 1px solid #e2e8f0;
     border-radius: 6px;
@@ -1657,6 +1675,13 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+    min-width: 0;
+}
+
+.ws-routing-field select,
+.ws-routing-field input {
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 .ws-routing-field-wide {
@@ -1666,7 +1691,7 @@
 .ws-routing-label {
     font-size: 11px;
     font-weight: 600;
-    color: #475569;
+    color: #334155;
     text-transform: uppercase;
     letter-spacing: 0.03em;
 }
@@ -1743,30 +1768,32 @@
 .ws-readiness {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     align-items: center;
     text-align: center;
+    padding: 4px 0;
 }
 
 .ws-readiness-score {
-    font-size: 36px;
+    font-size: 42px;
     font-weight: 800;
     color: #0f172a;
     line-height: 1;
+    position: relative;
 }
 
 .ws-readiness-bar {
     width: 100%;
-    height: 8px;
+    height: 10px;
     background: #f1f5f9;
-    border-radius: 4px;
+    border-radius: 6px;
     overflow: hidden;
 }
 
 .ws-readiness-fill {
     height: 100%;
-    border-radius: 4px;
-    transition: width 0.3s;
+    border-radius: 6px;
+    transition: width 0.4s ease;
 }
 
 .ws-readiness-label {
@@ -1775,10 +1802,31 @@
     color: #475569;
 }
 
+.ws-readiness-label-attention {
+    color: #92400e;
+    background: #fffbeb;
+    padding: 2px 10px;
+    border-radius: 4px;
+}
+
+.ws-readiness-label-partial {
+    color: #1e40af;
+    background: #eff6ff;
+    padding: 2px 10px;
+    border-radius: 4px;
+}
+
+.ws-readiness-label-ready {
+    color: #166534;
+    background: #f0fdf4;
+    padding: 2px 10px;
+    border-radius: 4px;
+}
+
 .ws-readiness-factors {
     list-style: none;
     padding: 0;
-    margin: 0;
+    margin: 4px 0 0;
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -1800,7 +1848,7 @@
 }
 
 .ws-factor-unmet {
-    color: #64748b;
+    color: #475569;
 }
 
 @media (max-width: 1100px) {
@@ -1997,27 +2045,4 @@
 
 .ws-actions-group-label:first-child {
     margin-top: 0;
-}
-
-/* ── Readiness visual refresh ── */
-
-.ws-readiness-score {
-    font-size: 40px;
-    font-weight: 800;
-    color: #0f172a;
-    line-height: 1;
-}
-
-.ws-readiness-bar {
-    width: 100%;
-    height: 10px;
-    background: #f1f5f9;
-    border-radius: 5px;
-    overflow: hidden;
-}
-
-.ws-readiness-fill {
-    height: 100%;
-    border-radius: 5px;
-    transition: width 0.4s ease;
 }
