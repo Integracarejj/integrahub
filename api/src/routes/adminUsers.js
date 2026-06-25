@@ -332,7 +332,7 @@ router.get("/sync/test-graph", async (req, res) => {
     }
 });
 
-async function getGraphToken(config) {
+export async function getGraphToken(config) {
     const tenantId = config.configSource.tenantId === "GRAPH_TENANT_ID"
         ? process.env.GRAPH_TENANT_ID
         : process.env.AZURE_TENANT_ID;

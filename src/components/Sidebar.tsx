@@ -9,6 +9,7 @@ const NAV_ITEMS = [
     { to: "/processes", label: "Processes", icon: "🔄" },
     { to: "/performance", label: "Performance", icon: "📈" },
     { to: "/integrations", label: "Explore", icon: "🗺️" },
+    { to: "/recapitalization", label: "Recapitalization", icon: "💼" },
 ];
 
 interface SidebarProps {

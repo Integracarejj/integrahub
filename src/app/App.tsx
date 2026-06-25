@@ -34,6 +34,15 @@ import PortalSubmit from "../pages/portal/PortalSubmit";
 import PortalDocuments from "../pages/portal/PortalDocuments";
 import PortalHelp from "../pages/portal/PortalHelp";
 
+import RecapitalizationOverview from "../pages/recapitalization/RecapitalizationOverview";
+import RecapitalizationTransactions from "../pages/recapitalization/RecapitalizationTransactions";
+import RecapitalizationTracker from "../pages/recapitalization/RecapitalizationTracker";
+import RecapitalizationIntake from "../pages/recapitalization/RecapitalizationIntake";
+import RecapitalizationMyWork from "../pages/recapitalization/RecapitalizationMyWork";
+import RecapitalizationDocuments from "../pages/recapitalization/RecapitalizationDocuments";
+import RecapitalizationReports from "../pages/recapitalization/RecapitalizationReports";
+import RecapitalizationSettings from "../pages/recapitalization/RecapitalizationSettings";
+
 /**
  * Guards internal routes from external portal users.
  * Portal-only users are redirected to /portal.
@@ -178,6 +187,15 @@ function AuthAwareRouter() {
                 <Route path="/department-view" element={<DepartmentViewPage />} />
                 <Route path="/topics" element={<TopicsPage />} />
                 <Route path="/topics/:topicSlug" element={<TopicDetailPage />} />
+
+                <Route path="/recapitalization" element={<RecapitalizationOverview />} />
+                <Route path="/recapitalization/transactions" element={<RecapitalizationTransactions />} />
+                <Route path="/recapitalization/tracker" element={<RecapitalizationTracker />} />
+                <Route path="/recapitalization/intake" element={<RecapitalizationIntake />} />
+                <Route path="/recapitalization/my-work" element={<RecapitalizationMyWork />} />
+                <Route path="/recapitalization/documents" element={<RecapitalizationDocuments />} />
+                <Route path="/recapitalization/reports" element={<RecapitalizationReports />} />
+                <Route path="/recapitalization/settings" element={<RecapitalizationSettings />} />
 
                 <Route path="*" element={<Navigate to="/applications" replace />} />
             </Route>
