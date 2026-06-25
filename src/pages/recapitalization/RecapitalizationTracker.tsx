@@ -1,7 +1,16 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { getRequests, getTransactions, getTeamMembers, getTeams, getActivityByTransaction, getDocumentsByTransaction, updateRequestStatus, updateRequestOwner, updateRequestPriority, updateRequestDueDate, updateRequestTeam } from "../../services/recapMockData";
 import type { RecapRequest } from "../../services/recapMockData";
+import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
+
+interface Note {
+    id: string;
+    author: string;
+    text: string;
+    timestamp: string;
+}
 
 function RequestDrawer({ request, onClose, onUpdate }: { request: RecapRequest; onClose: () => void; onUpdate: (id: string) => void }) {
     const activity = getActivityByTransaction(request.transactionId).slice(0, 8);
@@ -15,6 +24,12 @@ function RequestDrawer({ request, onClose, onUpdate }: { request: RecapRequest; 
     const [priorityValue, setPriorityValue] = useState(request.priority);
     const [dueDateValue, setDueDateValue] = useState(request.dueDate);
 
+    const [notes, setNotes] = useState<Note[]>([
+        { id: "n1", author: "David Park", text: "Requested additional supporting documentation from broker", timestamp: "2026-06-26" },
+        { id: "n2", author: "Sarah Chen", text: "Documents received, pending review", timestamp: "2026-06-27" },
+    ]);
+    const [newNoteText, setNewNoteText] = useState("");
+
     function handleSave(field: string) {
         switch (field) {
             case "status": updateRequestStatus(request.id, statusValue as RecapRequest["status"]); break;
@@ -25,6 +40,18 @@ function RequestDrawer({ request, onClose, onUpdate }: { request: RecapRequest; 
         }
         onUpdate(request.id);
         setEditMode(null);
+    }
+
+    function handleAddNote() {
+        if (!newNoteText.trim()) return;
+        const note: Note = {
+            id: "n" + Date.now(),
+            author: "Sarah Chen",
+            text: newNoteText.trim(),
+            timestamp: new Date().toISOString().split("T")[0],
+        };
+        setNotes(prev => [note, ...prev]);
+        setNewNoteText("");
     }
 
     return (
@@ -219,6 +246,31 @@ function RequestDrawer({ request, onClose, onUpdate }: { request: RecapRequest; 
                             ))}
                         </div>
                     </div>
+
+                    <hr className="rc-divider" />
+
+                    <div className="rc-drawer-section">
+                        <div className="rc-drawer-section-title">Notes & Comments</div>
+                        <div className="rc-notes-section">
+                            {notes.map(note => (
+                                <div key={note.id} className="rc-note-item">
+                                    <div className="rc-note-header">
+                                        <span className="rc-note-author">{note.author}</span>
+                                        <span>{note.timestamp}</span>
+                                    </div>
+                                    <div className="rc-note-body">{note.text}</div>
+                                </div>
+                            ))}
+                            <div className="rc-note-input">
+                                <textarea
+                                    placeholder="Add a note..."
+                                    value={newNoteText}
+                                    onChange={e => setNewNoteText(e.target.value)}
+                                />
+                                <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={handleAddNote}>Add Note</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="rc-drawer-actions">
@@ -236,6 +288,7 @@ function RequestDrawer({ request, onClose, onUpdate }: { request: RecapRequest; 
 }
 
 export default function RecapitalizationTracker() {
+    const navigate = useNavigate();
     const allRequests = getRequests();
     const transactions = getTransactions();
     const members = getTeamMembers();
@@ -249,7 +302,11 @@ export default function RecapitalizationTracker() {
     const [filterOwner, setFilterOwner] = useState("all");
 
     const [overdueOnly, setOverdueOnly] = useState(false);
+    const [myItems, setMyItems] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState<RecapRequest | null>(null);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+    const selectAllRef = useRef<HTMLInputElement>(null);
 
     const filtered = useMemo(() => {
         let result = [...allRequests];
@@ -263,25 +320,66 @@ export default function RecapitalizationTracker() {
         if (filterTeam !== "all") result = result.filter(r => r.team === filterTeam);
         if (filterOwner !== "all") result = result.filter(r => (r.owner || "Unassigned") === filterOwner);
         if (overdueOnly) result = result.filter(r => r.status === "Overdue");
+        if (myItems) result = result.filter(r => r.owner === "Sarah Chen");
         return result;
-    }, [allRequests, search, filterTxn, filterStatus, filterPriority, filterTeam, filterOwner, overdueOnly]);
+    }, [allRequests, search, filterTxn, filterStatus, filterPriority, filterTeam, filterOwner, overdueOnly, myItems]);
+
+    const visibleIds = useMemo(() => new Set(filtered.map(r => r.id)), [filtered]);
+
+    const allSelected = filtered.length > 0 && filtered.every(r => selectedIds.has(r.id));
+    const someSelected = filtered.some(r => selectedIds.has(r.id));
+
+    useEffect(() => {
+        if (selectAllRef.current) {
+            selectAllRef.current.indeterminate = someSelected && !allSelected;
+        }
+    }, [someSelected, allSelected]);
+
+    function handleSelectAll() {
+        if (allSelected) {
+            setSelectedIds(prev => {
+                const next = new Set(prev);
+                for (const id of visibleIds) next.delete(id);
+                return next;
+            });
+        } else {
+            setSelectedIds(prev => {
+                const next = new Set(prev);
+                for (const id of visibleIds) next.add(id);
+                return next;
+            });
+        }
+    }
+
+    function handleSelectOne(id: string) {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    }
+
+    function clearSelection() {
+        setSelectedIds(new Set());
+    }
 
     return (
         <div className="rc-page">
+            <RecapSubNav />
             <div className="rc-header">
                 <h1>Request Tracker</h1>
                 <div className="rc-header-actions">
-                    <button className="rc-btn rc-btn-primary">Import DD Package</button>
-                    <button className="rc-btn rc-btn-secondary">New Request</button>
-                    <button className="rc-btn rc-btn-secondary">Bulk Update</button>
-                    <button className="rc-btn rc-btn-secondary">Export</button>
+                    <button className="rc-btn rc-btn-primary" onClick={() => navigate("/recapitalization/intake/review")}>Import DD Package</button>
+                    <button className="rc-btn rc-btn-secondary" onClick={() => window.alert("New Request — coming in next sprint")}>New Request</button>
+                    <button className="rc-btn rc-btn-secondary" onClick={() => window.alert("Bulk Update panel — coming next sprint")}>Bulk Update</button>
+                    <button className="rc-btn rc-btn-secondary" onClick={() => window.alert("Export — coming next sprint")}>Export</button>
                 </div>
             </div>
 
             <div className="rc-card">
                 <div className="rc-filter-bar">
                     <div className="rc-search-box">
-                        <span style={{ color: "#94a3b8", fontSize: 14 }}>&#8981;</span>
+                        <span style={{ color: "#64748b", fontSize: 14 }}>&#8981;</span>
                         <input placeholder="Search requests..." value={search} onChange={e => setSearch(e.target.value)} />
                     </div>
                     <select className="rc-filter-select" value={filterTxn} onChange={e => setFilterTxn(e.target.value)}>
@@ -309,13 +407,42 @@ export default function RecapitalizationTracker() {
                         <input type="checkbox" checked={overdueOnly} onChange={e => setOverdueOnly(e.target.checked)} />
                         Overdue Only
                     </label>
+                    <div className="rc-toggle-group">
+                        <button className={`rc-toggle-btn${!myItems ? " rc-toggle-active" : ""}`} onClick={() => setMyItems(false)}>All Items</button>
+                        <button className={`rc-toggle-btn${myItems ? " rc-toggle-active" : ""}`} onClick={() => setMyItems(true)}>My Items</button>
+                    </div>
                 </div>
+
+                {selectedIds.size > 0 && (
+                    <div className="rc-bulk-bar">
+                        <span className="rc-bulk-count">{selectedIds.size}</span>
+                        <span>selected</span>
+                        <div className="rc-bulk-sep" />
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => window.alert("Assign — coming next sprint")}>Assign</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => window.alert("Route to Team — coming next sprint")}>Route to Team</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => window.alert("Mark Duplicate — coming next sprint")}>Mark Duplicate</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => window.alert("Mark Not Applicable — coming next sprint")}>Mark Not Applicable</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => window.alert("Reject — coming next sprint")}>Reject</button>
+                        <div className="rc-bulk-sep" />
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={clearSelection}>Clear Selection</button>
+                    </div>
+                )}
             </div>
 
             <div className="rc-card" style={{ overflow: "auto" }}>
                 <table className="rc-table">
                     <thead>
                         <tr>
+                            <th style={{ width: 36 }}>
+                                <input
+                                    ref={selectAllRef}
+                                    type="checkbox"
+                                    className="rc-checkbox-header"
+                                    checked={allSelected}
+                                    onChange={handleSelectAll}
+                                />
+                            </th>
+                            <th>Intake ID</th>
                             <th>Request ID</th>
                             <th>Transaction</th>
                             <th>Broker/Buyer</th>
@@ -335,13 +462,22 @@ export default function RecapitalizationTracker() {
                     <tbody>
                         {filtered.map(req => (
                             <tr key={req.id} className="rc-row-clickable" onClick={() => setSelectedRequest(req)}>
+                                <td style={{ width: 36 }} onClick={e => e.stopPropagation()}>
+                                    <input
+                                        type="checkbox"
+                                        className="rc-checkbox"
+                                        checked={selectedIds.has(req.id)}
+                                        onChange={() => handleSelectOne(req.id)}
+                                    />
+                                </td>
+                                <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#64748b" }}>{req.intakeId}</td>
                                 <td style={{ fontWeight: 600, fontSize: 12, color: "#475569" }}>{req.requestId}</td>
                                 <td className="rc-truncate">{req.transactionName}</td>
                                 <td className="rc-truncate">{req.brokerBuyer}</td>
                                 <td className="rc-truncate">{req.communityNames.join(", ") || "All"}</td>
                                 <td>{req.category}</td>
                                 <td className="rc-truncate" style={{ fontWeight: 500 }}>{req.title}</td>
-                                <td style={{ color: req.owner ? "#1e293b" : "#94a3b8", fontSize: 12 }}>{req.owner || "—"}</td>
+                                <td style={{ color: req.owner ? "#1e293b" : "#64748b", fontSize: 12 }}>{req.owner || "—"}</td>
                                 <td style={{ fontSize: 12 }}>{req.team}</td>
                                 <td><span className={`rc-badge rc-badge-${req.status === "Overdue" ? "overdue" : req.status.toLowerCase().replace(/\s+/g, "-")}`}>{req.status}</span></td>
                                 <td><span className={`rc-badge rc-badge-${req.priority.toLowerCase()}`}>{req.priority}</span></td>
@@ -360,7 +496,7 @@ export default function RecapitalizationTracker() {
                 {filtered.length === 0 && <div className="rc-empty-state">No requests match your filters</div>}
             </div>
 
-            <div style={{ fontSize: 12, color: "#94a3b8" }}>Showing {filtered.length} of {allRequests.length} requests</div>
+            <div style={{ fontSize: 12, color: "#64748b" }}>Showing {filtered.length} of {allRequests.length} requests</div>
 
             {selectedRequest && (
                 <RequestDrawer

@@ -1,3 +1,4 @@
+import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
 const SETTING_GROUPS = [
@@ -37,6 +38,7 @@ const SETTING_GROUPS = [
 export default function RecapitalizationSettings() {
     return (
         <div className="rc-page">
+            <RecapSubNav />
             <div className="rc-header">
                 <h1>Settings</h1>
                 <div className="rc-header-actions">

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { getDocuments, getTransactions } from "../../services/recapMockData";
+import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
 export default function RecapitalizationDocuments() {
@@ -13,6 +14,7 @@ export default function RecapitalizationDocuments() {
 
     return (
         <div className="rc-page">
+            <RecapSubNav />
             <div className="rc-header">
                 <h1>Documents</h1>
                 <div className="rc-header-actions">
@@ -42,7 +44,7 @@ export default function RecapitalizationDocuments() {
                         {transactions.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
                     <div className="rc-search-box" style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ color: "#94a3b8", fontSize: 14 }}>&#8981;</span>
+                        <span style={{ color: "#64748b", fontSize: 14 }}>&#8981;</span>
                         <input placeholder="Search documents..." />
                     </div>
                     <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Open in SharePoint" style={{ fontSize: 16 }}>&#128279;</button>

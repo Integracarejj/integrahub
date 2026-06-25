@@ -1,3 +1,4 @@
+import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
 const REPORT_CARDS = [
@@ -12,6 +13,7 @@ const REPORT_CARDS = [
 export default function RecapitalizationReports() {
     return (
         <div className="rc-page">
+            <RecapSubNav />
             <div className="rc-header">
                 <h1>Reports</h1>
                 <div className="rc-header-actions">

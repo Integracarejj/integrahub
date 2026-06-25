@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { getMyWork } from "../../services/recapMockData";
+import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
 export default function RecapitalizationMyWork() {
@@ -17,6 +18,7 @@ export default function RecapitalizationMyWork() {
 
     return (
         <div className="rc-page">
+            <RecapSubNav />
             <div className="rc-header">
                 <div className="rc-header-left">
                     <h1>My DD Work</h1>
@@ -51,12 +53,12 @@ export default function RecapitalizationMyWork() {
                                             {req.status}
                                         </span>
                                         <span className={`rc-badge rc-badge-${req.priority.toLowerCase()}`} style={{ fontSize: 10 }}>{req.priority}</span>
-                                        <span style={{ fontSize: 11, color: "#94a3b8" }}>{req.requestId}</span>
+                                        <span style={{ fontSize: 11, color: "#64748b" }}>{req.requestId}</span>
                                     </div>
                                     <span className="rc-truncate" style={{ fontSize: 13, fontWeight: 500, display: "block" }}>{req.title}</span>
                                     <span className="rc-text-muted" style={{ fontSize: 11 }}>{req.transactionName} &middot; Due: {req.dueDate}</span>
                                 </div>
-                                <span style={{ fontSize: 16, color: "#94a3b8" }}>&#8250;</span>
+                                <span style={{ fontSize: 16, color: "#64748b" }}>&#8250;</span>
                             </div>
                         ))}
                         {section.items.length > 3 && (

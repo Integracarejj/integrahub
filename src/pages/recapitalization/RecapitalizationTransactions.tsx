@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { getTransactions } from "../../services/recapMockData";
+import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
 export default function RecapitalizationTransactions() {
@@ -8,6 +9,7 @@ export default function RecapitalizationTransactions() {
 
     return (
         <div className="rc-page">
+            <RecapSubNav />
             <div className="rc-header">
                 <h1>Transactions</h1>
                 <div className="rc-header-actions">

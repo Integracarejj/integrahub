@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { getActiveTransactions, getStatusCounts, getRequests, getActivity, getTeamWorkload, getOverrideRequests } from "../../services/recapMockData";
+import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
 export default function RecapitalizationOverview() {
@@ -20,6 +21,7 @@ export default function RecapitalizationOverview() {
 
     return (
         <div className="rc-page">
+            <RecapSubNav />
             <div className="rc-header">
                 <div className="rc-header-left">
                     <h1>Recapitalization</h1>
@@ -145,7 +147,7 @@ export default function RecapitalizationOverview() {
                                         <span className={`rc-badge rc-badge-${req.status === "Overdue" ? "overdue" : req.status.toLowerCase().replace(/\s+/g, "-")}`}>
                                             {req.status}
                                         </span>
-                                        <span style={{ fontSize: 11, color: "#94a3b8" }}>{req.requestId}</span>
+                                        <span style={{ fontSize: 11, color: "#64748b" }}>{req.requestId}</span>
                                     </div>
                                     <span className="rc-truncate" style={{ fontSize: 13, color: "#1e293b" }}>{req.title}</span>
                                 </div>
