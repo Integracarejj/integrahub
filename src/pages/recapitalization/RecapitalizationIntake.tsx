@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate, Routes, Route } from "react-router-dom";
-import { getIntakeItems, isDemoActive, getDemoEngineSummary, publishIntake, publishSelectedRequests, getDemoRequests, bulkUpdateDemoRequests } from "../../services/recapDataService";
-import type { RecapIntakeItem, RecapRequest } from "../../services/recapDataService";
+import { getIntakeItems, isDemoActive, getDemoEngineSummary, publishIntake, publishSelectedRequests, getDemoRequests, bulkUpdateDemoRequests, getTeamMembers, getTeams } from "../../services/recapDataService";
+import type { RecapIntakeItem, RecapRequest, RecapTeamMember } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
@@ -147,6 +147,10 @@ const TEAMS_LIST = ["Financial Analysis", "Regulatory", "Environmental", "Risk M
 const PRIORITIES_LIST: RecapRequest["priority"][] = ["High", "Medium", "Low"];
 const PAGE_SIZE = 50;
 
+const REVIEW_STATE_KEY = "integrasource.recap.demo.reviewStates";
+
+type ReviewState = "Ready to Publish" | "Duplicate Review" | "Needs Follow-up" | "Needs Review";
+
 function ReviewEngine() {
     const navigate = useNavigate();
     const [published, setPublished] = useState(false);
@@ -159,7 +163,7 @@ function ReviewEngine() {
     const [communityFilter, setCommunityFilter] = useState("All");
     const [teamFilter, setTeamFilter] = useState("All");
     const [priorityFilter, setPriorityFilter] = useState("All");
-    const [readinessFilter, setReadinessFilter] = useState("All");
+    const [reviewStateFilter, setReviewStateFilter] = useState("All");
     const [page, setPage] = useState(0);
 
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -167,16 +171,17 @@ function ReviewEngine() {
     const [savedFeedback, setSavedFeedback] = useState("");
     const [updateCount, setUpdateCount] = useState(0);
 
-    const [readyIds, setReadyIds] = useState<Set<string>>(() => {
+    const [userReviewStates, setUserReviewStates] = useState<Record<string, ReviewState>>(() => {
         try {
-            const raw = localStorage.getItem("integrasource.recap.demo.readyIds");
-            return raw ? new Set(JSON.parse(raw)) : new Set();
-        } catch { return new Set(); }
+            const raw = localStorage.getItem(REVIEW_STATE_KEY);
+            return raw ? JSON.parse(raw) : {};
+        } catch { return {}; }
     });
 
-    const persistReadyIds = (next: Set<string>) => {
-        localStorage.setItem("integrasource.recap.demo.readyIds", JSON.stringify([...next]));
-        setReadyIds(next);
+    const persistReviewState = (id: string, state: ReviewState) => {
+        const next = { ...userReviewStates, [id]: state };
+        localStorage.setItem(REVIEW_STATE_KEY, JSON.stringify(next));
+        setUserReviewStates(next);
     };
 
     const summary = getDemoEngineSummary();
@@ -201,21 +206,29 @@ function ReviewEngine() {
         return "None";
     };
 
+    const DUP_TOOLTIP: Record<string, string> = {
+        "Within Package": "Another request inside THIS uploaded package appears to request the same deliverable.",
+        "Possible Match": "A similar request exists elsewhere and should be reviewed before creating another deliverable.",
+        "Existing Request": "This request matches a previously published request in the tracker.",
+    };
+
+    const getReviewState = (r: RecapRequest, dupType: string): ReviewState => {
+        if (userReviewStates[r.id]) return userReviewStates[r.id];
+        if (dupType !== "None") return "Duplicate Review";
+        if (r.status === "Clarification Needed") return "Needs Follow-up";
+        if (!r.category || !r.category.trim() || !r.team || !r.team.trim() || !r.communityNames.length || r.status === "Open") return "Needs Review";
+        return "Needs Review";
+    };
+
     const enriched = useMemo(() => {
         return allRequests.map(r => {
             const dupType = getDupType(r.id);
-            const isDup = dupType !== "None";
-            const needsFU = r.status === "Clarification Needed";
-            const hasCategory = r.category && r.category.trim().length > 0;
-            const hasTeam = r.team && r.team.trim().length > 0;
-            const hasCommunity = r.communityNames && r.communityNames.length > 0;
-            const isReady = readyIds.has(r.id) || (!isDup && !needsFU && hasCategory && hasTeam && hasCommunity && r.status !== "Open" && r.status !== "Overdue");
-            const needsReview = isDup || needsFU || !hasCategory || !hasTeam || !hasCommunity || r.status === "Open";
-            const aiAct = r.status === "Open" ? "Needs Review" : needsFU ? "Needs Follow-Up" : r.status === "Overdue" ? "Overdue" : r.status === "Provided" ? "Provided" : r.status === "Under Review" ? "Under Review" : "In Progress";
+            const reviewState = getReviewState(r, dupType);
+            const aiAct = r.status === "Open" ? "Needs Review" : r.status === "Clarification Needed" ? "Needs Follow-Up" : r.status === "Overdue" ? "Overdue" : r.status === "Provided" ? "Provided" : r.status === "Under Review" ? "Under Review" : "In Progress";
             const deliverable = r.title.split(" - ")[0];
-            return { ...r, _duplicateType: dupType, _isDuplicate: isDup, _needsFollowUp: needsFU, _isReady: isReady, _needsReview: needsReview, _aiAction: aiAct, _deliverable: deliverable, _activityCount: Math.floor(hashId(r.id) % 7) };
+            return { ...r, _duplicateType: dupType, _reviewState: reviewState, _aiAction: aiAct, _deliverable: deliverable, _activityCount: Math.floor(hashId(r.id) % 7) };
         });
-    }, [allRequests, readyIds]);
+    }, [allRequests, userReviewStates]);
 
     const communities = useMemo(() => {
         const s = new Set<string>();
@@ -223,18 +236,20 @@ function ReviewEngine() {
         return [...s].sort();
     }, [allRequests]);
 
-    const readyCount = useMemo(() => enriched.filter(r => r._isReady).length, [enriched]);
-    const needsReviewCount = useMemo(() => enriched.filter(r => r._needsReview).length, [enriched]);
-    const duplicateCount = useMemo(() => enriched.filter(r => r._isDuplicate).length, [enriched]);
-    const followUpCount = useMemo(() => enriched.filter(r => r._needsFollowUp).length, [enriched]);
+    const reviewStateCounts = useMemo(() => {
+        const counts: Record<string, number> = { "Ready to Publish": 0, "Needs Review": 0, "Duplicate Review": 0, "Needs Follow-up": 0 };
+        enriched.forEach(r => { counts[r._reviewState] = (counts[r._reviewState] || 0) + 1; });
+        return counts;
+    }, [enriched]);
+
     const criticalCount = useMemo(() => enriched.filter(r => r.priority === "High" && (r.status === "Open" || r.status === "Overdue")).length, [enriched]);
 
     const filtered = useMemo(() => {
         let result = enriched;
-        if (activeCardFilter === "ready") result = result.filter(r => r._isReady);
-        else if (activeCardFilter === "needs_review") result = result.filter(r => r._needsReview);
-        else if (activeCardFilter === "duplicates") result = result.filter(r => r._isDuplicate);
-        else if (activeCardFilter === "follow_up") result = result.filter(r => r._needsFollowUp);
+        if (activeCardFilter === "ready") result = result.filter(r => r._reviewState === "Ready to Publish");
+        else if (activeCardFilter === "needs_review") result = result.filter(r => r._reviewState === "Needs Review");
+        else if (activeCardFilter === "duplicates") result = result.filter(r => r._reviewState === "Duplicate Review");
+        else if (activeCardFilter === "follow_up") result = result.filter(r => r._reviewState === "Needs Follow-up");
         else if (activeCardFilter === "critical") result = result.filter(r => r.priority === "High" && (r.status === "Open" || r.status === "Overdue"));
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase();
@@ -244,14 +259,9 @@ function ReviewEngine() {
         if (communityFilter !== "All") result = result.filter(r => r.communityNames.includes(communityFilter));
         if (teamFilter !== "All") result = result.filter(r => r.team === teamFilter);
         if (priorityFilter !== "All") result = result.filter(r => r.priority === priorityFilter);
-        if (readinessFilter !== "All") {
-            if (readinessFilter === "Ready to Publish") result = result.filter(r => r._isReady);
-            else if (readinessFilter === "Needs Review") result = result.filter(r => r._needsReview);
-            else if (readinessFilter === "Duplicate") result = result.filter(r => r._isDuplicate);
-            else if (readinessFilter === "Needs Follow-up") result = result.filter(r => r._needsFollowUp);
-        }
+        if (reviewStateFilter !== "All") result = result.filter(r => r._reviewState === reviewStateFilter);
         return result;
-    }, [enriched, activeCardFilter, searchQuery, categoryFilter, communityFilter, teamFilter, priorityFilter, readinessFilter]);
+    }, [enriched, activeCardFilter, searchQuery, categoryFilter, communityFilter, teamFilter, priorityFilter, reviewStateFilter]);
 
     const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     const safePage = Math.min(page, totalPages - 1);
@@ -282,7 +292,7 @@ function ReviewEngine() {
     };
 
     const handlePublishReady = () => {
-        const ids = enriched.filter(r => r._isReady).map(r => r.id);
+        const ids = enriched.filter(r => r._reviewState === "Ready to Publish").map(r => r.id);
         if (ids.length === 0) return;
         setPublishing(true);
         setTimeout(() => {
@@ -302,19 +312,24 @@ function ReviewEngine() {
         }, 1500);
     };
 
-    const handleBulkAction = (patch: Partial<RecapRequest>) => {
+    const handleBulkReviewState = (state: ReviewState) => {
+        if (selectedIds.size === 0) return;
+        const next = { ...userReviewStates };
+        [...selectedIds].forEach(id => { next[id] = state; });
+        localStorage.setItem(REVIEW_STATE_KEY, JSON.stringify(next));
+        setUserReviewStates(next);
+        setSavedFeedback(`Marked ${selectedIds.size} items as "${state}"`);
+        setTimeout(() => setSavedFeedback(""), 2000);
+        setSelectedIds(new Set());
+    };
+
+    const handleBulkPatch = (patch: Partial<RecapRequest>) => {
         if (selectedIds.size === 0) return;
         bulkUpdateDemoRequests([...selectedIds], patch);
         setUpdateCount(k => k + 1);
         setSavedFeedback(`Updated ${selectedIds.size} items locally`);
         setTimeout(() => setSavedFeedback(""), 2000);
         setSelectedIds(new Set());
-    };
-
-    const toggleReady = (id: string) => {
-        const next = new Set(readyIds);
-        if (next.has(id)) next.delete(id); else next.add(id);
-        persistReadyIds(next);
     };
 
     const CARD_STYLE = (borderColor: string, isActive: boolean) => ({
@@ -326,6 +341,15 @@ function ReviewEngine() {
     } as React.CSSProperties);
 
     const SELECT_STYLE = { fontSize: 11, padding: "2px 20px 2px 6px", border: "1px solid #d1d5db", borderRadius: 4, background: "#fff", color: "#111827", minWidth: 90 };
+
+    const REVIEW_STATE_COLORS: Record<ReviewState, string> = {
+        "Ready to Publish": "#166534",
+        "Duplicate Review": "#d97706",
+        "Needs Follow-up": "#92400e",
+        "Needs Review": "#1d4ed8",
+    };
+
+    const readyCount = reviewStateCounts["Ready to Publish"];
 
     if (published) {
         const count = publishAll ? summary.total : readyCount;
@@ -404,22 +428,22 @@ function ReviewEngine() {
                     <span className="rc-stat-label">Total Items</span>
                 </div>
                 <div className="rc-stat-card" style={CARD_STYLE("#166534", activeCardFilter === "ready")} onClick={() => handleCardFilter("ready")}>
-                    <span className="rc-stat-value">{readyCount}</span>
+                    <span className="rc-stat-value">{reviewStateCounts["Ready to Publish"]}</span>
                     <span className="rc-stat-label">Ready to Publish</span>
                     <span className="rc-stat-desc">Cleared for tracker</span>
                 </div>
                 <div className="rc-stat-card" style={CARD_STYLE("#1d4ed8", activeCardFilter === "needs_review")} onClick={() => handleCardFilter("needs_review")}>
-                    <span className="rc-stat-value">{needsReviewCount}</span>
+                    <span className="rc-stat-value">{reviewStateCounts["Needs Review"]}</span>
                     <span className="rc-stat-label">Needs Review</span>
                     <span className="rc-stat-desc">Missing info or warnings</span>
                 </div>
-                <div className="rc-stat-card" style={CARD_STYLE("#92400e", activeCardFilter === "duplicates")} onClick={() => handleCardFilter("duplicates")}>
-                    <span className="rc-stat-value">{duplicateCount}</span>
+                <div className="rc-stat-card" style={CARD_STYLE("#d97706", activeCardFilter === "duplicates")} onClick={() => handleCardFilter("duplicates")}>
+                    <span className="rc-stat-value">{reviewStateCounts["Duplicate Review"]}</span>
                     <span className="rc-stat-label">Duplicate Review</span>
                     <span className="rc-stat-desc">Flagged by engine</span>
                 </div>
                 <div className="rc-stat-card" style={CARD_STYLE("#92400e", activeCardFilter === "follow_up")} onClick={() => handleCardFilter("follow_up")}>
-                    <span className="rc-stat-value">{followUpCount}</span>
+                    <span className="rc-stat-value">{reviewStateCounts["Needs Follow-up"]}</span>
                     <span className="rc-stat-label">Needs Follow-Up</span>
                     <span className="rc-stat-desc">Clarification recommended</span>
                 </div>
@@ -475,14 +499,14 @@ function ReviewEngine() {
                         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid #f1f5f9" }}>
                             <span style={{ fontSize: 16, lineHeight: 1 }}>&#9888;</span>
                             <div>
-                                <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#92400e" }}>{duplicateCount} item{duplicateCount !== 1 ? "s" : ""} flagged for duplicate review</span>
+                                <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#92400e" }}>{reviewStateCounts["Duplicate Review"]} item{reviewStateCounts["Duplicate Review"] !== 1 ? "s" : ""} flagged for duplicate review</span>
                                 <span style={{ display: "block", fontSize: 11, color: "#64748b" }}>Within-package duplicates or possible matches detected. Review recommended before publishing.</span>
                             </div>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid #f1f5f9" }}>
                             <span style={{ fontSize: 16, lineHeight: 1 }}>&#9888;</span>
                             <div>
-                                <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#92400e" }}>{followUpCount} item{followUpCount !== 1 ? "s" : ""} need{followUpCount === 1 ? "s" : ""} follow-up clarification</span>
+                                <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#92400e" }}>{reviewStateCounts["Needs Follow-up"]} item{reviewStateCounts["Needs Follow-up"] !== 1 ? "s" : ""} need{reviewStateCounts["Needs Follow-up"] === 1 ? "s" : ""} follow-up clarification</span>
                                 <span style={{ display: "block", fontSize: 11, color: "#64748b" }}>Some requests have incomplete or ambiguous descriptions. Consider clarifying before publishing.</span>
                             </div>
                         </div>
@@ -534,11 +558,11 @@ function ReviewEngine() {
                             <option value="All">All Priorities</option>
                             {PRIORITIES_LIST.map(p => <option key={p} value={p}>{p}</option>)}
                         </select>
-                        <select className="rc-filter-select" value={readinessFilter} onChange={e => { setReadinessFilter(e.target.value); setPage(0); }} style={{ minWidth: 130 }}>
+                        <select className="rc-filter-select" value={reviewStateFilter} onChange={e => { setReviewStateFilter(e.target.value); setPage(0); }} style={{ minWidth: 130 }}>
                             <option value="All">All Items</option>
                             <option value="Ready to Publish">Ready to Publish</option>
                             <option value="Needs Review">Needs Review</option>
-                            <option value="Duplicate">Duplicate</option>
+                            <option value="Duplicate Review">Duplicate Review</option>
                             <option value="Needs Follow-up">Needs Follow-up</option>
                         </select>
                     </div>
@@ -548,18 +572,18 @@ function ReviewEngine() {
                     <div className="rc-bulk-bar">
                         <span><span className="rc-bulk-count">{selectedIds.size}</span> selected</span>
                         <div className="rc-bulk-sep" />
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => handleBulkAction({ status: "Under Review" })}>Mark Ready</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => handleBulkAction({ status: "Open" })}>Mark Needs Review</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => handleBulkReviewState("Ready to Publish")}>Mark Ready to Publish</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => handleBulkReviewState("Needs Review")}>Mark Needs Review</button>
                         <div className="rc-bulk-sep" />
-                        <select className="rc-filter-select" style={{ fontSize: 12, padding: "3px 20px 3px 8px", minWidth: 140 }} defaultValue="" onChange={(e) => { if (e.target.value) { handleBulkAction({ team: e.target.value }); e.target.value = ""; } }}>
+                        <select className="rc-filter-select" style={{ fontSize: 12, padding: "3px 20px 3px 8px", minWidth: 140 }} defaultValue="" onChange={(e) => { if (e.target.value) { handleBulkPatch({ team: e.target.value }); e.target.value = ""; } }}>
                             <option value="" disabled>Assign Team...</option>
                             {TEAMS_LIST.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
-                        <select className="rc-filter-select" style={{ fontSize: 12, padding: "3px 20px 3px 8px", minWidth: 120 }} defaultValue="" onChange={(e) => { if (e.target.value) { handleBulkAction({ category: e.target.value }); e.target.value = ""; } }}>
+                        <select className="rc-filter-select" style={{ fontSize: 12, padding: "3px 20px 3px 8px", minWidth: 120 }} defaultValue="" onChange={(e) => { if (e.target.value) { handleBulkPatch({ category: e.target.value }); e.target.value = ""; } }}>
                             <option value="" disabled>Change Category...</option>
                             {CATEGORIES_LIST.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
-                        <select className="rc-filter-select" style={{ fontSize: 12, padding: "3px 20px 3px 8px", minWidth: 100 }} defaultValue="" onChange={(e) => { if (e.target.value) { handleBulkAction({ priority: e.target.value as RecapRequest["priority"] }); e.target.value = ""; } }}>
+                        <select className="rc-filter-select" style={{ fontSize: 12, padding: "3px 20px 3px 8px", minWidth: 100 }} defaultValue="" onChange={(e) => { if (e.target.value) { handleBulkPatch({ priority: e.target.value as RecapRequest["priority"] }); e.target.value = ""; } }}>
                             <option value="" disabled>Change Priority...</option>
                             {PRIORITIES_LIST.map(p => <option key={p} value={p}>{p}</option>)}
                         </select>
@@ -567,7 +591,7 @@ function ReviewEngine() {
                         <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 12, color: "#166534", fontWeight: 600 }} onClick={() => {
                             const bulkReady = [...selectedIds].filter(id => {
                                 const r = enriched.find(e => e.id === id);
-                                return r && r._isReady;
+                                return r && r._reviewState === "Ready to Publish";
                             });
                             if (bulkReady.length > 0) {
                                 publishSelectedRequests(bulkReady);
@@ -583,61 +607,64 @@ function ReviewEngine() {
                 )}
 
                 <div className="rc-card-body" style={{ padding: 0 }}>
-                    {/* Grid Legend */}
                     <div style={{ display: "flex", gap: 16, padding: "8px 16px", borderBottom: "1px solid #f1f5f9", fontSize: 11, color: "#64748b", flexWrap: "wrap" }}>
-                        <span><span style={{ display: "inline-block", width: 12, height: 12, background: "#fffbe6", border: "1px solid #fde68a", borderRadius: 2, verticalAlign: "middle", marginRight: 4 }} /> Yellow = requires review</span>
-                        <span><span style={{ color: "#d97706", fontWeight: 700 }}>&#9888;</span> Warning flag (duplicate / follow-up)</span>
-                        <span><span style={{ color: "#166534", fontWeight: 700 }}>&#10003;</span> Checked = eligible for publish</span>
+                        <span><span style={{ color: "#d97706", fontWeight: 700 }}>&#9888;</span> Orange badge = duplicate items detected</span>
                         <span><span style={{ color: "#92400e", fontWeight: 600 }}>Dup:</span> Within Package / Possible Match / Existing Request</span>
                         <span>Empty values show <span style={{ color: "#94a3b8" }}>&mdash;</span></span>
+                        <span>Click a row or <span style={{ color: "#4338ca" }}>View</span> to open the detail drawer</span>
                     </div>
 
                     {filtered.length > 0 ? (
                         <>
                             <div style={{ maxHeight: 520, overflowY: "auto", overflowX: "auto", position: "relative" }}>
-                                <table className="rc-table" style={{ minWidth: 1500, fontSize: 12 }}>
+                                <table className="rc-table" style={{ minWidth: 1400, fontSize: 12 }}>
                                     <thead style={{ position: "sticky", top: 0, zIndex: 2, background: "#f8fafc" }}>
                                         <tr>
                                             <th style={{ width: 20, paddingRight: 4 }}>
                                                 <input type="checkbox" className="rc-checkbox-header" checked={paginated.length > 0 && paginated.every(r => selectedIds.has(r.id))} onChange={toggleSelectAll} />
                                             </th>
-                                            <th style={{ minWidth: 170 }}>Request Title</th>
+                                            <th style={{ minWidth: 200 }}>Request Title</th>
                                             <th style={{ minWidth: 100 }}>Community</th>
                                             <th style={{ minWidth: 130 }}>Category</th>
                                             <th style={{ minWidth: 140 }}>Suggested Team</th>
                                             <th style={{ width: 80 }}>Priority</th>
-                                            <th style={{ minWidth: 110 }}>AI Action</th>
-                                            <th style={{ minWidth: 120 }}>Duplicate Review</th>
-                                            <th style={{ width: 65 }}>FU</th>
-                                            <th style={{ width: 65 }}>Ready</th>
+                                            <th style={{ minWidth: 100 }}>AI Action</th>
+                                            <th style={{ minWidth: 145 }}>Review State</th>
+                                            <th style={{ minWidth: 145 }}>Duplicate Review</th>
                                             <th style={{ minWidth: 110 }}>Deliverable</th>
                                             <th style={{ width: 50 }}>Act.</th>
-                                            <th style={{ minWidth: 90 }}>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {paginated.map((r) => {
-                                            const rowBg = r._needsReview && !r._isReady ? "#fffbe6" : undefined;
                                             const dupBadgeColor = r._duplicateType === "Within Package" ? "#d97706" : r._duplicateType === "Possible Match" ? "#b45309" : r._duplicateType === "Existing Request" ? "#991b1b" : "#d1d5db";
                                             return (
-                                                <tr key={r.id} style={rowBg ? { background: rowBg } : undefined}>
+                                                <tr key={r.id} className="rc-row-clickable" onClick={() => setDetailItem(r)}>
                                                     <td onClick={(e) => e.stopPropagation()}>
                                                         <input type="checkbox" className="rc-checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
                                                     </td>
-                                                    <td style={{ fontWeight: 600, color: "#0f172a", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.title}>{r.title}</td>
+                                                    <td style={{ fontWeight: 600, color: "#0f172a", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.title}>
+                                                        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                                            {r.title}
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                                                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                                                <circle cx="12" cy="12" r="3" />
+                                                            </svg>
+                                                        </span>
+                                                    </td>
                                                     <td style={{ color: "#475569" }}>{r.communityNames[0] || <span style={{ color: "#94a3b8" }}>&mdash;</span>}</td>
                                                     <td>
-                                                        <select value={r.category} onChange={e => doEdit(r.id, { category: e.target.value })} style={SELECT_STYLE}>
+                                                        <select value={r.category} onChange={e => { e.stopPropagation(); doEdit(r.id, { category: e.target.value }); }} style={SELECT_STYLE}>
                                                             {CATEGORIES_LIST.map(c => <option key={c} value={c}>{c}</option>)}
                                                         </select>
                                                     </td>
                                                     <td>
-                                                        <select value={r.team} onChange={e => doEdit(r.id, { team: e.target.value })} style={SELECT_STYLE}>
+                                                        <select value={r.team} onChange={e => { e.stopPropagation(); doEdit(r.id, { team: e.target.value }); }} style={SELECT_STYLE}>
                                                             {TEAMS_LIST.map(t => <option key={t} value={t}>{t}</option>)}
                                                         </select>
                                                     </td>
                                                     <td>
-                                                        <select value={r.priority} onChange={e => doEdit(r.id, { priority: e.target.value as RecapRequest["priority"] })} style={SELECT_STYLE}>
+                                                        <select value={r.priority} onChange={e => { e.stopPropagation(); doEdit(r.id, { priority: e.target.value as RecapRequest["priority"] }); }} style={SELECT_STYLE}>
                                                             {PRIORITIES_LIST.map(p => <option key={p} value={p}>{p}</option>)}
                                                         </select>
                                                     </td>
@@ -646,31 +673,22 @@ function ReviewEngine() {
                                                             {r._aiAction}
                                                         </span>
                                                     </td>
+                                                    <td>
+                                                        <span className="rc-badge" style={{ fontSize: 10, background: REVIEW_STATE_COLORS[r._reviewState as ReviewState] || "#64748b", color: "#fff", padding: "2px 8px" }}>
+                                                            {r._reviewState}
+                                                        </span>
+                                                    </td>
                                                     <td style={{ fontSize: 11 }}>
-                                                        {r._isDuplicate ? (
-                                                            <span style={{ color: dupBadgeColor, fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>
+                                                        {r._duplicateType !== "None" ? (
+                                                            <span title={DUP_TOOLTIP[r._duplicateType]} style={{ color: dupBadgeColor, fontWeight: 600, display: "flex", alignItems: "center", gap: 3, cursor: "help" }}>
                                                                 <span style={{ fontSize: 12 }}>&#9888;</span> {r._duplicateType}
                                                             </span>
                                                         ) : (
                                                             <span style={{ color: "#94a3b8" }}>&mdash;</span>
                                                         )}
                                                     </td>
-                                                    <td style={{ textAlign: "center" }}>
-                                                        {r._needsFollowUp ? <span style={{ color: "#d97706", fontWeight: 700, fontSize: 14 }}>&#9888;</span> : <span style={{ color: "#d1d5db" }}>&mdash;</span>}
-                                                    </td>
-                                                    <td style={{ textAlign: "center" }}>
-                                                        <input type="checkbox" checked={!!r._isReady} onChange={() => toggleReady(r.id)} style={{ cursor: "pointer" }} />
-                                                    </td>
                                                     <td style={{ color: "#475569", fontSize: 11, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r._deliverable}>{r._deliverable}</td>
                                                     <td style={{ textAlign: "center", color: "#64748b", fontSize: 11 }}>{r._activityCount}</td>
-                                                    <td>
-                                                        <div style={{ display: "flex", gap: 2 }}>
-                                                            <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 10, padding: "2px 5px" }} onClick={() => setDetailItem(r)}>View</button>
-                                                            <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 10, padding: "2px 5px", color: r._isReady ? "#92400e" : "#166534" }} onClick={() => toggleReady(r.id)}>
-                                                                {r._isReady ? "Unmark" : "Ready"}
-                                                            </button>
-                                                        </div>
-                                                    </td>
                                                 </tr>
                                             );
                                         })}
@@ -696,7 +714,7 @@ function ReviewEngine() {
                             </div>
                             <span className="iq-empty-title">No items match your current filter.</span>
                             <span className="iq-empty-sub">
-                                {activeCardFilter === "ready" ? "Mark items as ready by checking the Ready column." :
+                                {activeCardFilter === "ready" ? "No items are marked Ready to Publish. Set review state in the drawer." :
                                  activeCardFilter === "needs_review" ? "All items have been reviewed or no items need review." :
                                  activeCardFilter === "duplicates" ? "No duplicate items were detected in this package." :
                                  activeCardFilter === "follow_up" ? "No items currently need follow-up clarification." :
@@ -713,8 +731,8 @@ function ReviewEngine() {
                     item={detailItem}
                     onClose={() => setDetailItem(null)}
                     onEdit={(id, patch) => { doEdit(id, patch); }}
-                    onToggleReady={toggleReady}
-                    isReady={readyIds.has(detailItem.id) || false}
+                    onChangeReviewState={(id, s) => persistReviewState(id, s)}
+                    reviewState={getReviewState(detailItem, getDupType(detailItem.id))}
                     duplicateType={getDupType(detailItem.id)}
                     categories={CATEGORIES_LIST}
                     teams={TEAMS_LIST}
@@ -725,17 +743,30 @@ function ReviewEngine() {
     );
 }
 
-function RequestDetailDrawer({ item, onClose, onEdit, onToggleReady, isReady, duplicateType, categories, teams, priorities }: {
+function RequestDetailDrawer({ item, onClose, onEdit, onChangeReviewState, reviewState, duplicateType, categories, teams, priorities }: {
     item: RecapRequest;
     onClose: () => void;
     onEdit: (id: string, patch: Partial<RecapRequest>) => void;
-    onToggleReady: (id: string) => void;
-    isReady: boolean;
+    onChangeReviewState: (id: string, s: ReviewState) => void;
+    reviewState: ReviewState;
     duplicateType: string;
     categories: string[];
     teams: string[];
     priorities: RecapRequest["priority"][];
 }) {
+    const DUP_TOOLTIP: Record<string, string> = {
+        "Within Package": "Another request inside THIS uploaded package appears to request the same deliverable.",
+        "Possible Match": "A similar request exists elsewhere and should be reviewed before creating another deliverable.",
+        "Existing Request": "This request matches a previously published request in the tracker.",
+    };
+
+    const REVIEW_STATE_COLORS: Record<ReviewState, string> = {
+        "Ready to Publish": "#166534",
+        "Duplicate Review": "#d97706",
+        "Needs Follow-up": "#92400e",
+        "Needs Review": "#1d4ed8",
+    };
+
     return (
         <>
             <div className="rc-drawer-overlay" onClick={onClose} />
@@ -748,10 +779,10 @@ function RequestDetailDrawer({ item, onClose, onEdit, onToggleReady, isReady, du
                                 {item.requestId}
                             </span>
                             {duplicateType !== "None" && (
-                                <span className="rc-badge rc-badge-intake-duplicate" style={{ fontSize: 10, marginRight: 8 }}>{duplicateType}</span>
+                                <span className="rc-badge rc-badge-intake-duplicate" style={{ fontSize: 10, marginRight: 8 }} title={DUP_TOOLTIP[duplicateType]}>{duplicateType}</span>
                             )}
-                            <span className={`rc-badge ${isReady ? "rc-badge-intake-converted" : "rc-badge-intake-awaiting"}`} style={{ fontSize: 10 }}>
-                                {isReady ? "Ready" : "Pending"}
+                            <span className="rc-badge" style={{ fontSize: 10, background: REVIEW_STATE_COLORS[reviewState] || "#64748b", color: "#fff", padding: "2px 8px" }}>
+                                {reviewState}
                             </span>
                         </div>
                     </div>
@@ -825,13 +856,21 @@ function RequestDetailDrawer({ item, onClose, onEdit, onToggleReady, isReady, du
                                     </span>
                                 </div>
                             )}
-                            {item.status === "Clarification Needed" && (
-                                <div className="rc-drawer-field">
-                                    <span className="rc-drawer-field-label">Follow-Up</span>
-                                    <span className="rc-drawer-field-value" style={{ color: "#92400e" }}>Ambiguous or incomplete description. Clarification recommended before publishing.</span>
-                                </div>
-                            )}
                         </div>
+                    </div>
+
+                    <div className="rc-drawer-section">
+                        <div className="rc-drawer-section-title">Review State</div>
+                        <select
+                            value={reviewState}
+                            onChange={e => onChangeReviewState(item.id, e.target.value as ReviewState)}
+                            style={{ fontSize: 12, padding: "4px 20px 4px 8px", border: "1px solid #d1d5db", borderRadius: 4, background: "#fff", color: "#111827", width: "100%" }}
+                        >
+                            <option value="Ready to Publish">Ready to Publish</option>
+                            <option value="Needs Review">Needs Review</option>
+                            <option value="Duplicate Review">Duplicate Review</option>
+                            <option value="Needs Follow-up">Needs Follow-up</option>
+                        </select>
                     </div>
 
                     <div className="rc-drawer-section">
@@ -851,13 +890,79 @@ function RequestDetailDrawer({ item, onClose, onEdit, onToggleReady, isReady, du
                     </div>
                 </div>
                 <div className="rc-drawer-actions iq-drawer-actions">
-                    <button className={`rc-btn ${isReady ? "rc-btn-secondary" : "rc-btn-primary"} rc-btn-sm`} onClick={() => onToggleReady(item.id)}>
-                        {isReady ? "Mark Not Ready" : "Mark Ready"}
-                    </button>
                     <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={onClose}>Close</button>
                 </div>
             </div>
         </>
+    );
+}
+
+function AssignUserModal({ onClose, onAssign }: { onClose: () => void; onAssign: (user: RecapTeamMember) => void }) {
+    const members = getTeamMembers();
+    const [search, setSearch] = useState("");
+    const filtered = search.trim()
+        ? members.filter(m => m.name.toLowerCase().includes(search.toLowerCase()) || m.email.toLowerCase().includes(search.toLowerCase()) || m.team.toLowerCase().includes(search.toLowerCase()))
+        : members;
+
+    return (
+        <div className="rc-modal-overlay" onClick={onClose}>
+            <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+                <div className="rc-modal-header">
+                    <h2>Assign User</h2>
+                    <button className="rc-modal-close" onClick={onClose}>&times;</button>
+                </div>
+                <div className="rc-modal-body" style={{ padding: "12px 16px" }}>
+                    <input type="text" placeholder="Search by name, email, or team..." value={search} onChange={e => setSearch(e.target.value)}
+                        style={{ width: "100%", padding: "6px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 4, marginBottom: 8, boxSizing: "border-box" }} />
+                    <div style={{ maxHeight: 240, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
+                        {filtered.map(m => (
+                            <div key={m.id} className="rc-row-clickable" style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 4 }} onClick={() => onAssign(m)}>
+                                <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#e0e7ff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#4338ca", flexShrink: 0 }}>
+                                    {m.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 12, fontWeight: 600, color: "#0f172a" }}>{m.name}</div>
+                                    <div style={{ fontSize: 11, color: "#64748b" }}>{m.email} &middot; {m.team}</div>
+                                </div>
+                            </div>
+                        ))}
+                        {filtered.length === 0 && <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", padding: 12 }}>No matching users found.</div>}
+                    </div>
+                </div>
+                <div className="rc-modal-footer">
+                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={onClose}>Cancel</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function RouteToTeamModal({ currentItem, onClose, onRoute }: { currentItem: RecapIntakeItem; onClose: () => void; onRoute: (team: string) => void }) {
+    const teams = getTeams();
+    const [selectedTeam, setSelectedTeam] = useState("");
+
+    return (
+        <div className="rc-modal-overlay" onClick={onClose}>
+            <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+                <div className="rc-modal-header">
+                    <h2>Route to Team</h2>
+                    <button className="rc-modal-close" onClick={onClose}>&times;</button>
+                </div>
+                <div className="rc-modal-body" style={{ padding: "12px 16px" }}>
+                    <p style={{ fontSize: 12, color: "#475569", margin: "0 0 12px" }}>
+                        Route "{currentItem.title}" to a team for review and processing.
+                    </p>
+                    <select value={selectedTeam} onChange={e => setSelectedTeam(e.target.value)} style={{ width: "100%", padding: "6px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 4 }}>
+                        <option value="">Select a team...</option>
+                        {teams.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                </div>
+                <div className="rc-modal-footer">
+                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={onClose}>Cancel</button>
+                    <button className="rc-btn rc-btn-primary rc-btn-sm" disabled={!selectedTeam} onClick={() => { onRoute(selectedTeam); onClose(); }}>Route to {selectedTeam || "..."}</button>
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -875,10 +980,26 @@ function IntakeDrawer({
     const navigate = useNavigate();
     const config = SOURCE_CONFIG[item.type] || { icon: "\u2753", label: item.type, cssClass: "rc-badge-open" };
     const [newNoteText, setNewNoteText] = useState("");
+    const [showAssign, setShowAssign] = useState(false);
+    const [showRoute, setShowRoute] = useState(false);
+    const [showConverted, setShowConverted] = useState(false);
+    const [savedFeedback, setSavedFeedback] = useState("");
 
     const handleAction = (action: string) => {
         if (action === "review") {
             navigate("/recapitalization/intake/review");
+            return;
+        }
+        if (action === "assign") {
+            setShowAssign(true);
+            return;
+        }
+        if (action === "route") {
+            setShowRoute(true);
+            return;
+        }
+        if (action === "convert") {
+            setShowConverted(true);
             return;
         }
     };
@@ -1054,6 +1175,51 @@ function IntakeDrawer({
                     </button>
                 </div>
             </div>
+            {showAssign && (
+                <AssignUserModal
+                    onClose={() => setShowAssign(false)}
+                    onAssign={(user) => {
+                        setSavedFeedback(`Assigned to ${user.name}`);
+                        setTimeout(() => setSavedFeedback(""), 2000);
+                        setShowAssign(false);
+                    }}
+                />
+            )}
+            {showRoute && (
+                <RouteToTeamModal
+                    currentItem={item}
+                    onClose={() => setShowRoute(false)}
+                    onRoute={(team) => {
+                        setSavedFeedback(`Routed to ${team}`);
+                        setTimeout(() => setSavedFeedback(""), 2000);
+                    }}
+                />
+            )}
+            {showConverted && (
+                <div className="rc-modal-overlay" onClick={() => setShowConverted(false)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 380 }}>
+                        <div className="rc-modal-header">
+                            <h2>Convert to Official Request</h2>
+                            <button className="rc-modal-close" onClick={() => setShowConverted(false)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px", textAlign: "center" }}>
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 8px" }}>
+                                <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            <p style={{ fontSize: 13, fontWeight: 600, color: "#1e293b", margin: 0 }}>{item.title} converted!</p>
+                            <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0 0" }}>This intake item is now an official DD request in the tracker.</p>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => setShowConverted(false)}>Done</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {savedFeedback && (
+                <div style={{ position: "fixed", bottom: 16, right: 16, background: "#166534", color: "#fff", padding: "8px 16px", borderRadius: 6, fontSize: 12, fontWeight: 600, zIndex: 9999, boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
+                    {savedFeedback}
+                </div>
+            )}
         </>
     );
 }
@@ -1076,6 +1242,7 @@ function IntakeQueue() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [notesByItem, setNotesByItem] = useState<Record<string, Note[]>>({});
     const [importModalOpen, setImportModalOpen] = useState(false);
+    const [msg, setMsg] = useState("");
 
     const allItems = useMemo(() => getIntakeItems(), []);
 
@@ -1343,11 +1510,11 @@ function IntakeQueue() {
                                 <span className="rc-bulk-count">{selectedIds.size}</span> selected
                             </span>
                             <div className="rc-bulk-sep" />
-                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => alert("Assign action")}>Assign</button>
-                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => alert("Route to Team action")}>Route to Team</button>
-                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => alert("Mark Duplicate action")}>Mark Duplicate</button>
-                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => alert("Mark Not Applicable action")}>Mark Not Applicable</button>
-                            <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ color: "#991b1b" }} onClick={() => alert("Reject action")}>Reject</button>
+                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setMsg("Assign — coming soon")}>Assign</button>
+                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setMsg("Route to Team — coming soon")}>Route to Team</button>
+                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setMsg("Mark Duplicate")}>Mark Duplicate</button>
+                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setMsg("Mark Not Applicable")}>Mark Not Applicable</button>
+                            <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ color: "#991b1b" }} onClick={() => setMsg("Reject")}>Reject</button>
                             <div className="rc-bulk-sep" />
                             <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={clearSelection}>Clear Selection</button>
                         </div>
@@ -1477,6 +1644,12 @@ function IntakeQueue() {
                         setImportModalOpen(false);
                     }}
                 />
+            )}
+            {msg && (
+                <div style={{ position: "fixed", bottom: 16, right: 16, background: "#1e293b", color: "#fff", padding: "8px 16px", borderRadius: 6, fontSize: 12, fontWeight: 600, zIndex: 9999, boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
+                    {msg}
+                    <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ color: "#fff", marginLeft: 8, fontSize: 11 }} onClick={() => setMsg("")}>OK</button>
+                </div>
             )}
         </div>
     );

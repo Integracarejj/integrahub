@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { lookupWorkspaceItem, getDocumentsByTransaction, getActivityByTransaction } from "../../services/recapDataService";
+import { lookupWorkspaceItem, getDocumentsByTransaction, getActivityByTransaction, getTeamMembers, getTeams, bulkUpdateDemoRequests } from "../../services/recapDataService";
+import type { RecapTeamMember } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
@@ -61,8 +62,86 @@ function NoteInput({ onAdd }: { onAdd: (text: string) => void }) {
     );
 }
 
-function toast(msg: string) {
-    window.alert(msg);
+function AssignUserModal({ onClose, onAssign }: { onClose: () => void; onAssign: (user: RecapTeamMember) => void }) {
+    const members = getTeamMembers();
+    const [search, setSearch] = useState("");
+    const filtered = search.trim()
+        ? members.filter(m => m.name.toLowerCase().includes(search.toLowerCase()) || m.email.toLowerCase().includes(search.toLowerCase()) || m.team.toLowerCase().includes(search.toLowerCase()))
+        : members;
+
+    return (
+        <div className="rc-modal-overlay" onClick={onClose}>
+            <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+                <div className="rc-modal-header">
+                    <h2>Assign User</h2>
+                    <button className="rc-modal-close" onClick={onClose}>&times;</button>
+                </div>
+                <div className="rc-modal-body" style={{ padding: "12px 16px" }}>
+                    <input type="text" placeholder="Search by name, email, or team..." value={search} onChange={e => setSearch(e.target.value)}
+                        style={{ width: "100%", padding: "6px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 4, marginBottom: 8, boxSizing: "border-box" }} />
+                    <div style={{ maxHeight: 240, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
+                        {filtered.map(m => (
+                            <div key={m.id} className="rc-row-clickable" style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 4 }} onClick={() => onAssign(m)}>
+                                <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#e0e7ff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#4338ca", flexShrink: 0 }}>
+                                    {m.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 12, fontWeight: 600, color: "#0f172a" }}>{m.name}</div>
+                                    <div style={{ fontSize: 11, color: "#64748b" }}>{m.email} &middot; {m.team}</div>
+                                </div>
+                            </div>
+                        ))}
+                        {filtered.length === 0 && <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", padding: 12 }}>No matching users found.</div>}
+                    </div>
+                </div>
+                <div className="rc-modal-footer">
+                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={onClose}>Cancel</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function RouteToTeamModal({ onClose, onRoute }: { onClose: () => void; onRoute: (team: string) => void }) {
+    const teams = getTeams();
+    const [selectedTeam, setSelectedTeam] = useState("");
+
+    return (
+        <div className="rc-modal-overlay" onClick={onClose}>
+            <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+                <div className="rc-modal-header">
+                    <h2>Route to Team</h2>
+                    <button className="rc-modal-close" onClick={onClose}>&times;</button>
+                </div>
+                <div className="rc-modal-body" style={{ padding: "12px 16px" }}>
+                    <p style={{ fontSize: 12, color: "#475569", margin: "0 0 12px" }}>
+                        Select a team to route this request to.
+                    </p>
+                    <select value={selectedTeam} onChange={e => setSelectedTeam(e.target.value)} style={{ width: "100%", padding: "6px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 4 }}>
+                        <option value="">Select a team...</option>
+                        {teams.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                </div>
+                <div className="rc-modal-footer">
+                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={onClose}>Cancel</button>
+                    <button className="rc-btn rc-btn-primary rc-btn-sm" disabled={!selectedTeam} onClick={() => { onRoute(selectedTeam); onClose(); }}>Route to {selectedTeam || "..."}</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function wsToast(msg: string) {
+    const el = document.createElement("div");
+    el.style.cssText = "position:fixed;bottom:16px;right:16px;background:#1e293b;color:#fff;padding:8px 16px;border-radius:6px;font-size:12px;font-weight:600;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,0.15)";
+    el.textContent = msg;
+    const ok = document.createElement("button");
+    ok.textContent = "OK";
+    ok.style.cssText = "background:none;border:none;color:#fff;margin-left:8px;font-size:11px;cursor:pointer";
+    ok.onclick = () => el.remove();
+    el.appendChild(ok);
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
 }
 
 interface WorkspaceNote {
@@ -104,6 +183,9 @@ export default function RecapitalizationWorkspace() {
     const [communityScope, setCommunityScope] = useState("");
 
     const [saved, setSaved] = useState(false);
+    const [showAssign, setShowAssign] = useState(false);
+    const [showRoute, setShowRoute] = useState(false);
+    const [showConverted, setShowConverted] = useState(false);
 
     if (!result) {
         return (
@@ -329,9 +411,9 @@ export default function RecapitalizationWorkspace() {
                         <div className="ws-card-header">
                             <h3>Documents</h3>
                             <div className="ws-card-actions">
-                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => toast("Link Existing Document — coming next sprint")}>Link Existing</button>
-                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => toast("Upload Document — coming next sprint")}>Upload</button>
-                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => toast("Create Folder — coming next sprint")}>Create Folder</button>
+                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => wsToast("Link Existing Document — coming next sprint")}>Link Existing</button>
+                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => wsToast("Upload Document — coming next sprint")}>Upload</button>
+                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => wsToast("Create Folder — coming next sprint")}>Create Folder</button>
                             </div>
                         </div>
                         <div className="ws-card-body" style={{ padding: 0 }}>
@@ -355,7 +437,7 @@ export default function RecapitalizationWorkspace() {
                                                 <td>{doc.category}</td>
                                                 <td style={{ fontSize: 12, color: "#64748b" }}>{doc.requestTitle || "\u2014"}</td>
                                                 <td><span className={`rc-badge ${doc.requestId ? "rc-badge-visible" : "rc-badge-hidden"}`} style={{ fontSize: 9, padding: "1px 5px" }}>{doc.requestId ? "Yes" : "No"}</span></td>
-                                                <td><button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 11 }} onClick={() => toast("Open in SharePoint — coming next sprint")}>Open in SP</button></td>
+                                                <td><button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 11 }} onClick={() => wsToast("Open in SharePoint — coming next sprint")}>Open in SP</button></td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -367,7 +449,7 @@ export default function RecapitalizationWorkspace() {
                     <div className="ws-card">
                         <div className="ws-card-header">
                             <h3>Questions &amp; Clarifications</h3>
-                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => toast("Request Clarification — coming next sprint")}>Request Clarification</button>
+                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => wsToast("Request Clarification — coming next sprint")}>Request Clarification</button>
                         </div>
                         <div className="ws-card-body">
                             <div className="ws-qa-list">
@@ -385,8 +467,8 @@ export default function RecapitalizationWorkspace() {
                                             </div>
                                         ) : (
                                             <div className="ws-qa-action">
-                                                <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => toast("Add Response — coming next sprint")}>Add Response</button>
-                                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => toast("Mark Answered — coming next sprint")}>Mark Answered</button>
+                                                <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => wsToast("Add Response — coming next sprint")}>Add Response</button>
+                                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => wsToast("Mark Answered — coming next sprint")}>Mark Answered</button>
                                             </div>
                                         )}
                                     </div>
@@ -454,19 +536,19 @@ export default function RecapitalizationWorkspace() {
                             </div>
                             <div className="ws-card-body ws-action-list">
                                 <div className="ws-actions-group-label">Work</div>
-                                <button className="rc-btn rc-btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => toast("Assign — local mock only")}>Assign</button>
-                                <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => toast("Route to Team — local mock only")}>Route to Team</button>
-                                {isIntake && <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => toast("Convert to Official Request — local mock only")}>Convert to Official Request</button>}
+                                <button className="rc-btn rc-btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setShowAssign(true)}>Assign</button>
+                                <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setShowRoute(true)}>Route to Team</button>
+                                {isIntake && <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setShowConverted(true)}>Convert to Official Request</button>}
 
                                 <div className="ws-actions-group-label">Communication</div>
-                                <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => toast("Respond Externally — coming next sprint")}>Respond Externally</button>
-                                <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => toast("Publish Update — coming next sprint")}>Publish Update</button>
+                                <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => wsToast("Respond Externally — coming next sprint")}>Respond Externally</button>
+                                <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => wsToast("Publish Update — coming next sprint")}>Publish Update</button>
 
                                 <div className="ws-actions-group-label">Resolution</div>
-                                <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center", color: "#92400e" }} onClick={() => toast("Mark Duplicate — local mock only")}>Mark Duplicate</button>
-                                <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center" }} onClick={() => toast("Reuse Existing Deliverable — coming next sprint")}>Reuse Existing Deliverable</button>
-                                <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center", color: "#92400e" }} onClick={() => toast("Mark Not Applicable — local mock only")}>Mark Not Applicable</button>
-                                <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center", color: "#991b1b" }} onClick={() => toast("Reject — local mock only")}>Reject</button>
+                                <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center", color: "#92400e" }} onClick={() => wsToast("Mark Duplicate — local mock only")}>Mark Duplicate</button>
+                                <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center" }} onClick={() => wsToast("Reuse Existing Deliverable — coming next sprint")}>Reuse Existing Deliverable</button>
+                                <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center", color: "#92400e" }} onClick={() => wsToast("Mark Not Applicable — local mock only")}>Mark Not Applicable</button>
+                                <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center", color: "#991b1b" }} onClick={() => wsToast("Reject — local mock only")}>Reject</button>
 
                                 <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 8, marginTop: 4 }}>
                                     <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2000); }}>
@@ -509,6 +591,47 @@ export default function RecapitalizationWorkspace() {
                     </div>
                 </div>
             </div>
+
+            {showAssign && (
+                <AssignUserModal
+                    onClose={() => setShowAssign(false)}
+                    onAssign={(user) => {
+                        bulkUpdateDemoRequests([item.id || item.intakeId || ""], { owner: user.name, assignedTo: user.name });
+                        wsToast(`Assigned to ${user.name}`);
+                        setShowAssign(false);
+                    }}
+                />
+            )}
+            {showRoute && (
+                <RouteToTeamModal
+                    onClose={() => setShowRoute(false)}
+                    onRoute={(team) => {
+                        bulkUpdateDemoRequests([item.id || item.intakeId || ""], { team });
+                        wsToast(`Routed to ${team}`);
+                        setShowRoute(false);
+                    }}
+                />
+            )}
+            {showConverted && (
+                <div className="rc-modal-overlay" onClick={() => setShowConverted(false)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 380 }}>
+                        <div className="rc-modal-header">
+                            <h2>Convert to Official Request</h2>
+                            <button className="rc-modal-close" onClick={() => setShowConverted(false)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px", textAlign: "center" }}>
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 8px" }}>
+                                <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            <p style={{ fontSize: 13, fontWeight: 600, color: "#1e293b", margin: 0 }}>Converted!</p>
+                            <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0 0" }}>This item is now an official DD request.</p>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => setShowConverted(false)}>Done</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
