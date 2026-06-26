@@ -47,15 +47,25 @@ export function getRequestById(id: string): RecapRequest | undefined {
 }
 
 export function getIntakeItems(): RecapIntakeItem[] {
+    const portalItems = getPortalCreatedIntakeItems();
     if (isDemoLoaded()) {
         const item = Demo.getDemoIntakeItem();
-        return item ? [item] : [];
+        return item ? [item, ...portalItems] : portalItems;
     }
-    return Mock.getIntakeItems();
+    return [...Mock.getIntakeItems(), ...portalItems];
 }
 
 export function getIntakeItemsByType(type: RecapIntakeItem["type"]): RecapIntakeItem[] {
     return getIntakeItems().filter((i) => i.type === type);
+}
+
+export function getRequests(): RecapRequest[] {
+    const portalReqs = getPortalCreatedRequests();
+    if (isDemoLoaded()) {
+        const demo = Demo.getDemoRequests();
+        return [...demo, ...portalReqs];
+    }
+    return [...Mock.getRequests(), ...portalReqs];
 }
 
 export function getDocuments(): RecapDocument[] {
@@ -122,8 +132,20 @@ export function lookupWorkspaceItem(id: string): { type: "intake"; item: RecapIn
             const txn = Demo.getDemoTransaction();
             return { type: "request", item: request, transaction: txn! };
         }
-        return null;
     }
+    const portalIntakes = getPortalCreatedIntakeItems();
+    const foundPortal = portalIntakes.find(i => i.id === id || i.intakeId === id);
+    if (foundPortal) {
+        const txn = Demo.getDemoTransaction();
+        return { type: "intake", item: foundPortal, transaction: txn || { id: "txn-portal", name: foundPortal.transactionName, description: "", status: "Active", sellerName: "", buyerName: "", brokerName: "", targetClose: "", totalRequests: 0, providedCount: 0, inProgressCount: 0, clarificationNeededCount: 0, overdueCount: 0, communities: [] } };
+    }
+    const portalReqs = getPortalCreatedRequests();
+    const foundReq = portalReqs.find(r => r.id === id || r.intakeId === id);
+    if (foundReq) {
+        const txn = Demo.getDemoTransaction();
+        return { type: "request", item: foundReq, transaction: txn || { id: "txn-portal", name: foundReq.transactionName, description: "", status: "Active", sellerName: "", buyerName: "", brokerName: "", targetClose: "", totalRequests: 0, providedCount: 0, inProgressCount: 0, clarificationNeededCount: 0, overdueCount: 0, communities: [] } };
+    }
+    if (isDemoLoaded()) return null;
     return Mock.lookupWorkspaceItem(id);
 }
 
@@ -238,4 +260,64 @@ export function getDemoDocuments() {
 
 export function getDemoStatusCounts() {
     return Demo.getDemoStatusCounts();
+}
+
+/* ── Portal-created data (packages submitted via external portal) ── */
+
+const PORTAL_INTAKE_KEY = "integrasource.recap.demo.portalIntakeItems";
+const PORTAL_REQUESTS_KEY = "integrasource.recap.demo.portalRequests";
+const PORTAL_SUBMISSIONS_KEY = "integrasource.recap.demo.portalSubmissions";
+
+export function getPortalCreatedIntakeItems(): RecapIntakeItem[] {
+    try {
+        const raw = localStorage.getItem(PORTAL_INTAKE_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+}
+
+export function getPortalCreatedRequests(): RecapRequest[] {
+    try {
+        const raw = localStorage.getItem(PORTAL_REQUESTS_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+}
+
+export function getPortalSubmissions(): { id: string; fileName: string; packageName: string; submittedAt: string; requestCount: number; status: "Draft" | "Analyzed" | "Submitted"; transactionName: string; isABCDemo: boolean }[] {
+    try {
+        const raw = localStorage.getItem(PORTAL_SUBMISSIONS_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+}
+
+export function addPortalCreatedIntakeItem(item: RecapIntakeItem): void {
+    const items = getPortalCreatedIntakeItems();
+    items.push(item);
+    localStorage.setItem(PORTAL_INTAKE_KEY, JSON.stringify(items));
+}
+
+export function addPortalCreatedRequests(requests: RecapRequest[]): void {
+    const existing = getPortalCreatedRequests();
+    const merged = [...existing, ...requests];
+    localStorage.setItem(PORTAL_REQUESTS_KEY, JSON.stringify(merged));
+}
+
+export function addPortalSubmission(submission: { id: string; fileName: string; packageName: string; submittedAt: string; requestCount: number; status: "Draft" | "Analyzed" | "Submitted"; transactionName: string; isABCDemo: boolean }): void {
+    const existing = getPortalSubmissions();
+    existing.push(submission);
+    localStorage.setItem(PORTAL_SUBMISSIONS_KEY, JSON.stringify(existing));
+}
+
+export function updatePortalSubmissionStatus(id: string, status: "Draft" | "Analyzed" | "Submitted"): void {
+    const all = getPortalSubmissions();
+    const found = all.find(s => s.id === id);
+    if (found) {
+        found.status = status;
+        localStorage.setItem(PORTAL_SUBMISSIONS_KEY, JSON.stringify(all));
+    }
+}
+
+export function clearAllPortalCreatedData(): void {
+    localStorage.removeItem(PORTAL_INTAKE_KEY);
+    localStorage.removeItem(PORTAL_REQUESTS_KEY);
+    localStorage.removeItem(PORTAL_SUBMISSIONS_KEY);
 }

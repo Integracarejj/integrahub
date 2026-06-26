@@ -1,5 +1,5 @@
-import { isDemoActive, getDemoTransaction, getDemoRequests, getDemoDocuments, initDemo, publishIntake, getDemoEngineSummary } from "./recapDataService";
-import type { RecapRequest, RecapDocument, RecapTransaction } from "./recapDataService";
+import { isDemoActive, getDemoTransaction, getDemoRequests, getDemoDocuments, initDemo, publishIntake, getDemoEngineSummary, addPortalCreatedIntakeItem, addPortalCreatedRequests, addPortalSubmission, getPortalSubmissions, updatePortalSubmissionStatus, getPortalCreatedRequests, getPortalCreatedIntakeItems, clearAllPortalCreatedData } from "./recapDataService";
+import type { RecapRequest, RecapDocument, RecapTransaction, RecapIntakeItem } from "./recapDataService";
 
 const PERSONA_KEY = "integrasource.recap.portalPersona";
 
@@ -395,19 +395,193 @@ export function submitPortalNewRequest(data: {
     MOCK_REQUESTS.unshift(newReq);
 }
 
-export function submitBrokerUploadPackage(): { detected: number; needsReview: number; duplicates: number; followUp: number; categories: string[] } {
-    if (!isDemoActive()) initDemo();
-    const summary = getDemoEngineSummary();
+export interface PortalPackageSubmission {
+    id: string;
+    fileName: string;
+    packageName: string;
+    submittedAt: string;
+    requestCount: number;
+    status: "Draft" | "Analyzed" | "Submitted";
+    transactionName: string;
+    isABCDemo: boolean;
+}
+
+/* ── Portal Package Submission Helpers ────────────────────────── */
+
+function generatePortalRequests(submissionId: string, packageName: string, fileBaseName: string, count: number): RecapRequest[] {
+    const communityNames = ["Cedar Ridge", "Magnolia Place", "Harbor View", "Prairie Oaks", "Summit Springs"];
+    const categories = ["Financial Statements", "Licenses", "Environmental", "Insurance", "Legal", "HR / Staffing", "Physical Plant", "Regulatory", "Operations", "Marketing"];
+    const teams = ["Financial Analysis", "Regulatory", "Environmental", "Risk Management", "HR & Operations", "DD Management"];
+    const priorities: RecapRequest["priority"][] = ["High", "Medium", "Low"];
+    const statuses: RecapRequest["status"][] = ["Open", "In Progress", "Provided", "Clarification Needed", "Under Review", "Overdue"];
+    const now = new Date().toISOString().split("T")[0];
+    const prefix = fileBaseName.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5) || "PKG";
+    const requests: RecapRequest[] = [];
+    for (let i = 1; i <= count; i++) {
+        const cat = categories[(i - 1) % categories.length];
+        const community = communityNames[(i - 1) % communityNames.length];
+        const team = teams[(i - 1) % teams.length];
+        const status = statuses[Math.floor(Math.random() * statuses.length)];
+        const priority = priorities[Math.floor(Math.random() * priorities.length)];
+        requests.push({
+            id: `${submissionId}-req-${i}`,
+            requestId: `DD-${prefix}-${String(i).padStart(3, "0")}`,
+            intakeId: `INT-${prefix}-${i}`,
+            transactionId: `txn-portal-${submissionId}`,
+            transactionName: packageName,
+            brokerBuyer: "External",
+            communityIds: [],
+            communityNames: [community],
+            category: cat,
+            title: `${packageName} - Request ${i} (${cat})`,
+            description: `Auto-generated request for ${packageName}. Category: ${cat}. Community: ${community}.`,
+            owner: null,
+            team,
+            status,
+            priority,
+            dueDate: new Date(Date.now() + (Math.floor(Math.random() * 60) + 5) * 86400000).toISOString().split("T")[0],
+            lastUpdated: now,
+            externalVisible: Math.random() > 0.2,
+            submittedBy: "External Portal",
+            source: "External",
+            createdDate: now,
+            assignedTo: null,
+            _publishedAt: null,
+        });
+    }
+    return requests;
+}
+
+function createPortalIntakeItem(submissionId: string, packageName: string, fileName: string, requestCount: number, isABCDemo: boolean): RecapIntakeItem {
     return {
-        detected: summary.total,
-        needsReview: summary.needsReview,
-        duplicates: summary.possibleDuplicates,
-        followUp: summary.needsFollowUp,
-        categories: Object.keys(summary.categories),
+        id: `${submissionId}-intake`,
+        intakeId: `INT-PKG-${submissionId.slice(0, 8)}`,
+        type: "Broker Upload",
+        status: "Awaiting Review",
+        title: `${packageName}${isABCDemo ? " (Gold Standard Demo)" : ""}`,
+        description: `${isABCDemo ? "Gold standard due diligence package" : "Package uploaded via external portal"} containing ${requestCount} DD request items.`,
+        transactionId: isABCDemo ? "txn-abc" : `txn-portal-${submissionId}`,
+        transactionName: packageName,
+        submittedBy: "External Portal",
+        submittedAt: new Date().toISOString(),
+        assignedTo: null,
+        communityNames: ["Cedar Ridge", "Magnolia Place", "Harbor View", "Prairie Oaks", "Summit Springs"],
+        priority: "High",
+        fileName,
+        rowsFound: requestCount,
     };
 }
 
-export function confirmBrokerPackage(): void {
+export function submitBrokerUploadPackage(fileName?: string): {
+    submissionId: string;
+    detected: number;
+    needsReview: number;
+    duplicates: number;
+    followUp: number;
+    categories: string[];
+    packageName: string;
+    isABCDemo: boolean;
+} {
+    const submissionId = `sub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+    // ABC Demo flow — unchanged
+    if (!fileName || fileName === "ABC Gold Standard Demo Package") {
+        if (!isDemoActive()) initDemo();
+        const summary = getDemoEngineSummary();
+        const submission: PortalPackageSubmission = {
+            id: submissionId,
+            fileName: "ABC_Company_Portfolio_Gold_Standard_DD_Package.xlsx",
+            packageName: "ABC Company Portfolio",
+            submittedAt: new Date().toISOString(),
+            requestCount: summary.total,
+            status: "Analyzed",
+            transactionName: "ABC Company Portfolio",
+            isABCDemo: true,
+        };
+        addPortalSubmission(submission);
+        return {
+            submissionId,
+            detected: summary.total,
+            needsReview: summary.needsReview,
+            duplicates: summary.possibleDuplicates,
+            followUp: summary.needsFollowUp,
+            categories: Object.keys(summary.categories),
+            packageName: "ABC Company Portfolio",
+            isABCDemo: true,
+        };
+    }
+
+    // Custom uploaded package
+    const fileBaseName = fileName.replace(/\.[^.]+$/, "").trim();
+    const packageName = fileBaseName;
+    const requestCount = Math.floor(Math.random() * 15) + 5;
+
+    const submission: PortalPackageSubmission = {
+        id: submissionId,
+        fileName,
+        packageName,
+        submittedAt: new Date().toISOString(),
+        requestCount,
+        status: "Analyzed",
+        transactionName: packageName,
+        isABCDemo: false,
+    };
+    addPortalSubmission(submission);
+
+    const categories = ["Financial Statements", "Licenses", "Environmental", "Insurance", "Legal", "HR / Staffing", "Physical Plant", "Regulatory", "Operations", "Marketing"];
+    return {
+        submissionId,
+        detected: requestCount,
+        needsReview: Math.floor(requestCount * 0.4),
+        duplicates: Math.floor(requestCount * 0.08),
+        followUp: Math.floor(requestCount * 0.12),
+        categories: categories.slice(0, Math.min(5 + Math.floor(Math.random() * 4), categories.length)),
+        packageName,
+        isABCDemo: false,
+    };
+}
+
+export function confirmBrokerPackage(submissionId?: string): void {
+    if (!submissionId) {
+        // Legacy ABC-only flow
+        if (!isDemoActive()) initDemo();
+        publishIntake();
+        return;
+    }
+
+    const submissions = getPortalSubmissions();
+    const sub = submissions.find(s => s.id === submissionId);
+    if (!sub) return;
+
+    if (sub.isABCDemo) {
+        // Publish existing ABC demo
+        if (!isDemoActive()) initDemo();
+        publishIntake();
+        updatePortalSubmissionStatus(submissionId, "Submitted");
+        return;
+    }
+
+    // Custom package: create intake item + requests, persist
+    const now = new Date().toISOString().split("T")[0];
+    const fileBaseName = sub.fileName.replace(/\.[^.]+$/, "").trim();
+    const requests = generatePortalRequests(submissionId, sub.packageName, fileBaseName, sub.requestCount);
+    const intakeItem = createPortalIntakeItem(submissionId, sub.packageName, sub.fileName, sub.requestCount, false);
+
+    addPortalCreatedRequests(requests);
+    addPortalCreatedIntakeItem(intakeItem);
+    updatePortalSubmissionStatus(submissionId, "Submitted");
+}
+
+export function loadABCDemoPackage(): void {
     if (!isDemoActive()) initDemo();
-    publishIntake();
+}
+
+export function getPortalSubmissionsList(): PortalPackageSubmission[] {
+    return getPortalSubmissions();
+}
+
+export function clearPortalSubmissions(): void {
+    clearAllPortalCreatedData();
+    // Also clear in-memory portal-created requests for this session
+    MOCK_REQUESTS.length = 0;
 }

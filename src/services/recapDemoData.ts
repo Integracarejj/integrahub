@@ -270,6 +270,9 @@ export function initDemo(): void {
 export function resetDemo(): void {
     localStorage.removeItem(DEMO_KEY);
     localStorage.removeItem("integrasource.recap.demo.reviewStates");
+    localStorage.removeItem("integrasource.recap.demo.portalIntakeItems");
+    localStorage.removeItem("integrasource.recap.demo.portalRequests");
+    localStorage.removeItem("integrasource.recap.demo.portalSubmissions");
 }
 
 export function getDemoTransaction(): RecapTransaction | null {
