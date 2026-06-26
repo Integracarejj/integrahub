@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     getPortalRequests, getPortalTransactions,
@@ -7,7 +7,7 @@ import {
     getPortalSubmissionsList, loadABCDemoPackage,
     parseUploadedXLSX, extractCategoriesFromParsedRows,
 } from "../../services/portalMockData";
-import type { ExternalDemoPersona } from "../../services/portalMockData";
+import type { ExternalDemoPersona, ParseDiagnostics } from "../../services/portalMockData";
 import "./PortalOverview.css";
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -51,10 +51,12 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
     const txn = transactions[0];
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const dropZoneRef = useRef<HTMLDivElement>(null);
     const [uploadState, setUploadState] = useState<UploadState>("idle");
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
     const [banner, setBanner] = useState<string | null>(null);
+    const [debug, setDebug] = useState<ParseDiagnostics | null>(null);
 
     const submissions = getPortalSubmissionsList();
     const needingClarification = requests.filter(r => r.status === "Clarification Needed").length;
@@ -66,6 +68,7 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
         setSelectedFile(null);
         setAnalysis(null);
         setBanner(null);
+        setDebug(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
     }, []);
 
@@ -75,6 +78,7 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
             setUploadState("idle");
             setAnalysis(null);
             setBanner(null);
+            setDebug(null);
             if (fileInputRef.current) fileInputRef.current.value = "";
             setSelectedFile(file);
             setUploadState("selected");
@@ -87,44 +91,54 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
         fileInputRef.current?.click();
     };
 
-    const handleDrop = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const file = e.dataTransfer.files?.[0];
-        if (file) {
-            setUploadState("idle");
-            setAnalysis(null);
-            setBanner(null);
-            if (fileInputRef.current) fileInputRef.current.value = "";
-            setSelectedFile(file);
-            setUploadState("selected");
-            setBanner(`File selected: ${file.name}`);
-            setTimeout(() => setBanner(null), 4000);
-        }
-    }, []);
+    // Native drag/drop listeners — guaranteed preventDefault, no browser "+copy" behavior
+    useEffect(() => {
+        const el = dropZoneRef.current;
+        if (!el) return;
 
-    const handleDragOver = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        e.dataTransfer.dropEffect = "copy";
-    }, []);
+        const prevent = (e: Event) => {
+            e.preventDefault();
+            e.stopPropagation();
+        };
 
-    const handleDragEnter = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-    }, []);
+        const onDrop = (e: DragEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const file = e.dataTransfer?.files?.[0];
+            if (file) {
+                setUploadState("idle");
+                setAnalysis(null);
+                setBanner(null);
+                setDebug(null);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+                setSelectedFile(file);
+                setUploadState("selected");
+                setBanner(`File selected: ${file.name}`);
+                setTimeout(() => setBanner(null), 4000);
+            }
+        };
 
-    const handleDragLeave = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
+        el.addEventListener("dragenter", prevent);
+        el.addEventListener("dragover", prevent);
+        el.addEventListener("dragleave", prevent);
+        el.addEventListener("drop", onDrop);
+
+        return () => {
+            el.removeEventListener("dragenter", prevent);
+            el.removeEventListener("dragover", prevent);
+            el.removeEventListener("dragleave", prevent);
+            el.removeEventListener("drop", onDrop);
+        };
     }, []);
 
     const handleAnalyzePackage = async () => {
         if (!selectedFile) return;
         setUploadState("analyzing");
         setBanner(null);
+        setDebug(null);
         try {
             const parsed = await parseUploadedXLSX(selectedFile);
+            setDebug(parsed.diagnostics);
             const cats = extractCategoriesFromParsedRows(parsed.rows);
             const result = submitBrokerUploadPackage(selectedFile.name, parsed.count, cats);
             setAnalysis(result);
@@ -157,13 +171,6 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
         setBanner("Package submitted successfully!");
     };
 
-    const dropZoneProps = {
-        onDrop: handleDrop,
-        onDragOver: handleDragOver,
-        onDragEnter: handleDragEnter,
-        onDragLeave: handleDragLeave,
-    };
-
     return (
         <div className="portal-overview">
             {banner && (
@@ -185,10 +192,10 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
             </div>
 
             {uploadState !== "submitted" && (
-                <div className="po-upload-section" style={{
+                <div ref={dropZoneRef} className="po-upload-section" style={{
                     border: "2px dashed #cbd5e1", borderRadius: 14, padding: 28, marginBottom: 20,
                     textAlign: "center", background: "#fafbfc",
-                }} {...dropZoneProps}>
+                }}>
                     <input
                         ref={fileInputRef}
                         type="file"
@@ -287,6 +294,58 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
                         </div>
                     </div>
                     <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ marginTop: 12 }}>Upload Another Package</button>
+                </div>
+            )}
+
+            {debug && uploadState === "complete" && (
+                <div className="po-section" style={{ marginBottom: 16 }}>
+                    <h2 className="po-section-title" style={{ fontSize: 13, color: "#4f46e5" }}>
+                        Parse Debug Panel
+                        <span style={{ fontWeight: 400, fontSize: 11, color: "#64748b", marginLeft: 8 }}>(Preview Mode only &mdash; remove before production)</span>
+                    </h2>
+                    <div style={{ border: "1px solid #c7d2fe", borderRadius: 10, padding: 14, background: "#f8faff", fontSize: 12, fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', lineHeight: 1.7 }}>
+                        <div><strong>File:</strong> {debug.fileName} <span style={{ color: "#64748b" }}>({(debug.fileSize / 1024).toFixed(1)} KB)</span></div>
+                        <div><strong>Sheet:</strong> {debug.selectedSheet} <span style={{ color: "#64748b" }}>of [{debug.sheetNames.join(", ")}]</span></div>
+                        <div><strong>Headers:</strong> [{debug.rawHeaders.join(", ")}]</div>
+                        <div><strong>Total physical rows (from !ref):</strong> {debug.totalPhysicalRows}</div>
+                        <div>
+                            <strong>Accepted:</strong> <span style={{ color: debug.acceptedCount > 0 ? "#166534" : "#991b1b", fontWeight: 700 }}>{debug.acceptedCount}</span>
+                            &nbsp;|&nbsp;
+                            <strong>Skipped:</strong> <span style={{ color: debug.skippedCount > 0 ? "#92400e" : "#64748b", fontWeight: 700 }}>{debug.skippedCount}</span>
+                        </div>
+                        {debug.skippedCount > 0 && (
+                            <details style={{ marginTop: 6 }}>
+                                <summary style={{ cursor: "pointer", fontWeight: 600, color: "#92400e" }}>
+                                    {debug.skippedCount} skipped row{debug.skippedCount !== 1 ? "s" : ""} &mdash; top skip reasons
+                                </summary>
+                                <div style={{ marginTop: 4, maxHeight: 200, overflowY: "auto" }}>
+                                    {debug.skipReasons.slice(0, 20).map((sr, si) => (
+                                        <div key={si} style={{ padding: "4px 0", borderBottom: "1px solid #e2e8f0", fontSize: 11 }}>
+                                            <span style={{ color: "#64748b", fontWeight: 600 }}>Row {sr.rowIndex}:</span> {sr.reason}
+                                            {Object.keys(sr.sampleValues).length > 0 && (
+                                                <span style={{ color: "#94a3b8", marginLeft: 4 }}>
+                                                    [{Object.entries(sr.sampleValues).filter(([_, v]) => v.trim().length > 0).map(([k]) => k).join(", ")}]
+                                                </span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </details>
+                        )}
+                        <details style={{ marginTop: 6 }}>
+                            <summary style={{ cursor: "pointer", fontWeight: 600, color: "#4338ca" }}>
+                                First {debug.firstTenAccepted.length} accepted row{debug.firstTenAccepted.length !== 1 ? "s" : ""}
+                            </summary>
+                            <div style={{ marginTop: 4, maxHeight: 200, overflowY: "auto" }}>
+                                {debug.firstTenAccepted.map((r, ri) => (
+                                    <div key={ri} style={{ padding: "4px 0", borderBottom: "1px solid #e2e8f0", fontSize: 11, color: "#334155" }}>
+                                        <strong>#{ri + 1}</strong>{" "}
+                                        {Object.entries(r).filter(([_, v]) => v.trim().length > 0).map(([k, v]) => `${k}="${v.slice(0, 60)}"`).join(", ")}
+                                    </div>
+                                ))}
+                            </div>
+                        </details>
+                    </div>
                 </div>
             )}
 

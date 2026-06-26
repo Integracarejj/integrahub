@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
     getPortalTransactions,
@@ -265,6 +265,7 @@ function NewRequestForm({ transactions }: { transactions: ReturnType<typeof getP
 
 function BrokerUploadForm() {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const dropZoneRef = useRef<HTMLDivElement>(null);
     const [uploadState, setUploadState] = useState<"idle" | "selected" | "analyzing" | "complete" | "submitted">("idle");
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [analysis, setAnalysis] = useState<{ submissionId: string; detected: number; needsReview: number; duplicates: number; followUp: number; categories: string[]; packageName: string; isABCDemo: boolean } | null>(null);
@@ -298,36 +299,43 @@ function BrokerUploadForm() {
         fileInputRef.current?.click();
     };
 
-    const handleDrop = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const file = e.dataTransfer.files?.[0];
-        if (file) {
-            setUploadState("idle");
-            setAnalysis(null);
-            setBanner(null);
-            if (fileInputRef.current) fileInputRef.current.value = "";
-            setSelectedFile(file);
-            setUploadState("selected");
-            setBanner(`File selected: ${file.name}`);
-            setTimeout(() => setBanner(null), 4000);
-        }
-    }, []);
+    // Native drag/drop listeners — guaranteed preventDefault, no browser "+copy" behavior
+    useEffect(() => {
+        const el = dropZoneRef.current;
+        if (!el) return;
 
-    const handleDragOver = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        e.dataTransfer.dropEffect = "copy";
-    }, []);
+        const prevent = (e: Event) => {
+            e.preventDefault();
+            e.stopPropagation();
+        };
 
-    const handleDragEnter = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-    }, []);
+        const onDrop = (e: DragEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const file = e.dataTransfer?.files?.[0];
+            if (file) {
+                setUploadState("idle");
+                setAnalysis(null);
+                setBanner(null);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+                setSelectedFile(file);
+                setUploadState("selected");
+                setBanner(`File selected: ${file.name}`);
+                setTimeout(() => setBanner(null), 4000);
+            }
+        };
 
-    const handleDragLeave = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
+        el.addEventListener("dragenter", prevent);
+        el.addEventListener("dragover", prevent);
+        el.addEventListener("dragleave", prevent);
+        el.addEventListener("drop", onDrop);
+
+        return () => {
+            el.removeEventListener("dragenter", prevent);
+            el.removeEventListener("dragover", prevent);
+            el.removeEventListener("dragleave", prevent);
+            el.removeEventListener("drop", onDrop);
+        };
     }, []);
 
     const handleAnalyzePackage = async () => {
@@ -368,13 +376,6 @@ function BrokerUploadForm() {
         setBanner("Package submitted successfully!");
     };
 
-    const dropZoneProps = {
-        onDrop: handleDrop,
-        onDragOver: handleDragOver,
-        onDragEnter: handleDragEnter,
-        onDragLeave: handleDragLeave,
-    };
-
     if (uploadState === "submitted") {
         return (
             <div>
@@ -412,7 +413,7 @@ function BrokerUploadForm() {
                 onChange={handleFileSelected}
             />
 
-            <div style={{ border: "2px dashed #cbd5e1", borderRadius: 14, padding: "32px 20px", textAlign: "center", background: "#fafbfc" }} {...dropZoneProps}>
+            <div ref={dropZoneRef} style={{ border: "2px dashed #cbd5e1", borderRadius: 14, padding: "32px 20px", textAlign: "center", background: "#fafbfc" }}>
                 {uploadState === "idle" && (
                     <>
                         <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 8px" }}>

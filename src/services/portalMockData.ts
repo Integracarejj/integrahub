@@ -408,16 +408,167 @@ export interface PortalPackageSubmission {
 
 /* ── XLSX Parsing ───────────────────────────────────────────── */
 
-export async function parseUploadedXLSX(file: File): Promise<{ headers: string[]; rows: Record<string, string>[]; sheetName: string; count: number }> {
+export interface ParseDiagnostics {
+    fileName: string;
+    fileSize: number;
+    sheetNames: string[];
+    selectedSheet: string;
+    rawHeaders: string[];
+    normalizedHeaders: Record<string, string>;
+    totalPhysicalRows: number;
+    acceptedCount: number;
+    skippedCount: number;
+    skipReasons: { rowIndex: number; reason: string; sampleValues: Record<string, string> }[];
+    firstTenAccepted: Record<string, string>[];
+    firstTenSkipped: { rowIndex: number; values: Record<string, string>; reason: string }[];
+}
+
+export async function parseUploadedXLSX(file: File): Promise<{
+    headers: string[];
+    rows: Record<string, string>[];
+    sheetName: string;
+    count: number;
+    diagnostics: ParseDiagnostics;
+}> {
     const XLSX = await import("xlsx");
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer, { type: "array" });
-    const sheetName = workbook.SheetNames.find(n => n.toLowerCase().includes("dd requests")) || workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    const jsonRows: Record<string, string>[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-    const nonEmpty = jsonRows.filter(r => Object.values(r).some(v => String(v).trim().length > 0));
-    const headers = nonEmpty.length > 0 ? Object.keys(nonEmpty[0]) : [];
-    return { headers, rows: nonEmpty, sheetName, count: nonEmpty.length };
+
+    const sheetNames = workbook.SheetNames;
+    const selectedSheet = sheetNames.find(n => n.toLowerCase().includes("dd requests")) || sheetNames[0];
+    const sheet = workbook.Sheets[selectedSheet];
+
+    // Get raw sheet info
+    const ref = sheet["!ref"];
+    const totalPhysicalRows = ref ? XLSX.utils.decode_range(ref).e.r + 1 : 0;
+
+    // Read ALL rows as arrays (header: 1 gives arrays, not objects)
+    const jsonRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+    const rawHeaders: string[] = jsonRows.length > 0
+        ? jsonRows[0].map((h: any) => (h !== null && h !== undefined ? String(h).trim() : ""))
+        : [];
+
+    // Normalize header names by index
+    const headerMap: Record<string, string> = {};
+    rawHeaders.forEach((h, i) => {
+        const clean = h.trim();
+        if (!clean) return;
+        const lower = clean.toLowerCase().replace(/[\/\s\-_]+/g, " ");
+        if (lower.includes("owner") || lower.includes("seller")) headerMap[`col_${i}`] = "Owner / Seller";
+        else if (lower === "buyer") headerMap[`col_${i}`] = "Buyer";
+        else if (lower === "broker") headerMap[`col_${i}`] = "Broker";
+        else if (lower.includes("request") && lower.includes("title")) headerMap[`col_${i}`] = "Request Title";
+        else if (lower === "description" || lower.includes("description")) headerMap[`col_${i}`] = "Description";
+        else if (lower === "priority" || lower.includes("priority")) headerMap[`col_${i}`] = "Priority";
+        else if (lower.includes("suggested") && (lower.includes("team") || lower.includes("group"))) headerMap[`col_${i}`] = "Suggested Team";
+        else if (lower.includes("suggested") && lower.includes("owner")) headerMap[`col_${i}`] = "Suggested Internal Owner";
+        else if (lower.includes("due") || lower.includes("date")) headerMap[`col_${i}`] = "Due Date";
+        else if (lower === "notes" || lower.includes("notes")) headerMap[`col_${i}`] = "Notes";
+        else if (lower.includes("category")) headerMap[`col_${i}`] = "Category";
+        else headerMap[`col_${i}`] = clean;
+    });
+
+    const normalizedHeaders: Record<string, string> = {};
+    for (const [k, v] of Object.entries(headerMap)) normalizedHeaders[k] = v;
+
+    // Build accepted rows with normalized keys
+    const accepted: Record<string, string>[] = [];
+    const skipReasons: { rowIndex: number; reason: string; sampleValues: Record<string, string> }[] = [];
+
+    // Data rows start at index 1 (after header row 0)
+    for (let i = 1; i < jsonRows.length; i++) {
+        const rawRow: any[] | undefined = jsonRows[i];
+        if (!rawRow || rawRow.length === 0) {
+            skipReasons.push({ rowIndex: i, reason: "Empty row (null/undefined)", sampleValues: {} });
+            continue;
+        }
+
+        // Build row with normalized keys
+        const row: Record<string, string> = {};
+        let hasAnyValue = false;
+        const numCols = Math.max(rawHeaders.length, rawRow.length);
+        for (let ci = 0; ci < numCols; ci++) {
+            const val = ci < rawRow.length ? rawRow[ci] : undefined;
+            const strVal = val !== null && val !== undefined ? String(val).trim() : "";
+            const key = ci < rawHeaders.length ? headerMap[`col_${ci}`] : undefined;
+            if (key) {
+                row[key] = strVal;
+            } else {
+                const fallbackKey = rawHeaders[ci] || `Column_${ci}`;
+                row[fallbackKey] = strVal;
+            }
+            if (strVal.length > 0) hasAnyValue = true;
+        }
+
+        if (!hasAnyValue) {
+            skipReasons.push({ rowIndex: i, reason: "All cells empty", sampleValues: {} });
+            continue;
+        }
+
+        // Accept row if it has Request Title OR Description OR Notes with content
+        const hasTitle = (row["Request Title"] || "").trim().length > 0;
+        const hasDesc = (row["Description"] || "").trim().length > 0;
+        const hasNotes = (row["Notes"] || "").trim().length > 0;
+
+        if (!hasTitle && !hasDesc && !hasNotes) {
+            const contentCols = Object.entries(row).filter(([_, v]) => v.trim().length > 0).map(([k]) => k);
+            skipReasons.push({
+                rowIndex: i,
+                reason: contentCols.length > 0
+                    ? `Row has data in [${contentCols.join(", ")}] but missing Request Title, Description, AND Notes`
+                    : "No content in Request Title, Description, or Notes columns",
+                sampleValues: row,
+            });
+            continue;
+        }
+
+        accepted.push(row);
+    }
+
+    // Build firstTenSkipped for diagnostics
+    const firstTenSkipped: { rowIndex: number; values: Record<string, string>; reason: string }[] = [];
+    for (let si = 0; si < Math.min(skipReasons.length, 10); si++) {
+        const sr = skipReasons[si];
+        firstTenSkipped.push({ rowIndex: sr.rowIndex, values: sr.sampleValues, reason: sr.reason });
+    }
+
+    const diagnostics: ParseDiagnostics = {
+        fileName: file.name,
+        fileSize: file.size,
+        sheetNames,
+        selectedSheet,
+        rawHeaders,
+        normalizedHeaders,
+        totalPhysicalRows,
+        acceptedCount: accepted.length,
+        skippedCount: skipReasons.length,
+        skipReasons: skipReasons.slice(0, 50),
+        firstTenAccepted: accepted.slice(0, 10),
+        firstTenSkipped,
+    };
+
+    // Log diagnostics
+    console.log("=== XLSX Parse Diagnostics ===");
+    console.log("File:", file.name, `(${(file.size / 1024).toFixed(1)} KB)`);
+    console.log("Sheet names:", sheetNames);
+    console.log("Selected sheet:", selectedSheet);
+    console.log("Total physical rows (from !ref):", totalPhysicalRows);
+    console.log("Raw JSON rows (including header):", jsonRows.length);
+    console.log("Header row:", rawHeaders);
+    console.log("Normalized headers:", normalizedHeaders);
+    console.log("Accepted rows:", accepted.length);
+    console.log("Skipped rows:", skipReasons.length);
+    console.log("First 10 accepted:", accepted.slice(0, 10));
+    console.log("First 10 skip reasons:", skipReasons.slice(0, 10));
+    console.log("================================");
+
+    return {
+        headers: Object.values(normalizedHeaders).filter((h): h is string => h.length > 0),
+        rows: accepted,
+        sheetName: selectedSheet,
+        count: accepted.length,
+        diagnostics,
+    };
 }
 
 export function mapParsedRowToRecapRequest(
