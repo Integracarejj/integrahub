@@ -208,6 +208,10 @@ export function publishIntake(): void {
     if (isDemoLoaded()) Demo.publishIntake();
 }
 
+export function publishSelectedRequests(ids: string[]): void {
+    if (isDemoLoaded()) Demo.publishSelectedRequests(ids);
+}
+
 export function initDemo(): void {
     Demo.initDemo();
 }

@@ -478,6 +478,41 @@ export function getDemoOverrideRequests(): RecapRequest[] {
     });
 }
 
+export function publishSelectedRequests(ids: string[]): void {
+    const state = loadState();
+    if (!state) return;
+    state.intakePublished = true;
+    state.intakeItem.status = "Converted";
+    const now = new Date().toISOString().split("T")[0];
+    const idSet = new Set(ids);
+    state.requests.forEach(r => {
+        if (idSet.has(r.id) || idSet.has(r.requestId) || idSet.has(r.intakeId)) {
+            r.lastUpdated = now;
+            if (r.status === "Open") r.status = "In Progress";
+        }
+    });
+    state.transaction.totalRequests = state.requests.length;
+    state.transaction.inProgressCount = state.requests.filter(r => r.status === "In Progress").length;
+    state.transaction.providedCount = state.requests.filter(r => r.status === "Provided").length;
+    state.transaction.clarificationNeededCount = state.requests.filter(r => r.status === "Clarification Needed").length;
+    state.transaction.overdueCount = state.requests.filter(r => r.status === "Overdue").length;
+
+    state.activity.unshift({
+        id: "abc-act-publish-selected",
+        type: "Status Change",
+        description: `ABC Company Portfolio — ${ids.length} selected requests published to tracker.`,
+        userId: "system",
+        userName: "System",
+        requestId: null,
+        requestTitle: null,
+        transactionId: "txn-abc",
+        transactionName: "ABC Company Portfolio",
+        timestamp: new Date().toISOString(),
+    });
+
+    saveState(state);
+}
+
 export function getDemoTeams(): string[] {
     return [...TEAMS];
 }
