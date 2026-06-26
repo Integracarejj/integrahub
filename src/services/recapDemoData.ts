@@ -178,6 +178,7 @@ function generateDemoState(): RecapDemoState {
             source: "External",
             createdDate: randDate(60, 30),
             assignedTo: Math.random() > 0.3 ? owner.name : null,
+            _publishedAt: null,
         });
 
         if (i <= 20) {
@@ -268,6 +269,7 @@ export function initDemo(): void {
 
 export function resetDemo(): void {
     localStorage.removeItem(DEMO_KEY);
+    localStorage.removeItem("integrasource.recap.demo.reviewStates");
 }
 
 export function getDemoTransaction(): RecapTransaction | null {
@@ -307,6 +309,8 @@ export function publishIntake(): void {
     state.intakeItem.status = "Converted";
     const now = new Date().toISOString().split("T")[0];
     state.requests.forEach(r => {
+        if (r._publishedAt) return;
+        r._publishedAt = now;
         r.lastUpdated = now;
         if (r.status === "Open") r.status = "In Progress";
     });
@@ -485,9 +489,13 @@ export function publishSelectedRequests(ids: string[]): void {
     state.intakeItem.status = "Converted";
     const now = new Date().toISOString().split("T")[0];
     const idSet = new Set(ids);
+    let publishedCount = 0;
     state.requests.forEach(r => {
         if (idSet.has(r.id) || idSet.has(r.requestId) || idSet.has(r.intakeId)) {
+            if (r._publishedAt) return;
+            r._publishedAt = now;
             r.lastUpdated = now;
+            publishedCount++;
             if (r.status === "Open") r.status = "In Progress";
         }
     });
@@ -500,7 +508,7 @@ export function publishSelectedRequests(ids: string[]): void {
     state.activity.unshift({
         id: "abc-act-publish-selected",
         type: "Status Change",
-        description: `ABC Company Portfolio — ${ids.length} selected requests published to tracker.`,
+        description: `ABC Company Portfolio — ${publishedCount} selected requests published to tracker.`,
         userId: "system",
         userName: "System",
         requestId: null,

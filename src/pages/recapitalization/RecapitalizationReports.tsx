@@ -3,7 +3,18 @@ import RecapSubNav from "./RecapSubNav";
 import { isDemoActive, getDemoReports } from "../../services/recapDataService";
 import "./Recapitalization.css";
 
-function toast(msg: string) { window.alert(msg); }
+function toast(msg: string) {
+    const el = document.createElement("div");
+    el.style.cssText = "position:fixed;bottom:16px;right:16px;background:#1e293b;color:#fff;padding:8px 16px;border-radius:6px;font-size:12px;font-weight:600;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,0.15)";
+    el.textContent = msg;
+    const ok = document.createElement("button");
+    ok.textContent = "OK";
+    ok.style.cssText = "background:none;border:none;color:#fff;margin-left:8px;font-size:11px;cursor:pointer";
+    ok.onclick = () => el.remove();
+    el.appendChild(ok);
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+}
 
 const REPORT_CARDS = [
     { title: "Completion by Transaction", value: "62%", desc: "Across all active transactions", detail: "Oakwood Portfolio: 8/12 complete (67%)\nLakeside Crossing: 5/8 complete (63%)\nValley View: 3/6 complete (50%)\nTotal: 16/26 requests provided (62%)", color: "#1d4ed8" },

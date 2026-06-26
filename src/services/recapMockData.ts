@@ -44,6 +44,7 @@ export interface RecapRequest {
     source: "External" | "Internal" | "Bulk Import";
     createdDate: string;
     assignedTo: string | null;
+    _publishedAt?: string | null;
 }
 
 export interface RecapIntakeItem {

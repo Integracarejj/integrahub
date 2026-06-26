@@ -168,8 +168,12 @@ function ReviewEngine() {
 
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [detailItem, setDetailItem] = useState<RecapRequest | null>(null);
-    const [savedFeedback, setSavedFeedback] = useState("");
     const [updateCount, setUpdateCount] = useState(0);
+    const [toastMsg, setToastMsg] = useState("");
+    const [bulkReviewState, setBulkReviewState] = useState("");
+    const [bulkTeam, setBulkTeam] = useState("");
+    const [bulkCategory, setBulkCategory] = useState("");
+    const [bulkPriority, setBulkPriority] = useState("");
 
     const [userReviewStates, setUserReviewStates] = useState<Record<string, ReviewState>>(() => {
         try {
@@ -182,6 +186,11 @@ function ReviewEngine() {
         const next = { ...userReviewStates, [id]: state };
         localStorage.setItem(REVIEW_STATE_KEY, JSON.stringify(next));
         setUserReviewStates(next);
+    };
+
+    const showToast = (msg: string) => {
+        setToastMsg(msg);
+        setTimeout(() => setToastMsg(""), 2500);
     };
 
     const summary = getDemoEngineSummary();
@@ -272,8 +281,7 @@ function ReviewEngine() {
     const doEdit = (id: string, patch: Partial<RecapRequest>) => {
         bulkUpdateDemoRequests([id], patch);
         setUpdateCount(k => k + 1);
-        setSavedFeedback("Saved locally");
-        setTimeout(() => setSavedFeedback(""), 2000);
+        showToast("Saved locally");
     };
 
     const handleCardFilter = (key: string | null) => {
@@ -312,24 +320,47 @@ function ReviewEngine() {
         }, 1500);
     };
 
-    const handleBulkReviewState = (state: ReviewState) => {
+    const handleBulkApply = () => {
         if (selectedIds.size === 0) return;
-        const next = { ...userReviewStates };
-        [...selectedIds].forEach(id => { next[id] = state; });
-        localStorage.setItem(REVIEW_STATE_KEY, JSON.stringify(next));
-        setUserReviewStates(next);
-        setSavedFeedback(`Marked ${selectedIds.size} items as "${state}"`);
-        setTimeout(() => setSavedFeedback(""), 2000);
-        setSelectedIds(new Set());
+        let applied = false;
+        if (bulkReviewState) {
+            const next = { ...userReviewStates };
+            [...selectedIds].forEach(id => { next[id] = bulkReviewState as ReviewState; });
+            localStorage.setItem(REVIEW_STATE_KEY, JSON.stringify(next));
+            setUserReviewStates(next);
+            applied = true;
+        }
+        const patch: Partial<RecapRequest> = {};
+        if (bulkTeam) patch.team = bulkTeam;
+        if (bulkCategory) patch.category = bulkCategory;
+        if (bulkPriority) patch.priority = bulkPriority as RecapRequest["priority"];
+        if (Object.keys(patch).length > 0) {
+            bulkUpdateDemoRequests([...selectedIds], patch);
+            setUpdateCount(k => k + 1);
+            applied = true;
+        }
+        if (applied) {
+            showToast(`Applied to ${selectedIds.size} items`);
+            setBulkReviewState("");
+            setBulkTeam("");
+            setBulkCategory("");
+            setBulkPriority("");
+        }
     };
 
-    const handleBulkPatch = (patch: Partial<RecapRequest>) => {
+    const handleBulkPublishSelected = () => {
         if (selectedIds.size === 0) return;
-        bulkUpdateDemoRequests([...selectedIds], patch);
+        const bulkReady = [...selectedIds].filter(id => {
+            const r = enriched.find(e => e.id === id);
+            return r && r._reviewState === "Ready to Publish";
+        });
+        if (bulkReady.length === 0) {
+            showToast("No selected items are marked 'Ready to Publish'");
+            return;
+        }
+        publishSelectedRequests(bulkReady);
         setUpdateCount(k => k + 1);
-        setSavedFeedback(`Updated ${selectedIds.size} items locally`);
-        setTimeout(() => setSavedFeedback(""), 2000);
-        setSelectedIds(new Set());
+        showToast(`Published ${bulkReady.length} selected request${bulkReady.length !== 1 ? "s" : ""}`);
     };
 
     const CARD_STYLE = (borderColor: string, isActive: boolean) => ({
@@ -399,10 +430,7 @@ function ReviewEngine() {
                     <span className="rc-badge rc-badge-import" style={{ fontSize: 10 }}>ABC Company Portfolio</span>
                 </div>
                 <div className="rc-header-actions">
-                    {savedFeedback && (
-                        <span style={{ fontSize: 11, color: "#166534", fontWeight: 600, marginRight: 8 }}>{savedFeedback}</span>
-                    )}
-                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setUpdateCount(k => k + 1); setSavedFeedback("Refreshed"); setTimeout(() => setSavedFeedback(""), 1500); }}>Refresh</button>
+                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setUpdateCount(k => k + 1); showToast("Refreshed"); }}>Refresh</button>
                     <button className="rc-btn rc-btn-primary" onClick={handlePublishReady} disabled={publishing || readyCount === 0} title={readyCount === 0 ? "No items are ready to publish" : ""}>
                         {publishing ? "Publishing..." : `Publish Ready Requests (${readyCount})`}
                     </button>
@@ -569,38 +597,37 @@ function ReviewEngine() {
                 </div>
 
                 {selectedIds.size > 0 && (
-                    <div className="rc-bulk-bar">
-                        <span><span className="rc-bulk-count">{selectedIds.size}</span> selected</span>
+                    <div style={{ padding: "8px 12px", margin: "4px 0", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", border: "1px solid #4338ca", background: "#eef2ff", borderRadius: 6 }}>
+                        <span style={{ fontWeight: 600, fontSize: 12, color: "#4338ca", whiteSpace: "nowrap" }}>
+                            <span className="rc-bulk-count">{selectedIds.size}</span> selected
+                        </span>
                         <div className="rc-bulk-sep" />
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => handleBulkReviewState("Ready to Publish")}>Mark Ready to Publish</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => handleBulkReviewState("Needs Review")}>Mark Needs Review</button>
-                        <div className="rc-bulk-sep" />
-                        <select className="rc-filter-select" style={{ fontSize: 12, padding: "3px 20px 3px 8px", minWidth: 140 }} defaultValue="" onChange={(e) => { if (e.target.value) { handleBulkPatch({ team: e.target.value }); e.target.value = ""; } }}>
-                            <option value="" disabled>Assign Team...</option>
+                        <select value={bulkReviewState} onChange={e => setBulkReviewState(e.target.value)} style={{ fontSize: 11, padding: "3px 20px 3px 6px", border: "1px solid #c7d2fe", borderRadius: 4, minWidth: 130 }}>
+                            <option value="">Review State...</option>
+                            <option value="Ready to Publish">Ready to Publish</option>
+                            <option value="Needs Review">Needs Review</option>
+                            <option value="Duplicate Review">Duplicate Review</option>
+                            <option value="Needs Follow-up">Needs Follow-up</option>
+                        </select>
+                        <select value={bulkTeam} onChange={e => setBulkTeam(e.target.value)} style={{ fontSize: 11, padding: "3px 20px 3px 6px", border: "1px solid #c7d2fe", borderRadius: 4, minWidth: 120 }}>
+                            <option value="">Assign Team...</option>
                             {TEAMS_LIST.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
-                        <select className="rc-filter-select" style={{ fontSize: 12, padding: "3px 20px 3px 8px", minWidth: 120 }} defaultValue="" onChange={(e) => { if (e.target.value) { handleBulkPatch({ category: e.target.value }); e.target.value = ""; } }}>
-                            <option value="" disabled>Change Category...</option>
+                        <select value={bulkCategory} onChange={e => setBulkCategory(e.target.value)} style={{ fontSize: 11, padding: "3px 20px 3px 6px", border: "1px solid #c7d2fe", borderRadius: 4, minWidth: 120 }}>
+                            <option value="">Change Category...</option>
                             {CATEGORIES_LIST.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
-                        <select className="rc-filter-select" style={{ fontSize: 12, padding: "3px 20px 3px 8px", minWidth: 100 }} defaultValue="" onChange={(e) => { if (e.target.value) { handleBulkPatch({ priority: e.target.value as RecapRequest["priority"] }); e.target.value = ""; } }}>
-                            <option value="" disabled>Change Priority...</option>
+                        <select value={bulkPriority} onChange={e => setBulkPriority(e.target.value)} style={{ fontSize: 11, padding: "3px 20px 3px 6px", border: "1px solid #c7d2fe", borderRadius: 4, minWidth: 90 }}>
+                            <option value="">Change Priority...</option>
                             {PRIORITIES_LIST.map(p => <option key={p} value={p}>{p}</option>)}
                         </select>
+                        <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={handleBulkApply} style={{ fontSize: 11, padding: "4px 12px" }}>
+                            Apply Bulk Updates
+                        </button>
                         <div className="rc-bulk-sep" />
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 12, color: "#166534", fontWeight: 600 }} onClick={() => {
-                            const bulkReady = [...selectedIds].filter(id => {
-                                const r = enriched.find(e => e.id === id);
-                                return r && r._reviewState === "Ready to Publish";
-                            });
-                            if (bulkReady.length > 0) {
-                                publishSelectedRequests(bulkReady);
-                                setUpdateCount(k => k + 1);
-                                setSavedFeedback(`Published ${bulkReady.length} selected requests`);
-                                setTimeout(() => setSavedFeedback(""), 2000);
-                                setSelectedIds(new Set());
-                            }
-                        }}>Publish Selected</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 12, color: "#166534", fontWeight: 600 }} onClick={handleBulkPublishSelected}>
+                            Publish Selected
+                        </button>
                         <div className="rc-bulk-sep" />
                         <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setSelectedIds(new Set())}>Clear Selection</button>
                     </div>
@@ -673,10 +700,17 @@ function ReviewEngine() {
                                                             {r._aiAction}
                                                         </span>
                                                     </td>
-                                                    <td>
-                                                        <span className="rc-badge" style={{ fontSize: 10, background: REVIEW_STATE_COLORS[r._reviewState as ReviewState] || "#64748b", color: "#fff", padding: "2px 8px" }}>
-                                                            {r._reviewState}
-                                                        </span>
+                                                    <td onClick={(e) => e.stopPropagation()}>
+                                                        <select
+                                                            value={r._reviewState}
+                                                            onChange={(e) => persistReviewState(r.id, e.target.value as ReviewState)}
+                                                            style={{ fontSize: 10, padding: "2px 18px 2px 4px", border: `1px solid ${REVIEW_STATE_COLORS[r._reviewState as ReviewState] || "#d1d5db"}`, borderLeft: `3px solid ${REVIEW_STATE_COLORS[r._reviewState as ReviewState] || "#d1d5db"}`, borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 110, cursor: "pointer" }}
+                                                        >
+                                                            <option value="Ready to Publish">Ready to Publish</option>
+                                                            <option value="Needs Review">Needs Review</option>
+                                                            <option value="Duplicate Review">Duplicate Review</option>
+                                                            <option value="Needs Follow-up">Needs Follow-up</option>
+                                                        </select>
                                                     </td>
                                                     <td style={{ fontSize: 11 }}>
                                                         {r._duplicateType !== "None" ? (
@@ -738,6 +772,12 @@ function ReviewEngine() {
                     teams={TEAMS_LIST}
                     priorities={PRIORITIES_LIST}
                 />
+            )}
+
+            {toastMsg && (
+                <div style={{ position: "fixed", bottom: 24, right: 24, background: "#0f172a", color: "#fff", padding: "10px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600, zIndex: 3000, boxShadow: "0 4px 16px rgba(0,0,0,0.2)" }}>
+                    {toastMsg}
+                </div>
             )}
         </div>
     );

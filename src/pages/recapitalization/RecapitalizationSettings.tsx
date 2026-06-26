@@ -48,8 +48,11 @@ export default function RecapitalizationSettings() {
         setTimeout(() => setDemoToast(""), 2500);
     };
 
+    const REVIEW_STATE_KEY = "integrasource.recap.demo.reviewStates";
+
     const handleLoadDemo = () => {
         initDemo();
+        localStorage.removeItem(REVIEW_STATE_KEY);
         setDemoLoaded(true);
         setRefreshKey(k => k + 1);
         showToast("ABC Company Portfolio demo loaded — 300 requests, 5 communities");
@@ -57,12 +60,14 @@ export default function RecapitalizationSettings() {
 
     const handleResetDemo = () => {
         initDemo();
+        localStorage.removeItem(REVIEW_STATE_KEY);
         setRefreshKey(k => k + 1);
         showToast("Demo data reset to initial state");
     };
 
     const handleClearDemo = () => {
         resetDemo();
+        localStorage.removeItem(REVIEW_STATE_KEY);
         setDemoLoaded(false);
         setRefreshKey(k => k + 1);
         showToast("Demo data cleared — returning to standard mock data");

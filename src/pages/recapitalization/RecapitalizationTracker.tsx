@@ -128,8 +128,8 @@ export default function RecapitalizationTracker() {
                 </div>
                 <div className="rc-header-actions">
                     <button className="rc-btn rc-btn-primary" onClick={() => navigate("/recapitalization/intake/review")}>Import DD Package</button>
-                    <button className="rc-btn rc-btn-secondary" onClick={() => window.alert("New Request — coming in next sprint")}>New Request</button>
-                    <button className="rc-btn rc-btn-secondary" onClick={() => window.alert("Export — coming next sprint")}>Export</button>
+                    <button className="rc-btn rc-btn-secondary" onClick={() => { setBulkToast("New Request — coming in next sprint"); setTimeout(() => setBulkToast(""), 2500); }}>New Request</button>
+                    <button className="rc-btn rc-btn-secondary" onClick={() => { setBulkToast("Export — coming next sprint"); setTimeout(() => setBulkToast(""), 2500); }}>Export</button>
                 </div>
             </div>
 
@@ -176,11 +176,11 @@ export default function RecapitalizationTracker() {
                         <span>selected</span>
                         <div className="rc-bulk-sep" />
                         <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setBulkEdit({ owner: "", team: "", priority: "", status: "", dueDate: "", visible: "" }); setBulkModalOpen(true); }}>Bulk Update</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => window.alert("Assign — coming next sprint")}>Assign</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => window.alert("Route to Team — coming next sprint")}>Route to Team</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => window.alert("Mark Duplicate — coming next sprint")}>Mark Duplicate</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => window.alert("Mark Not Applicable — coming next sprint")}>Mark Not Applicable</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => window.alert("Reject — coming next sprint")}>Reject</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setBulkToast("Assign — coming next sprint"); setTimeout(() => setBulkToast(""), 2500); }}>Assign</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setBulkToast("Route to Team — coming next sprint"); setTimeout(() => setBulkToast(""), 2500); }}>Route to Team</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setBulkToast("Mark Duplicate — coming next sprint"); setTimeout(() => setBulkToast(""), 2500); }}>Mark Duplicate</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setBulkToast("Mark Not Applicable — coming next sprint"); setTimeout(() => setBulkToast(""), 2500); }}>Mark Not Applicable</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setBulkToast("Reject — coming next sprint"); setTimeout(() => setBulkToast(""), 2500); }}>Reject</button>
                         <div className="rc-bulk-sep" />
                         <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={clearSelection}>Clear Selection</button>
                     </div>

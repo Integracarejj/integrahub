@@ -3,7 +3,18 @@ import { getDocuments, getTransactions, isDemoActive } from "../../services/reca
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
-function toast(msg: string) { window.alert(msg); }
+function toast(msg: string) {
+    const el = document.createElement("div");
+    el.style.cssText = "position:fixed;bottom:16px;right:16px;background:#1e293b;color:#fff;padding:8px 16px;border-radius:6px;font-size:12px;font-weight:600;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,0.15)";
+    el.textContent = msg;
+    const ok = document.createElement("button");
+    ok.textContent = "OK";
+    ok.style.cssText = "background:none;border:none;color:#fff;margin-left:8px;font-size:11px;cursor:pointer";
+    ok.onclick = () => el.remove();
+    el.appendChild(ok);
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+}
 
 export default function RecapitalizationDocuments() {
     const documents = getDocuments();

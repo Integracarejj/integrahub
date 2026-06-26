@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { lookupWorkspaceItem, getDocumentsByTransaction, getActivityByTransaction, getTeamMembers, getTeams, bulkUpdateDemoRequests } from "../../services/recapDataService";
 import type { RecapTeamMember } from "../../services/recapDataService";
@@ -163,7 +163,8 @@ interface WorkspaceQuestion {
 export default function RecapitalizationWorkspace() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const result = useMemo(() => id ? lookupWorkspaceItem(id) : null, [id]);
+    const [wsRefreshKey, setWsRefreshKey] = useState(0);
+    const result = useMemo(() => id ? lookupWorkspaceItem(id) : null, [id, wsRefreshKey]);
 
     const [internalNotes, setInternalNotes] = useState<WorkspaceNote[]>([
         { id: "wn1", author: "David Park", text: "Initial review — needs owner assignment", timestamp: "2026-06-25" },
@@ -223,14 +224,15 @@ export default function RecapitalizationWorkspace() {
 
     const rs = readinessScore(item);
 
-    if (!category && item.suggestedCategory) setCategory(item.suggestedCategory);
-    if (!category && item.category) setCategory(item.category);
-    if (!team && item.suggestedTeam) setTeam(item.suggestedTeam);
-    if (!team && item.team) setTeam(item.team);
-    if (!internalOwner && item.suggestedOwner) setInternalOwner(item.suggestedOwner);
-    if (!internalOwner && item.owner) setInternalOwner(item.owner);
-    if (!dueDate && item.dueDate) setDueDate(item.dueDate);
-    if (!communityScope && communities.length > 0) setCommunityScope(communities.join(", "));
+    useEffect(() => {
+        setCategory(item.suggestedCategory || item.category || "");
+        setTeam(item.suggestedTeam || item.team || "");
+        setInternalOwner(item.suggestedOwner || item.owner || "");
+        setDueDate(item.dueDate || "");
+        setPriority(item.priority || "Medium");
+        setCommunityScope(item.communityNames?.join(", ") || "");
+        setExternalVisible(true);
+    }, [item]);
 
     const config = SOURCE_CONFIG[item.type] || { icon: "\u2753", label: item.type || "Intake", cssClass: "rc-badge-open" };
 
@@ -597,6 +599,8 @@ export default function RecapitalizationWorkspace() {
                     onClose={() => setShowAssign(false)}
                     onAssign={(user) => {
                         bulkUpdateDemoRequests([item.id || item.intakeId || ""], { owner: user.name, assignedTo: user.name });
+                        setInternalOwner(user.name);
+                        setWsRefreshKey(k => k + 1);
                         wsToast(`Assigned to ${user.name}`);
                         setShowAssign(false);
                     }}
@@ -607,6 +611,8 @@ export default function RecapitalizationWorkspace() {
                     onClose={() => setShowRoute(false)}
                     onRoute={(team) => {
                         bulkUpdateDemoRequests([item.id || item.intakeId || ""], { team });
+                        setTeam(team);
+                        setWsRefreshKey(k => k + 1);
                         wsToast(`Routed to ${team}`);
                         setShowRoute(false);
                     }}
