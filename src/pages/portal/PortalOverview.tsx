@@ -30,35 +30,104 @@ function StatusBadge({ status }: { status: string }) {
 
 /* ── Broker Overview ────────────────────────────────────────── */
 
+interface AnalysisResult {
+    submissionId: string;
+    detected: number;
+    needsReview: number;
+    duplicates: number;
+    followUp: number;
+    categories: string[];
+    packageName: string;
+    isABCDemo: boolean;
+}
+
+type UploadState = "idle" | "selected" | "analyzing" | "complete" | "submitted";
+
 function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
     const navigate = useNavigate();
     const requests = getPortalRequests();
     const transactions = getPortalTransactions();
     const txn = transactions[0];
-    const [uploadState, setUploadState] = useState<"idle" | "analyzing" | "complete">("idle");
-    const [analysis, setAnalysis] = useState<{ detected: number; needsReview: number; duplicates: number; followUp: number; categories: string[] } | null>(null);
-    const [submitted, setSubmitted] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const [uploadState, setUploadState] = useState<UploadState>("idle");
+    const [selectedFile, setSelectedFile] = useState<string | null>(null);
+    const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+    const [banner, setBanner] = useState<string | null>(null);
+
+    const submissions = getPortalSubmissionsList();
     const needingClarification = requests.filter(r => r.status === "Clarification Needed").length;
     const waitingOnInternal = requests.filter(r => r.status === "In Progress" || r.status === "Open").length;
     const provided = requests.filter(r => r.status === "Provided" || r.status === "Under Review").length;
 
-    const handleBrowsePackage = () => {
+    const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setSelectedFile(file.name);
+            setUploadState("selected");
+            setAnalysis(null);
+            setBanner(`File selected: ${file.name}`);
+            setTimeout(() => setBanner(null), 4000);
+        }
+    };
+
+    const handleBrowseClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleAnalyzePackage = () => {
+        if (!selectedFile) return;
         setUploadState("analyzing");
+        setBanner(null);
         setTimeout(() => {
-            const result = submitBrokerUploadPackage();
+            const result = submitBrokerUploadPackage(selectedFile);
             setAnalysis(result);
             setUploadState("complete");
+            setBanner(null);
+        }, 1500);
+    };
+
+    const handleLoadABCDemo = () => {
+        loadABCDemoPackage();
+        setUploadState("analyzing");
+        setSelectedFile(null);
+        setBanner("Loading ABC Gold Standard Demo Package...");
+        setTimeout(() => {
+            const result = submitBrokerUploadPackage("ABC Gold Standard Demo Package");
+            setAnalysis(result);
+            setUploadState("complete");
+            setBanner("ABC Gold Standard Demo Package loaded and analyzed.");
+            setTimeout(() => setBanner(null), 5000);
         }, 1500);
     };
 
     const handleSubmitPackage = () => {
-        confirmBrokerPackage();
-        setSubmitted(true);
+        if (!analysis) return;
+        confirmBrokerPackage(analysis.submissionId);
+        setUploadState("submitted");
+        setBanner("Package submitted successfully!");
+    };
+
+    const resetUpload = () => {
+        setUploadState("idle");
+        setSelectedFile(null);
+        setAnalysis(null);
+        setBanner(null);
     };
 
     return (
         <div className="portal-overview">
+            {banner && (
+                <div style={{
+                    padding: "10px 16px", marginBottom: 16, borderRadius: 8, fontSize: 13, fontWeight: 600,
+                    background: uploadState === "submitted" ? "#f0fdf4" : "#eff6ff",
+                    color: uploadState === "submitted" ? "#166534" : "#1d4ed8",
+                    border: `1px solid ${uploadState === "submitted" ? "#bbf7d0" : "#bfdbfe"}`,
+                }}>
+                    {banner}
+                </div>
+            )}
+
             <div className="po-welcome">
                 <div className="po-welcome-text">
                     <h1 className="po-welcome-title">Broker Dashboard</h1>
@@ -66,13 +135,19 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
                 </div>
             </div>
 
-            {!submitted && (
-                <div className="po-upload-section" style={{ border: "2px dashed #cbd5e1", borderRadius: 14, padding: 28, marginBottom: 20, textAlign: "center", background: "#fafbfc", cursor: "pointer" }}
-                    onClick={handleBrowsePackage}
-                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = "#4f46e5"; e.currentTarget.style.background = "#f8faff"; }}
-                    onDragLeave={(e) => { e.currentTarget.style.borderColor = "#cbd5e1"; e.currentTarget.style.background = "#fafbfc"; }}
-                    onDrop={(e) => { e.preventDefault(); handleBrowsePackage(); }}
-                >
+            {uploadState !== "submitted" && (
+                <div className="po-upload-section" style={{
+                    border: "2px dashed #cbd5e1", borderRadius: 14, padding: 28, marginBottom: 20,
+                    textAlign: "center", background: "#fafbfc",
+                }}>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".xlsx,.xls,.csv,.zip,.pdf"
+                        style={{ display: "none" }}
+                        onChange={handleFileSelected}
+                    />
+
                     {uploadState === "idle" && (
                         <>
                             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 10px" }}>
@@ -83,11 +158,29 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
                             <h3 style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", margin: "0 0 4px" }}>Upload Due Diligence Package</h3>
                             <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 16px" }}>Upload Excel request list or ZIP package containing requests and supporting documents.</p>
                             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-                                <button className="rc-btn rc-btn-primary" onClick={(e) => { e.stopPropagation(); handleBrowsePackage(); }}>Browse Files</button>
-                                <button className="rc-btn rc-btn-secondary" onClick={(e) => { e.stopPropagation(); handleBrowsePackage(); }}>Load ABC Gold Standard Demo Package</button>
+                                <button className="rc-btn rc-btn-primary" onClick={handleBrowseClick}>Browse Files</button>
+                                <button className="rc-btn rc-btn-secondary" onClick={handleLoadABCDemo}>Load ABC Gold Standard Demo Package</button>
                             </div>
                         </>
                     )}
+
+                    {uploadState === "selected" && (
+                        <>
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 10px" }}>
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                                <line x1="12" y1="18" x2="12" y2="12" />
+                                <line x1="9" y1="15" x2="15" y2="15" />
+                            </svg>
+                            <h3 style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", margin: "0 0 4px" }}>File Selected</h3>
+                            <p style={{ fontSize: 14, color: "#4f46e5", fontWeight: 600, margin: "0 0 14px" }}>{selectedFile}</p>
+                            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                                <button className="rc-btn rc-btn-primary" onClick={handleAnalyzePackage}>Analyze Package</button>
+                                <button className="rc-btn rc-btn-secondary" onClick={resetUpload}>Cancel</button>
+                            </div>
+                        </>
+                    )}
+
                     {uploadState === "analyzing" && (
                         <div>
                             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 10px" }}>
@@ -101,13 +194,16 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
                             </div>
                         </div>
                     )}
+
                     {uploadState === "complete" && analysis && (
                         <div>
                             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 10px" }}>
                                 <polyline points="20 6 9 17 4 12" />
                             </svg>
                             <h3 style={{ fontSize: 16, fontWeight: 700, color: "#166534", margin: "0 0 4px" }}>Package Analyzed</h3>
-                            <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 14px" }}>ABC Gold Standard DD Package &mdash; classification complete.</p>
+                            <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 14px" }}>
+                                {analysis.packageName}{analysis.isABCDemo ? " (Gold Standard Demo)" : ""} &mdash; classification complete.
+                            </p>
                             <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap", marginBottom: 14 }}>
                                 <div style={{ textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 700, color: "#1e293b" }}>{analysis.detected}</div><div style={{ fontSize: 11, color: "#64748b" }}>Requests</div></div>
                                 <div style={{ textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 700, color: "#1d4ed8" }}>{analysis.needsReview}</div><div style={{ fontSize: 11, color: "#64748b" }}>Needs Review</div></div>
@@ -119,24 +215,33 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
                                     <span key={cat} style={{ fontSize: 10, padding: "2px 8px", background: "#eef2ff", color: "#4338ca", borderRadius: 4, fontWeight: 600 }}>{cat}</span>
                                 ))}
                             </div>
-                            <button className="rc-btn rc-btn-primary" onClick={(e) => { e.stopPropagation(); handleSubmitPackage(); }}>Submit Package to IntegraCare</button>
+                            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                                <button className="rc-btn rc-btn-primary" onClick={handleSubmitPackage}>Submit Package to IntegraCare</button>
+                                <button className="rc-btn rc-btn-secondary" onClick={resetUpload}>Start Over</button>
+                            </div>
                         </div>
                     )}
                 </div>
             )}
 
-            {submitted && (
-                <div className="po-upload-section" style={{ border: "1px solid #bbf7d0", borderRadius: 14, padding: 20, marginBottom: 20, background: "#f0fdf4" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                        <div>
-                            <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#166534" }}>Package submitted successfully!</span>
-                            <span style={{ display: "block", fontSize: 12, color: "#475569" }}>300 requests published to the request tracker. <a href="/recapitalization/tracker" style={{ color: "#4f46e5", fontWeight: 600 }}>Open Tracker</a></span>
+            {uploadState === "submitted" && (
+                <>
+                    <div className="po-upload-section" style={{ border: "1px solid #bbf7d0", borderRadius: 14, padding: 20, marginBottom: 20, background: "#f0fdf4" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            <div>
+                                <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#166534" }}>Package submitted successfully!</span>
+                                <span style={{ display: "block", fontSize: 12, color: "#475569" }}>
+                                    {analysis?.detected || 0} requests published{analysis?.isABCDemo ? " to the request tracker" : ""}.
+                                    <a href="/recapitalization/tracker" style={{ color: "#4f46e5", fontWeight: 600, marginLeft: 6 }}>Open Tracker</a>
+                                </span>
+                            </div>
                         </div>
+                        <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ marginTop: 12 }}>Upload Another Package</button>
                     </div>
-                </div>
+                </>
             )}
 
             <div className="po-stats-row">
@@ -157,6 +262,26 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
                     <span className="po-stat-label">Needs Clarification</span>
                 </div>
             </div>
+
+            {submissions.length > 0 && (
+                <div className="po-section">
+                    <h2 className="po-section-title">Recent Submissions</h2>
+                    <div className="po-requests-table">
+                        <div className="po-requests-header">
+                            <span>Package</span><span>File</span><span>Submitted</span><span>Requests</span><span>Status</span>
+                        </div>
+                        {submissions.slice().reverse().map((sub) => (
+                            <div key={sub.id} className="po-requests-row">
+                                <span className="po-requests-title">{sub.packageName}</span>
+                                <span style={{ fontSize: 12, color: "#64748b" }}>{sub.fileName}</span>
+                                <span style={{ fontSize: 12, color: "#475569" }}>{new Date(sub.submittedAt).toLocaleDateString()}</span>
+                                <span style={{ fontSize: 12, color: "#475569" }}>{sub.requestCount}</span>
+                                <span><StatusBadge status={sub.status === "Submitted" ? "Provided" : sub.status} /></span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <div className="po-section">
                 <h2 className="po-section-title">Recent Requests</h2>

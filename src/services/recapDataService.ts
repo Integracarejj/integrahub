@@ -32,11 +32,6 @@ export function getTransactionById(id: string): RecapTransaction | undefined {
     return Mock.getTransactionById(id);
 }
 
-export function getRequests(): RecapRequest[] {
-    if (isDemoLoaded()) return Demo.getDemoRequests();
-    return Mock.getRequests();
-}
-
 export function getRequestsByTransaction(transactionId: string): RecapRequest[] {
     return getRequests().filter((r) => r.transactionId === transactionId);
 }

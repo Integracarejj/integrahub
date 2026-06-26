@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
     getPortalTransactions,
@@ -11,6 +11,8 @@ import {
     submitBrokerUploadPackage,
     confirmBrokerPackage,
     getActivePersona,
+    getPortalSubmissionsList,
+    loadABCDemoPackage,
 } from "../../services/portalMockData";
 import "./PortalSubmit.css";
 
@@ -260,45 +262,107 @@ function NewRequestForm({ transactions }: { transactions: ReturnType<typeof getP
 }
 
 function BrokerUploadForm() {
-    const [uploadState, setUploadState] = useState<"idle" | "analyzing" | "complete">("idle");
-    const [analysis, setAnalysis] = useState<{ detected: number; needsReview: number; duplicates: number; followUp: number; categories: string[] } | null>(null);
-    const [submitted, setSubmitted] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [uploadState, setUploadState] = useState<"idle" | "selected" | "analyzing" | "complete" | "submitted">("idle");
+    const [selectedFile, setSelectedFile] = useState<string | null>(null);
+    const [analysis, setAnalysis] = useState<{ submissionId: string; detected: number; needsReview: number; duplicates: number; followUp: number; categories: string[]; packageName: string; isABCDemo: boolean } | null>(null);
+    const [banner, setBanner] = useState<string | null>(null);
 
-    const handleUpload = () => {
+    const submissions = getPortalSubmissionsList();
+
+    const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setSelectedFile(file.name);
+            setUploadState("selected");
+            setAnalysis(null);
+            setBanner(`File selected: ${file.name}`);
+            setTimeout(() => setBanner(null), 4000);
+        }
+    };
+
+    const handleBrowseClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleAnalyzePackage = () => {
+        if (!selectedFile) return;
         setUploadState("analyzing");
+        setBanner(null);
         setTimeout(() => {
-            const result = submitBrokerUploadPackage();
+            const result = submitBrokerUploadPackage(selectedFile);
             setAnalysis(result);
             setUploadState("complete");
         }, 1200);
     };
 
-    const handleSubmit = () => {
-        confirmBrokerPackage();
-        setSubmitted(true);
+    const handleLoadABCDemo = () => {
+        loadABCDemoPackage();
+        setUploadState("analyzing");
+        setSelectedFile(null);
+        setBanner("Loading ABC Gold Standard Demo Package...");
+        setTimeout(() => {
+            const result = submitBrokerUploadPackage("ABC Gold Standard Demo Package");
+            setAnalysis(result);
+            setUploadState("complete");
+            setBanner("ABC Gold Standard Demo Package loaded and analyzed.");
+            setTimeout(() => setBanner(null), 5000);
+        }, 1200);
     };
 
-    if (submitted) {
+    const handleSubmit = () => {
+        if (!analysis) return;
+        confirmBrokerPackage(analysis.submissionId);
+        setUploadState("submitted");
+        setBanner("Package submitted successfully!");
+    };
+
+    const resetUpload = () => {
+        setUploadState("idle");
+        setSelectedFile(null);
+        setAnalysis(null);
+        setBanner(null);
+    };
+
+    if (uploadState === "submitted") {
         return (
             <div>
-                <div className="ps-success-banner">Package submitted successfully! 300 requests published to the request tracker.</div>
+                {banner && (
+                    <div className="ps-banner" style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", padding: "10px 16px", borderRadius: 8, fontWeight: 600, fontSize: 13, marginBottom: 16 }}>
+                        {banner}
+                    </div>
+                )}
+                <div className="ps-success-banner">Package submitted successfully! {analysis?.detected || 0} requests published to the request tracker.</div>
                 <p style={{ fontSize: 13, color: "#64748b", marginTop: 12 }}>Visit the <a href="/portal/requests">Requests</a> page to view the published items.</p>
+                <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ marginTop: 12 }}>Upload Another Package</button>
             </div>
         );
     }
 
     return (
         <div>
+            {banner && (
+                <div className="ps-banner" style={{
+                    padding: "10px 16px", marginBottom: 16, borderRadius: 8, fontSize: 13, fontWeight: 600,
+                    background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe",
+                }}>
+                    {banner}
+                </div>
+            )}
+
             <p style={{ fontSize: 13, color: "#475569", marginBottom: 16, lineHeight: 1.5 }}>
                 Upload an Excel DD request list or ZIP package containing requests and supporting documents. The classification engine will analyze the content and prepare it for the IntegraCare DD team.
             </p>
-            <div
-                style={{ border: "2px dashed #cbd5e1", borderRadius: 14, padding: "32px 20px", textAlign: "center", cursor: "pointer", background: "#fafbfc" }}
-                onClick={handleUpload}
-                onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = "#4f46e5"; e.currentTarget.style.background = "#f8faff"; }}
-                onDragLeave={(e) => { e.currentTarget.style.borderColor = "#cbd5e1"; e.currentTarget.style.background = "#fafbfc"; }}
-                onDrop={(e) => { e.preventDefault(); handleUpload(); }}
-            >
+
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv,.zip,.pdf"
+                style={{ display: "none" }}
+                onChange={handleFileSelected}
+            />
+
+            <div style={{ border: "2px dashed #cbd5e1", borderRadius: 14, padding: "32px 20px", textAlign: "center", background: "#fafbfc" }}>
                 {uploadState === "idle" && (
                     <>
                         <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 8px" }}>
@@ -309,11 +373,29 @@ function BrokerUploadForm() {
                         <h3 style={{ fontSize: 15, fontWeight: 700, color: "#1e293b", margin: "0 0 4px" }}>Upload DD Package</h3>
                         <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 12px" }}>Drop your file here or click to browse</p>
                         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                            <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={(e) => { e.stopPropagation(); handleUpload(); }}>Browse Files</button>
-                            <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={(e) => { e.stopPropagation(); handleUpload(); }}>Load ABC Gold Standard Demo Package</button>
+                            <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={handleBrowseClick}>Browse Files</button>
+                            <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={handleLoadABCDemo}>Load ABC Gold Standard Demo Package</button>
                         </div>
                     </>
                 )}
+
+                {uploadState === "selected" && (
+                    <>
+                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 8px" }}>
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="12" y1="18" x2="12" y2="12" />
+                            <line x1="9" y1="15" x2="15" y2="15" />
+                        </svg>
+                        <h3 style={{ fontSize: 15, fontWeight: 700, color: "#1e293b", margin: "0 0 4px" }}>File Selected</h3>
+                        <p style={{ fontSize: 13, color: "#4f46e5", fontWeight: 600, margin: "0 0 12px" }}>{selectedFile}</p>
+                        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                            <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={handleAnalyzePackage}>Analyze Package</button>
+                            <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={resetUpload}>Cancel</button>
+                        </div>
+                    </>
+                )}
+
                 {uploadState === "analyzing" && (
                     <div>
                         <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 8px" }}>
@@ -324,12 +406,16 @@ function BrokerUploadForm() {
                         <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>Classification engine processing</p>
                     </div>
                 )}
+
                 {uploadState === "complete" && analysis && (
                     <div>
                         <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 8px" }}>
                             <polyline points="20 6 9 17 4 12" />
                         </svg>
                         <h3 style={{ fontSize: 15, fontWeight: 700, color: "#166534", margin: "0 0 8px" }}>Package Analyzed</h3>
+                        <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 10px" }}>
+                            {analysis.packageName}{analysis.isABCDemo ? " (Gold Standard Demo)" : ""}
+                        </p>
                         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginBottom: 10 }}>
                             <div style={{ textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, color: "#1e293b" }}>{analysis.detected}</div><div style={{ fontSize: 11, color: "#64748b" }}>Requests</div></div>
                             <div style={{ textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, color: "#1d4ed8" }}>{analysis.needsReview}</div><div style={{ fontSize: 11, color: "#64748b" }}>Review</div></div>
@@ -341,10 +427,30 @@ function BrokerUploadForm() {
                                 <span key={cat} style={{ fontSize: 10, padding: "2px 8px", background: "#eef2ff", color: "#4338ca", borderRadius: 4, fontWeight: 600 }}>{cat}</span>
                             ))}
                         </div>
-                        <button className="rc-btn rc-btn-primary" onClick={(e) => { e.stopPropagation(); handleSubmit(); }}>Submit Package to IntegraCare</button>
+                        <button className="rc-btn rc-btn-primary" onClick={handleSubmit}>Submit Package to IntegraCare</button>
                     </div>
                 )}
             </div>
+
+            {submissions.length > 0 && (
+                <div style={{ marginTop: 20 }}>
+                    <h3 style={{ fontSize: 14, fontWeight: 700, color: "#1e293b", margin: "0 0 10px" }}>Recent Submissions</h3>
+                    <div className="po-requests-table">
+                        <div className="po-requests-header">
+                            <span>Package</span><span>File</span><span>Submitted</span><span>Requests</span><span>Status</span>
+                        </div>
+                        {submissions.slice().reverse().map((sub) => (
+                            <div key={sub.id} className="po-requests-row">
+                                <span style={{ fontSize: 13, fontWeight: 600 }}>{sub.packageName}</span>
+                                <span style={{ fontSize: 12, color: "#64748b" }}>{sub.fileName}</span>
+                                <span style={{ fontSize: 12, color: "#475569" }}>{new Date(sub.submittedAt).toLocaleDateString()}</span>
+                                <span style={{ fontSize: 12, color: "#475569" }}>{sub.requestCount}</span>
+                                <span style={{ fontSize: 12, color: sub.status === "Submitted" ? "#166534" : "#92400e", fontWeight: 600 }}>{sub.status}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

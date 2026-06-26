@@ -1,6 +1,6 @@
 import { useState } from "react";
 import RecapSubNav from "./RecapSubNav";
-import { isDemoActive, initDemo, resetDemo, getDemoTransaction } from "../../services/recapDataService";
+import { isDemoActive, initDemo, resetDemo, getDemoTransaction, clearAllPortalCreatedData } from "../../services/recapDataService";
 import "./Recapitalization.css";
 
 const SETTING_GROUPS = [
@@ -43,26 +43,28 @@ export default function RecapitalizationSettings() {
     const [_refreshKey, setRefreshKey] = useState(0);
     const demoTxn = demoLoaded ? getDemoTransaction() : null;
 
-    const showToast = (msg: string) => {
-        setDemoToast(msg);
-        setTimeout(() => setDemoToast(""), 2500);
-    };
-
     const REVIEW_STATE_KEY = "integrasource.recap.demo.reviewStates";
 
+    const showBanner = (msg: string) => {
+        setDemoToast(msg);
+        setTimeout(() => setDemoToast(""), 4000);
+    };
+
     const handleLoadDemo = () => {
+        clearAllPortalCreatedData();
         initDemo();
         localStorage.removeItem(REVIEW_STATE_KEY);
         setDemoLoaded(true);
         setRefreshKey(k => k + 1);
-        showToast("ABC Company Portfolio demo loaded — 300 requests, 5 communities");
+        showBanner("ABC Company Portfolio demo loaded — 300 requests, 5 communities");
     };
 
     const handleResetDemo = () => {
+        clearAllPortalCreatedData();
         initDemo();
         localStorage.removeItem(REVIEW_STATE_KEY);
         setRefreshKey(k => k + 1);
-        showToast("Demo data reset to initial state");
+        showBanner("Demo data reset to initial state");
     };
 
     const handleClearDemo = () => {
@@ -70,12 +72,20 @@ export default function RecapitalizationSettings() {
         localStorage.removeItem(REVIEW_STATE_KEY);
         setDemoLoaded(false);
         setRefreshKey(k => k + 1);
-        showToast("Demo data cleared — returning to standard mock data");
+        showBanner("Demo data cleared — returning to standard mock data");
     };
 
     return (
         <div className="rc-page">
             <RecapSubNav />
+            {demoToast && (
+                <div style={{
+                    padding: "10px 16px", margin: "0 24px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600,
+                    background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0",
+                }}>
+                    {demoToast}
+                </div>
+            )}
             <div className="rc-header">
                 <h1>Settings</h1>
                 <div className="rc-header-actions">
@@ -143,9 +153,6 @@ export default function RecapitalizationSettings() {
                             Clear Recap Demo Data
                         </button>
                     </div>
-                    {demoToast && (
-                        <span style={{ fontSize: 12, color: "#166534", fontWeight: 600 }}>{demoToast}</span>
-                    )}
                 </div>
             </div>
         </div>

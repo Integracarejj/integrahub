@@ -1,4 +1,4 @@
-import { isDemoActive, getDemoTransaction, getDemoRequests, getDemoDocuments, initDemo, publishIntake, getDemoEngineSummary, addPortalCreatedIntakeItem, addPortalCreatedRequests, addPortalSubmission, getPortalSubmissions, updatePortalSubmissionStatus, getPortalCreatedRequests, getPortalCreatedIntakeItems, clearAllPortalCreatedData } from "./recapDataService";
+import { isDemoActive, getDemoTransaction, getDemoRequests, getDemoDocuments, initDemo, publishIntake, getDemoEngineSummary, addPortalCreatedIntakeItem, addPortalCreatedRequests, addPortalSubmission, getPortalSubmissions, updatePortalSubmissionStatus, clearAllPortalCreatedData } from "./recapDataService";
 import type { RecapRequest, RecapDocument, RecapTransaction, RecapIntakeItem } from "./recapDataService";
 
 const PERSONA_KEY = "integrasource.recap.portalPersona";
@@ -562,7 +562,6 @@ export function confirmBrokerPackage(submissionId?: string): void {
     }
 
     // Custom package: create intake item + requests, persist
-    const now = new Date().toISOString().split("T")[0];
     const fileBaseName = sub.fileName.replace(/\.[^.]+$/, "").trim();
     const requests = generatePortalRequests(submissionId, sub.packageName, fileBaseName, sub.requestCount);
     const intakeItem = createPortalIntakeItem(submissionId, sub.packageName, sub.fileName, sub.requestCount, false);
