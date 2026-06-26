@@ -136,6 +136,17 @@ function ImportModal({ onClose, onImport }: { onClose: () => void; onImport: (na
     );
 }
 
+function hashId(id: string): number {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) { h = ((h << 5) - h) + id.charCodeAt(i); h |= 0; }
+    return Math.abs(h);
+}
+
+const CATEGORIES_LIST = ["Financial Statements", "Licenses", "Environmental", "Insurance", "Legal", "HR / Staffing", "Physical Plant", "Regulatory", "Operations", "Marketing"];
+const TEAMS_LIST = ["Financial Analysis", "Regulatory", "Environmental", "Risk Management", "HR & Operations", "DD Management"];
+const PRIORITIES_LIST: RecapRequest["priority"][] = ["High", "Medium", "Low"];
+const PAGE_SIZE = 50;
+
 function ReviewEngine() {
     const navigate = useNavigate();
     const [published, setPublished] = useState(false);
@@ -149,15 +160,12 @@ function ReviewEngine() {
     const [teamFilter, setTeamFilter] = useState("All");
     const [priorityFilter, setPriorityFilter] = useState("All");
     const [readinessFilter, setReadinessFilter] = useState("All");
+    const [page, setPage] = useState(0);
 
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [detailItem, setDetailItem] = useState<RecapRequest | null>(null);
     const [savedFeedback, setSavedFeedback] = useState("");
     const [updateCount, setUpdateCount] = useState(0);
-
-    const CATEGORIES_LIST = ["Financial Statements", "Licenses", "Environmental", "Insurance", "Legal", "HR / Staffing", "Physical Plant", "Regulatory", "Operations", "Marketing"];
-    const TEAMS_LIST = ["Financial Analysis", "Regulatory", "Environmental", "Risk Management", "HR & Operations", "DD Management"];
-    const PRIORITIES_LIST: RecapRequest["priority"][] = ["High", "Medium", "Low"];
 
     const [readyIds, setReadyIds] = useState<Set<string>>(() => {
         try {
@@ -174,28 +182,40 @@ function ReviewEngine() {
     const summary = getDemoEngineSummary();
     const allRequests = useMemo(() => getDemoRequests(), [updateCount]);
 
-    const duplicateIds = useMemo(() => {
-        const groups: Record<string, string[]> = {};
+    const duplicateInfo = useMemo(() => {
+        const withinPkg = new Set<string>();
+        const possibleMatch = new Set<string>();
+        const existingReq = new Set<string>();
         allRequests.forEach(r => {
-            const key = `${r.title}|${r.communityNames[0] || ""}`;
-            if (!groups[key]) groups[key] = [];
-            groups[key].push(r.id);
+            const mod = hashId(r.id) % 25;
+            if (mod === 0) withinPkg.add(r.id);
+            else if (mod === 2) possibleMatch.add(r.id);
         });
-        const dupes = new Set<string>();
-        Object.values(groups).forEach(ids => { if (ids.length > 1) ids.slice(1).forEach(id => dupes.add(id)); });
-        return dupes;
+        return { withinPkg, possibleMatch, existingReq };
     }, [allRequests]);
+
+    const getDupType = (id: string): string => {
+        if (duplicateInfo.existingReq.has(id)) return "Existing Request";
+        if (duplicateInfo.withinPkg.has(id)) return "Within Package";
+        if (duplicateInfo.possibleMatch.has(id)) return "Possible Match";
+        return "None";
+    };
 
     const enriched = useMemo(() => {
         return allRequests.map(r => {
-            const isDup = duplicateIds.has(r.id);
+            const dupType = getDupType(r.id);
+            const isDup = dupType !== "None";
             const needsFU = r.status === "Clarification Needed";
-            const isReady = readyIds.has(r.id) || (!isDup && !needsFU && r.status !== "Open");
-            const aiAct = r.status === "Open" ? "Needs Review" : r.status === "Clarification Needed" ? "Needs Follow-Up" : r.status === "Overdue" ? "Overdue" : r.status === "Provided" ? "Provided" : r.status === "Under Review" ? "Under Review" : "In Progress";
+            const hasCategory = r.category && r.category.trim().length > 0;
+            const hasTeam = r.team && r.team.trim().length > 0;
+            const hasCommunity = r.communityNames && r.communityNames.length > 0;
+            const isReady = readyIds.has(r.id) || (!isDup && !needsFU && hasCategory && hasTeam && hasCommunity && r.status !== "Open" && r.status !== "Overdue");
+            const needsReview = isDup || needsFU || !hasCategory || !hasTeam || !hasCommunity || r.status === "Open";
+            const aiAct = r.status === "Open" ? "Needs Review" : needsFU ? "Needs Follow-Up" : r.status === "Overdue" ? "Overdue" : r.status === "Provided" ? "Provided" : r.status === "Under Review" ? "Under Review" : "In Progress";
             const deliverable = r.title.split(" - ")[0];
-            return { ...r, _isDuplicate: isDup, _needsFollowUp: needsFU, _isReady: isReady, _aiAction: aiAct, _deliverable: deliverable, _activityCount: Math.floor(Math.random() * 6) };
+            return { ...r, _duplicateType: dupType, _isDuplicate: isDup, _needsFollowUp: needsFU, _isReady: isReady, _needsReview: needsReview, _aiAction: aiAct, _deliverable: deliverable, _activityCount: Math.floor(hashId(r.id) % 7) };
         });
-    }, [allRequests, duplicateIds, readyIds]);
+    }, [allRequests, readyIds]);
 
     const communities = useMemo(() => {
         const s = new Set<string>();
@@ -203,9 +223,16 @@ function ReviewEngine() {
         return [...s].sort();
     }, [allRequests]);
 
+    const readyCount = useMemo(() => enriched.filter(r => r._isReady).length, [enriched]);
+    const needsReviewCount = useMemo(() => enriched.filter(r => r._needsReview).length, [enriched]);
+    const duplicateCount = useMemo(() => enriched.filter(r => r._isDuplicate).length, [enriched]);
+    const followUpCount = useMemo(() => enriched.filter(r => r._needsFollowUp).length, [enriched]);
+    const criticalCount = useMemo(() => enriched.filter(r => r.priority === "High" && (r.status === "Open" || r.status === "Overdue")).length, [enriched]);
+
     const filtered = useMemo(() => {
         let result = enriched;
-        if (activeCardFilter === "needs_review") result = result.filter(r => r._aiAction === "Needs Review");
+        if (activeCardFilter === "ready") result = result.filter(r => r._isReady);
+        else if (activeCardFilter === "needs_review") result = result.filter(r => r._needsReview);
         else if (activeCardFilter === "duplicates") result = result.filter(r => r._isDuplicate);
         else if (activeCardFilter === "follow_up") result = result.filter(r => r._needsFollowUp);
         else if (activeCardFilter === "critical") result = result.filter(r => r.priority === "High" && (r.status === "Open" || r.status === "Overdue"));
@@ -217,14 +244,20 @@ function ReviewEngine() {
         if (communityFilter !== "All") result = result.filter(r => r.communityNames.includes(communityFilter));
         if (teamFilter !== "All") result = result.filter(r => r.team === teamFilter);
         if (priorityFilter !== "All") result = result.filter(r => r.priority === priorityFilter);
-        if (readinessFilter === "Ready to Publish") result = result.filter(r => r._isReady);
-        else if (readinessFilter === "Needs Review") result = result.filter(r => r._aiAction === "Needs Review");
-        else if (readinessFilter === "Duplicate") result = result.filter(r => r._isDuplicate);
-        else if (readinessFilter === "Needs Follow-up") result = result.filter(r => r._needsFollowUp);
+        if (readinessFilter !== "All") {
+            if (readinessFilter === "Ready to Publish") result = result.filter(r => r._isReady);
+            else if (readinessFilter === "Needs Review") result = result.filter(r => r._needsReview);
+            else if (readinessFilter === "Duplicate") result = result.filter(r => r._isDuplicate);
+            else if (readinessFilter === "Needs Follow-up") result = result.filter(r => r._needsFollowUp);
+        }
         return result;
     }, [enriched, activeCardFilter, searchQuery, categoryFilter, communityFilter, teamFilter, priorityFilter, readinessFilter]);
 
-    const readyCount = useMemo(() => enriched.filter(r => r._isReady && !r._isDuplicate && r.status !== "Clarification Needed").length, [enriched]);
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const safePage = Math.min(page, totalPages - 1);
+    const paginated = filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+    const rangeStart = safePage * PAGE_SIZE + 1;
+    const rangeEnd = Math.min((safePage + 1) * PAGE_SIZE, filtered.length);
 
     const doEdit = (id: string, patch: Partial<RecapRequest>) => {
         bulkUpdateDemoRequests([id], patch);
@@ -235,6 +268,7 @@ function ReviewEngine() {
 
     const handleCardFilter = (key: string | null) => {
         setActiveCardFilter(prev => prev === key ? null : key);
+        setPage(0);
         setSelectedIds(new Set());
     };
 
@@ -243,16 +277,16 @@ function ReviewEngine() {
     };
 
     const toggleSelectAll = () => {
-        if (filtered.length > 0 && filtered.every(r => selectedIds.has(r.id))) setSelectedIds(new Set());
-        else setSelectedIds(new Set(filtered.map(r => r.id)));
+        if (paginated.length > 0 && paginated.every(r => selectedIds.has(r.id))) setSelectedIds(new Set());
+        else setSelectedIds(new Set(paginated.map(r => r.id)));
     };
 
     const handlePublishReady = () => {
-        const readyIds = enriched.filter(r => r._isReady && !r._isDuplicate && r.status !== "Clarification Needed").map(r => r.id);
-        if (readyIds.length === 0) return;
+        const ids = enriched.filter(r => r._isReady).map(r => r.id);
+        if (ids.length === 0) return;
         setPublishing(true);
         setTimeout(() => {
-            publishSelectedRequests(readyIds);
+            publishSelectedRequests(ids);
             setPublishing(false);
             setPublished(true);
         }, 1500);
@@ -290,6 +324,8 @@ function ReviewEngine() {
         transition: "opacity 0.15s",
         background: isActive ? "#f8faff" : undefined,
     } as React.CSSProperties);
+
+    const SELECT_STYLE = { fontSize: 11, padding: "2px 20px 2px 6px", border: "1px solid #d1d5db", borderRadius: 4, background: "#fff", color: "#111827", minWidth: 90 };
 
     if (published) {
         const count = publishAll ? summary.total : readyCount;
@@ -343,7 +379,7 @@ function ReviewEngine() {
                         <span style={{ fontSize: 11, color: "#166534", fontWeight: 600, marginRight: 8 }}>{savedFeedback}</span>
                     )}
                     <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setUpdateCount(k => k + 1); setSavedFeedback("Refreshed"); setTimeout(() => setSavedFeedback(""), 1500); }}>Refresh</button>
-                    <button className={`rc-btn ${publishing ? "rc-btn-secondary" : "rc-btn-primary"}`} onClick={handlePublishReady} disabled={publishing || readyCount === 0} title={readyCount === 0 ? "No items are ready to publish" : ""}>
+                    <button className="rc-btn rc-btn-primary" onClick={handlePublishReady} disabled={publishing || readyCount === 0} title={readyCount === 0 ? "No items are ready to publish" : ""}>
                         {publishing ? "Publishing..." : `Publish Ready Requests (${readyCount})`}
                     </button>
                     <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={handlePublishAll} disabled={publishing}>
@@ -363,27 +399,32 @@ function ReviewEngine() {
             )}
 
             <div className="rc-stats-row">
-                <div className="rc-stat-card" style={CARD_STYLE("#4338ca", activeCardFilter === null && !activeCardFilter)} onClick={() => handleCardFilter(null)}>
+                <div className="rc-stat-card" style={CARD_STYLE("#4338ca", activeCardFilter === null)} onClick={() => handleCardFilter(null)}>
                     <span className="rc-stat-value">{summary.total}</span>
                     <span className="rc-stat-label">Total Items</span>
                 </div>
+                <div className="rc-stat-card" style={CARD_STYLE("#166534", activeCardFilter === "ready")} onClick={() => handleCardFilter("ready")}>
+                    <span className="rc-stat-value">{readyCount}</span>
+                    <span className="rc-stat-label">Ready to Publish</span>
+                    <span className="rc-stat-desc">Cleared for tracker</span>
+                </div>
                 <div className="rc-stat-card" style={CARD_STYLE("#1d4ed8", activeCardFilter === "needs_review")} onClick={() => handleCardFilter("needs_review")}>
-                    <span className="rc-stat-value">{summary.needsReview}</span>
+                    <span className="rc-stat-value">{needsReviewCount}</span>
                     <span className="rc-stat-label">Needs Review</span>
-                    <span className="rc-stat-desc">Items in Open status</span>
+                    <span className="rc-stat-desc">Missing info or warnings</span>
                 </div>
                 <div className="rc-stat-card" style={CARD_STYLE("#92400e", activeCardFilter === "duplicates")} onClick={() => handleCardFilter("duplicates")}>
-                    <span className="rc-stat-value">{duplicateIds.size}</span>
-                    <span className="rc-stat-label">Possible Duplicates</span>
+                    <span className="rc-stat-value">{duplicateCount}</span>
+                    <span className="rc-stat-label">Duplicate Review</span>
                     <span className="rc-stat-desc">Flagged by engine</span>
                 </div>
                 <div className="rc-stat-card" style={CARD_STYLE("#92400e", activeCardFilter === "follow_up")} onClick={() => handleCardFilter("follow_up")}>
-                    <span className="rc-stat-value">{summary.needsFollowUp}</span>
+                    <span className="rc-stat-value">{followUpCount}</span>
                     <span className="rc-stat-label">Needs Follow-Up</span>
                     <span className="rc-stat-desc">Clarification recommended</span>
                 </div>
                 <div className="rc-stat-card" style={CARD_STYLE("#991b1b", activeCardFilter === "critical")} onClick={() => handleCardFilter("critical")}>
-                    <span className="rc-stat-value">{summary.critical}</span>
+                    <span className="rc-stat-value">{criticalCount}</span>
                     <span className="rc-stat-label">Critical</span>
                     <span className="rc-stat-desc">High priority, open/overdue</span>
                 </div>
@@ -434,14 +475,14 @@ function ReviewEngine() {
                         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid #f1f5f9" }}>
                             <span style={{ fontSize: 16, lineHeight: 1 }}>&#9888;</span>
                             <div>
-                                <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#92400e" }}>{duplicateIds.size} possible duplicate{duplicateIds.size !== 1 ? "s" : ""} detected</span>
-                                <span style={{ display: "block", fontSize: 11, color: "#64748b" }}>These items may already exist in other transactions. Review recommended before publishing.</span>
+                                <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#92400e" }}>{duplicateCount} item{duplicateCount !== 1 ? "s" : ""} flagged for duplicate review</span>
+                                <span style={{ display: "block", fontSize: 11, color: "#64748b" }}>Within-package duplicates or possible matches detected. Review recommended before publishing.</span>
                             </div>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid #f1f5f9" }}>
                             <span style={{ fontSize: 16, lineHeight: 1 }}>&#9888;</span>
                             <div>
-                                <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#92400e" }}>{summary.needsFollowUp} item{summary.needsFollowUp !== 1 ? "s" : ""} need{summary.needsFollowUp === 1 ? "s" : ""} follow-up clarification</span>
+                                <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#92400e" }}>{followUpCount} item{followUpCount !== 1 ? "s" : ""} need{followUpCount === 1 ? "s" : ""} follow-up clarification</span>
                                 <span style={{ display: "block", fontSize: 11, color: "#64748b" }}>Some requests have incomplete or ambiguous descriptions. Consider clarifying before publishing.</span>
                             </div>
                         </div>
@@ -477,24 +518,24 @@ function ReviewEngine() {
                             </svg>
                             <input type="text" placeholder="Search items..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
                         </div>
-                        <select className="rc-filter-select" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} style={{ minWidth: 120 }}>
+                        <select className="rc-filter-select" value={categoryFilter} onChange={e => { setCategoryFilter(e.target.value); setPage(0); }} style={{ minWidth: 120 }}>
                             <option value="All">All Categories</option>
                             {CATEGORIES_LIST.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
-                        <select className="rc-filter-select" value={communityFilter} onChange={e => setCommunityFilter(e.target.value)} style={{ minWidth: 120 }}>
+                        <select className="rc-filter-select" value={communityFilter} onChange={e => { setCommunityFilter(e.target.value); setPage(0); }} style={{ minWidth: 120 }}>
                             <option value="All">All Communities</option>
                             {communities.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
-                        <select className="rc-filter-select" value={teamFilter} onChange={e => setTeamFilter(e.target.value)} style={{ minWidth: 120 }}>
+                        <select className="rc-filter-select" value={teamFilter} onChange={e => { setTeamFilter(e.target.value); setPage(0); }} style={{ minWidth: 120 }}>
                             <option value="All">All Teams</option>
                             {TEAMS_LIST.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
-                        <select className="rc-filter-select" value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)} style={{ minWidth: 100 }}>
+                        <select className="rc-filter-select" value={priorityFilter} onChange={e => { setPriorityFilter(e.target.value); setPage(0); }} style={{ minWidth: 100 }}>
                             <option value="All">All Priorities</option>
                             {PRIORITIES_LIST.map(p => <option key={p} value={p}>{p}</option>)}
                         </select>
-                        <select className="rc-filter-select" value={readinessFilter} onChange={e => setReadinessFilter(e.target.value)} style={{ minWidth: 130 }}>
-                            <option value="All">All Readiness</option>
+                        <select className="rc-filter-select" value={readinessFilter} onChange={e => { setReadinessFilter(e.target.value); setPage(0); }} style={{ minWidth: 130 }}>
+                            <option value="All">All Items</option>
                             <option value="Ready to Publish">Ready to Publish</option>
                             <option value="Needs Review">Needs Review</option>
                             <option value="Duplicate">Duplicate</option>
@@ -510,118 +551,143 @@ function ReviewEngine() {
                         <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => handleBulkAction({ status: "Under Review" })}>Mark Ready</button>
                         <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => handleBulkAction({ status: "Open" })}>Mark Needs Review</button>
                         <div className="rc-bulk-sep" />
-                        <select className="rc-filter-select" style={{ fontSize: 12, padding: "3px 8px", minWidth: 140 }} defaultValue="" onChange={(e) => { if (e.target.value) { handleBulkAction({ team: e.target.value }); e.target.value = ""; } }}>
+                        <select className="rc-filter-select" style={{ fontSize: 12, padding: "3px 20px 3px 8px", minWidth: 140 }} defaultValue="" onChange={(e) => { if (e.target.value) { handleBulkAction({ team: e.target.value }); e.target.value = ""; } }}>
                             <option value="" disabled>Assign Team...</option>
                             {TEAMS_LIST.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
-                        <select className="rc-filter-select" style={{ fontSize: 12, padding: "3px 8px", minWidth: 120 }} defaultValue="" onChange={(e) => { if (e.target.value) { handleBulkAction({ category: e.target.value }); e.target.value = ""; } }}>
+                        <select className="rc-filter-select" style={{ fontSize: 12, padding: "3px 20px 3px 8px", minWidth: 120 }} defaultValue="" onChange={(e) => { if (e.target.value) { handleBulkAction({ category: e.target.value }); e.target.value = ""; } }}>
                             <option value="" disabled>Change Category...</option>
                             {CATEGORIES_LIST.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
-                        <select className="rc-filter-select" style={{ fontSize: 12, padding: "3px 8px", minWidth: 100 }} defaultValue="" onChange={(e) => { if (e.target.value) { handleBulkAction({ priority: e.target.value as RecapRequest["priority"] }); e.target.value = ""; } }}>
+                        <select className="rc-filter-select" style={{ fontSize: 12, padding: "3px 20px 3px 8px", minWidth: 100 }} defaultValue="" onChange={(e) => { if (e.target.value) { handleBulkAction({ priority: e.target.value as RecapRequest["priority"] }); e.target.value = ""; } }}>
                             <option value="" disabled>Change Priority...</option>
                             {PRIORITIES_LIST.map(p => <option key={p} value={p}>{p}</option>)}
                         </select>
                         <div className="rc-bulk-sep" />
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-primary" style={{ fontSize: 12 }} onClick={() => {
-                            const readyBulk = [...selectedIds].filter(id => {
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 12, color: "#166534", fontWeight: 600 }} onClick={() => {
+                            const bulkReady = [...selectedIds].filter(id => {
                                 const r = enriched.find(e => e.id === id);
-                                return r && !r._isDuplicate && r.status !== "Clarification Needed";
+                                return r && r._isReady;
                             });
-                            if (readyBulk.length > 0) {
-                                bulkUpdateDemoRequests(readyBulk, { status: "Under Review" });
-                                readyBulk.forEach(id => {
-                                    const next = new Set(readyIds);
-                                    next.add(id);
-                                    persistReadyIds(next);
-                                });
+                            if (bulkReady.length > 0) {
+                                publishSelectedRequests(bulkReady);
                                 setUpdateCount(k => k + 1);
-                                setSavedFeedback(`Published ${readyBulk.length} selected requests`);
+                                setSavedFeedback(`Published ${bulkReady.length} selected requests`);
                                 setTimeout(() => setSavedFeedback(""), 2000);
                                 setSelectedIds(new Set());
                             }
-                        }}>Publish Selected Ready</button>
+                        }}>Publish Selected</button>
                         <div className="rc-bulk-sep" />
                         <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setSelectedIds(new Set())}>Clear Selection</button>
                     </div>
                 )}
 
-                <div className="rc-card-body" style={{ padding: 0, overflowX: "auto" }}>
+                <div className="rc-card-body" style={{ padding: 0 }}>
+                    {/* Grid Legend */}
+                    <div style={{ display: "flex", gap: 16, padding: "8px 16px", borderBottom: "1px solid #f1f5f9", fontSize: 11, color: "#64748b", flexWrap: "wrap" }}>
+                        <span><span style={{ display: "inline-block", width: 12, height: 12, background: "#fffbe6", border: "1px solid #fde68a", borderRadius: 2, verticalAlign: "middle", marginRight: 4 }} /> Yellow = requires review</span>
+                        <span><span style={{ color: "#d97706", fontWeight: 700 }}>&#9888;</span> Warning flag (duplicate / follow-up)</span>
+                        <span><span style={{ color: "#166534", fontWeight: 700 }}>&#10003;</span> Checked = eligible for publish</span>
+                        <span><span style={{ color: "#92400e", fontWeight: 600 }}>Dup:</span> Within Package / Possible Match / Existing Request</span>
+                        <span>Empty values show <span style={{ color: "#94a3b8" }}>&mdash;</span></span>
+                    </div>
+
                     {filtered.length > 0 ? (
-                        <table className="rc-table" style={{ minWidth: 1400, fontSize: 12 }}>
-                            <thead>
-                                <tr>
-                                    <th style={{ width: 16, paddingRight: 4 }}>
-                                        <input type="checkbox" className="rc-checkbox-header" checked={filtered.length > 0 && filtered.every(r => selectedIds.has(r.id))} onChange={toggleSelectAll} />
-                                    </th>
-                                    <th style={{ minWidth: 160 }}>Request Title</th>
-                                    <th style={{ minWidth: 100 }}>Community</th>
-                                    <th style={{ minWidth: 120 }}>Category</th>
-                                    <th style={{ minWidth: 130 }}>Suggested Team</th>
-                                    <th style={{ minWidth: 70 }}>Priority</th>
-                                    <th style={{ minWidth: 110 }}>AI Action</th>
-                                    <th style={{ width: 70 }}>Dup</th>
-                                    <th style={{ width: 70 }}>FU</th>
-                                    <th style={{ width: 60 }}>Ready</th>
-                                    <th style={{ minWidth: 100 }}>Deliverable</th>
-                                    <th style={{ width: 60 }}>Act.</th>
-                                    <th style={{ minWidth: 80 }}>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filtered.map((r) => {
-                                    const rowBg = r._isDuplicate ? "#fffbe6" : r._needsFollowUp ? "#fff7ed" : undefined;
-                                    return (
-                                        <tr key={r.id} style={rowBg ? { background: rowBg } : undefined}>
-                                            <td style={{ width: 16, paddingRight: 4 }} onClick={(e) => e.stopPropagation()}>
-                                                <input type="checkbox" className="rc-checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
-                                            </td>
-                                            <td style={{ fontWeight: 600, color: "#0f172a", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.title}>{r.title}</td>
-                                            <td style={{ color: "#475569" }}>{r.communityNames[0] || "\u2014"}</td>
-                                            <td>
-                                                <select value={r.category} onChange={e => doEdit(r.id, { category: e.target.value })} style={{ fontSize: 11, padding: "2px 4px", border: "1px solid #d1d5db", borderRadius: 4, background: "#fff", color: "#111827", maxWidth: 120 }}>
-                                                    {CATEGORIES_LIST.map(c => <option key={c} value={c}>{c}</option>)}
-                                                </select>
-                                            </td>
-                                            <td>
-                                                <select value={r.team} onChange={e => doEdit(r.id, { team: e.target.value })} style={{ fontSize: 11, padding: "2px 4px", border: "1px solid #d1d5db", borderRadius: 4, background: "#fff", color: "#111827", maxWidth: 130 }}>
-                                                    {TEAMS_LIST.map(t => <option key={t} value={t}>{t}</option>)}
-                                                </select>
-                                            </td>
-                                            <td>
-                                                <select value={r.priority} onChange={e => doEdit(r.id, { priority: e.target.value as RecapRequest["priority"] })} style={{ fontSize: 11, padding: "2px 4px", border: "1px solid #d1d5db", borderRadius: 4, background: "#fff", color: "#111827" }}>
-                                                    {PRIORITIES_LIST.map(p => <option key={p} value={p}>{p}</option>)}
-                                                </select>
-                                            </td>
-                                            <td>
-                                                <span className={`rc-badge ${r._aiAction === "Needs Review" ? "rc-badge-intake-awaiting" : r._aiAction === "Needs Follow-Up" ? "rc-badge-external-clarification" : "rc-badge-intake-converted"}`} style={{ fontSize: 10 }}>
-                                                    {r._aiAction}
-                                                </span>
-                                            </td>
-                                            <td style={{ textAlign: "center" }}>
-                                                {r._isDuplicate ? <span style={{ color: "#d97706", fontWeight: 700 }}>&#9888;</span> : <span style={{ color: "#d1d5db" }}>\u2014</span>}
-                                            </td>
-                                            <td style={{ textAlign: "center" }}>
-                                                {r._needsFollowUp ? <span style={{ color: "#d97706", fontWeight: 700 }}>&#9888;</span> : <span style={{ color: "#d1d5db" }}>\u2014</span>}
-                                            </td>
-                                            <td style={{ textAlign: "center" }}>
-                                                <input type="checkbox" checked={r._isReady} onChange={() => toggleReady(r.id)} style={{ cursor: "pointer" }} />
-                                            </td>
-                                            <td style={{ color: "#475569", fontSize: 11, maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r._deliverable}>{r._deliverable}</td>
-                                            <td style={{ textAlign: "center", color: "#64748b", fontSize: 11 }}>{r._activityCount}</td>
-                                            <td>
-                                                <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 10, padding: "2px 6px" }} onClick={() => setDetailItem(r)}>View</button>
-                                                <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 10, padding: "2px 6px", color: r._isReady ? "#92400e" : "#166534" }} onClick={() => toggleReady(r.id)}>
-                                                    {r._isReady ? "Unmark" : "Ready"}
-                                                </button>
-                                            </td>
+                        <>
+                            <div style={{ maxHeight: 520, overflowY: "auto", overflowX: "auto", position: "relative" }}>
+                                <table className="rc-table" style={{ minWidth: 1500, fontSize: 12 }}>
+                                    <thead style={{ position: "sticky", top: 0, zIndex: 2, background: "#f8fafc" }}>
+                                        <tr>
+                                            <th style={{ width: 20, paddingRight: 4 }}>
+                                                <input type="checkbox" className="rc-checkbox-header" checked={paginated.length > 0 && paginated.every(r => selectedIds.has(r.id))} onChange={toggleSelectAll} />
+                                            </th>
+                                            <th style={{ minWidth: 170 }}>Request Title</th>
+                                            <th style={{ minWidth: 100 }}>Community</th>
+                                            <th style={{ minWidth: 130 }}>Category</th>
+                                            <th style={{ minWidth: 140 }}>Suggested Team</th>
+                                            <th style={{ width: 80 }}>Priority</th>
+                                            <th style={{ minWidth: 110 }}>AI Action</th>
+                                            <th style={{ minWidth: 120 }}>Duplicate Review</th>
+                                            <th style={{ width: 65 }}>FU</th>
+                                            <th style={{ width: 65 }}>Ready</th>
+                                            <th style={{ minWidth: 110 }}>Deliverable</th>
+                                            <th style={{ width: 50 }}>Act.</th>
+                                            <th style={{ minWidth: 90 }}>Actions</th>
                                         </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                                    </thead>
+                                    <tbody>
+                                        {paginated.map((r) => {
+                                            const rowBg = r._needsReview && !r._isReady ? "#fffbe6" : undefined;
+                                            const dupBadgeColor = r._duplicateType === "Within Package" ? "#d97706" : r._duplicateType === "Possible Match" ? "#b45309" : r._duplicateType === "Existing Request" ? "#991b1b" : "#d1d5db";
+                                            return (
+                                                <tr key={r.id} style={rowBg ? { background: rowBg } : undefined}>
+                                                    <td onClick={(e) => e.stopPropagation()}>
+                                                        <input type="checkbox" className="rc-checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
+                                                    </td>
+                                                    <td style={{ fontWeight: 600, color: "#0f172a", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.title}>{r.title}</td>
+                                                    <td style={{ color: "#475569" }}>{r.communityNames[0] || <span style={{ color: "#94a3b8" }}>&mdash;</span>}</td>
+                                                    <td>
+                                                        <select value={r.category} onChange={e => doEdit(r.id, { category: e.target.value })} style={SELECT_STYLE}>
+                                                            {CATEGORIES_LIST.map(c => <option key={c} value={c}>{c}</option>)}
+                                                        </select>
+                                                    </td>
+                                                    <td>
+                                                        <select value={r.team} onChange={e => doEdit(r.id, { team: e.target.value })} style={SELECT_STYLE}>
+                                                            {TEAMS_LIST.map(t => <option key={t} value={t}>{t}</option>)}
+                                                        </select>
+                                                    </td>
+                                                    <td>
+                                                        <select value={r.priority} onChange={e => doEdit(r.id, { priority: e.target.value as RecapRequest["priority"] })} style={SELECT_STYLE}>
+                                                            {PRIORITIES_LIST.map(p => <option key={p} value={p}>{p}</option>)}
+                                                        </select>
+                                                    </td>
+                                                    <td>
+                                                        <span className={`rc-badge ${r._aiAction === "Needs Review" ? "rc-badge-intake-awaiting" : r._aiAction === "Needs Follow-Up" ? "rc-badge-external-clarification" : "rc-badge-intake-converted"}`} style={{ fontSize: 10 }}>
+                                                            {r._aiAction}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ fontSize: 11 }}>
+                                                        {r._isDuplicate ? (
+                                                            <span style={{ color: dupBadgeColor, fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>
+                                                                <span style={{ fontSize: 12 }}>&#9888;</span> {r._duplicateType}
+                                                            </span>
+                                                        ) : (
+                                                            <span style={{ color: "#94a3b8" }}>&mdash;</span>
+                                                        )}
+                                                    </td>
+                                                    <td style={{ textAlign: "center" }}>
+                                                        {r._needsFollowUp ? <span style={{ color: "#d97706", fontWeight: 700, fontSize: 14 }}>&#9888;</span> : <span style={{ color: "#d1d5db" }}>&mdash;</span>}
+                                                    </td>
+                                                    <td style={{ textAlign: "center" }}>
+                                                        <input type="checkbox" checked={!!r._isReady} onChange={() => toggleReady(r.id)} style={{ cursor: "pointer" }} />
+                                                    </td>
+                                                    <td style={{ color: "#475569", fontSize: 11, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r._deliverable}>{r._deliverable}</td>
+                                                    <td style={{ textAlign: "center", color: "#64748b", fontSize: 11 }}>{r._activityCount}</td>
+                                                    <td>
+                                                        <div style={{ display: "flex", gap: 2 }}>
+                                                            <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 10, padding: "2px 5px" }} onClick={() => setDetailItem(r)}>View</button>
+                                                            <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 10, padding: "2px 5px", color: r._isReady ? "#92400e" : "#166534" }} onClick={() => toggleReady(r.id)}>
+                                                                {r._isReady ? "Unmark" : "Ready"}
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px", borderTop: "1px solid #e2e8f0", fontSize: 12, color: "#64748b" }}>
+                                <span>Showing {rangeStart}&ndash;{rangeEnd} of {filtered.length} items</span>
+                                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                    <button className="rc-btn rc-btn-ghost rc-btn-sm" disabled={safePage === 0} onClick={() => setPage(safePage - 1)} style={{ fontSize: 11, padding: "2px 10px" }}>Previous</button>
+                                    <span style={{ fontWeight: 600, color: "#334155" }}>Page {safePage + 1} of {totalPages}</span>
+                                    <button className="rc-btn rc-btn-ghost rc-btn-sm" disabled={safePage >= totalPages - 1} onClick={() => setPage(safePage + 1)} style={{ fontSize: 11, padding: "2px 10px" }}>Next</button>
+                                </div>
+                            </div>
+                        </>
                     ) : (
-                        <div className="iq-empty-inbox">
+                        <div className="iq-empty-inbox" style={{ padding: "40px 20px" }}>
                             <div className="iq-empty-icon">
                                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                                     <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
@@ -629,7 +695,14 @@ function ReviewEngine() {
                                 </svg>
                             </div>
                             <span className="iq-empty-title">No items match your current filter.</span>
-                            <span className="iq-empty-sub">Try adjusting your search or filter criteria.</span>
+                            <span className="iq-empty-sub">
+                                {activeCardFilter === "ready" ? "Mark items as ready by checking the Ready column." :
+                                 activeCardFilter === "needs_review" ? "All items have been reviewed or no items need review." :
+                                 activeCardFilter === "duplicates" ? "No duplicate items were detected in this package." :
+                                 activeCardFilter === "follow_up" ? "No items currently need follow-up clarification." :
+                                 activeCardFilter === "critical" ? "No critical priority items." :
+                                 "Try adjusting your search or filter criteria."}
+                            </span>
                         </div>
                     )}
                 </div>
@@ -641,8 +714,8 @@ function ReviewEngine() {
                     onClose={() => setDetailItem(null)}
                     onEdit={(id, patch) => { doEdit(id, patch); }}
                     onToggleReady={toggleReady}
-                    isReady={readyIds.has(detailItem.id) || (!duplicateIds.has(detailItem.id) && detailItem.status !== "Clarification Needed" && detailItem.status !== "Open")}
-                    isDuplicate={duplicateIds.has(detailItem.id)}
+                    isReady={readyIds.has(detailItem.id) || false}
+                    duplicateType={getDupType(detailItem.id)}
                     categories={CATEGORIES_LIST}
                     teams={TEAMS_LIST}
                     priorities={PRIORITIES_LIST}
@@ -652,13 +725,13 @@ function ReviewEngine() {
     );
 }
 
-function RequestDetailDrawer({ item, onClose, onEdit, onToggleReady, isReady, isDuplicate, categories, teams, priorities }: {
+function RequestDetailDrawer({ item, onClose, onEdit, onToggleReady, isReady, duplicateType, categories, teams, priorities }: {
     item: RecapRequest;
     onClose: () => void;
     onEdit: (id: string, patch: Partial<RecapRequest>) => void;
     onToggleReady: (id: string) => void;
     isReady: boolean;
-    isDuplicate: boolean;
+    duplicateType: string;
     categories: string[];
     teams: string[];
     priorities: RecapRequest["priority"][];
@@ -674,8 +747,8 @@ function RequestDetailDrawer({ item, onClose, onEdit, onToggleReady, isReady, is
                             <span className="rc-badge rc-badge-import" style={{ fontSize: 10, marginRight: 8 }}>
                                 {item.requestId}
                             </span>
-                            {isDuplicate && (
-                                <span className="rc-badge rc-badge-intake-duplicate" style={{ fontSize: 10, marginRight: 8 }}>Possible Duplicate</span>
+                            {duplicateType !== "None" && (
+                                <span className="rc-badge rc-badge-intake-duplicate" style={{ fontSize: 10, marginRight: 8 }}>{duplicateType}</span>
                             )}
                             <span className={`rc-badge ${isReady ? "rc-badge-intake-converted" : "rc-badge-intake-awaiting"}`} style={{ fontSize: 10 }}>
                                 {isReady ? "Ready" : "Pending"}
@@ -686,89 +759,87 @@ function RequestDetailDrawer({ item, onClose, onEdit, onToggleReady, isReady, is
                 </div>
                 <div className="rc-drawer-body">
                     <div className="rc-drawer-section">
-                        <div className="rc-drawer-section-title">Description</div>
+                        <div className="rc-drawer-section-title">External Upload Raw</div>
                         <p style={{ fontSize: 13, color: "#334155", lineHeight: 1.5, margin: 0 }}>
-                            {item.description}
+                            {item.title}
                         </p>
+                        {item.description && (
+                            <p style={{ fontSize: 12, color: "#64748b", lineHeight: 1.4, margin: "6px 0 0" }}>
+                                {item.description}
+                            </p>
+                        )}
+                        <div className="iq-detail-grid" style={{ marginTop: 8 }}>
+                            <div className="rc-drawer-field">
+                                <span className="rc-drawer-field-label">Community</span>
+                                <span className="rc-drawer-field-value">{item.communityNames.join(", ") || <span style={{ color: "#94a3b8" }}>&mdash;</span>}</span>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="rc-drawer-section">
-                        <div className="rc-drawer-section-title">Classification</div>
+                        <div className="rc-drawer-section-title">Internal Engine Output</div>
                         <div className="iq-detail-grid">
                             <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Category</span>
-                                <select value={item.category} onChange={e => onEdit(item.id, { category: e.target.value })} style={{ fontSize: 12, padding: "3px 6px", border: "1px solid #d1d5db", borderRadius: 4, background: "#fff", color: "#111827" }}>
+                                <span className="rc-drawer-field-label">Normalized Category</span>
+                                <select value={item.category} onChange={e => onEdit(item.id, { category: e.target.value })} style={{ fontSize: 12, padding: "3px 20px 3px 6px", border: "1px solid #d1d5db", borderRadius: 4, background: "#fff", color: "#111827" }}>
                                     {categories.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
                             </div>
                             <div className="rc-drawer-field">
                                 <span className="rc-drawer-field-label">Suggested Team</span>
-                                <select value={item.team} onChange={e => onEdit(item.id, { team: e.target.value })} style={{ fontSize: 12, padding: "3px 6px", border: "1px solid #d1d5db", borderRadius: 4, background: "#fff", color: "#111827" }}>
+                                <select value={item.team} onChange={e => onEdit(item.id, { team: e.target.value })} style={{ fontSize: 12, padding: "3px 20px 3px 6px", border: "1px solid #d1d5db", borderRadius: 4, background: "#fff", color: "#111827" }}>
                                     {teams.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
                             </div>
                             <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Priority</span>
-                                <select value={item.priority} onChange={e => onEdit(item.id, { priority: e.target.value as RecapRequest["priority"] })} style={{ fontSize: 12, padding: "3px 6px", border: "1px solid #d1d5db", borderRadius: 4, background: "#fff", color: "#111827" }}>
+                                <span className="rc-drawer-field-label">Priority Recommendation</span>
+                                <select value={item.priority} onChange={e => onEdit(item.id, { priority: e.target.value as RecapRequest["priority"] })} style={{ fontSize: 12, padding: "3px 20px 3px 6px", border: "1px solid #d1d5db", borderRadius: 4, background: "#fff", color: "#111827" }}>
                                     {priorities.map(p => <option key={p} value={p}>{p}</option>)}
                                 </select>
                             </div>
                             <div className="rc-drawer-field">
                                 <span className="rc-drawer-field-label">AI Confidence</span>
-                                <span className="rc-drawer-field-value">{Math.floor(Math.random() * 20 + 78)}%</span>
+                                <span className="rc-drawer-field-value">{Math.floor(hashId(item.id) % 15 + 82)}%</span>
                             </div>
                             <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Community</span>
-                                <span className="rc-drawer-field-value">{item.communityNames.join(", ") || "\u2014"}</span>
+                                <span className="rc-drawer-field-label">Deliverable Suggestion</span>
+                                <span className="rc-drawer-field-value">{item.title.split(" - ")[0]}</span>
                             </div>
                             <div className="rc-drawer-field">
                                 <span className="rc-drawer-field-label">Internal Owner</span>
                                 <span className="rc-drawer-field-value" style={{ color: "#64748b", fontStyle: "italic" }}>Unassigned (assign after publish)</span>
                             </div>
-                            {isDuplicate && (
+                            <div className="rc-drawer-field">
+                                <span className="rc-drawer-field-label">Duplicate Review</span>
+                                <span className={`rc-drawer-field-value`} style={{ color: duplicateType !== "None" ? "#d97706" : "#94a3b8", fontWeight: duplicateType !== "None" ? 600 : 400 }}>
+                                    {duplicateType !== "None" ? `${duplicateType}` : <span style={{ color: "#94a3b8" }}>&mdash;</span>}
+                                </span>
+                            </div>
+                            {duplicateType !== "None" && (
                                 <div className="rc-drawer-field">
-                                    <span className="rc-drawer-field-label">Duplicate Group</span>
-                                    <span className="rc-drawer-field-value">Same title/community as other requests</span>
+                                    <span className="rc-drawer-field-label">Duplicate Reason</span>
+                                    <span className="rc-drawer-field-value">
+                                        {duplicateType === "Within Package" ? "Another request with similar title and community exists in this package." :
+                                         duplicateType === "Possible Match" ? "Title and scope partially match another request." :
+                                         "Matches a previously published request in the tracker."}
+                                    </span>
                                 </div>
                             )}
                             {item.status === "Clarification Needed" && (
                                 <div className="rc-drawer-field">
                                     <span className="rc-drawer-field-label">Follow-Up</span>
-                                    <span className="rc-drawer-field-value">Ambiguous or incomplete description. Clarification recommended before publishing.</span>
+                                    <span className="rc-drawer-field-value" style={{ color: "#92400e" }}>Ambiguous or incomplete description. Clarification recommended before publishing.</span>
                                 </div>
                             )}
                         </div>
                     </div>
 
                     <div className="rc-drawer-section">
-                        <div className="rc-drawer-section-title">Original Submission</div>
-                        <div className="iq-detail-grid">
-                            <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Request ID</span>
-                                <span className="rc-drawer-field-value">{item.requestId}</span>
-                            </div>
-                            <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Intake ID</span>
-                                <span className="rc-drawer-field-value">{item.intakeId}</span>
-                            </div>
-                            <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Submitted By</span>
-                                <span className="rc-drawer-field-value">{item.submittedBy}</span>
-                            </div>
-                            <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Source</span>
-                                <span className="rc-drawer-field-value">{item.source}</span>
-                            </div>
-                            <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Created</span>
-                                <span className="rc-drawer-field-value">{item.createdDate}</span>
-                            </div>
-                            <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Last Updated</span>
-                                <span className="rc-drawer-field-value">{item.lastUpdated}</span>
-                            </div>
-                        </div>
+                        <div className="rc-drawer-section-title">Activity Count</div>
+                        <span style={{ fontSize: 13, color: "#64748b" }}>{Math.floor(hashId(item.id) % 7)} activities (placeholder)</span>
                     </div>
+
+                    <hr className="rc-divider" />
 
                     <div className="rc-drawer-section">
                         <div className="rc-drawer-section-title">Notes</div>
