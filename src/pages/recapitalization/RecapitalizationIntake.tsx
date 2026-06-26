@@ -921,7 +921,7 @@ function IntakeQueue() {
             {importModalOpen && (
                 <ImportModal
                     onClose={() => setImportModalOpen(false)}
-                    onImport={(name) => {
+                    onImport={(_name) => {
                         setImportModalOpen(false);
                     }}
                 />

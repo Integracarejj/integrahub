@@ -12,10 +12,6 @@ export default function PortalLayout() {
     const [currentPersona, setCurrentPersona] = useState<ExternalDemoPersona>(getActivePersona);
     const { user } = useCurrentUser();
 
-    const displayName = user?.userRecord?.displayName
-        || user?.principalName
-        || "Signed In";
-
     const isPreviewMode = user?.hasAppAccess && !user?.isPortalUser;
 
     const allPersonas = getPersonas();

@@ -1,4 +1,4 @@
-import type { RecapTransaction, RecapRequest, RecapIntakeItem, RecapDocument, RecapActivity, RecapTeamMember, RecapCategory } from "./recapMockData";
+import type { RecapTransaction, RecapRequest, RecapIntakeItem, RecapDocument, RecapActivity } from "./recapMockData";
 
 const DEMO_KEY = "integrasource.recap.demo";
 
@@ -45,11 +45,6 @@ const MEMBERS: { name: string; team: string }[] = [
 
 function pick<T>(arr: T[]): T {
     return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function pickN<T>(arr: T[], n: number): T[] {
-    const shuffled = [...arr].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, n);
 }
 
 function randDate(startDaysAgo: number, endDaysAgo: number): string {
@@ -136,7 +131,6 @@ function generateDemoState(): RecapDemoState {
     const activity: RecapActivity[] = [];
     const documents: RecapDocument[] = [];
 
-    const docStatuses: ("Available" | "Linked" | "Needs Review")[] = ["Available", "Linked", "Needs Review"];
     const reqStatusWeights = [0.40, 0.20, 0.15, 0.10, 0.10, 0.05]; // Open, InProgress, Provided, Clar, UnderReview, Overdue
 
     for (let i = 1; i <= 300; i++) {

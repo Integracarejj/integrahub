@@ -1,4 +1,3 @@
-import { useNavigate } from "react-router-dom";
 import { getPortalTransactions, getActivePersona } from "../../services/portalMockData";
 import "./PortalOverview.css";
 

@@ -1,4 +1,4 @@
-import { isDemoActive, getDemoTransaction, getDemoRequests, getDemoDocuments, getDemoStatusCounts, initDemo, publishIntake, getDemoEngineSummary, bulkUpdateDemoRequests } from "./recapDataService";
+import { isDemoActive, getDemoTransaction, getDemoRequests, getDemoDocuments, initDemo, publishIntake, getDemoEngineSummary } from "./recapDataService";
 import type { RecapRequest, RecapDocument, RecapTransaction } from "./recapDataService";
 
 const PERSONA_KEY = "integrasource.recap.portalPersona";
@@ -142,6 +142,8 @@ export interface PortalUserContext {
 
 /* ── In-memory mock stores for submit operations ──────────── */
 
+const MOCK_REQUESTS: PortalRequest[] = [];
+
 const MOCK_QUESTIONS: PortalQuestion[] = [
     {
         id: "pq-1", transactionId: "txn-abc", transactionName: "ABC Company Portfolio",
@@ -280,7 +282,7 @@ export function getPortalTransactions(): PortalTransaction[] {
 
 export function getPortalRequests(): PortalRequest[] {
     const { requests } = getRecapData();
-    return requests.filter((r) => r.transactionId === ABC_TXN_ID).map(mapRecapToPortalRequest);
+    return [...MOCK_REQUESTS, ...requests.filter((r) => r.transactionId === ABC_TXN_ID).map(mapRecapToPortalRequest)];
 }
 
 export function getPortalRequestsByTransaction(transactionId: string): PortalRequest[] {
@@ -297,7 +299,7 @@ export function getPortalClarifications(): PortalClarification[] {
 
 export function getPortalDocuments(): PortalDocument[] {
     const { documents } = getRecapData();
-    return documents.filter((d) => d.transactionId === ABC_TXN_ID && d.externalVisible !== false).map(mapRecapToPortalDocument);
+    return documents.filter((d) => d.transactionId === ABC_TXN_ID).map(mapRecapToPortalDocument).filter((d) => d.externalVisible !== false);
 }
 
 export function getPortalDocumentsByTransaction(transactionId: string): PortalDocument[] {
@@ -390,6 +392,7 @@ export function submitPortalNewRequest(data: {
         team: "DD Management",
         brokerBuyer: persona.companyName,
     };
+    MOCK_REQUESTS.unshift(newReq);
 }
 
 export function submitBrokerUploadPackage(): { detected: number; needsReview: number; duplicates: number; followUp: number; categories: string[] } {

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { getPortalRequests, getPortalDocuments, getActivePersona, getPortalTransactions } from "../../services/portalMockData";
+import { getPortalRequests, getActivePersona, getPortalTransactions } from "../../services/portalMockData";
 import "./PortalOverview.css";
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {

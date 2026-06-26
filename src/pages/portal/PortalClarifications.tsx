@@ -29,7 +29,8 @@ export default function PortalClarifications() {
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         console.log("Submitting clarification request:", { transactionId: txnId, requestId, details });
-        submitPortalClarification({ transactionId: txnId, requestId, details, communityIds: [] });
+        const selReq = availableRequests.find(r => r.id === requestId);
+        submitPortalClarification({ transactionId: txnId, requestId, details, communityIds: [], communityNames: [], requestTitle: selReq?.title || "Selected request" });
         setSubmitted(true);
         setDetails("");
         setTimeout(() => setSubmitted(false), 3000);

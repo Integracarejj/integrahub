@@ -1,12 +1,10 @@
 import { useState, useMemo } from "react";
-import { getPortalDocuments, getActivePersona, getPortalTransactions } from "../../services/portalMockData";
+import { getPortalDocuments, getActivePersona } from "../../services/portalMockData";
 import "./PortalOverview.css";
 
 export default function PortalDocuments() {
     const documents = getPortalDocuments();
     const persona = getActivePersona();
-    const txn = getPortalTransactions()[0];
-    const communities = txn?.communities || [];
 
     const [groupBy, setGroupBy] = useState<"community" | "category">("category");
 

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-    getPortalUserContext, getPortalRequests, getPortalTransactions,
+    getPortalRequests, getPortalTransactions,
     getActivePersona, submitBrokerUploadPackage, confirmBrokerPackage,
     getPortalDocuments, getPortalClarifications, getPortalQuestions,
 } from "../../services/portalMockData";
@@ -410,8 +410,6 @@ function BuyerOverview({ persona }: { persona: ExternalDemoPersona }) {
 /* ── Main Export ────────────────────────────────────────────── */
 
 export default function PortalOverview() {
-    const navigate = useNavigate();
-    const userContext = getPortalUserContext();
     const persona = getActivePersona();
 
     if (persona.role === "Broker") return <BrokerOverview persona={persona} />;

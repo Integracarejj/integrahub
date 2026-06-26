@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { lookupWorkspaceItem, getDocumentsByTransaction, getActivityByTransaction, isDemoActive } from "../../services/recapDataService";
+import { lookupWorkspaceItem, getDocumentsByTransaction, getActivityByTransaction } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 

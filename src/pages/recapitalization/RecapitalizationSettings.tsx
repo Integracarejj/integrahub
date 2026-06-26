@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import RecapSubNav from "./RecapSubNav";
 import { isDemoActive, initDemo, resetDemo, getDemoTransaction } from "../../services/recapDataService";
 import "./Recapitalization.css";
@@ -40,7 +40,7 @@ const SETTING_GROUPS = [
 export default function RecapitalizationSettings() {
     const [demoLoaded, setDemoLoaded] = useState(isDemoActive());
     const [demoToast, setDemoToast] = useState("");
-    const [refreshKey, setRefreshKey] = useState(0);
+    const [_refreshKey, setRefreshKey] = useState(0);
     const demoTxn = demoLoaded ? getDemoTransaction() : null;
 
     const showToast = (msg: string) => {
