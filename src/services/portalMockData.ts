@@ -406,6 +406,69 @@ export interface PortalPackageSubmission {
     isABCDemo: boolean;
 }
 
+/* ── XLSX Parsing ───────────────────────────────────────────── */
+
+export async function parseUploadedXLSX(file: File): Promise<{ headers: string[]; rows: Record<string, string>[]; sheetName: string; count: number }> {
+    const XLSX = await import("xlsx");
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: "array" });
+    const sheetName = workbook.SheetNames.find(n => n.toLowerCase().includes("dd requests")) || workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const jsonRows: Record<string, string>[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    const nonEmpty = jsonRows.filter(r => Object.values(r).some(v => String(v).trim().length > 0));
+    const headers = nonEmpty.length > 0 ? Object.keys(nonEmpty[0]) : [];
+    return { headers, rows: nonEmpty, sheetName, count: nonEmpty.length };
+}
+
+export function mapParsedRowToRecapRequest(
+    row: Record<string, string>,
+    submissionId: string,
+    index: number,
+    fileBaseName: string,
+    packageName: string
+): RecapRequest {
+    const prefix = fileBaseName.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5) || "PKG";
+    const rawPriority = String(row["Priority"] || "").toLowerCase();
+    const priority: RecapRequest["priority"] = rawPriority.includes("high") ? "High" : rawPriority.includes("low") ? "Low" : "Medium";
+    const rawDate = row["Due Date"] || "";
+    const dueDate = rawDate ? new Date(rawDate).toISOString().split("T")[0] : new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0];
+    const now = new Date().toISOString().split("T")[0];
+    return {
+        id: `${submissionId}-req-${index}`,
+        requestId: `DD-${prefix}-${String(index).padStart(3, "0")}`,
+        intakeId: `INT-${prefix}-${index}`,
+        transactionId: `txn-portal-${submissionId}`,
+        transactionName: packageName,
+        brokerBuyer: "External",
+        communityIds: [],
+        communityNames: [],
+        category: "General",
+        title: String(row["Request Title"] || row["Title"] || `Request ${index}`).trim(),
+        description: String(row["Description"] || "").trim(),
+        owner: String(row["Suggested Internal Owner"] || "").trim() || null,
+        team: String(row["Suggested Team"] || "DD Management").trim(),
+        status: "Open",
+        priority,
+        dueDate,
+        lastUpdated: now,
+        externalVisible: true,
+        submittedBy: String(row["Broker"] || "External Portal").trim(),
+        source: "External",
+        createdDate: now,
+        assignedTo: String(row["Suggested Internal Owner"] || "").trim() || null,
+        _publishedAt: null,
+    };
+}
+
+export function extractCategoriesFromParsedRows(rows: Record<string, string>[]): string[] {
+    const cats = new Set<string>();
+    rows.forEach(r => {
+        if (r["Category"]) cats.add(r["Category"]);
+    });
+    const result = [...cats].filter(Boolean);
+    return result.length > 0 ? result : ["Financial Statements", "Licenses", "Environmental", "Insurance", "Legal", "HR / Staffing"];
+}
+
 /* ── Portal Package Submission Helpers ────────────────────────── */
 
 function generatePortalRequests(submissionId: string, packageName: string, fileBaseName: string, count: number): RecapRequest[] {
@@ -472,7 +535,11 @@ function createPortalIntakeItem(submissionId: string, packageName: string, fileN
     };
 }
 
-export function submitBrokerUploadPackage(fileName?: string): {
+export function submitBrokerUploadPackage(
+    fileName?: string,
+    parsedCount?: number,
+    parsedCategories?: string[]
+): {
     submissionId: string;
     detected: number;
     needsReview: number;
@@ -514,7 +581,7 @@ export function submitBrokerUploadPackage(fileName?: string): {
     // Custom uploaded package
     const fileBaseName = fileName.replace(/\.[^.]+$/, "").trim();
     const packageName = fileBaseName;
-    const requestCount = Math.floor(Math.random() * 15) + 5;
+    const requestCount = parsedCount ?? 0;
 
     const submission: PortalPackageSubmission = {
         id: submissionId,
@@ -528,14 +595,16 @@ export function submitBrokerUploadPackage(fileName?: string): {
     };
     addPortalSubmission(submission);
 
-    const categories = ["Financial Statements", "Licenses", "Environmental", "Insurance", "Legal", "HR / Staffing", "Physical Plant", "Regulatory", "Operations", "Marketing"];
+    const categories = parsedCategories && parsedCategories.length > 0
+        ? parsedCategories
+        : ["Financial Statements", "Licenses", "Environmental", "Insurance", "Legal", "HR / Staffing", "Physical Plant", "Regulatory", "Operations", "Marketing"];
     return {
         submissionId,
         detected: requestCount,
         needsReview: Math.floor(requestCount * 0.4),
         duplicates: Math.floor(requestCount * 0.08),
         followUp: Math.floor(requestCount * 0.12),
-        categories: categories.slice(0, Math.min(5 + Math.floor(Math.random() * 4), categories.length)),
+        categories,
         packageName,
         isABCDemo: false,
     };
@@ -543,7 +612,6 @@ export function submitBrokerUploadPackage(fileName?: string): {
 
 export function confirmBrokerPackage(submissionId?: string): void {
     if (!submissionId) {
-        // Legacy ABC-only flow
         if (!isDemoActive()) initDemo();
         publishIntake();
         return;
@@ -554,7 +622,6 @@ export function confirmBrokerPackage(submissionId?: string): void {
     if (!sub) return;
 
     if (sub.isABCDemo) {
-        // Publish existing ABC demo
         if (!isDemoActive()) initDemo();
         publishIntake();
         updatePortalSubmissionStatus(submissionId, "Submitted");

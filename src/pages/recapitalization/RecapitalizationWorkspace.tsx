@@ -187,6 +187,7 @@ export default function RecapitalizationWorkspace() {
     const [showAssign, setShowAssign] = useState(false);
     const [showRoute, setShowRoute] = useState(false);
     const [showConverted, setShowConverted] = useState(false);
+    const [banner, setBanner] = useState<string | null>(null);
 
     if (!result) {
         return (
@@ -249,6 +250,16 @@ export default function RecapitalizationWorkspace() {
                     Back
                 </button>
             </div>
+
+            {banner && (
+                <div style={{
+                    padding: "10px 16px", marginBottom: 16, borderRadius: 8, fontSize: 13, fontWeight: 600,
+                    background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0",
+                }}>
+                    {banner}
+                    <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ marginLeft: 12, color: "#166534", fontSize: 11 }} onClick={() => setBanner(null)}>OK</button>
+                </div>
+            )}
 
             <div className="ws-header">
                 <div className="ws-header-main" style={{ flex: 1 }}>
@@ -598,11 +609,13 @@ export default function RecapitalizationWorkspace() {
                 <AssignUserModal
                     onClose={() => setShowAssign(false)}
                     onAssign={(user) => {
-                        bulkUpdateDemoRequests([item.id || item.intakeId || ""], { owner: user.name, assignedTo: user.name });
+                        const ids = [item.id || item.intakeId || ""].filter(Boolean);
+                        const count = bulkUpdateDemoRequests(ids, { owner: user.name, assignedTo: user.name });
                         setInternalOwner(user.name);
                         setWsRefreshKey(k => k + 1);
-                        wsToast(`Assigned to ${user.name}`);
                         setShowAssign(false);
+                        setBanner(count > 0 ? `Assigned to ${user.name}` : "Item not found — no change applied.");
+                        setTimeout(() => setBanner(null), 4000);
                     }}
                 />
             )}
@@ -610,11 +623,13 @@ export default function RecapitalizationWorkspace() {
                 <RouteToTeamModal
                     onClose={() => setShowRoute(false)}
                     onRoute={(team) => {
-                        bulkUpdateDemoRequests([item.id || item.intakeId || ""], { team });
+                        const ids = [item.id || item.intakeId || ""].filter(Boolean);
+                        const count = bulkUpdateDemoRequests(ids, { team });
                         setTeam(team);
                         setWsRefreshKey(k => k + 1);
-                        wsToast(`Routed to ${team}`);
                         setShowRoute(false);
+                        setBanner(count > 0 ? `Routed to ${team}` : "Item not found — no change applied.");
+                        setTimeout(() => setBanner(null), 4000);
                     }}
                 />
             )}

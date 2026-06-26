@@ -1,10 +1,11 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     getPortalRequests, getPortalTransactions,
     getActivePersona, submitBrokerUploadPackage, confirmBrokerPackage,
     getPortalDocuments, getPortalClarifications, getPortalQuestions,
     getPortalSubmissionsList, loadABCDemoPackage,
+    parseUploadedXLSX, extractCategoriesFromParsedRows,
 } from "../../services/portalMockData";
 import type { ExternalDemoPersona } from "../../services/portalMockData";
 import "./PortalOverview.css";
@@ -51,7 +52,7 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [uploadState, setUploadState] = useState<UploadState>("idle");
-    const [selectedFile, setSelectedFile] = useState<string | null>(null);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
     const [banner, setBanner] = useState<string | null>(null);
 
@@ -60,12 +61,23 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
     const waitingOnInternal = requests.filter(r => r.status === "In Progress" || r.status === "Open").length;
     const provided = requests.filter(r => r.status === "Provided" || r.status === "Under Review").length;
 
+    const resetUpload = useCallback(() => {
+        setUploadState("idle");
+        setSelectedFile(null);
+        setAnalysis(null);
+        setBanner(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    }, []);
+
     const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            setSelectedFile(file.name);
-            setUploadState("selected");
+            setUploadState("idle");
             setAnalysis(null);
+            setBanner(null);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            setSelectedFile(file);
+            setUploadState("selected");
             setBanner(`File selected: ${file.name}`);
             setTimeout(() => setBanner(null), 4000);
         }
@@ -75,16 +87,53 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
         fileInputRef.current?.click();
     };
 
-    const handleAnalyzePackage = () => {
+    const handleDrop = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const file = e.dataTransfer.files?.[0];
+        if (file) {
+            setUploadState("idle");
+            setAnalysis(null);
+            setBanner(null);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            setSelectedFile(file);
+            setUploadState("selected");
+            setBanner(`File selected: ${file.name}`);
+            setTimeout(() => setBanner(null), 4000);
+        }
+    }, []);
+
+    const handleDragOver = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = "copy";
+    }, []);
+
+    const handleDragEnter = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+    }, []);
+
+    const handleDragLeave = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+    }, []);
+
+    const handleAnalyzePackage = async () => {
         if (!selectedFile) return;
         setUploadState("analyzing");
         setBanner(null);
-        setTimeout(() => {
-            const result = submitBrokerUploadPackage(selectedFile);
+        try {
+            const parsed = await parseUploadedXLSX(selectedFile);
+            const cats = extractCategoriesFromParsedRows(parsed.rows);
+            const result = submitBrokerUploadPackage(selectedFile.name, parsed.count, cats);
             setAnalysis(result);
             setUploadState("complete");
-            setBanner(null);
-        }, 1500);
+        } catch (err) {
+            setBanner(`Error parsing file: ${err instanceof Error ? err.message : "Unknown error"}`);
+            setUploadState("selected");
+            setTimeout(() => setBanner(null), 5000);
+        }
     };
 
     const handleLoadABCDemo = () => {
@@ -108,11 +157,11 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
         setBanner("Package submitted successfully!");
     };
 
-    const resetUpload = () => {
-        setUploadState("idle");
-        setSelectedFile(null);
-        setAnalysis(null);
-        setBanner(null);
+    const dropZoneProps = {
+        onDrop: handleDrop,
+        onDragOver: handleDragOver,
+        onDragEnter: handleDragEnter,
+        onDragLeave: handleDragLeave,
     };
 
     return (
@@ -139,11 +188,11 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
                 <div className="po-upload-section" style={{
                     border: "2px dashed #cbd5e1", borderRadius: 14, padding: 28, marginBottom: 20,
                     textAlign: "center", background: "#fafbfc",
-                }}>
+                }} {...dropZoneProps}>
                     <input
                         ref={fileInputRef}
                         type="file"
-                        accept=".xlsx,.xls,.csv,.zip,.pdf"
+                        accept=".xlsx,.xls,.csv"
                         style={{ display: "none" }}
                         onChange={handleFileSelected}
                     />
@@ -173,10 +222,10 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
                                 <line x1="9" y1="15" x2="15" y2="15" />
                             </svg>
                             <h3 style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", margin: "0 0 4px" }}>File Selected</h3>
-                            <p style={{ fontSize: 14, color: "#4f46e5", fontWeight: 600, margin: "0 0 14px" }}>{selectedFile}</p>
+                            <p style={{ fontSize: 14, color: "#4f46e5", fontWeight: 600, margin: "0 0 14px" }}>{selectedFile!.name}</p>
                             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
                                 <button className="rc-btn rc-btn-primary" onClick={handleAnalyzePackage}>Analyze Package</button>
-                                <button className="rc-btn rc-btn-secondary" onClick={resetUpload}>Cancel</button>
+                                <button className="rc-btn rc-btn-secondary" onClick={resetUpload}>Start Over</button>
                             </div>
                         </>
                     )}
@@ -188,7 +237,7 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
                                 <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
                             </svg>
                             <h3 style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", margin: "0 0 4px" }}>Analyzing package...</h3>
-                            <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>Running classification engine on uploaded package.</p>
+                            <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>Reading spreadsheet and classifying {selectedFile?.name}...</p>
                             <div style={{ width: "60%", height: 6, background: "#e2e8f0", borderRadius: 3, margin: "12px auto 0", overflow: "hidden" }}>
                                 <div style={{ width: "60%", height: "100%", background: "#4f46e5", borderRadius: 3 }} />
                             </div>
@@ -202,7 +251,7 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
                             </svg>
                             <h3 style={{ fontSize: 16, fontWeight: 700, color: "#166534", margin: "0 0 4px" }}>Package Analyzed</h3>
                             <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 14px" }}>
-                                {analysis.packageName}{analysis.isABCDemo ? " (Gold Standard Demo)" : ""} &mdash; classification complete.
+                                {analysis.packageName}{analysis.isABCDemo ? " (Gold Standard Demo)" : ""} &mdash; {analysis.detected} request rows identified.
                             </p>
                             <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap", marginBottom: 14 }}>
                                 <div style={{ textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 700, color: "#1e293b" }}>{analysis.detected}</div><div style={{ fontSize: 11, color: "#64748b" }}>Requests</div></div>
@@ -225,23 +274,20 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
             )}
 
             {uploadState === "submitted" && (
-                <>
-                    <div className="po-upload-section" style={{ border: "1px solid #bbf7d0", borderRadius: 14, padding: 20, marginBottom: 20, background: "#f0fdf4" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                            <div>
-                                <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#166534" }}>Package submitted successfully!</span>
-                                <span style={{ display: "block", fontSize: 12, color: "#475569" }}>
-                                    {analysis?.detected || 0} requests published{analysis?.isABCDemo ? " to the request tracker" : ""}.
-                                    <a href="/recapitalization/tracker" style={{ color: "#4f46e5", fontWeight: 600, marginLeft: 6 }}>Open Tracker</a>
-                                </span>
-                            </div>
+                <div className="po-upload-section" style={{ border: "1px solid #bbf7d0", borderRadius: 14, padding: 20, marginBottom: 20, background: "#f0fdf4" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        <div>
+                            <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#166534" }}>Package submitted successfully!</span>
+                            <span style={{ display: "block", fontSize: 12, color: "#475569" }}>
+                                IntegraCare will review and publish approved requests.
+                            </span>
                         </div>
-                        <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ marginTop: 12 }}>Upload Another Package</button>
                     </div>
-                </>
+                    <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ marginTop: 12 }}>Upload Another Package</button>
+                </div>
             )}
 
             <div className="po-stats-row">

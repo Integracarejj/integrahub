@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { useNavigate, Routes, Route } from "react-router-dom";
-import { getIntakeItems, isDemoActive, getDemoEngineSummary, publishIntake, publishSelectedRequests, getDemoRequests, bulkUpdateDemoRequests, getTeamMembers, getTeams } from "../../services/recapDataService";
+import { useNavigate, useParams, Routes, Route } from "react-router-dom";
+import { getIntakeItems, isDemoActive, getDemoEngineSummary, publishIntake, publishSelectedRequests, getDemoRequests, getRequests, bulkUpdateDemoRequests, getTeamMembers, getTeams } from "../../services/recapDataService";
 import type { RecapIntakeItem, RecapRequest, RecapTeamMember } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -153,6 +153,7 @@ type ReviewState = "Ready to Publish" | "Duplicate Review" | "Needs Follow-up" |
 
 function ReviewEngine() {
     const navigate = useNavigate();
+    const { intakeId } = useParams<{ intakeId: string }>();
     const [published, setPublished] = useState(false);
     const [publishing, setPublishing] = useState(false);
     const [publishAll, setPublishAll] = useState(false);
@@ -175,6 +176,13 @@ function ReviewEngine() {
     const [bulkCategory, setBulkCategory] = useState("");
     const [bulkPriority, setBulkPriority] = useState("");
 
+    // If intakeId provided, look up the intake item and scope to its transaction
+    const scope = useMemo(() => {
+        if (!intakeId) return null;
+        const allIntakes = getIntakeItems();
+        return allIntakes.find(i => i.intakeId === intakeId || i.id === intakeId) || null;
+    }, [intakeId]);
+
     const [userReviewStates, setUserReviewStates] = useState<Record<string, ReviewState>>(() => {
         try {
             const raw = localStorage.getItem(REVIEW_STATE_KEY);
@@ -194,7 +202,34 @@ function ReviewEngine() {
     };
 
     const summary = getDemoEngineSummary();
-    const allRequests = useMemo(() => getDemoRequests(), [updateCount]);
+    const allDemoRequests = getDemoRequests();
+    const allRequests = useMemo(() => {
+        if (scope) {
+            // Filter by the intake's transactionId
+            const merged = getRequests();
+            return merged.filter(r => r.transactionId === scope.transactionId);
+        }
+        return allDemoRequests;
+    }, [updateCount, scope, allDemoRequests]);
+
+    const computedSummary = useMemo(() => {
+        if (!scope) return summary;
+        const cats: Record<string, number> = {};
+        const teams: Record<string, number> = {};
+        allRequests.forEach(r => {
+            cats[r.category] = (cats[r.category] || 0) + 1;
+            teams[r.team] = (teams[r.team] || 0) + 1;
+        });
+        return {
+            total: allRequests.length,
+            needsReview: allRequests.filter(r => r.status === "Open" || !r.category).length,
+            possibleDuplicates: 0,
+            needsFollowUp: allRequests.filter(r => r.status === "Clarification Needed").length,
+            critical: allRequests.filter(r => r.priority === "High" && (r.status === "Open" || r.status === "Overdue")).length,
+            categories: cats,
+            teams,
+        };
+    }, [scope, summary, allRequests]);
 
     const duplicateInfo = useMemo(() => {
         const withinPkg = new Set<string>();
@@ -380,10 +415,11 @@ function ReviewEngine() {
         "Needs Review": "#1d4ed8",
     };
 
+    const activeSummary = scope ? computedSummary : summary;
     const readyCount = reviewStateCounts["Ready to Publish"];
 
     if (published) {
-        const count = publishAll ? summary.total : readyCount;
+        const count = publishAll ? activeSummary.total : readyCount;
         return (
             <div className="rc-page">
                 <div className="rc-header">
@@ -427,7 +463,9 @@ function ReviewEngine() {
                         Back to Intake
                     </button>
                     <h1>Intake Workbench</h1>
-                    <span className="rc-badge rc-badge-import" style={{ fontSize: 10 }}>ABC Company Portfolio</span>
+                    {scope && (
+                        <span className="rc-badge rc-badge-import" style={{ fontSize: 10, marginLeft: 8 }}>{scope.transactionName}</span>
+                    )}
                 </div>
                 <div className="rc-header-actions">
                     <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setUpdateCount(k => k + 1); showToast("Refreshed"); }}>Refresh</button>
@@ -452,7 +490,7 @@ function ReviewEngine() {
 
             <div className="rc-stats-row">
                 <div className="rc-stat-card" style={CARD_STYLE("#4338ca", activeCardFilter === null)} onClick={() => handleCardFilter(null)}>
-                    <span className="rc-stat-value">{summary.total}</span>
+                    <span className="rc-stat-value">{activeSummary.total}</span>
                     <span className="rc-stat-label">Total Items</span>
                 </div>
                 <div className="rc-stat-card" style={CARD_STYLE("#166534", activeCardFilter === "ready")} onClick={() => handleCardFilter("ready")}>
@@ -488,11 +526,11 @@ function ReviewEngine() {
                         <h2>Classification by Category</h2>
                     </div>
                     <div className="rc-card-body" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {Object.entries(summary.categories).map(([cat, count]) => (
+                        {Object.entries(activeSummary.categories).map(([cat, count]) => (
                             <div key={cat} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                 <span style={{ width: 140, fontSize: 12, fontWeight: 600, color: "#475569", flexShrink: 0 }}>{cat}</span>
                                 <div style={{ flex: 1, height: 8, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
-                                    <div style={{ height: "100%", width: `${(count / summary.total) * 100}%`, background: "#4338ca", borderRadius: 4 }} />
+                                    <div style={{ height: "100%", width: `${(count / activeSummary.total) * 100}%`, background: "#4338ca", borderRadius: 4 }} />
                                 </div>
                                 <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b", minWidth: 30, textAlign: "right" }}>{count}</span>
                             </div>
@@ -505,11 +543,11 @@ function ReviewEngine() {
                         <h2>Suggested Team Routing</h2>
                     </div>
                     <div className="rc-card-body" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {Object.entries(summary.teams).map(([team, count]) => (
+                        {Object.entries(activeSummary.teams).map(([team, count]) => (
                             <div key={team} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                 <span style={{ width: 140, fontSize: 12, fontWeight: 600, color: "#475569", flexShrink: 0 }}>{team}</span>
                                 <div style={{ flex: 1, height: 8, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
-                                    <div style={{ height: "100%", width: `${(count / summary.total) * 100}%`, background: "#1d4ed8", borderRadius: 4 }} />
+                                    <div style={{ height: "100%", width: `${(count / activeSummary.total) * 100}%`, background: "#1d4ed8", borderRadius: 4 }} />
                                 </div>
                                 <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b", minWidth: 30, textAlign: "right" }}>{count}</span>
                             </div>
@@ -541,7 +579,7 @@ function ReviewEngine() {
                         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px" }}>
                             <span style={{ fontSize: 16, lineHeight: 1 }}>&#128200;</span>
                             <div>
-                                <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1d4ed8" }}>{Object.keys(summary.categories).length} categories detected</span>
+                                <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1d4ed8" }}>{Object.keys(activeSummary.categories).length} categories detected</span>
                                 <span style={{ display: "block", fontSize: 11, color: "#64748b" }}>Classification engine assigned categories and teams. Review routing suggestions below.</span>
                             </div>
                         </div>
@@ -644,12 +682,13 @@ function ReviewEngine() {
                     {filtered.length > 0 ? (
                         <>
                             <div style={{ maxHeight: 520, overflowY: "auto", overflowX: "auto", position: "relative" }}>
-                                <table className="rc-table" style={{ minWidth: 1400, fontSize: 12 }}>
+                                <table className="rc-table" style={{ minWidth: 1500, fontSize: 12 }}>
                                     <thead style={{ position: "sticky", top: 0, zIndex: 2, background: "#f8fafc" }}>
                                         <tr>
                                             <th style={{ width: 20, paddingRight: 4 }}>
                                                 <input type="checkbox" className="rc-checkbox-header" checked={paginated.length > 0 && paginated.every(r => selectedIds.has(r.id))} onChange={toggleSelectAll} />
                                             </th>
+                                            <th style={{ minWidth: 100 }}>Intake ID</th>
                                             <th style={{ minWidth: 200 }}>Request Title</th>
                                             <th style={{ minWidth: 100 }}>Community</th>
                                             <th style={{ minWidth: 130 }}>Category</th>
@@ -669,6 +708,9 @@ function ReviewEngine() {
                                                 <tr key={r.id} className="rc-row-clickable" onClick={() => setDetailItem(r)}>
                                                     <td onClick={(e) => e.stopPropagation()}>
                                                         <input type="checkbox" className="rc-checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
+                                                    </td>
+                                                    <td style={{ color: "#475569", fontWeight: 500, fontSize: 11 }} title={r.intakeId}>
+                                                        {r.intakeId || <span style={{ color: "#94a3b8" }}>&mdash;</span>}
                                                     </td>
                                                     <td style={{ fontWeight: 600, color: "#0f172a", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.title}>
                                                         <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -1023,11 +1065,11 @@ function IntakeDrawer({
     const [showAssign, setShowAssign] = useState(false);
     const [showRoute, setShowRoute] = useState(false);
     const [showConverted, setShowConverted] = useState(false);
-    const [savedFeedback, setSavedFeedback] = useState("");
+    const [drawerBanner, setDrawerBanner] = useState<string | null>(null);
 
     const handleAction = (action: string) => {
         if (action === "review") {
-            navigate("/recapitalization/intake/review");
+            navigate(`/recapitalization/intake/review/${item.intakeId}`);
             return;
         }
         if (action === "assign") {
@@ -1188,6 +1230,15 @@ function IntakeDrawer({
                         </div>
                     </div>
                 </div>
+                {drawerBanner && (
+                    <div style={{
+                        margin: "8px 16px", padding: "8px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600,
+                        background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0",
+                    }}>
+                        {drawerBanner}
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ marginLeft: 8, color: "#166534", fontSize: 10 }} onClick={() => setDrawerBanner(null)}>OK</button>
+                    </div>
+                )}
                 <div className="rc-drawer-actions iq-drawer-actions">
                     <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => handleAction("review")}>
                         Open Review
@@ -1219,9 +1270,12 @@ function IntakeDrawer({
                 <AssignUserModal
                     onClose={() => setShowAssign(false)}
                     onAssign={(user) => {
-                        setSavedFeedback(`Assigned to ${user.name}`);
-                        setTimeout(() => setSavedFeedback(""), 2000);
+                        const reqs = getRequests().filter(r => r.transactionId === item.transactionId);
+                        const ids = reqs.map(r => r.id);
+                        const count = bulkUpdateDemoRequests(ids, { owner: user.name, assignedTo: user.name });
                         setShowAssign(false);
+                        setDrawerBanner(`Assigned ${count} request${count !== 1 ? "s" : ""} to ${user.name}`);
+                        setTimeout(() => setDrawerBanner(null), 4000);
                     }}
                 />
             )}
@@ -1230,8 +1284,12 @@ function IntakeDrawer({
                     currentItem={item}
                     onClose={() => setShowRoute(false)}
                     onRoute={(team) => {
-                        setSavedFeedback(`Routed to ${team}`);
-                        setTimeout(() => setSavedFeedback(""), 2000);
+                        const reqs = getRequests().filter(r => r.transactionId === item.transactionId);
+                        const ids = reqs.map(r => r.id);
+                        const count = bulkUpdateDemoRequests(ids, { team });
+                        setShowRoute(false);
+                        setDrawerBanner(`Routed ${count} request${count !== 1 ? "s" : ""} to ${team}`);
+                        setTimeout(() => setDrawerBanner(null), 4000);
                     }}
                 />
             )}
@@ -1255,11 +1313,7 @@ function IntakeDrawer({
                     </div>
                 </div>
             )}
-            {savedFeedback && (
-                <div style={{ position: "fixed", bottom: 16, right: 16, background: "#166534", color: "#fff", padding: "8px 16px", borderRadius: 6, fontSize: 12, fontWeight: 600, zIndex: 9999, boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
-                    {savedFeedback}
-                </div>
-            )}
+
         </>
     );
 }
@@ -1268,7 +1322,7 @@ export default function RecapitalizationIntake() {
     return (
         <Routes>
             <Route index element={<IntakeQueue />} />
-            <Route path="review" element={<ReviewEngine />} />
+            <Route path="review/:intakeId" element={<ReviewEngine />} />
         </Routes>
     );
 }

@@ -155,8 +155,14 @@ export function updateRequestStatus(id: string, status: RecapRequest["status"]):
 }
 
 export function updateRequestOwner(id: string, owner: string | null): RecapRequest | undefined {
-    if (isDemoLoaded()) return Demo.updateDemoRequest(id, { owner, assignedTo: owner });
-    return Mock.updateRequestOwner(id, owner);
+    if (isDemoLoaded()) {
+        const result = Demo.updateDemoRequest(id, { owner, assignedTo: owner });
+        if (result) return result;
+        return updatePortalRequestOwner(id, owner);
+    }
+    const result = Mock.updateRequestOwner(id, owner);
+    if (result) return result;
+    return updatePortalRequestOwner(id, owner);
 }
 
 export function updateRequestPriority(id: string, priority: RecapRequest["priority"]): RecapRequest | undefined {
@@ -170,8 +176,14 @@ export function updateRequestDueDate(id: string, dueDate: string): RecapRequest 
 }
 
 export function updateRequestTeam(id: string, team: string): RecapRequest | undefined {
-    if (isDemoLoaded()) return Demo.updateDemoRequest(id, { team });
-    return Mock.updateRequestTeam(id, team);
+    if (isDemoLoaded()) {
+        const result = Demo.updateDemoRequest(id, { team });
+        if (result) return result;
+        return updatePortalRequestTeam(id, team);
+    }
+    const result = Mock.updateRequestTeam(id, team);
+    if (result) return result;
+    return updatePortalRequestTeam(id, team);
 }
 
 export function toggleExternalVisibility(id: string): RecapRequest | undefined {
@@ -209,8 +221,12 @@ export function getMyWork(userName: string): {
 }
 
 export function bulkUpdateDemoRequests(ids: string[], patch: Partial<RecapRequest>): number {
-    if (isDemoLoaded()) return Demo.bulkUpdateDemoRequests(ids, patch);
-    return 0;
+    let count = 0;
+    if (isDemoLoaded()) {
+        count = Demo.bulkUpdateDemoRequests(ids, patch);
+    }
+    count += bulkUpdatePortalRequests(ids, patch);
+    return count;
 }
 
 export function getDemoEngineSummary() {
@@ -262,6 +278,44 @@ export function getDemoStatusCounts() {
 const PORTAL_INTAKE_KEY = "integrasource.recap.demo.portalIntakeItems";
 const PORTAL_REQUESTS_KEY = "integrasource.recap.demo.portalRequests";
 const PORTAL_SUBMISSIONS_KEY = "integrasource.recap.demo.portalSubmissions";
+
+/* ── Portal request/assignment persistence helpers ────────── */
+
+export function updatePortalRequestOwner(reqId: string, owner: string | null): RecapRequest | undefined {
+    const all = getPortalCreatedRequests();
+    const idx = all.findIndex(r => r.id === reqId || r.requestId === reqId || r.intakeId === reqId);
+    if (idx === -1) return;
+    all[idx] = { ...all[idx], owner, assignedTo: owner, lastUpdated: new Date().toISOString().split("T")[0] };
+    localStorage.setItem(PORTAL_REQUESTS_KEY, JSON.stringify(all));
+    return all[idx];
+}
+
+export function updatePortalRequestTeam(reqId: string, team: string): RecapRequest | undefined {
+    const all = getPortalCreatedRequests();
+    const idx = all.findIndex(r => r.id === reqId || r.requestId === reqId || r.intakeId === reqId);
+    if (idx === -1) return;
+    all[idx] = { ...all[idx], team, lastUpdated: new Date().toISOString().split("T")[0] };
+    localStorage.setItem(PORTAL_REQUESTS_KEY, JSON.stringify(all));
+    return all[idx];
+}
+
+export function bulkUpdatePortalRequests(ids: string[], patch: Partial<RecapRequest>): number {
+    let count = 0;
+    const all = getPortalCreatedRequests();
+    const updated = all.map(r => {
+        if (ids.includes(r.id) || ids.includes(r.requestId) || ids.includes(r.intakeId)) {
+            count++;
+            return { ...r, ...patch, lastUpdated: new Date().toISOString().split("T")[0] };
+        }
+        return r;
+    });
+    if (count > 0) {
+        localStorage.setItem(PORTAL_REQUESTS_KEY, JSON.stringify(updated));
+    }
+    return count;
+}
+
+/* ── Portal-created data (packages submitted via external portal) ── */
 
 export function getPortalCreatedIntakeItems(): RecapIntakeItem[] {
     try {
