@@ -221,7 +221,7 @@ export default function RecapitalizationWorkspace() {
 
     const config = SOURCE_CONFIG[item.type] || { icon: "\u2753", label: item.type || "Intake", cssClass: "rc-badge-open" };
 
-    const STATUS_OPTIONS = ["Open", "In Progress", "Waiting on Broker", "Blocked", "Ready for Review", "Complete", "Not Applicable", "Duplicate"];
+    const STATUS_OPTIONS = ["Open", "In Progress", "Pending External", "Blocked", "Ready for Review", "Complete", "Not Applicable", "Duplicate"];
 
     const [sections, setSections] = useState<Record<string, boolean>>({
         submission: false,

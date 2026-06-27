@@ -243,13 +243,87 @@ export function publishIntake(): { publishedCount: number; publishedIds: string[
 }
 
 export function publishSelectedRequests(ids: string[], sourceInfo?: { sourceIntakeId?: string; sourcePackageId?: string }): { publishedCount: number; publishedIds: string[]; publishedBatchId?: string } {
-    if (isDemoLoaded()) return Demo.publishSelectedRequests(ids, sourceInfo);
-    return { publishedCount: 0, publishedIds: [] };
+    const batchId = `batch-${Date.now()}`;
+    const now = new Date().toISOString();
+    const nowDate = now.split("T")[0];
+    let publishedIds: string[] = [];
+    let publishedCount = 0;
+
+    // Check if IDs belong to demo state requests (ABC transaction) or portal requests
+    const portalReqIds = new Set(getPortalCreatedRequests().map(r => r.id));
+    const demoIds = ids.filter(id => !portalReqIds.has(id));
+    const portalIds = ids.filter(id => portalReqIds.has(id));
+
+    // Publish demo state requests (only if demo IDs are present)
+    if (demoIds.length > 0 && isDemoLoaded()) {
+        const result = Demo.publishSelectedRequests(demoIds, sourceInfo);
+        publishedIds = [...result.publishedIds];
+        publishedCount = result.publishedCount;
+    }
+
+    // Publish portal-created requests (e.g. custom packages like BonJovi)
+    if (portalIds.length > 0) {
+        const portalReqs = getPortalCreatedRequests();
+        let portalUpdated = false;
+        const updatedPortalReqs = portalReqs.map(r => {
+            if (portalIds.includes(r.id) || portalIds.includes(r.requestId) || portalIds.includes(r.intakeId)) {
+                if (r._publishedAt) return r;
+                r._publishedAt = nowDate;
+                r._convertedAt = now;
+                r.lastUpdated = nowDate;
+                r._createdFromReview = true;
+                r._sourceReviewItemId = r.requestId;
+                if (sourceInfo?.sourceIntakeId) r._sourceIntakeId = sourceInfo.sourceIntakeId;
+                if (sourceInfo?.sourcePackageId) r._sourcePackageId = sourceInfo.sourcePackageId;
+                publishedCount++;
+                publishedIds.push(r.id);
+                portalUpdated = true;
+                if (r.status === "Open" || (r.status as string) === "Awaiting Review") r.status = "In Progress";
+            }
+            return r;
+        });
+        if (portalUpdated) {
+            localStorage.setItem(PORTAL_REQUESTS_KEY, JSON.stringify(updatedPortalReqs));
+        }
+    }
+
+    const finalBatchId = publishedCount > 0 ? batchId : undefined;
+    console.log(`[publishSelectedRequests] Published ${publishedCount} requests. batchId: ${batchId}`);
+    return { publishedCount, publishedIds, publishedBatchId: finalBatchId };
 }
 
 export function resetRequestTracker(): { clearedCount: number } {
-    if (isDemoLoaded()) return Demo.resetDemoTracker();
-    return { clearedCount: 0 };
+    let demoCleared = 0;
+    let portalCleared = 0;
+
+    // Reset demo state requests
+    if (isDemoLoaded()) {
+        const r = Demo.resetDemoTracker();
+        demoCleared = r.clearedCount;
+    }
+
+    // Reset portal-created requests (clear _publishedAt, _convertedAt, etc.)
+    const portalReqs = getPortalCreatedRequests();
+    let anyCleared = false;
+    const resetPortal = portalReqs.map(r => {
+        if (r._publishedAt || r._createdFromReview) {
+            r._publishedAt = null;
+            r._convertedAt = null;
+            r._sourceIntakeId = undefined;
+            r._sourcePackageId = undefined;
+            r._sourceReviewItemId = undefined;
+            r._createdFromReview = false;
+            portalCleared++;
+            anyCleared = true;
+        }
+        return r;
+    });
+    if (anyCleared) {
+        localStorage.setItem(PORTAL_REQUESTS_KEY, JSON.stringify(resetPortal));
+    }
+
+    console.log(`[resetRequestTracker] Cleared ${demoCleared} demo + ${portalCleared} portal = ${demoCleared + portalCleared} total`);
+    return { clearedCount: demoCleared + portalCleared };
 }
 
 export function initDemo(): void {

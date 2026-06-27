@@ -1,6 +1,6 @@
 import { useState } from "react";
 import RecapSubNav from "./RecapSubNav";
-import { isDemoActive, initDemo, resetDemo, resetRequestTracker, getDemoTransaction, clearAllPortalCreatedData } from "../../services/recapDataService";
+import { isDemoActive, initDemo, resetDemo, resetRequestTracker, getRequests, getDemoTransaction, clearAllPortalCreatedData } from "../../services/recapDataService";
 import "./Recapitalization.css";
 
 const SETTING_GROUPS = [
@@ -167,8 +167,10 @@ export default function RecapitalizationSettings() {
                     </p>
                     <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                         <button className="rc-btn rc-btn-secondary" disabled={!demoLoaded} onClick={() => {
+                            const allBefore = getRequests().filter(r => (r as any)._publishedAt || (r as any)._createdFromReview).length;
                             const result = resetRequestTracker();
-                            showBanner(`Request Tracker test data cleared. ${result.clearedCount} records removed.`);
+                            const allAfter = getRequests().filter(r => (r as any)._publishedAt || (r as any)._createdFromReview).length;
+                            showBanner(`Request Tracker test data cleared. Before: ${allBefore}, Cleared: ${result.clearedCount}, After: ${allAfter}.`);
                         }}>
                             Reset Request Tracker Test Data
                         </button>

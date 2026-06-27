@@ -20,7 +20,7 @@ interface BulkEdit {
     visible: string;
 }
 
-const STATUS_OPTIONS = ["Open", "In Progress", "Waiting on Broker", "Blocked", "Ready for Review", "Complete", "Not Applicable", "Duplicate"];
+const STATUS_OPTIONS = ["Open", "In Progress", "Pending External", "Blocked", "Ready for Review", "Complete", "Not Applicable", "Duplicate"];
 
 export default function RecapitalizationTracker() {
     const navigate = useNavigate();
@@ -62,7 +62,8 @@ export default function RecapitalizationTracker() {
     const hasFilter = publishedBatchId || sourcePackageId || sourceIntakeId;
 
     const filtered = useMemo(() => {
-        let result = [...allRequests];
+        // Only show published items (_publishedAt is set or _createdFromReview is true)
+        let result = allRequests.filter(r => r._publishedAt || r._createdFromReview);
         // Sort: publishedAt DESC, createdDate DESC, requestId DESC
         result.sort((a, b) => {
             const aPub = a._convertedAt ? new Date(a._convertedAt).getTime() : 0;

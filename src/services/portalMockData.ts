@@ -1,4 +1,4 @@
-import { isDemoActive, getDemoTransaction, getDemoRequests, getDemoDocuments, initDemo, publishIntake, getDemoEngineSummary, addPortalCreatedIntakeItem, addPortalCreatedRequests, addPortalSubmission, getPortalSubmissions, updatePortalSubmissionStatus, clearAllPortalCreatedData } from "./recapDataService";
+import { isDemoActive, getDemoTransaction, getDemoRequests, getDemoDocuments, initDemo, getDemoEngineSummary, addPortalCreatedIntakeItem, addPortalCreatedRequests, addPortalSubmission, getPortalSubmissions, updatePortalSubmissionStatus, clearAllPortalCreatedData } from "./recapDataService";
 import type { RecapRequest, RecapDocument, RecapTransaction, RecapIntakeItem } from "./recapDataService";
 
 const PERSONA_KEY = "integrasource.recap.portalPersona";
@@ -764,7 +764,6 @@ export function submitBrokerUploadPackage(
 export function confirmBrokerPackage(submissionId?: string): void {
     if (!submissionId) {
         if (!isDemoActive()) initDemo();
-        publishIntake();
         return;
     }
 
@@ -774,17 +773,17 @@ export function confirmBrokerPackage(submissionId?: string): void {
 
     if (sub.isABCDemo) {
         if (!isDemoActive()) initDemo();
-        publishIntake();
         updatePortalSubmissionStatus(submissionId, "Submitted");
         return;
     }
 
-    // Custom package: create intake item + requests, persist
+    // Custom package: create intake item + review item (not tracker) records
     const fileBaseName = sub.fileName.replace(/\.[^.]+$/, "").trim();
-    const requests = generatePortalRequests(submissionId, sub.packageName, fileBaseName, sub.requestCount);
+    const reviewItems = generatePortalRequests(submissionId, sub.packageName, fileBaseName, sub.requestCount);
+    // Review items are kept for the intake review grid but have _publishedAt: null so they don't appear in tracker
+    addPortalCreatedRequests(reviewItems);
     const intakeItem = createPortalIntakeItem(submissionId, sub.packageName, sub.fileName, sub.requestCount, false);
 
-    addPortalCreatedRequests(requests);
     addPortalCreatedIntakeItem(intakeItem);
     updatePortalSubmissionStatus(submissionId, "Submitted");
 }

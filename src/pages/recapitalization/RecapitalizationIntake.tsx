@@ -403,9 +403,14 @@ function ReviewEngine() {
             showToast("No selected items are marked 'Ready to Publish'");
             return;
         }
-        publishSelectedRequests(bulkReady);
-        setUpdateCount(k => k + 1);
-        showToast(`Published ${bulkReady.length} selected request${bulkReady.length !== 1 ? "s" : ""}`);
+        setPublishing(true);
+        setTimeout(() => {
+            const result = publishSelectedRequests(bulkReady, { sourceIntakeId: scope?.id || intakeId, sourcePackageId: scope?.transactionId });
+            setPublishedCount(result.publishedCount);
+            setPublishedBatchId(result.publishedBatchId);
+            setPublishing(false);
+            setPublished(true);
+        }, 1500);
     };
 
     const CARD_STYLE = (borderColor: string, isActive: boolean) => ({
@@ -1455,13 +1460,8 @@ function IntakeQueue() {
 
     const handleRowClick = (item: RecapIntakeItem) => {
         if (item.type === "Broker Upload") {
-            setSelectedItem(item);
-            if (!notesByItem[item.id]) {
-                setNotesByItem((prev) => ({
-                    ...prev,
-                    [item.id]: DEFAULT_NOTES,
-                }));
-            }
+            // Navigate directly to review for this specific intake/package
+            navigate(`/recapitalization/intake/review/${item.intakeId}`);
         } else {
             navigate(`/recapitalization/workspace/${item.intakeId}`);
         }
@@ -1637,11 +1637,38 @@ function IntakeQueue() {
                                 <span className="rc-bulk-count">{selectedIds.size}</span> selected
                             </span>
                             <div className="rc-bulk-sep" />
-                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setMsg("Assign — coming soon")}>Assign</button>
-                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setMsg("Route to Team — coming soon")}>Route to Team</button>
-                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setMsg("Mark Duplicate")}>Mark Duplicate</button>
-                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setMsg("Mark Not Applicable")}>Mark Not Applicable</button>
-                            <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ color: "#991b1b" }} onClick={() => setMsg("Reject")}>Reject</button>
+                            {selectedIds.size === 1 ? (
+                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => {
+                                    const item = allItems.find(i => i.id === [...selectedIds][0]);
+                                    if (item) handleRowClick(item);
+                                }}>Open</button>
+                            ) : (
+                                <span style={{ fontSize: 11, color: "#64748b" }}>Open (select 1)</span>
+                            )}
+                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => {
+                                [...selectedIds].forEach(id => {
+                                    const item = allItems.find(i => i.id === id);
+                                    if (item) {
+                                        item.status = "Duplicate";
+                                    }
+                                });
+                                setMsg(`Marked ${selectedIds.size} as Duplicate`);
+                                clearSelection();
+                            }}>Mark Duplicate</button>
+                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => {
+                                [...selectedIds].forEach(id => {
+                                    const item = allItems.find(i => i.id === id);
+                                    if (item) {
+                                        item.status = "Not Applicable";
+                                        // Archive equivalent: set review state to Archived
+                                    }
+                                });
+                                setMsg(`Archived ${selectedIds.size} item${selectedIds.size !== 1 ? "s" : ""}`);
+                                clearSelection();
+                            }}>Archive</button>
+                            <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ color: "#991b1b" }} onClick={() => {
+                                setMsg("Please provide a rejection reason. (Preview: rejected)");
+                            }}>Reject</button>
                             <div className="rc-bulk-sep" />
                             <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={clearSelection}>Clear Selection</button>
                         </div>
