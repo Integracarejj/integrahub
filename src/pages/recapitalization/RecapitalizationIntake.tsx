@@ -156,6 +156,7 @@ function ReviewEngine() {
     const { intakeId } = useParams<{ intakeId: string }>();
     const [published, setPublished] = useState(false);
     const [publishedCount, setPublishedCount] = useState(0);
+    const [publishedBatchId, setPublishedBatchId] = useState<string | undefined>(undefined);
     const [publishing, setPublishing] = useState(false);
     const [publishAll, setPublishAll] = useState(false);
 
@@ -346,6 +347,7 @@ function ReviewEngine() {
         setTimeout(() => {
             const result = publishSelectedRequests(ids, { sourceIntakeId: scope?.id || intakeId, sourcePackageId: scope?.transactionId });
             setPublishedCount(result.publishedCount);
+            setPublishedBatchId(result.publishedBatchId);
             setPublishing(false);
             setPublished(true);
         }, 1500);
@@ -357,6 +359,7 @@ function ReviewEngine() {
         setTimeout(() => {
             const result = publishIntake();
             setPublishedCount(result.publishedCount);
+            setPublishedBatchId(result.publishedBatchId);
             setPublishing(false);
             setPublished(true);
         }, 1500);
@@ -450,8 +453,8 @@ function ReviewEngine() {
                     <p>{count} DD request{count !== 1 ? "s are" : " is"} now available in the Request Tracker.</p>
                     <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
                         <button className="rc-btn rc-btn-primary" onClick={() => navigate("/recapitalization/tracker")}>Open Tracker</button>
-                        <button className="rc-btn rc-btn-secondary" onClick={() => { setPublished(false); setPublishedCount(0); setPublishAll(false); }}>Return to Intake Queue</button>
-                        <button className="rc-btn rc-btn-ghost" onClick={() => navigate(`/recapitalization/tracker?sourceIntakeId=${scope?.id || intakeId}&sourcePackageId=${scope?.transactionId}`)}>View Published Requests</button>
+                        <button className="rc-btn rc-btn-secondary" onClick={() => { setPublished(false); setPublishedCount(0); setPublishedBatchId(undefined); setPublishAll(false); }}>Return to Intake Queue</button>
+                        <button className="rc-btn rc-btn-ghost" onClick={() => navigate(`/recapitalization/tracker?publishedBatchId=${publishedBatchId}`)}>View Published Requests</button>
                     </div>
                 </div>
             </div>
@@ -707,14 +710,14 @@ function ReviewEngine() {
                                                 <input type="checkbox" className="rc-checkbox-header" checked={paginated.length > 0 && paginated.every(r => selectedIds.has(r.id))} onChange={toggleSelectAll} />
                                             </th>
                                             <th className="review-sticky-col review-sticky-id" style={{ minWidth: 100 }}>Intake ID</th>
-                                            <th className="review-sticky-col review-sticky-title" style={{ minWidth: 200 }}>Request Title</th>
-                                            <th style={{ minWidth: 100 }}>Community</th>
-                                            <th style={{ minWidth: 130 }}>Category</th>
-                                            <th style={{ minWidth: 140 }}>Suggested Team</th>
+                                            <th className="review-sticky-col review-sticky-deliverable" style={{ minWidth: 200 }}>Deliverable</th>
                                             <th style={{ width: 80 }}>Priority</th>
                                             <th style={{ minWidth: 100 }}>Status</th>
                                             <th style={{ minWidth: 145 }}>Review State</th>
-                                            <th style={{ minWidth: 110 }}>Deliverable</th>
+                                            <th style={{ minWidth: 100 }}>Community</th>
+                                            <th style={{ minWidth: 130 }}>Category</th>
+                                            <th style={{ minWidth: 140 }}>Suggested Team</th>
+                                            <th style={{ minWidth: 120 }}>Internal Owner</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -730,25 +733,8 @@ function ReviewEngine() {
                                                             {r.intakeId || <span style={{ color: "#94a3b8" }}>&mdash;</span>}
                                                         </span>
                                                     </td>
-                                                    <td className="review-sticky-col review-sticky-title" style={{ fontWeight: 600, color: "#0f172a", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.title}>
-                                                        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                                            {r.title}
-                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                                                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                                                <circle cx="12" cy="12" r="3" />
-                                                            </svg>
-                                                        </span>
-                                                    </td>
-                                                    <td style={{ color: "#475569" }}>{r.communityNames[0] || <span style={{ color: "#94a3b8" }}>&mdash;</span>}</td>
-                                                    <td>
-                                                        <select value={r.category} onChange={e => { e.stopPropagation(); doEdit(r.id, { category: e.target.value }); }} style={SELECT_STYLE}>
-                                                            {CATEGORIES_LIST.map(c => <option key={c} value={c}>{c}</option>)}
-                                                        </select>
-                                                    </td>
-                                                    <td>
-                                                        <select value={r.team} onChange={e => { e.stopPropagation(); doEdit(r.id, { team: e.target.value }); }} style={SELECT_STYLE}>
-                                                            {TEAMS_LIST.map(t => <option key={t} value={t}>{t}</option>)}
-                                                        </select>
+                                                    <td className="review-sticky-col review-sticky-deliverable" style={{ fontWeight: 600, color: "#0f172a", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r._deliverable || r.title}>
+                                                        {r._deliverable || r.title}
                                                     </td>
                                                     <td>
                                                         <select value={r.priority} onChange={e => { e.stopPropagation(); doEdit(r.id, { priority: e.target.value as RecapRequest["priority"] }); }} style={SELECT_STYLE}>
@@ -772,7 +758,20 @@ function ReviewEngine() {
                                                             <option value="Archived">Archived</option>
                                                         </select>
                                                     </td>
-                                                    <td style={{ color: "#475569", fontSize: 11, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r._deliverable}>{r._deliverable}</td>
+                                                    <td style={{ color: "#475569" }}>{r.communityNames[0] || <span style={{ color: "#94a3b8" }}>&mdash;</span>}</td>
+                                                    <td>
+                                                        <select value={r.category} onChange={e => { e.stopPropagation(); doEdit(r.id, { category: e.target.value }); }} style={SELECT_STYLE}>
+                                                            {CATEGORIES_LIST.map(c => <option key={c} value={c}>{c}</option>)}
+                                                        </select>
+                                                    </td>
+                                                    <td>
+                                                        <select value={r.team} onChange={e => { e.stopPropagation(); doEdit(r.id, { team: e.target.value }); }} style={SELECT_STYLE}>
+                                                            {TEAMS_LIST.map(t => <option key={t} value={t}>{t}</option>)}
+                                                        </select>
+                                                    </td>
+                                                    <td style={{ color: r.owner ? "#1e293b" : "#94a3b8", fontSize: 12, whiteSpace: "nowrap" }}>
+                                                        {r.owner || <span style={{ color: "#94a3b8" }}>&mdash;</span>}
+                                                    </td>
                                                 </tr>
                                             );
                                         })}

@@ -237,14 +237,19 @@ export function getDemoReports() {
     return Demo.getDemoReports();
 }
 
-export function publishIntake(): { publishedCount: number; publishedIds: string[] } {
+export function publishIntake(): { publishedCount: number; publishedIds: string[]; publishedBatchId?: string } {
     if (isDemoLoaded()) return Demo.publishIntake();
     return { publishedCount: 0, publishedIds: [] };
 }
 
-export function publishSelectedRequests(ids: string[], sourceInfo?: { sourceIntakeId?: string; sourcePackageId?: string }): { publishedCount: number; publishedIds: string[] } {
+export function publishSelectedRequests(ids: string[], sourceInfo?: { sourceIntakeId?: string; sourcePackageId?: string }): { publishedCount: number; publishedIds: string[]; publishedBatchId?: string } {
     if (isDemoLoaded()) return Demo.publishSelectedRequests(ids, sourceInfo);
     return { publishedCount: 0, publishedIds: [] };
+}
+
+export function resetRequestTracker(): { clearedCount: number } {
+    if (isDemoLoaded()) return Demo.resetDemoTracker();
+    return { clearedCount: 0 };
 }
 
 export function initDemo(): void {

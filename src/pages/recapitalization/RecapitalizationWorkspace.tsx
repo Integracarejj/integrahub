@@ -14,27 +14,6 @@ const SOURCE_CONFIG: Record<string, { icon: string; label: string; cssClass: str
     "Manual Internal Request": { icon: "\u{1F4CB}", label: "Internal Request", cssClass: "rc-badge-internal" },
 };
 
-const STATUS_BADGE: Record<string, string> = {
-    "Awaiting Review": "rc-badge-intake-awaiting",
-    "Assigned": "rc-badge-intake-assigned",
-    "Converted": "rc-badge-intake-converted",
-    "Duplicate": "rc-badge-intake-duplicate",
-    "Rejected": "rc-badge-intake-rejected",
-    "Not Applicable": "rc-badge-intake-na",
-    "Provided": "rc-badge-provided",
-    "In Progress": "rc-badge-in-progress",
-    "Clarification Needed": "rc-badge-clarification-needed",
-    "Under Review": "rc-badge-under-review",
-    "Open": "rc-badge-open",
-    "Overdue": "rc-badge-overdue",
-};
-
-const PRIORITY_BADGE: Record<string, string> = {
-    High: "rc-badge-high",
-    Medium: "rc-badge-medium",
-    Low: "rc-badge-low",
-};
-
 function readinessScore(item: { status: string; assignedTo?: string | null; owner?: string | null }): { score: number; label: string; factors: { label: string; met: boolean }[] } {
     const isAssigned = !!(item.assignedTo || item.owner);
     const isInProgress = item.status === "In Progress" || item.status === "Assigned";
@@ -219,12 +198,8 @@ export default function RecapitalizationWorkspace() {
     const displayTitle = item.title || item.fileName || "";
     const displayTypeLabel = isIntake ? (item.type || "Intake") : "Request";
     const displayStatus = item.status;
-    const displayPriority = item.priority || "Medium";
     const submittedDate = item.submittedAt ? new Date(item.submittedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : item.createdDate || "";
-    const dueDateStr = item.dueDate || "";
     const communities = item.communityNames || [];
-    const submittedBy = item.submittedBy || "";
-    const source = item.source || (isIntake ? "External" : "Internal");
     const description = item.description || "";
 
     const isBulkUpload = item.type === "Broker Upload";
@@ -245,6 +220,27 @@ export default function RecapitalizationWorkspace() {
     }, [item]);
 
     const config = SOURCE_CONFIG[item.type] || { icon: "\u2753", label: item.type || "Intake", cssClass: "rc-badge-open" };
+
+    const STATUS_OPTIONS = ["Open", "In Progress", "Waiting on Broker", "Blocked", "Ready for Review", "Complete", "Not Applicable", "Duplicate"];
+
+    const [sections, setSections] = useState<Record<string, boolean>>({
+        submission: false,
+        documents: false,
+        questions: true,
+        notes: false,
+        activity: false,
+        decisionSupport: false,
+        routing: false,
+    });
+
+    const toggleSection = (key: string) => setSections(prev => ({ ...prev, [key]: !prev[key] }));
+
+    function handleStatusChange(newStatus: string) {
+        updateRequestStatus(item.id || item.intakeId || "", newStatus as any);
+        setWsRefreshKey(k => k + 1);
+        setBanner(`Status changed to ${newStatus}`);
+        setTimeout(() => setBanner(null), 3000);
+    }
 
     return (
         <div className="rc-page ws-page">
@@ -270,94 +266,132 @@ export default function RecapitalizationWorkspace() {
                 </div>
             )}
 
-            <div className="ws-header">
+            {/* Hero Section */}
+            <div className="ws-header" style={{ borderBottom: "1px solid #e2e8f0", paddingBottom: 16, marginBottom: 12 }}>
                 <div className="ws-header-main" style={{ flex: 1 }}>
-                    <div className="ws-id-row">
-                        <span className="ws-id">{displayId}</span>
-                        <span className={`rc-badge ${config.cssClass}`} style={{ fontSize: 10 }}>{displayTypeLabel}</span>
-                        <span className={`rc-badge ${STATUS_BADGE[displayStatus] || "rc-badge-open"}`} style={{ fontSize: 10 }}>{displayStatus}</span>
-                        <span className={`rc-badge ${PRIORITY_BADGE[displayPriority] || "rc-badge-medium"}`} style={{ fontSize: 10 }}>{displayPriority}</span>
+                    <div className="ws-id-row" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                        <span className="ws-id" style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace' }}>{displayId}</span>
+                        <span className={`rc-badge ${config.cssClass}`} style={{ fontSize: 9, padding: "2px 6px" }}>{displayTypeLabel}</span>
                     </div>
-                    <h1 className="ws-title">{displayTitle}</h1>
-                    <div className="ws-meta-row">
-                        <span className="ws-meta-item">Submitted: {submittedDate}</span>
-                        {dueDateStr && <span className="ws-meta-item">Due: {dueDateStr}</span>}
-                    </div>
+                    <h1 className="ws-title" style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", margin: "0 0 4px", lineHeight: 1.3 }}>{displayTitle}</h1>
+                    {description && <p style={{ fontSize: 12, color: "#475569", margin: "0 0 12px", lineHeight: 1.5, maxWidth: 600 }}>{description}</p>}
+                </div>
+                <div className="ws-header-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                    <select value={displayStatus} onChange={e => handleStatusChange(e.target.value)} style={{ fontSize: 11, padding: "4px 20px 4px 8px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", fontWeight: 600, minWidth: 120, cursor: "pointer" }}>
+                        {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => setShowAssign(true)}>Assign</button>
+                    <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => setRespondExternalOpen(true)}>Ask Broker Question</button>
+                    <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => wsToast("Upload document — file picker would open here")}>Upload Document</button>
+                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const name = prompt("Enter document name to link:"); if (name) wsToast(`Linked: ${name}`); }}>Link Document</button>
+                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { handleStatusChange("Complete"); setTimeout(() => setBanner(null), 3000); }} style={{ color: "#166534" }}>Mark Complete</button>
+                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setDraftClarificationOpen(true)}>Add Internal Note</button>
                 </div>
             </div>
 
-            <div className="ws-chips">
-                <div className="ws-chip"><span className="ws-chip-label">Owner / Seller</span><span className="ws-chip-value">{transaction.sellerName}</span></div>
-                <div className="ws-chip"><span className="ws-chip-label">Buyer</span><span className="ws-chip-value">{transaction.buyerName}</span></div>
-                <div className="ws-chip"><span className="ws-chip-label">Broker</span><span className="ws-chip-value">{transaction.brokerName}</span></div>
-                <div className="ws-chip"><span className="ws-chip-label">Transaction</span><span className="ws-chip-value">{transaction.name}</span></div>
-                <div className="ws-chip"><span className="ws-chip-label">Community</span><span className="ws-chip-value">{communities.length > 0 ? communities.slice(0, 2).join(", ") + (communities.length > 2 ? ` +${communities.length - 2}` : "") : "\u2014"}</span></div>
-                <div className="ws-chip"><span className="ws-chip-label">Source</span><span className="ws-chip-value">{source}</span></div>
-                <div className="ws-chip"><span className="ws-chip-label">Submitted By</span><span className="ws-chip-value">{submittedBy}</span></div>
+            {/* Essential Info Grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12, marginBottom: 16 }}>
+                <div className="rc-setting-card" style={{ padding: "8px 12px" }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>Status</span>
+                    <select value={displayStatus} onChange={e => handleStatusChange(e.target.value)} style={{ fontSize: 12, padding: "2px 18px 2px 4px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", fontWeight: 600, width: "100%", marginTop: 2, cursor: "pointer" }}>
+                        {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                </div>
+                <div className="rc-setting-card" style={{ padding: "8px 12px" }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>Priority</span>
+                    <select value={priority} onChange={e => { setPriority(e.target.value); bulkUpdateDemoRequests([item.id || item.intakeId || ""].filter(Boolean), { priority: e.target.value as any }); }} style={{ fontSize: 12, padding: "2px 18px 2px 4px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", fontWeight: 600, width: "100%", marginTop: 2, cursor: "pointer" }}>
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                    </select>
+                </div>
+                <div className="rc-setting-card" style={{ padding: "8px 12px" }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>Due Date</span>
+                    <input type="date" value={dueDate} onChange={e => { setDueDate(e.target.value); bulkUpdateDemoRequests([item.id || item.intakeId || ""].filter(Boolean), { dueDate: e.target.value }); }}
+                        style={{ fontSize: 12, padding: "2px 4px", borderRadius: 4, border: "1px solid #d1d5db", width: "100%", marginTop: 2, boxSizing: "border-box" }} />
+                </div>
+                <div className="rc-setting-card" style={{ padding: "8px 12px" }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>Internal Owner</span>
+                    <select value={internalOwner} onChange={e => { setInternalOwner(e.target.value); bulkUpdateDemoRequests([item.id || item.intakeId || ""].filter(Boolean), { owner: e.target.value, assignedTo: e.target.value }); }} style={{ fontSize: 12, padding: "2px 18px 2px 4px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", fontWeight: 600, width: "100%", marginTop: 2, cursor: "pointer" }}>
+                        <option value="">Unassigned</option>
+                        {["Sarah Chen", "James Wright", "Lisa Park", "Tom Davies", "Mike O'Brien", "Anna Patel", "David Park", "Carlos Rivera"].map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                </div>
+                <div className="rc-setting-card" style={{ padding: "8px 12px" }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>Team</span>
+                    <select value={team} onChange={e => { setTeam(e.target.value); bulkUpdateDemoRequests([item.id || item.intakeId || ""].filter(Boolean), { team: e.target.value }); }} style={{ fontSize: 12, padding: "2px 18px 2px 4px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", fontWeight: 600, width: "100%", marginTop: 2, cursor: "pointer" }}>
+                        {["Financial Analysis", "Regulatory", "Environmental", "Risk Management", "HR & Operations", "DD Management"].map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                </div>
+                <div className="rc-setting-card" style={{ padding: "8px 12px" }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>Community</span>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: "#1e293b", marginTop: 2, display: "block" }}>{communities.slice(0, 2).join(", ") || "\u2014"}</span>
+                </div>
+                <div className="rc-setting-card" style={{ padding: "8px 12px" }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>Broker / Buyer</span>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: "#1e293b", marginTop: 2, display: "block" }}>{transaction.brokerName} / {transaction.sellerName}</span>
+                </div>
+                <div className="rc-setting-card" style={{ padding: "8px 12px" }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>Transaction</span>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: "#1e293b", marginTop: 2, display: "block" }}>{transaction.name}</span>
+                </div>
+                <div className="rc-setting-card" style={{ padding: "8px 12px" }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>Request ID</span>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: "#1e293b", marginTop: 2, display: "block", fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace' }}>{item.requestId || item.id || "\u2014"}</span>
+                </div>
+                <div className="rc-setting-card" style={{ padding: "8px 12px" }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>Submitted</span>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: "#1e293b", marginTop: 2, display: "block" }}>{submittedDate}</span>
+                </div>
             </div>
 
-            <div className="ws-layout">
-                <div className="ws-main">
+            {/* Actions Row */}
+            <div className="ws-card" style={{ marginBottom: 12 }}>
+                <div className="ws-card-body" style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "8px 12px" }}>
+                    <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => setShowAssign(true)}>Assign</button>
+                    <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => setShowRoute(true)}>Route to Team</button>
+                    <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => setRespondExternalOpen(true)}>Ask Broker Question</button>
+                    <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => setPublishUpdateOpen(true)}>Publish Update</button>
+                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const name = prompt("Enter document name to link:"); if (name) wsToast(`Linked: ${name}`); }}>Link Document</button>
+                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => wsToast("Upload document — file picker would open here")}>Upload</button>
+                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { handleStatusChange("Complete"); }} style={{ color: "#166534" }}>Mark Complete</button>
+                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setDraftClarificationOpen(true)}>Add Internal Note</button>
+                    <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ color: "#92400e" }} onClick={() => { updateRequestStatus(item.id || item.intakeId || "", "Duplicate" as any); setBanner("Marked as Duplicate"); setTimeout(() => setBanner(null), 3000); }}>Mark Duplicate</button>
+                    <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ color: "#92400e" }} onClick={() => { updateRequestStatus(item.id || item.intakeId || "", "Not Applicable" as any); setBanner("Marked as Not Applicable"); setTimeout(() => setBanner(null), 3000); }}>Mark N/A</button>
+                    <div style={{ flex: 1 }} />
+                    <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => { bulkUpdateDemoRequests([item.id || item.intakeId || ""].filter(Boolean), { category, team, owner: internalOwner, priority: priority as any, dueDate } as any); setSaved(true); setWsRefreshKey(k => k + 1); setTimeout(() => setSaved(false), 2000); }}>
+                        {saved ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg> Saved!</> : "Save Draft"}
+                    </button>
+                </div>
+            </div>
 
-                    <div className="ws-card ws-card-accent">
-                        <div className="ws-card-header">
-                            <h3>Decision Support Preview</h3>
-                            <span className="rc-badge rc-badge-import" style={{ fontSize: 9 }}>Mock Preview</span>
-                        </div>
-                        <div className="ws-card-body">
-                            <div className="ws-preview-grid">
-                                <div className="ws-preview-field">
-                                    <span className="ws-preview-label">Suggested Deliverable</span>
-                                    <span className="ws-preview-value">{item.suggestedCategory ? `${item.suggestedCategory} Report` : "\u2014"}</span>
-                                </div>
-                                <div className="ws-preview-field">
-                                    <span className="ws-preview-label">Suggested Category</span>
-                                    <span className="ws-preview-value">{item.suggestedCategory || "\u2014"}</span>
-                                </div>
-                                <div className="ws-preview-field">
-                                    <span className="ws-preview-label">Suggested Team</span>
-                                    <span className="ws-preview-value">{item.suggestedTeam || "\u2014"}</span>
-                                </div>
-                                <div className="ws-preview-field">
-                                    <span className="ws-preview-label">Suggested Internal Owner</span>
-                                    <span className="ws-preview-value">{item.suggestedOwner || "\u2014"}</span>
-                                </div>
-                                <div className="ws-preview-field">
-                                    <span className="ws-preview-label">Duplicate Confidence</span>
-                                    <span className="ws-preview-value">{isIntake ? "12% — Likely unique" : "\u2014"}</span>
-                                </div>
-                                <div className="ws-preview-field">
-                                    <span className="ws-preview-label">Similar Requests</span>
-                                    <span className="ws-preview-value">{isIntake ? "DD-26-001, DD-26-005 (Audited Financials)" : "\u2014"}</span>
-                                </div>
-                            </div>
-                            <div className="ws-preview-hint">AI-powered classification and matching will be available in a future sprint.</div>
-                        </div>
+            {/* Collapsible Sections */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div className="ws-card" style={{ margin: 0 }}>
+                    <div className="ws-card-header" onClick={() => toggleSection("submission")} style={{ cursor: "pointer" }}>
+                        <h3>Original Submission</h3>
+                        <span style={{ fontSize: 12, color: "#64748b" }}>{sections.submission ? "\u25BC" : "\u25B6"}</span>
                     </div>
-
-                    <div className="ws-card">
-                        <div className="ws-card-header">
-                            <h3>Original Submission</h3>
-                        </div>
+                    {sections.submission && (
                         <div className="ws-card-body">
                             <p className="ws-submission-text">{description}</p>
                             {isBulkUpload && item.fileName && (
                                 <div className="ws-file-info">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
-                                        <polyline points="13 2 13 9 20 9" />
-                                    </svg>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
                                     <span>{item.fileName}</span>
                                     {item.rowsFound && <span className="rc-text-muted">({item.rowsFound} rows found)</span>}
                                 </div>
                             )}
                         </div>
-                    </div>
+                    )}
+                </div>
 
-                    <div className="ws-card">
-                        <div className="ws-card-header">
-                            <h3>Decision / Routing</h3>
-                        </div>
+                <div className="ws-card" style={{ margin: 0 }}>
+                    <div className="ws-card-header" onClick={() => toggleSection("routing")} style={{ cursor: "pointer" }}>
+                        <h3>Decision / Routing</h3>
+                        <span style={{ fontSize: 12, color: "#64748b" }}>{sections.routing ? "\u25BC" : "\u25B6"}</span>
+                    </div>
+                    {sections.routing && (
                         <div className="ws-card-body">
                             <div className="ws-routing-grid">
                                 <div className="ws-routing-field">
@@ -377,44 +411,6 @@ export default function RecapitalizationWorkspace() {
                                     </select>
                                 </div>
                                 <div className="ws-routing-field">
-                                    <label className="ws-routing-label">Team</label>
-                                    <select className="rc-filter-select" value={team} onChange={e => setTeam(e.target.value)} style={{ width: "100%" }}>
-                                        <option value="">Select team...</option>
-                                        <option value="Financial Analysis">Financial Analysis</option>
-                                        <option value="Regulatory">Regulatory</option>
-                                        <option value="Environmental">Environmental</option>
-                                        <option value="Risk Management">Risk Management</option>
-                                        <option value="HR & Operations">HR & Operations</option>
-                                        <option value="DD Management">DD Management</option>
-                                    </select>
-                                </div>
-                                <div className="ws-routing-field">
-                                    <label className="ws-routing-label">Internal Owner</label>
-                                    <select className="rc-filter-select" value={internalOwner} onChange={e => setInternalOwner(e.target.value)} style={{ width: "100%" }}>
-                                        <option value="">Unassigned</option>
-                                        <option value="Sarah Chen">Sarah Chen</option>
-                                        <option value="James Wright">James Wright</option>
-                                        <option value="Lisa Park">Lisa Park</option>
-                                        <option value="Tom Davies">Tom Davies</option>
-                                        <option value="Mike O'Brien">Mike O'Brien</option>
-                                        <option value="Anna Patel">Anna Patel</option>
-                                        <option value="David Park">David Park</option>
-                                        <option value="Carlos Rivera">Carlos Rivera</option>
-                                    </select>
-                                </div>
-                                <div className="ws-routing-field">
-                                    <label className="ws-routing-label">Priority</label>
-                                    <select className="rc-filter-select" value={priority} onChange={e => setPriority(e.target.value)} style={{ width: "100%" }}>
-                                        <option value="High">High</option>
-                                        <option value="Medium">Medium</option>
-                                        <option value="Low">Low</option>
-                                    </select>
-                                </div>
-                                <div className="ws-routing-field">
-                                    <label className="ws-routing-label">Due Date</label>
-                                    <input type="date" className="rc-filter-select" value={dueDate} onChange={e => setDueDate(e.target.value)} style={{ width: "100%" }} />
-                                </div>
-                                <div className="ws-routing-field">
                                     <label className="ws-routing-label">External Visibility</label>
                                     <select className="rc-filter-select" value={externalVisible ? "visible" : "hidden"} onChange={e => setExternalVisible(e.target.value === "visible")} style={{ width: "100%" }}>
                                         <option value="visible">Visible to External</option>
@@ -427,53 +423,50 @@ export default function RecapitalizationWorkspace() {
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    )}
+                </div>
 
-                    <div className="ws-card">
-                        <div className="ws-card-header">
-                            <h3>Documents</h3>
-                            <div className="ws-card-actions">
-                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const name = prompt("Enter document name to link:"); if (name) { wsToast(`Linked: ${name}`); } }}>Link Existing</button>
-                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { wsToast("Upload document — file picker would open here"); }}>Upload</button>
-                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { wsToast("Create Folder — coming next sprint"); }}>Create Folder</button>
-                            </div>
-                        </div>
+                <div className="ws-card" style={{ margin: 0 }}>
+                    <div className="ws-card-header" onClick={() => toggleSection("documents")} style={{ cursor: "pointer" }}>
+                        <h3>Documents ({documents.length})</h3>
+                        <span style={{ fontSize: 12, color: "#64748b" }}>{sections.documents ? "\u25BC" : "\u25B6"}</span>
+                    </div>
+                    {sections.documents && (
                         <div className="ws-card-body" style={{ padding: 0 }}>
+                            <div className="ws-card-actions" style={{ padding: "8px 12px", display: "flex", gap: 8 }}>
+                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const name = prompt("Enter document name to link:"); if (name) wsToast(`Linked: ${name}`); }}>Link Existing</button>
+                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => wsToast("Upload document — file picker would open here")}>Upload</button>
+                            </div>
                             {documents.length === 0 ? (
                                 <div className="ws-empty-section">No documents linked yet</div>
                             ) : (
                                 <table className="rc-table">
-                                    <thead>
-                                        <tr>
-                                            <th>File Name</th>
-                                            <th>Category</th>
-                                            <th>Related Request</th>
-                                            <th>External</th>
-                                            <th></th>
+                                    <thead><tr><th>File Name</th><th>Category</th><th>Related Request</th><th></th></tr></thead>
+                                    <tbody>{documents.map(doc => (
+                                        <tr key={doc.id}>
+                                            <td style={{ fontWeight: 500 }}>{doc.name}</td>
+                                            <td>{doc.category}</td>
+                                            <td style={{ fontSize: 12, color: "#64748b" }}>{doc.requestTitle || "\u2014"}</td>
+                                            <td><button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 10 }} onClick={() => wsToast(`Opening ${doc.name} in SharePoint...`)}>Open in SP</button></td>
                                         </tr>
-                                    </thead>
-                                    <tbody>
-                                        {documents.map(doc => (
-                                            <tr key={doc.id}>
-                                                <td style={{ fontWeight: 500 }}>{doc.name}</td>
-                                                <td>{doc.category}</td>
-                                                <td style={{ fontSize: 12, color: "#64748b" }}>{doc.requestTitle || "\u2014"}</td>
-                                                <td><span className={`rc-badge ${doc.requestId ? "rc-badge-visible" : "rc-badge-hidden"}`} style={{ fontSize: 9, padding: "1px 5px" }}>{doc.requestId ? "Yes" : "No"}</span></td>
-                                                <td><button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 10 }} onClick={() => wsToast(`Opening ${doc.name} in SharePoint...`)}>Open in SP</button></td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
+                                    ))}</tbody>
                                 </table>
                             )}
                         </div>
-                    </div>
+                    )}
+                </div>
 
-                    <div className="ws-card">
-                        <div className="ws-card-header">
-                            <h3>Questions &amp; Clarifications</h3>
-                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setDraftClarificationOpen(true)}>Request Clarification</button>
-                        </div>
+                <div className="ws-card" style={{ margin: 0 }}>
+                    <div className="ws-card-header" onClick={() => toggleSection("questions")} style={{ cursor: "pointer" }}>
+                        <h3>Questions &amp; Clarifications ({localQuestions.length})</h3>
+                        <span style={{ fontSize: 12, color: "#64748b" }}>{sections.questions ? "\u25BC" : "\u25B6"}</span>
+                    </div>
+                    {sections.questions && (
                         <div className="ws-card-body">
+                            <div style={{ marginBottom: 8, display: "flex", gap: 6 }}>
+                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setDraftClarificationOpen(true)}>Request Clarification</button>
+                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setRespondExternalOpen(true)}>Ask Broker Question</button>
+                            </div>
                             <div className="ws-qa-list">
                                 {localQuestions.map(q => (
                                     <div key={q.id} className={`ws-qa-item ${q.status === "Answered" ? "ws-qa-answered" : ""}`}>
@@ -484,9 +477,7 @@ export default function RecapitalizationWorkspace() {
                                         </div>
                                         <div className="ws-qa-question">{q.question}</div>
                                         {q.response ? (
-                                            <div className="ws-qa-response">
-                                                <span className="ws-qa-response-label">Response:</span> {q.response}
-                                            </div>
+                                            <div className="ws-qa-response"><span className="ws-qa-response-label">Response:</span> {q.response}</div>
                                         ) : (
                                             <div className="ws-qa-action">
                                                 {addResponseId === q.id ? (
@@ -509,12 +500,15 @@ export default function RecapitalizationWorkspace() {
                                 ))}
                             </div>
                         </div>
-                    </div>
+                    )}
+                </div>
 
-                    <div className="ws-card">
-                        <div className="ws-card-header">
-                            <h3>Internal Notes / Work Journal</h3>
-                        </div>
+                <div className="ws-card" style={{ margin: 0 }}>
+                    <div className="ws-card-header" onClick={() => toggleSection("notes")} style={{ cursor: "pointer" }}>
+                        <h3>Internal Notes / Work Journal</h3>
+                        <span style={{ fontSize: 12, color: "#64748b" }}>{sections.notes ? "\u25BC" : "\u25B6"}</span>
+                    </div>
+                    {sections.notes && (
                         <div className="ws-card-body">
                             <div className="rc-notes-section">
                                 {internalNotes.map(note => (
@@ -532,12 +526,15 @@ export default function RecapitalizationWorkspace() {
                                 }} />
                             </div>
                         </div>
-                    </div>
+                    )}
+                </div>
 
-                    <div className="ws-card">
-                        <div className="ws-card-header">
-                            <h3>Activity Timeline</h3>
-                        </div>
+                <div className="ws-card" style={{ margin: 0 }}>
+                    <div className="ws-card-header" onClick={() => toggleSection("activity")} style={{ cursor: "pointer" }}>
+                        <h3>Activity Timeline</h3>
+                        <span style={{ fontSize: 12, color: "#64748b" }}>{sections.activity ? "\u25BC" : "\u25B6"}</span>
+                    </div>
+                    {sections.activity && (
                         <div className="ws-card-body">
                             {activity.length === 0 ? (
                                 <div className="ws-empty-section">No activity recorded</div>
@@ -558,71 +555,76 @@ export default function RecapitalizationWorkspace() {
                                 </div>
                             )}
                         </div>
-                    </div>
-
+                    )}
                 </div>
 
-                <div className="ws-sidebar">
-                    <div className="ws-sidebar-inner">
-                        <div className="ws-card">
-                            <div className="ws-card-header">
-                                <h3>Actions</h3>
-                            </div>
-                            <div className="ws-card-body ws-action-list">
-                                <div className="ws-actions-group-label">Work</div>
-                                <button className="rc-btn rc-btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setShowAssign(true)}>Assign</button>
-                                <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setShowRoute(true)}>Route to Team</button>
-                                {isIntake && <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setShowConverted(true)}>Convert to Official Request</button>}
-
-                                <div className="ws-actions-group-label">Communication</div>
-                                <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setRespondExternalOpen(true)}>Respond Externally</button>
-                                <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setPublishUpdateOpen(true)}>Publish Update</button>
-
-                                <div className="ws-actions-group-label">Resolution</div>
-                                <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center", color: "#92400e" }} onClick={() => { updateRequestStatus(item.id || item.intakeId || "", "Duplicate" as any); setBanner("Marked as Duplicate"); setTimeout(() => setBanner(null), 3000); }}>Mark Duplicate</button>
-                                <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center" }} onClick={() => { wsToast("Reuse Existing Deliverable — coming next sprint"); }}>Reuse Existing Deliverable</button>
-                                <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center", color: "#92400e" }} onClick={() => { updateRequestStatus(item.id || item.intakeId || "", "Not Applicable" as any); setBanner("Marked as Not Applicable"); setTimeout(() => setBanner(null), 3000); }}>Mark Not Applicable</button>
-                                <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center", color: "#991b1b" }} onClick={() => { updateRequestStatus(item.id || item.intakeId || "", "Rejected" as any); setBanner("Rejected"); setTimeout(() => setBanner(null), 3000); }}>Reject</button>
-
-                                <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 8, marginTop: 4 }}>
-                                    <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => { bulkUpdateDemoRequests([item.id || item.intakeId || ""].filter(Boolean), { category, team, owner: internalOwner, priority: priority as any, dueDate } as any); setSaved(true); setWsRefreshKey(k => k + 1); setTimeout(() => setSaved(false), 2000); }}>
-                                        {saved ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg> Saved!</> : "Save Draft"}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="ws-card">
-                            <div className="ws-card-header">
-                                <h3>Readiness to Provide</h3>
-                            </div>
-                            <div className="ws-card-body">
-                                <div className="ws-readiness">
-                                    <div className="ws-readiness-score">{rs.score}%</div>
-                                    <div className="ws-readiness-bar">
-                                        <div className="ws-readiness-fill" style={{ width: `${rs.score}%`, background: rs.score >= 80 ? "#166534" : rs.score >= 40 ? "#1d4ed8" : "#92400e" }} />
-                                    </div>
-                                    <div className="ws-readiness-label">
-                                        <span className={
-                                            rs.score >= 80 ? "ws-readiness-label-ready" :
-                                            rs.score >= 40 ? "ws-readiness-label-partial" :
-                                            "ws-readiness-label-attention"
-                                        }>{rs.label}</span>
-                                    </div>
-                                    <ul className="ws-readiness-factors">
-                                        {rs.factors.map((f, i) => (
-                                            <li key={i} className={f.met ? "ws-factor-met" : "ws-factor-unmet"}>
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={f.met ? "#166534" : "#64748b"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                                    {f.met ? <polyline points="20 6 9 17 4 12" /> : <line x1="18" y1="6" x2="6" y2="18" />}
-                                                </svg>
-                                                {f.label}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
+                <div className="ws-card" style={{ margin: 0 }}>
+                    <div className="ws-card-header" onClick={() => toggleSection("decisionSupport")} style={{ cursor: "pointer" }}>
+                        <h3>Decision Support Preview</h3>
+                        <span className="rc-badge rc-badge-import" style={{ fontSize: 9 }}>Mock Preview</span>
+                        <span style={{ fontSize: 12, color: "#64748b", marginLeft: "auto" }}>{sections.decisionSupport ? "\u25BC" : "\u25B6"}</span>
                     </div>
+                    {sections.decisionSupport && (
+                        <div className="ws-card-body">
+                            <div className="ws-preview-grid">
+                                <div className="ws-preview-field">
+                                    <span className="ws-preview-label">Suggested Deliverable</span>
+                                    <span className="ws-preview-value">{item.suggestedCategory ? `${item.suggestedCategory} Report` : "\u2014"}</span>
+                                </div>
+                                <div className="ws-preview-field">
+                                    <span className="ws-preview-label">Suggested Category</span>
+                                    <span className="ws-preview-value">{item.suggestedCategory || "\u2014"}</span>
+                                </div>
+                                <div className="ws-preview-field">
+                                    <span className="ws-preview-label">Suggested Team</span>
+                                    <span className="ws-preview-value">{item.suggestedTeam || "\u2014"}</span>
+                                </div>
+                                <div className="ws-preview-field">
+                                    <span className="ws-preview-label">Suggested Internal Owner</span>
+                                    <span className="ws-preview-value">{item.suggestedOwner || "\u2014"}</span>
+                                </div>
+                                <div className="ws-preview-field">
+                                    <span className="ws-preview-label">Duplicate Confidence</span>
+                                    <span className="ws-preview-value">{isIntake ? "12% \u2014 Likely unique" : "\u2014"}</span>
+                                </div>
+                                <div className="ws-preview-field">
+                                    <span className="ws-preview-label">Similar Requests</span>
+                                    <span className="ws-preview-value">{isIntake ? "DD-26-001, DD-26-005 (Audited Financials)" : "\u2014"}</span>
+                                </div>
+                            </div>
+                            <div className="ws-preview-hint">AI-powered classification and matching will be available in a future sprint.</div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="ws-card" style={{ margin: 0 }}>
+                    <div className="ws-card-header" onClick={() => toggleSection("readiness")} style={{ cursor: "pointer" }}>
+                        <h3>Readiness to Provide</h3>
+                        <span style={{ fontSize: 12, color: "#64748b" }}>{sections.readiness ? "\u25BC" : "\u25B6"}</span>
+                    </div>
+                    {sections.readiness && (
+                        <div className="ws-card-body">
+                            <div className="ws-readiness">
+                                <div className="ws-readiness-score">{rs.score}%</div>
+                                <div className="ws-readiness-bar">
+                                    <div className="ws-readiness-fill" style={{ width: `${rs.score}%`, background: rs.score >= 80 ? "#166534" : rs.score >= 40 ? "#1d4ed8" : "#92400e" }} />
+                                </div>
+                                <div className="ws-readiness-label">
+                                    <span className={rs.score >= 80 ? "ws-readiness-label-ready" : rs.score >= 40 ? "ws-readiness-label-partial" : "ws-readiness-label-attention"}>{rs.label}</span>
+                                </div>
+                                <ul className="ws-readiness-factors">
+                                    {rs.factors.map((f, i) => (
+                                        <li key={i} className={f.met ? "ws-factor-met" : "ws-factor-unmet"}>
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={f.met ? "#166534" : "#64748b"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                {f.met ? <polyline points="20 6 9 17 4 12" /> : <line x1="18" y1="6" x2="6" y2="18" />}
+                                            </svg>
+                                            {f.label}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -733,18 +735,34 @@ export default function RecapitalizationWorkspace() {
                 <div className="rc-modal-overlay" onClick={() => { setRespondExternalOpen(false); setRespondExternalText(""); }}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
                         <div className="rc-modal-header">
-                            <h2>Respond Externally</h2>
+                            <h2>Ask Broker Question</h2>
                             <button className="rc-modal-close" onClick={() => { setRespondExternalOpen(false); setRespondExternalText(""); }}>&times;</button>
                         </div>
                         <div className="rc-modal-body" style={{ padding: "12px 16px" }}>
-                            <p style={{ fontSize: 12, color: "#475569", margin: "0 0 8px" }}>
-                                Send a response for <strong>{displayTitle}</strong>:
-                            </p>
-                            <textarea value={respondExternalText} onChange={e => setRespondExternalText(e.target.value)} placeholder="Type your response..." rows={4} style={{ width: "100%", padding: "8px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", font: "inherit", boxSizing: "border-box" }} />
+                            <div style={{ fontSize: 12, color: "#475569", marginBottom: 12, display: "flex", flexDirection: "column", gap: 4 }}>
+                                <span><strong>Intake ID:</strong> {item.intakeId || item.id}</span>
+                                <span><strong>Request ID:</strong> {item.requestId}</span>
+                                <span><strong>Deliverable:</strong> {item.title}</span>
+                                <span><strong>Community:</strong> {(item.communityNames || []).join(", ")}</span>
+                                <span><strong>Broker/Buyer:</strong> {item.brokerBuyer}</span>
+                                {item.description && <span style={{ marginTop: 4, padding: "6px 8px", background: "#f8fafc", borderRadius: 4, fontSize: 11, color: "#64748b", lineHeight: 1.4 }}>{item.description}</span>}
+                            </div>
+                            <textarea
+                                value={respondExternalText}
+                                onChange={e => setRespondExternalText(e.target.value)}
+                                placeholder="Type your question or response..."
+                                rows={4}
+                                style={{ width: "100%", padding: "8px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", font: "inherit", boxSizing: "border-box" }}
+                            />
                         </div>
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-ghost" onClick={() => { setRespondExternalOpen(false); setRespondExternalText(""); }}>Cancel</button>
-                            <button className="rc-btn rc-btn-primary" disabled={!respondExternalText.trim()} onClick={() => { setBanner(`Response sent externally for ${displayTitle}`); setRespondExternalOpen(false); setRespondExternalText(""); setTimeout(() => setBanner(null), 3000); }}>Send Response</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!respondExternalText.trim()} onClick={() => {
+                                setBanner(`Question sent to ${item.brokerBuyer} and added to the request activity.`);
+                                setRespondExternalOpen(false);
+                                setRespondExternalText("");
+                                setTimeout(() => setBanner(null), 4000);
+                            }}>Send Question</button>
                         </div>
                     </div>
                 </div>

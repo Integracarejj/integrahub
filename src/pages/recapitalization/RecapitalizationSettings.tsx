@@ -1,6 +1,6 @@
 import { useState } from "react";
 import RecapSubNav from "./RecapSubNav";
-import { isDemoActive, initDemo, resetDemo, getDemoTransaction, clearAllPortalCreatedData } from "../../services/recapDataService";
+import { isDemoActive, initDemo, resetDemo, resetRequestTracker, getDemoTransaction, clearAllPortalCreatedData } from "../../services/recapDataService";
 import "./Recapitalization.css";
 
 const SETTING_GROUPS = [
@@ -151,6 +151,26 @@ export default function RecapitalizationSettings() {
                         </button>
                         <button className="rc-btn rc-btn-ghost" onClick={handleClearDemo} disabled={!demoLoaded}>
                             Clear Recap Demo Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div className="rc-card" style={{ border: "1px solid #dbeafe" }}>
+                <div className="rc-card-header">
+                    <h2>Preview / Test Tools</h2>
+                    <span className="rc-badge rc-badge-visible" style={{ fontSize: 10 }}>Preview Mode</span>
+                </div>
+                <div className="rc-card-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <p style={{ fontSize: 12, color: "#64748b", margin: 0, lineHeight: 1.5 }}>
+                        Preview Mode only. Used to validate publish-to-tracker workflow.
+                    </p>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        <button className="rc-btn rc-btn-secondary" disabled={!demoLoaded} onClick={() => {
+                            const result = resetRequestTracker();
+                            showBanner(`Request Tracker test data cleared. ${result.clearedCount} records removed.`);
+                        }}>
+                            Reset Request Tracker Test Data
                         </button>
                     </div>
                 </div>

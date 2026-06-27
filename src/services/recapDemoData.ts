@@ -305,19 +305,22 @@ export function getDemoActivity(limit = 20): RecapActivity[] {
     return state?.activity.slice(0, limit) || [];
 }
 
-export function publishIntake(): { publishedCount: number; publishedIds: string[] } {
+export function publishIntake(): { publishedCount: number; publishedIds: string[]; publishedBatchId?: string } {
     const state = loadState();
     if (!state || state.intakePublished) return { publishedCount: 0, publishedIds: [] };
     state.intakePublished = true;
     state.intakeItem.status = "Converted";
-    const now = new Date().toISOString().split("T")[0];
+    const now = new Date().toISOString();
+    const nowDate = now.split("T")[0];
+    const batchId = `batch-${Date.now()}`;
     const publishedIds: string[] = [];
     state.requests.forEach(r => {
         if (r._publishedAt) return;
-        r._publishedAt = now;
+        r._publishedAt = nowDate;
         r._convertedAt = now;
         r._createdFromReview = true;
-        r.lastUpdated = now;
+        r._sourceReviewItemId = r.requestId;
+        r.lastUpdated = nowDate;
         publishedIds.push(r.id);
         if (r.status === "Open") r.status = "In Progress";
     });
@@ -330,19 +333,22 @@ export function publishIntake(): { publishedCount: number; publishedIds: string[
     state.activity.unshift({
         id: "abc-act-publish",
         type: "Status Change",
-        description: `${state.requests.length} requests published to request tracker.`,
+        description: `${state.requests.length} requests published to request tracker (batch ${batchId}).`,
         userId: "system",
         userName: "System",
         requestId: null,
         requestTitle: null,
         transactionId: "txn-abc",
         transactionName: state.transaction.name,
-        timestamp: new Date().toISOString(),
+        timestamp: now,
     });
 
     saveState(state);
-    console.log(`[publishIntake] Published ${publishedIds.length} requests. IDs:`, publishedIds);
-    return { publishedCount: publishedIds.length, publishedIds };
+    console.log(`[publishIntake] Published ${publishedIds.length} requests.`);
+    console.log(`  batchId: ${batchId}`);
+    console.log(`  IDs:`, publishedIds);
+    console.log(`  final tracker count:`, state.requests.filter(r => r._publishedAt).length);
+    return { publishedCount: publishedIds.length, publishedIds, publishedBatchId: batchId };
 }
 
 export function updateDemoRequest(id: string, patch: Partial<RecapRequest>): RecapRequest | undefined {
@@ -491,22 +497,25 @@ export function getDemoOverrideRequests(): RecapRequest[] {
     });
 }
 
-export function publishSelectedRequests(ids: string[], sourceInfo?: { sourceIntakeId?: string; sourcePackageId?: string }): { publishedCount: number; publishedIds: string[] } {
+export function publishSelectedRequests(ids: string[], sourceInfo?: { sourceIntakeId?: string; sourcePackageId?: string }): { publishedCount: number; publishedIds: string[]; publishedBatchId?: string } {
     const state = loadState();
     if (!state) return { publishedCount: 0, publishedIds: [] };
     state.intakePublished = true;
     state.intakeItem.status = "Converted";
-    const now = new Date().toISOString().split("T")[0];
+    const now = new Date().toISOString();
+    const nowDate = now.split("T")[0];
+    const batchId = `batch-${Date.now()}`;
     const idSet = new Set(ids);
     let publishedCount = 0;
     const publishedIds: string[] = [];
     state.requests.forEach(r => {
         if (idSet.has(r.id) || idSet.has(r.requestId) || idSet.has(r.intakeId)) {
             if (r._publishedAt) return;
-            r._publishedAt = now;
+            r._publishedAt = nowDate;
             r._convertedAt = now;
-            r.lastUpdated = now;
+            r.lastUpdated = nowDate;
             r._createdFromReview = true;
+            r._sourceReviewItemId = r.requestId;
             if (sourceInfo?.sourceIntakeId) r._sourceIntakeId = sourceInfo.sourceIntakeId;
             if (sourceInfo?.sourcePackageId) r._sourcePackageId = sourceInfo.sourcePackageId;
             publishedCount++;
@@ -523,19 +532,46 @@ export function publishSelectedRequests(ids: string[], sourceInfo?: { sourceInta
     state.activity.unshift({
         id: "abc-act-publish-selected",
         type: "Status Change",
-        description: `${publishedCount} requests published to tracker.`,
+        description: `${publishedCount} requests published to tracker (batch ${batchId}).`,
         userId: "system",
         userName: "System",
         requestId: null,
         requestTitle: null,
         transactionId: "txn-abc",
         transactionName: state.transaction.name,
-        timestamp: new Date().toISOString(),
+        timestamp: now,
     });
 
     saveState(state);
-    console.log(`[publishSelectedRequests] Published ${publishedCount} requests. IDs:`, publishedIds, "sourceInfo:", sourceInfo);
-    return { publishedCount, publishedIds };
+    console.log(`[publishSelectedRequests] Published ${publishedCount} requests.`);
+    console.log(`  batchId: ${batchId}`);
+    console.log(`  ids:`, publishedIds);
+    console.log(`  sourceInfo:`, sourceInfo);
+    console.log(`  sourceIntakeId:`, sourceInfo?.sourceIntakeId);
+    console.log(`  sourcePackageId:`, sourceInfo?.sourcePackageId);
+    console.log(`  final tracker count:`, state.requests.filter(r => r._publishedAt).length);
+    return { publishedCount, publishedIds, publishedBatchId: batchId };
+}
+
+export function resetDemoTracker(): { clearedCount: number } {
+    const state = loadState();
+    if (!state) return { clearedCount: 0 };
+    let clearedCount = 0;
+    state.requests.forEach(r => {
+        if (r._publishedAt) {
+            r._publishedAt = null;
+            r._convertedAt = null;
+            r._sourceIntakeId = undefined;
+            r._sourcePackageId = undefined;
+            r._createdFromReview = false;
+            clearedCount++;
+        }
+    });
+    state.intakePublished = false;
+    state.intakeItem.status = "Awaiting Review";
+    saveState(state);
+    console.log(`[resetDemoTracker] Cleared ${clearedCount} published request records.`);
+    return { clearedCount };
 }
 
 export function getDemoTeams(): string[] {

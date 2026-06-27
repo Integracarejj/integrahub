@@ -35,7 +35,7 @@ export interface RecapRequest {
     description: string;
     owner: string | null;
     team: string;
-    status: "Provided" | "In Progress" | "Clarification Needed" | "Under Review" | "Open" | "Overdue";
+    status: "Provided" | "In Progress" | "Clarification Needed" | "Under Review" | "Open" | "Overdue" | "Waiting on Broker" | "Blocked" | "Ready for Review" | "Complete" | "Not Applicable" | "Duplicate";
     priority: "High" | "Medium" | "Low";
     dueDate: string;
     lastUpdated: string;
@@ -48,6 +48,7 @@ export interface RecapRequest {
     _convertedAt?: string | null;
     _sourceIntakeId?: string;
     _sourcePackageId?: string;
+    _sourceReviewItemId?: string;
     _createdFromReview?: boolean;
 }
 
