@@ -501,6 +501,10 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
                                     </div>
                                 );
                             })()}
+                            <div style={{ marginTop: 12, padding: "10px 14px", background: "#f1f5f9", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
+                                <strong>Note:</strong> Item-level status will be available after IntegraCare completes internal review and publishes approved requests to the tracker.
+                                This timeline shows the overall package progress and is informational only.
+                            </div>
                         </div>
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-secondary" onClick={() => setSelectedPackage(null)}>Close</button>

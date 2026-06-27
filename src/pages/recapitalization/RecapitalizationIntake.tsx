@@ -155,6 +155,7 @@ function ReviewEngine() {
     const navigate = useNavigate();
     const { intakeId } = useParams<{ intakeId: string }>();
     const [published, setPublished] = useState(false);
+    const [publishedCount, setPublishedCount] = useState(0);
     const [publishing, setPublishing] = useState(false);
     const [publishAll, setPublishAll] = useState(false);
 
@@ -307,6 +308,7 @@ function ReviewEngine() {
         if (reviewStateFilter !== "All") result = result.filter(r => r._reviewState === reviewStateFilter);
         if (duplicateFilter === "duplicates") result = result.filter(r => r._potentialDuplicate);
         else if (duplicateFilter === "nonduplicates") result = result.filter(r => !r._potentialDuplicate);
+        else if (duplicateFilter === "archived") result = result.filter(r => r._reviewState === "Archived");
         return result;
     }, [enriched, activeCardFilter, searchQuery, categoryFilter, communityFilter, teamFilter, priorityFilter, reviewStateFilter, duplicateFilter]);
 
@@ -342,7 +344,8 @@ function ReviewEngine() {
         if (ids.length === 0) return;
         setPublishing(true);
         setTimeout(() => {
-            publishSelectedRequests(ids);
+            const result = publishSelectedRequests(ids, { sourceIntakeId: scope?.id || intakeId, sourcePackageId: scope?.transactionId });
+            setPublishedCount(result.publishedCount);
             setPublishing(false);
             setPublished(true);
         }, 1500);
@@ -352,7 +355,8 @@ function ReviewEngine() {
         setPublishAll(true);
         setPublishing(true);
         setTimeout(() => {
-            publishIntake();
+            const result = publishIntake();
+            setPublishedCount(result.publishedCount);
             setPublishing(false);
             setPublished(true);
         }, 1500);
@@ -422,7 +426,7 @@ function ReviewEngine() {
     const readyCount = reviewStateCounts["Ready to Publish"];
 
     if (published) {
-        const count = publishAll ? activeSummary.total : readyCount;
+        const count = publishedCount || (publishAll ? activeSummary.total : readyCount);
         return (
             <div className="rc-page">
                 <div className="rc-header">
@@ -443,10 +447,11 @@ function ReviewEngine() {
                         </svg>
                     </div>
                     <h2>Published to Tracker!</h2>
-                    <p>{count} DD requests are now available in the Request Tracker.</p>
+                    <p>{count} DD request{count !== 1 ? "s are" : " is"} now available in the Request Tracker.</p>
                     <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
                         <button className="rc-btn rc-btn-primary" onClick={() => navigate("/recapitalization/tracker")}>Open Tracker</button>
-                        <button className="rc-btn rc-btn-secondary" onClick={() => navigate("/recapitalization/intake")}>Return to Intake Queue</button>
+                        <button className="rc-btn rc-btn-secondary" onClick={() => { setPublished(false); setPublishedCount(0); setPublishAll(false); }}>Return to Intake Queue</button>
+                        <button className="rc-btn rc-btn-ghost" onClick={() => navigate(`/recapitalization/tracker?sourceIntakeId=${scope?.id || intakeId}&sourcePackageId=${scope?.transactionId}`)}>View Published Requests</button>
                     </div>
                 </div>
             </div>
@@ -635,9 +640,10 @@ function ReviewEngine() {
                                             <option value="Archived">Archived</option>
                                         </select>
                                         <select className="rc-filter-select" value={duplicateFilter} onChange={e => { setDuplicateFilter(e.target.value); setPage(0); }} style={{ minWidth: 140 }}>
-                                            <option value="all">All Items</option>
+                                            <option value="all">Duplicate Filter: All Requests</option>
                                             <option value="duplicates">Potential Duplicates</option>
                                             <option value="nonduplicates">Non-Duplicates</option>
+                                            <option value="archived">Archived</option>
                                         </select>
                     </div>
                 </div>

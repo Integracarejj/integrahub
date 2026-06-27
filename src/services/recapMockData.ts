@@ -45,6 +45,10 @@ export interface RecapRequest {
     createdDate: string;
     assignedTo: string | null;
     _publishedAt?: string | null;
+    _convertedAt?: string | null;
+    _sourceIntakeId?: string;
+    _sourcePackageId?: string;
+    _createdFromReview?: boolean;
 }
 
 export interface RecapIntakeItem {

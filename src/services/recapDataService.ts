@@ -237,12 +237,14 @@ export function getDemoReports() {
     return Demo.getDemoReports();
 }
 
-export function publishIntake(): void {
-    if (isDemoLoaded()) Demo.publishIntake();
+export function publishIntake(): { publishedCount: number; publishedIds: string[] } {
+    if (isDemoLoaded()) return Demo.publishIntake();
+    return { publishedCount: 0, publishedIds: [] };
 }
 
-export function publishSelectedRequests(ids: string[]): void {
-    if (isDemoLoaded()) Demo.publishSelectedRequests(ids);
+export function publishSelectedRequests(ids: string[], sourceInfo?: { sourceIntakeId?: string; sourcePackageId?: string }): { publishedCount: number; publishedIds: string[] } {
+    if (isDemoLoaded()) return Demo.publishSelectedRequests(ids, sourceInfo);
+    return { publishedCount: 0, publishedIds: [] };
 }
 
 export function initDemo(): void {

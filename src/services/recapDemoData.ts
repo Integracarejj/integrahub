@@ -305,16 +305,20 @@ export function getDemoActivity(limit = 20): RecapActivity[] {
     return state?.activity.slice(0, limit) || [];
 }
 
-export function publishIntake(): void {
+export function publishIntake(): { publishedCount: number; publishedIds: string[] } {
     const state = loadState();
-    if (!state || state.intakePublished) return;
+    if (!state || state.intakePublished) return { publishedCount: 0, publishedIds: [] };
     state.intakePublished = true;
     state.intakeItem.status = "Converted";
     const now = new Date().toISOString().split("T")[0];
+    const publishedIds: string[] = [];
     state.requests.forEach(r => {
         if (r._publishedAt) return;
         r._publishedAt = now;
+        r._convertedAt = now;
+        r._createdFromReview = true;
         r.lastUpdated = now;
+        publishedIds.push(r.id);
         if (r.status === "Open") r.status = "In Progress";
     });
     state.transaction.totalRequests = state.requests.length;
@@ -326,17 +330,19 @@ export function publishIntake(): void {
     state.activity.unshift({
         id: "abc-act-publish",
         type: "Status Change",
-        description: `ABC Company Portfolio published to request tracker — ${state.requests.length} requests live.`,
+        description: `${state.requests.length} requests published to request tracker.`,
         userId: "system",
         userName: "System",
         requestId: null,
         requestTitle: null,
         transactionId: "txn-abc",
-        transactionName: "ABC Company Portfolio",
+        transactionName: state.transaction.name,
         timestamp: new Date().toISOString(),
     });
 
     saveState(state);
+    console.log(`[publishIntake] Published ${publishedIds.length} requests. IDs:`, publishedIds);
+    return { publishedCount: publishedIds.length, publishedIds };
 }
 
 export function updateDemoRequest(id: string, patch: Partial<RecapRequest>): RecapRequest | undefined {
@@ -485,20 +491,26 @@ export function getDemoOverrideRequests(): RecapRequest[] {
     });
 }
 
-export function publishSelectedRequests(ids: string[]): void {
+export function publishSelectedRequests(ids: string[], sourceInfo?: { sourceIntakeId?: string; sourcePackageId?: string }): { publishedCount: number; publishedIds: string[] } {
     const state = loadState();
-    if (!state) return;
+    if (!state) return { publishedCount: 0, publishedIds: [] };
     state.intakePublished = true;
     state.intakeItem.status = "Converted";
     const now = new Date().toISOString().split("T")[0];
     const idSet = new Set(ids);
     let publishedCount = 0;
+    const publishedIds: string[] = [];
     state.requests.forEach(r => {
         if (idSet.has(r.id) || idSet.has(r.requestId) || idSet.has(r.intakeId)) {
             if (r._publishedAt) return;
             r._publishedAt = now;
+            r._convertedAt = now;
             r.lastUpdated = now;
+            r._createdFromReview = true;
+            if (sourceInfo?.sourceIntakeId) r._sourceIntakeId = sourceInfo.sourceIntakeId;
+            if (sourceInfo?.sourcePackageId) r._sourcePackageId = sourceInfo.sourcePackageId;
             publishedCount++;
+            publishedIds.push(r.id);
             if (r.status === "Open") r.status = "In Progress";
         }
     });
@@ -511,17 +523,19 @@ export function publishSelectedRequests(ids: string[]): void {
     state.activity.unshift({
         id: "abc-act-publish-selected",
         type: "Status Change",
-        description: `ABC Company Portfolio — ${publishedCount} selected requests published to tracker.`,
+        description: `${publishedCount} requests published to tracker.`,
         userId: "system",
         userName: "System",
         requestId: null,
         requestTitle: null,
         transactionId: "txn-abc",
-        transactionName: "ABC Company Portfolio",
+        transactionName: state.transaction.name,
         timestamp: new Date().toISOString(),
     });
 
     saveState(state);
+    console.log(`[publishSelectedRequests] Published ${publishedCount} requests. IDs:`, publishedIds, "sourceInfo:", sourceInfo);
+    return { publishedCount, publishedIds };
 }
 
 export function getDemoTeams(): string[] {
