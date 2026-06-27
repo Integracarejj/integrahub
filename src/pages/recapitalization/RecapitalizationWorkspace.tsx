@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { lookupWorkspaceItem, getDocumentsByTransaction, getActivityByTransaction, getTeamMembers, getTeams, bulkUpdateDemoRequests } from "../../services/recapDataService";
+import { lookupWorkspaceItem, getDocumentsByTransaction, getActivityByTransaction, getTeamMembers, getTeams, bulkUpdateDemoRequests, updateRequestStatus } from "../../services/recapDataService";
 import type { RecapTeamMember } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -170,10 +170,6 @@ export default function RecapitalizationWorkspace() {
         { id: "wn1", author: "David Park", text: "Initial review — needs owner assignment", timestamp: "2026-06-25" },
         { id: "wn2", author: "Sarah Chen", text: "Contacted broker for more details on scope", timestamp: "2026-06-26" },
     ]);
-    const [questions] = useState<WorkspaceQuestion[]>([
-        { id: "q1", from: "Marcus & Associates", question: "Should the Phase I ESA include asbestos testing or just standard environmental assessment?", response: "Standard Phase I only. Asbestos scope to be handled separately if flagged.", status: "Answered", timestamp: "2026-06-24" },
-        { id: "q2", from: "Marcus & Associates", question: "What is the preferred format for financial statements — scanned PDF or native Excel?", response: null, status: "Open", timestamp: "2026-06-27" },
-    ]);
 
     const [category, setCategory] = useState("");
     const [team, setTeam] = useState("");
@@ -188,6 +184,19 @@ export default function RecapitalizationWorkspace() {
     const [showRoute, setShowRoute] = useState(false);
     const [showConverted, setShowConverted] = useState(false);
     const [banner, setBanner] = useState<string | null>(null);
+    const [localQuestions, setLocalQuestions] = useState<WorkspaceQuestion[]>([
+        { id: "q1", from: "Marcus & Associates", question: "Should the Phase I ESA include asbestos testing or just standard environmental assessment?", response: "Standard Phase I only. Asbestos scope to be handled separately if flagged.", status: "Answered", timestamp: "2026-06-24" },
+        { id: "q2", from: "Marcus & Associates", question: "What is the preferred format for financial statements — scanned PDF or native Excel?", response: null, status: "Open", timestamp: "2026-06-27" },
+    ]);
+    const [draftClarificationOpen, setDraftClarificationOpen] = useState(false);
+    const [draftClarificationText, setDraftClarificationText] = useState("");
+    const [draftClarificationInternal, setDraftClarificationInternal] = useState(true);
+    const [respondExternalOpen, setRespondExternalOpen] = useState(false);
+    const [respondExternalText, setRespondExternalText] = useState("");
+    const [publishUpdateOpen, setPublishUpdateOpen] = useState(false);
+    const [publishUpdateText, setPublishUpdateText] = useState("");
+    const [addResponseId, setAddResponseId] = useState<string | null>(null);
+    const [addResponseText, setAddResponseText] = useState("");
 
     if (!result) {
         return (
@@ -424,9 +433,9 @@ export default function RecapitalizationWorkspace() {
                         <div className="ws-card-header">
                             <h3>Documents</h3>
                             <div className="ws-card-actions">
-                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => wsToast("Link Existing Document — coming next sprint")}>Link Existing</button>
-                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => wsToast("Upload Document — coming next sprint")}>Upload</button>
-                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => wsToast("Create Folder — coming next sprint")}>Create Folder</button>
+                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const name = prompt("Enter document name to link:"); if (name) { wsToast(`Linked: ${name}`); } }}>Link Existing</button>
+                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { wsToast("Upload document — file picker would open here"); }}>Upload</button>
+                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { wsToast("Create Folder — coming next sprint"); }}>Create Folder</button>
                             </div>
                         </div>
                         <div className="ws-card-body" style={{ padding: 0 }}>
@@ -450,7 +459,7 @@ export default function RecapitalizationWorkspace() {
                                                 <td>{doc.category}</td>
                                                 <td style={{ fontSize: 12, color: "#64748b" }}>{doc.requestTitle || "\u2014"}</td>
                                                 <td><span className={`rc-badge ${doc.requestId ? "rc-badge-visible" : "rc-badge-hidden"}`} style={{ fontSize: 9, padding: "1px 5px" }}>{doc.requestId ? "Yes" : "No"}</span></td>
-                                                <td><button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 11 }} onClick={() => wsToast("Open in SharePoint — coming next sprint")}>Open in SP</button></td>
+                                                <td><button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 10 }} onClick={() => wsToast(`Opening ${doc.name} in SharePoint...`)}>Open in SP</button></td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -462,11 +471,11 @@ export default function RecapitalizationWorkspace() {
                     <div className="ws-card">
                         <div className="ws-card-header">
                             <h3>Questions &amp; Clarifications</h3>
-                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => wsToast("Request Clarification — coming next sprint")}>Request Clarification</button>
+                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setDraftClarificationOpen(true)}>Request Clarification</button>
                         </div>
                         <div className="ws-card-body">
                             <div className="ws-qa-list">
-                                {questions.map(q => (
+                                {localQuestions.map(q => (
                                     <div key={q.id} className={`ws-qa-item ${q.status === "Answered" ? "ws-qa-answered" : ""}`}>
                                         <div className="ws-qa-header">
                                             <span className="ws-qa-from">{q.from}</span>
@@ -480,8 +489,20 @@ export default function RecapitalizationWorkspace() {
                                             </div>
                                         ) : (
                                             <div className="ws-qa-action">
-                                                <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => wsToast("Add Response — coming next sprint")}>Add Response</button>
-                                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => wsToast("Mark Answered — coming next sprint")}>Mark Answered</button>
+                                                {addResponseId === q.id ? (
+                                                    <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%" }}>
+                                                        <textarea value={addResponseText} onChange={e => setAddResponseText(e.target.value)} placeholder="Type response..." rows={2} style={{ width: "100%", padding: "6px 8px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 4, resize: "vertical", font: "inherit", boxSizing: "border-box" }} />
+                                                        <div style={{ display: "flex", gap: 6 }}>
+                                                            <button className="rc-btn rc-btn-primary rc-btn-sm" disabled={!addResponseText.trim()} onClick={() => { setLocalQuestions(prev => prev.map(x => x.id === q.id ? { ...x, response: addResponseText.trim(), status: "Answered" } : x)); setAddResponseId(null); setAddResponseText(""); wsToast("Response added"); }}>Submit</button>
+                                                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setAddResponseId(null); setAddResponseText(""); }}>Cancel</button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => { setAddResponseId(q.id); setAddResponseText(""); }}>Add Response</button>
+                                                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setLocalQuestions(prev => prev.map(x => x.id === q.id ? { ...x, status: "Answered" } : x)); wsToast("Marked as answered"); }}>Mark Answered</button>
+                                                    </>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -554,18 +575,18 @@ export default function RecapitalizationWorkspace() {
                                 {isIntake && <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setShowConverted(true)}>Convert to Official Request</button>}
 
                                 <div className="ws-actions-group-label">Communication</div>
-                                <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => wsToast("Respond Externally — coming next sprint")}>Respond Externally</button>
-                                <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => wsToast("Publish Update — coming next sprint")}>Publish Update</button>
+                                <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setRespondExternalOpen(true)}>Respond Externally</button>
+                                <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setPublishUpdateOpen(true)}>Publish Update</button>
 
                                 <div className="ws-actions-group-label">Resolution</div>
-                                <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center", color: "#92400e" }} onClick={() => wsToast("Mark Duplicate — local mock only")}>Mark Duplicate</button>
-                                <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center" }} onClick={() => wsToast("Reuse Existing Deliverable — coming next sprint")}>Reuse Existing Deliverable</button>
-                                <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center", color: "#92400e" }} onClick={() => wsToast("Mark Not Applicable — local mock only")}>Mark Not Applicable</button>
-                                <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center", color: "#991b1b" }} onClick={() => wsToast("Reject — local mock only")}>Reject</button>
+                                <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center", color: "#92400e" }} onClick={() => { updateRequestStatus(item.id || item.intakeId || "", "Duplicate" as any); setBanner("Marked as Duplicate"); setTimeout(() => setBanner(null), 3000); }}>Mark Duplicate</button>
+                                <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center" }} onClick={() => { wsToast("Reuse Existing Deliverable — coming next sprint"); }}>Reuse Existing Deliverable</button>
+                                <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center", color: "#92400e" }} onClick={() => { updateRequestStatus(item.id || item.intakeId || "", "Not Applicable" as any); setBanner("Marked as Not Applicable"); setTimeout(() => setBanner(null), 3000); }}>Mark Not Applicable</button>
+                                <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center", color: "#991b1b" }} onClick={() => { updateRequestStatus(item.id || item.intakeId || "", "Rejected" as any); setBanner("Rejected"); setTimeout(() => setBanner(null), 3000); }}>Reject</button>
 
                                 <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 8, marginTop: 4 }}>
-                                    <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2000); }}>
-                                        {saved ? "Saved!" : "Save Draft"}
+                                    <button className="rc-btn rc-btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => { bulkUpdateDemoRequests([item.id || item.intakeId || ""].filter(Boolean), { category, team, owner: internalOwner, priority: priority as any, dueDate } as any); setSaved(true); setWsRefreshKey(k => k + 1); setTimeout(() => setSaved(false), 2000); }}>
+                                        {saved ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg> Saved!</> : "Save Draft"}
                                     </button>
                                 </div>
                             </div>
@@ -649,6 +670,102 @@ export default function RecapitalizationWorkspace() {
                         </div>
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => setShowConverted(false)}>Done</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {draftClarificationOpen && (
+                <div className="rc-modal-overlay" onClick={() => { setDraftClarificationOpen(false); setDraftClarificationText(""); }}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+                        <div className="rc-modal-header">
+                            <h2>Request Clarification</h2>
+                            <button className="rc-modal-close" onClick={() => { setDraftClarificationOpen(false); setDraftClarificationText(""); }}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body">
+                            <div className="rc-modal-field">
+                                <label>Clarification Question</label>
+                                <textarea value={draftClarificationText} onChange={e => setDraftClarificationText(e.target.value)} placeholder="What clarification is needed?" rows={4} style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #e2e8f0", borderRadius: 6, resize: "vertical", font: "inherit", boxSizing: "border-box" }} />
+                            </div>
+                            <div className="rc-modal-field">
+                                <label>Visibility</label>
+                                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                                    <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, cursor: "pointer" }}>
+                                        <input type="radio" name="clarVisibility" checked={draftClarificationInternal} onChange={() => setDraftClarificationInternal(true)} />
+                                        Internal Review Needed (default)
+                                    </label>
+                                    <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, cursor: "pointer" }}>
+                                        <input type="radio" name="clarVisibility" checked={!draftClarificationInternal} onChange={() => setDraftClarificationInternal(false)} />
+                                        Publish to External
+                                    </label>
+                                </div>
+                                <p style={{ fontSize: 11, color: "#64748b", margin: "4px 0 0" }}>
+                                    {draftClarificationInternal
+                                        ? "DD lead will review and approve before external visibility."
+                                        : "Clarification will be visible externally after submission."}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => { setDraftClarificationOpen(false); setDraftClarificationText(""); }}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!draftClarificationText.trim()} onClick={() => {
+                                const newQ: WorkspaceQuestion = {
+                                    id: "q" + Date.now(),
+                                    from: "Internal Team",
+                                    question: draftClarificationText.trim(),
+                                    response: null,
+                                    status: "Open",
+                                    timestamp: new Date().toISOString().split("T")[0],
+                                };
+                                setLocalQuestions(prev => [...prev, { ...newQ, status: draftClarificationInternal ? "Open" as const : "Open" as const }]);
+                                setDraftClarificationOpen(false);
+                                setDraftClarificationText("");
+                                setDraftClarificationInternal(true);
+                                setBanner(draftClarificationInternal ? "Clarification drafted (internal review needed before external publish)" : "Clarification submitted and visible externally.");
+                                setTimeout(() => setBanner(null), 4000);
+                            }}>Save Clarification</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {respondExternalOpen && (
+                <div className="rc-modal-overlay" onClick={() => { setRespondExternalOpen(false); setRespondExternalText(""); }}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="rc-modal-header">
+                            <h2>Respond Externally</h2>
+                            <button className="rc-modal-close" onClick={() => { setRespondExternalOpen(false); setRespondExternalText(""); }}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "12px 16px" }}>
+                            <p style={{ fontSize: 12, color: "#475569", margin: "0 0 8px" }}>
+                                Send a response for <strong>{displayTitle}</strong>:
+                            </p>
+                            <textarea value={respondExternalText} onChange={e => setRespondExternalText(e.target.value)} placeholder="Type your response..." rows={4} style={{ width: "100%", padding: "8px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", font: "inherit", boxSizing: "border-box" }} />
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => { setRespondExternalOpen(false); setRespondExternalText(""); }}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!respondExternalText.trim()} onClick={() => { setBanner(`Response sent externally for ${displayTitle}`); setRespondExternalOpen(false); setRespondExternalText(""); setTimeout(() => setBanner(null), 3000); }}>Send Response</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {publishUpdateOpen && (
+                <div className="rc-modal-overlay" onClick={() => { setPublishUpdateOpen(false); setPublishUpdateText(""); }}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="rc-modal-header">
+                            <h2>Publish Update</h2>
+                            <button className="rc-modal-close" onClick={() => { setPublishUpdateOpen(false); setPublishUpdateText(""); }}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "12px 16px" }}>
+                            <p style={{ fontSize: 12, color: "#475569", margin: "0 0 8px" }}>
+                                Publish an update for <strong>{displayTitle}</strong>:
+                            </p>
+                            <textarea value={publishUpdateText} onChange={e => setPublishUpdateText(e.target.value)} placeholder="Describe the update..." rows={4} style={{ width: "100%", padding: "8px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", font: "inherit", boxSizing: "border-box" }} />
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => { setPublishUpdateOpen(false); setPublishUpdateText(""); }}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!publishUpdateText.trim()} onClick={() => { updateRequestStatus(item.id || item.intakeId || "", "Under Review"); setWsRefreshKey(k => k + 1); setBanner(`Update published for ${displayTitle}`); setPublishUpdateOpen(false); setPublishUpdateText(""); setTimeout(() => setBanner(null), 3000); }}>Publish Update</button>
                         </div>
                     </div>
                 </div>

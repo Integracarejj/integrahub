@@ -8,7 +8,7 @@ import {
     parseUploadedXLSX, extractCategoriesFromParsedRows,
     getOnlyPortalCreatedRequests,
 } from "../../services/portalMockData";
-import type { ExternalDemoPersona, ParseDiagnostics } from "../../services/portalMockData";
+import type { ExternalDemoPersona, ParseDiagnostics, PortalPackageSubmission } from "../../services/portalMockData";
 import "./PortalOverview.css";
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -61,6 +61,7 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
 
     const submissions = getPortalSubmissionsList();
     const needingClarification = portalRequests.filter(r => r.status === "Clarification Needed").length;
+    const [selectedPackage, setSelectedPackage] = useState<PortalPackageSubmission | null>(null);
 
     // Window-level drag/drop — prevents browser from navigating to dropped files
     useEffect(() => {
@@ -270,19 +271,18 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
                                 <polyline points="20 6 9 17 4 12" />
                             </svg>
                             <h3 style={{ fontSize: 16, fontWeight: 700, color: "#166534", margin: "0 0 4px" }}>Package Analyzed</h3>
-                            <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 14px" }}>
+                            <p style={{ fontSize: 13, color: "#475569", margin: "0 0 14px" }}>
                                 {analysis.packageName}{analysis.isABCDemo ? " (Gold Standard Demo)" : ""} &mdash; {analysis.detected} request rows identified.
+                                {analysis.duplicates > 0 && <> <span style={{ color: "#92400e" }}>{analysis.duplicates} potential duplicate{analysis.duplicates > 1 ? "s" : ""} detected.</span></>}
+                            </p>
+                            <p style={{ fontSize: 12, color: "#475569", margin: "0 0 14px", fontStyle: "italic" }}>
+                                IntegraCare will review all request rows internally before publishing approved requests to the tracker.
                             </p>
                             <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap", marginBottom: 14 }}>
-                                <div style={{ textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 700, color: "#1e293b" }}>{analysis.detected}</div><div style={{ fontSize: 11, color: "#64748b" }}>Requests</div></div>
-                                <div style={{ textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 700, color: "#1d4ed8" }}>{analysis.needsReview}</div><div style={{ fontSize: 11, color: "#64748b" }}>Needs Review</div></div>
-                                <div style={{ textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 700, color: "#92400e" }}>{analysis.duplicates}</div><div style={{ fontSize: 11, color: "#64748b" }}>Duplicates</div></div>
-                                <div style={{ textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 700, color: "#92400e" }}>{analysis.followUp}</div><div style={{ fontSize: 11, color: "#64748b" }}>Follow-Up</div></div>
-                            </div>
-                            <div style={{ display: "flex", gap: 4, justifyContent: "center", flexWrap: "wrap", marginBottom: 14 }}>
-                                {analysis.categories.map((cat) => (
-                                    <span key={cat} style={{ fontSize: 10, padding: "2px 8px", background: "#eef2ff", color: "#4338ca", borderRadius: 4, fontWeight: 600 }}>{cat}</span>
-                                ))}
+                                <div style={{ textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 700, color: "#1e293b" }}>{analysis.detected}</div><div style={{ fontSize: 11, color: "#64748b" }}>Total Requests</div></div>
+                                {analysis.duplicates > 0 && (
+                                    <div style={{ textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 700, color: "#92400e" }}>{analysis.duplicates}</div><div style={{ fontSize: 11, color: "#64748b" }}>Duplicates</div></div>
+                                )}
                             </div>
                             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
                                 <button className="rc-btn rc-btn-primary" onClick={handleSubmitPackage}>Submit Package to IntegraCare</button>
@@ -428,7 +428,7 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
                             <span>Package</span><span>File</span><span>Submitted</span><span>Requests</span><span>Status</span>
                         </div>
                         {submissions.slice().reverse().map((sub) => (
-                            <div key={sub.id} className="po-requests-row">
+                            <div key={sub.id} className="po-requests-row" onClick={() => setSelectedPackage(sub)} style={{ cursor: "pointer" }}>
                                 <span className="po-requests-title">{sub.packageName}</span>
                                 <span style={{ fontSize: 12, color: "#64748b" }}>{sub.fileName}</span>
                                 <span style={{ fontSize: 12, color: "#475569" }}>{new Date(sub.submittedAt).toLocaleDateString()}</span>
@@ -438,6 +438,75 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
                     ))}
                 </div>
             </div>
+            )}
+
+            {selectedPackage && (
+                <div className="rc-modal-overlay" onClick={() => setSelectedPackage(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
+                        <div className="rc-modal-header">
+                            <h2>{selectedPackage.packageName}</h2>
+                            <button className="rc-modal-close" onClick={() => setSelectedPackage(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ gap: 0 }}>
+                            <div className="iq-detail-grid" style={{ marginBottom: 16 }}>
+                                <div className="rc-drawer-field">
+                                    <span className="rc-drawer-field-label">File</span>
+                                    <span className="rc-drawer-field-value" style={{ fontSize: 12 }}>{selectedPackage.fileName}</span>
+                                </div>
+                                <div className="rc-drawer-field">
+                                    <span className="rc-drawer-field-label">Submitted</span>
+                                    <span className="rc-drawer-field-value" style={{ fontSize: 12 }}>{new Date(selectedPackage.submittedAt).toLocaleString()}</span>
+                                </div>
+                                <div className="rc-drawer-field">
+                                    <span className="rc-drawer-field-label">Requests</span>
+                                    <span className="rc-drawer-field-value" style={{ fontSize: 12 }}>{selectedPackage.requestCount}</span>
+                                </div>
+                                <div className="rc-drawer-field">
+                                    <span className="rc-drawer-field-label">Status</span>
+                                    <span className="rc-drawer-field-value" style={{ fontSize: 12 }}><StatusBadge status={selectedPackage.status === "Submitted" ? "Provided" : selectedPackage.status} /></span>
+                                </div>
+                            </div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 10 }}>Progress</div>
+                            {(() => {
+                                const sub = selectedPackage;
+                                const isSubmitted = sub.status === "Submitted";
+                                const steps = [
+                                    { label: "Submitted", done: true, date: sub.submittedAt, desc: "Package received. All files have been uploaded successfully." },
+                                    { label: "Internal Review", done: isSubmitted, date: isSubmitted ? sub.submittedAt : "", desc: "IntegraCare is reviewing, categorizing, and removing duplicates from the submitted requests." },
+                                    { label: "Assigned", done: false, desc: "Internal teams and owners are being assigned to each request." },
+                                    { label: "Published to Tracker", done: false, desc: "Approved requests are made visible in the DD Request Tracker." },
+                                    { label: "Complete", done: false, desc: "All requests have been processed and published." },
+                                ];
+                                return (
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                                        {steps.map((s, i) => (
+                                            <div key={s.label} style={{ display: "flex", gap: 10, paddingBottom: 12, position: "relative" }}>
+                                                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 20, flexShrink: 0 }}>
+                                                    <div style={{ width: 16, height: 16, borderRadius: "50%", background: s.done ? "#166534" : "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
+                                                        {s.done ? (
+                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                                        ) : (
+                                                            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#94a3b8" }} />
+                                                        )}
+                                                    </div>
+                                                    {i < steps.length - 1 && <div style={{ width: 1, flex: 1, background: s.done ? "#166534" : "#e2e8f0", minHeight: 16 }} />}
+                                                </div>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontSize: 13, fontWeight: 700, color: s.done ? "#166534" : "#94a3b8", marginBottom: 2 }}>{s.label}</div>
+                                                    <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.4 }}>{s.desc}</div>
+                                                    {s.date && <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{new Date(s.date).toLocaleDateString()}</div>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-secondary" onClick={() => setSelectedPackage(null)}>Close</button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {portalRequests.length > 0 && (

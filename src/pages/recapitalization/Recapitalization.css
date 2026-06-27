@@ -2033,10 +2033,31 @@
 
 /* ── Review Grid Sticky Columns ── */
 
+.review-grid {
+    position: relative;
+}
+
 .review-grid .review-sticky-col {
     position: sticky;
     z-index: 3;
-    background: inherit;
+}
+
+.review-grid tbody td.review-sticky-col {
+    background: #fff;
+}
+
+.review-grid tbody td.review-sticky-col:last-child::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 1px;
+    background: #e2e8f0;
+}
+
+.review-grid tbody tr:hover td.review-sticky-col {
+    background: #f8fafc;
 }
 
 .review-grid .review-sticky-check {
@@ -2054,6 +2075,7 @@
 
 .review-grid thead th.review-sticky-col {
     z-index: 5;
+    background: #f8fafc;
 }
 
 .review-grid thead th.review-sticky-check {

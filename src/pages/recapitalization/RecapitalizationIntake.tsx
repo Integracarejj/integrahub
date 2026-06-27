@@ -165,6 +165,7 @@ function ReviewEngine() {
     const [teamFilter, setTeamFilter] = useState("All");
     const [priorityFilter, setPriorityFilter] = useState("All");
     const [reviewStateFilter, setReviewStateFilter] = useState("All");
+    const [duplicateFilter, setDuplicateFilter] = useState("all");
     const [page, setPage] = useState(0);
 
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -269,8 +270,8 @@ function ReviewEngine() {
             const reviewState = getReviewState(r, dupType);
             const potentialDuplicate = dupType !== "None";
             const aiAct = r.status === "Open" ? "Pending Review" : r.status === "Clarification Needed" ? "Clarification Needed" : r.status === "Overdue" ? "Overdue" : r.status === "Provided" ? "Provided" : r.status === "Under Review" ? "Under Review" : "In Progress";
-            const deliverable = r.title.split(" - ")[0];
-            return { ...r, _duplicateType: dupType, _potentialDuplicate: potentialDuplicate, _reviewState: reviewState, _aiAction: aiAct, _deliverable: deliverable, _activityCount: Math.floor(hashId(r.id) % 7) };
+            const deliverable = r.title.includes(" - ") ? r.title.split(" - ").slice(1).join(" - ").trim() : r.title;
+            return { ...r, _duplicateType: dupType, _potentialDuplicate: potentialDuplicate, _reviewState: reviewState, _aiAction: aiAct, _deliverable: deliverable || r.title, _activityCount: Math.floor(hashId(r.id) % 7) };
         });
     }, [allRequests, userReviewStates]);
 
@@ -304,8 +305,10 @@ function ReviewEngine() {
         if (teamFilter !== "All") result = result.filter(r => r.team === teamFilter);
         if (priorityFilter !== "All") result = result.filter(r => r.priority === priorityFilter);
         if (reviewStateFilter !== "All") result = result.filter(r => r._reviewState === reviewStateFilter);
+        if (duplicateFilter === "duplicates") result = result.filter(r => r._potentialDuplicate);
+        else if (duplicateFilter === "nonduplicates") result = result.filter(r => !r._potentialDuplicate);
         return result;
-    }, [enriched, activeCardFilter, searchQuery, categoryFilter, communityFilter, teamFilter, priorityFilter, reviewStateFilter]);
+    }, [enriched, activeCardFilter, searchQuery, categoryFilter, communityFilter, teamFilter, priorityFilter, reviewStateFilter, duplicateFilter]);
 
     const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     const safePage = Math.min(page, totalPages - 1);
@@ -624,13 +627,18 @@ function ReviewEngine() {
                             <option value="All">All Priorities</option>
                             {PRIORITIES_LIST.map(p => <option key={p} value={p}>{p}</option>)}
                         </select>
-                        <select className="rc-filter-select" value={reviewStateFilter} onChange={e => { setReviewStateFilter(e.target.value); setPage(0); }} style={{ minWidth: 130 }}>
-                            <option value="All">All Items</option>
-                            <option value="Ready to Publish">Ready to Publish</option>
-                            <option value="Pending Review">Pending Review</option>
-                            <option value="Clarification Needed">Clarification Needed</option>
-                            <option value="Archived">Archived</option>
-                        </select>
+                                        <select className="rc-filter-select" value={reviewStateFilter} onChange={e => { setReviewStateFilter(e.target.value); setPage(0); }} style={{ minWidth: 130 }}>
+                                            <option value="All">All Items</option>
+                                            <option value="Ready to Publish">Ready to Publish</option>
+                                            <option value="Pending Review">Pending Review</option>
+                                            <option value="Clarification Needed">Clarification Needed</option>
+                                            <option value="Archived">Archived</option>
+                                        </select>
+                                        <select className="rc-filter-select" value={duplicateFilter} onChange={e => { setDuplicateFilter(e.target.value); setPage(0); }} style={{ minWidth: 140 }}>
+                                            <option value="all">All Items</option>
+                                            <option value="duplicates">Potential Duplicates</option>
+                                            <option value="nonduplicates">Non-Duplicates</option>
+                                        </select>
                     </div>
                 </div>
 
@@ -700,7 +708,6 @@ function ReviewEngine() {
                                             <th style={{ width: 80 }}>Priority</th>
                                             <th style={{ minWidth: 100 }}>Status</th>
                                             <th style={{ minWidth: 145 }}>Review State</th>
-                                            <th style={{ minWidth: 80 }}>Dup.</th>
                                             <th style={{ minWidth: 110 }}>Deliverable</th>
                                         </tr>
                                     </thead>
@@ -712,7 +719,10 @@ function ReviewEngine() {
                                                         <input type="checkbox" className="rc-checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
                                                     </td>
                                                     <td className="review-sticky-col review-sticky-id" style={{ color: "#475569", fontWeight: 500, fontSize: 11 }} title={r.intakeId}>
-                                                        {r.intakeId || <span style={{ color: "#94a3b8" }}>&mdash;</span>}
+                                                        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                                            {r._potentialDuplicate && <span title={DUP_TOOLTIP[r._duplicateType]} style={{ color: "#d97706", fontSize: 14, cursor: "help", flexShrink: 0 }}>&#9888;</span>}
+                                                            {r.intakeId || <span style={{ color: "#94a3b8" }}>&mdash;</span>}
+                                                        </span>
                                                     </td>
                                                     <td className="review-sticky-col review-sticky-title" style={{ fontWeight: 600, color: "#0f172a", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.title}>
                                                         <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -755,13 +765,6 @@ function ReviewEngine() {
                                                             <option value="Clarification Needed">Clarification Needed</option>
                                                             <option value="Archived">Archived</option>
                                                         </select>
-                                                    </td>
-                                                    <td style={{ fontSize: 11, textAlign: "center" }}>
-                                                        {r._potentialDuplicate ? (
-                                                            <span title={DUP_TOOLTIP[r._duplicateType]} style={{ color: "#d97706", fontSize: 16, cursor: "help" }}>&#9888;</span>
-                                                        ) : (
-                                                            <span style={{ color: "#d1d5db" }}>&mdash;</span>
-                                                        )}
                                                     </td>
                                                     <td style={{ color: "#475569", fontSize: 11, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r._deliverable}>{r._deliverable}</td>
                                                 </tr>

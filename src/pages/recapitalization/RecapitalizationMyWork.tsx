@@ -1,77 +1,153 @@
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { getMyWork, isDemoActive } from "../../services/recapDataService";
+import { getRequests, isDemoActive, getTeamMembers } from "../../services/recapDataService";
+import type { RecapRequest } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
 export default function RecapitalizationMyWork() {
     const navigate = useNavigate();
-    const work = getMyWork("Sarah Chen");
+    const [activeUser, setActiveUser] = useState("Sarah Chen");
+    const [detailItem, setDetailItem] = useState<RecapRequest | null>(null);
+    const members = getTeamMembers();
+    const allRequests = getRequests();
 
-    const sections = [
-        { key: "assignedToMe" as const, label: "Assigned to Me", icon: "&#128100;", color: "#1d4ed8", bg: "#eff6ff", items: work.assignedToMe },
-        { key: "assignedToMyTeam" as const, label: "Assigned to My Team", icon: "&#128101;", color: "#4338ca", bg: "#eef2ff", items: work.assignedToMyTeam },
-        { key: "dueThisWeek" as const, label: "Due This Week", icon: "&#128197;", color: "#92400e", bg: "#fffbeb", items: work.dueThisWeek },
-        { key: "overdue" as const, label: "Overdue", icon: "&#9888;", color: "#991b1b", bg: "#fef2f2", items: work.overdue },
-        { key: "needsMyResponse" as const, label: "Needs My Response", icon: "&#9993;", color: "#166534", bg: "#f0fdf4", items: work.needsMyResponse },
-        { key: "waitingOnExternal" as const, label: "Waiting on External", icon: "&#8987;", color: "#64748b", bg: "#f8fafc", items: work.waitingOnExternal },
-    ];
+    const myItems = useMemo(() => {
+        const user = members.find(m => m.name === activeUser);
+        const userTeam = user?.team || "";
+        const assignedToMe = allRequests.filter(r => r.owner === activeUser || r.assignedTo === activeUser);
+        const myTeam = allRequests.filter(r => r.team === userTeam && r.owner !== activeUser && r.assignedTo !== activeUser);
+        return { assignedToMe, myTeam };
+    }, [allRequests, activeUser, members]);
+
+    const StatusBadge = ({ status }: { status: string }) => {
+        const cls = status === "Overdue" ? "overdue" : status.toLowerCase().replace(/\s+/g, "-");
+        return <span className={`rc-badge rc-badge-${cls}`} style={{ fontSize: 10 }}>{status}</span>;
+    };
+
+    const PriorityBadge = ({ priority }: { priority: string }) => (
+        <span className={`rc-badge rc-badge-${priority.toLowerCase()}`} style={{ fontSize: 10 }}>{priority}</span>
+    );
+
+    function renderTable(items: RecapRequest[], emptyMsg: string) {
+        if (items.length === 0) return <div className="rc-empty-state" style={{ padding: 20 }}>{emptyMsg}</div>;
+        return (
+            <table className="rc-table">
+                <thead>
+                    <tr>
+                        <th style={{ minWidth: 80 }}>Request ID</th>
+                        <th style={{ minWidth: 100 }}>Intake ID</th>
+                        <th style={{ minWidth: 160 }}>Title</th>
+                        <th style={{ minWidth: 70 }}>Team</th>
+                        <th style={{ minWidth: 60 }}>Status</th>
+                        <th style={{ minWidth: 60 }}>Priority</th>
+                        <th style={{ minWidth: 80 }}>Due</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {items.map(req => (
+                        <tr key={req.id} className="rc-row-clickable" onClick={() => navigate(`/recapitalization/workspace/${req.intakeId}`)}>
+                            <td style={{ fontWeight: 600, fontSize: 12, color: "#334155" }}>{req.requestId}</td>
+                            <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#475569" }}>{req.intakeId}</td>
+                            <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 220 }}>{req.title}</td>
+                            <td style={{ fontSize: 12 }}>{req.team}</td>
+                            <td><StatusBadge status={req.status} /></td>
+                            <td><PriorityBadge priority={req.priority} /></td>
+                            <td className="nowrap" style={{ fontSize: 12, color: req.status === "Overdue" ? "#991b1b" : "#475569", fontWeight: req.status === "Overdue" ? 600 : 400 }}>{req.dueDate}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        );
+    }
 
     return (
         <div className="rc-page">
             <RecapSubNav />
             <div className="rc-header">
                 <div className="rc-header-left">
-                    <h1>My DD Work</h1>
+                    <h1>My Work</h1>
                     {isDemoActive() && <span className="rc-badge rc-badge-visible" style={{ fontSize: 10, marginLeft: 8 }}>Live Demo Data</span>}
-                    <span className="rc-text-muted" style={{ fontSize: 13 }}>Sarah Chen &middot; Financial Analysis</span>
                 </div>
                 <div className="rc-header-actions">
-                    <select className="rc-filter-select" defaultValue="sarah">
-                        <option value="sarah">Sarah Chen</option>
-                        <option value="james">James Wright</option>
-                        <option value="lisa">Lisa Park</option>
-                        <option value="tom">Tom Davies</option>
+                    <select className="rc-filter-select" value={activeUser} onChange={e => setActiveUser(e.target.value)}>
+                        {members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                     </select>
                 </div>
             </div>
 
-            {sections.map(section => (
-                <div key={section.key} className="rc-work-section">
-                    <div className="rc-work-section-title">
-                        <span>{section.label}</span>
-                        <span style={{ fontSize: 13, color: "#64748b" }}>{section.items.length} items</span>
-                    </div>
-                    <div className="rc-card" style={{ padding: 0 }}>
-                        {section.items.length === 0 ? (
-                            <div className="rc-empty-state" style={{ padding: "20px" }}>No items in this section</div>
-                        ) : section.items.slice(0, 3).map(req => (
-                            <div key={req.id} style={{ display: "flex", alignItems: "center", padding: "10px 16px", borderBottom: "1px solid #f1f5f9", cursor: "pointer", gap: 12 }}
-                                onClick={() => navigate("/recapitalization/tracker")}>
-                                <div style={{ width: 4, height: 32, borderRadius: 2, background: section.color, flexShrink: 0 }} />
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div className="rc-flex-center" style={{ marginBottom: 2, gap: 6 }}>
-                                        <span className={`rc-badge rc-badge-${req.status === "Overdue" ? "overdue" : req.status.toLowerCase().replace(/\s+/g, "-")}`} style={{ fontSize: 10 }}>
-                                            {req.status}
-                                        </span>
-                                        <span className={`rc-badge rc-badge-${req.priority.toLowerCase()}`} style={{ fontSize: 10 }}>{req.priority}</span>
-                                        <span style={{ fontSize: 11, color: "#64748b" }}>{req.requestId}</span>
-                                    </div>
-                                    <span className="rc-truncate" style={{ fontSize: 13, fontWeight: 500, display: "block" }}>{req.title}</span>
-                                    <span className="rc-text-muted" style={{ fontSize: 11 }}>{req.transactionName} &middot; Due: {req.dueDate}</span>
+            <div className="rc-card">
+                <div className="rc-card-header">
+                    <h2>Assigned to Me ({myItems.assignedToMe.length})</h2>
+                </div>
+                <div className="rc-card-body" style={{ padding: 0 }}>
+                    {renderTable(myItems.assignedToMe, "No items assigned to you.")}
+                </div>
+            </div>
+
+            <div className="rc-card">
+                <div className="rc-card-header">
+                    <h2>My Team ({myItems.myTeam.length})</h2>
+                </div>
+                <div className="rc-card-body" style={{ padding: 0 }}>
+                    {renderTable(myItems.myTeam, "No items for your team.")}
+                </div>
+            </div>
+
+            <div style={{ fontSize: 12, color: "#64748b", textAlign: "right" }}>
+                Showing {myItems.assignedToMe.length + myItems.myTeam.length} of {allRequests.length} total requests
+            </div>
+
+            {detailItem && (
+                <div className="rc-modal-overlay" onClick={() => setDetailItem(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="rc-modal-header">
+                            <h2>{detailItem.title}</h2>
+                            <button className="rc-modal-close" onClick={() => setDetailItem(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body">
+                            <div className="rc-detail-grid">
+                                <div className="rc-drawer-field">
+                                    <span className="rc-drawer-field-label">Request ID</span>
+                                    <span className="rc-drawer-field-value">{detailItem.requestId}</span>
                                 </div>
-                                <span style={{ fontSize: 16, color: "#64748b" }}>&#8250;</span>
+                                <div className="rc-drawer-field">
+                                    <span className="rc-drawer-field-label">Intake ID</span>
+                                    <span className="rc-drawer-field-value">{detailItem.intakeId}</span>
+                                </div>
+                                <div className="rc-drawer-field">
+                                    <span className="rc-drawer-field-label">Status</span>
+                                    <span className="rc-drawer-field-value"><StatusBadge status={detailItem.status} /></span>
+                                </div>
+                                <div className="rc-drawer-field">
+                                    <span className="rc-drawer-field-label">Priority</span>
+                                    <span className="rc-drawer-field-value"><PriorityBadge priority={detailItem.priority} /></span>
+                                </div>
+                                <div className="rc-drawer-field">
+                                    <span className="rc-drawer-field-label">Team</span>
+                                    <span className="rc-drawer-field-value">{detailItem.team}</span>
+                                </div>
+                                <div className="rc-drawer-field">
+                                    <span className="rc-drawer-field-label">Due Date</span>
+                                    <span className="rc-drawer-field-value">{detailItem.dueDate}</span>
+                                </div>
+                                <div className="rc-drawer-field">
+                                    <span className="rc-drawer-field-label">Assigned To</span>
+                                    <span className="rc-drawer-field-value">{detailItem.owner || "Unassigned"}</span>
+                                </div>
+                                <div className="rc-drawer-field">
+                                    <span className="rc-drawer-field-label">Updated</span>
+                                    <span className="rc-drawer-field-value">{detailItem.lastUpdated}</span>
+                                </div>
                             </div>
-                        ))}
-                        {section.items.length > 3 && (
-                            <div style={{ padding: "8px 16px", textAlign: "center", borderTop: "1px solid #f1f5f9" }}>
-                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => navigate("/recapitalization/tracker")}>
-                                    View all {section.items.length} items
-                                </button>
-                            </div>
-                        )}
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-secondary" onClick={() => setDetailItem(null)}>Close</button>
+                            <button className="rc-btn rc-btn-primary" onClick={() => { setDetailItem(null); navigate(`/recapitalization/workspace/${detailItem.intakeId}`); }}>Open Workspace</button>
+                        </div>
                     </div>
                 </div>
-            ))}
+            )}
         </div>
     );
 }

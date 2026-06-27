@@ -248,7 +248,12 @@ export default function RecapitalizationTracker() {
                                 <td className="rc-truncate">{req.brokerBuyer}</td>
                                 <td className="rc-truncate">{req.communityNames.join(", ") || "All"}</td>
                                 <td>{req.category}</td>
-                                <td className="rc-truncate" style={{ fontWeight: 500 }}>{req.title}</td>
+                                <td className="rc-truncate" style={{ fontWeight: 500 }}>
+                                    {req._publishedAt && new Date(req._publishedAt).getTime() > Date.now() - 86400000 && (
+                                        <span className="rc-badge rc-badge-visible" style={{ fontSize: 9, padding: "1px 5px", marginRight: 6, verticalAlign: "middle" }}>Newly Published</span>
+                                    )}
+                                    {req.title}
+                                </td>
                                 <td style={{ color: req.owner ? "#1e293b" : "#64748b", fontSize: 12 }}>{req.owner || "—"}</td>
                                 <td style={{ fontSize: 12 }}>{req.team}</td>
                                 <td><span className={`rc-badge rc-badge-${req.status === "Overdue" ? "overdue" : req.status.toLowerCase().replace(/\s+/g, "-")}`}>{req.status}</span></td>
