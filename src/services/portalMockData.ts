@@ -797,6 +797,10 @@ export function getPortalSubmissionsList(): PortalPackageSubmission[] {
     return getPortalSubmissions();
 }
 
+export function getOnlyPortalCreatedRequests(): PortalRequest[] {
+    return [...MOCK_REQUESTS];
+}
+
 export function clearPortalSubmissions(): void {
     clearAllPortalCreatedData();
     // Also clear in-memory portal-created requests for this session

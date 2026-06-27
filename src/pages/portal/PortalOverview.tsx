@@ -6,6 +6,7 @@ import {
     getPortalDocuments, getPortalClarifications, getPortalQuestions,
     getPortalSubmissionsList, loadABCDemoPackage,
     parseUploadedXLSX, extractCategoriesFromParsedRows,
+    getOnlyPortalCreatedRequests,
 } from "../../services/portalMockData";
 import type { ExternalDemoPersona, ParseDiagnostics } from "../../services/portalMockData";
 import "./PortalOverview.css";
@@ -46,7 +47,7 @@ type UploadState = "idle" | "selected" | "analyzing" | "complete" | "submitted";
 
 function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
     const navigate = useNavigate();
-    const requests = getPortalRequests();
+    const portalRequests = getOnlyPortalCreatedRequests();
     const transactions = getPortalTransactions();
     const txn = transactions[0];
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -59,9 +60,21 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
     const [debug, setDebug] = useState<ParseDiagnostics | null>(null);
 
     const submissions = getPortalSubmissionsList();
-    const needingClarification = requests.filter(r => r.status === "Clarification Needed").length;
-    const waitingOnInternal = requests.filter(r => r.status === "In Progress" || r.status === "Open").length;
-    const provided = requests.filter(r => r.status === "Provided" || r.status === "Under Review").length;
+    const needingClarification = portalRequests.filter(r => r.status === "Clarification Needed").length;
+
+    // Window-level drag/drop — prevents browser from navigating to dropped files
+    useEffect(() => {
+        const prevent = (e: DragEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+        };
+        window.addEventListener("dragover", prevent);
+        window.addEventListener("drop", prevent);
+        return () => {
+            window.removeEventListener("dragover", prevent);
+            window.removeEventListener("drop", prevent);
+        };
+    }, []);
 
     const resetUpload = useCallback(() => {
         setUploadState("idle");
@@ -280,18 +293,51 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
                 </div>
             )}
 
-            {uploadState === "submitted" && (
-                <div className="po-upload-section" style={{ border: "1px solid #bbf7d0", borderRadius: 14, padding: 20, marginBottom: 20, background: "#f0fdf4" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                        <div>
-                            <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#166534" }}>Package submitted successfully!</span>
-                            <span style={{ display: "block", fontSize: 12, color: "#475569" }}>
-                                IntegraCare will review and publish approved requests.
-                            </span>
+            {uploadState === "submitted" && analysis && (
+                <div style={{ marginBottom: 20 }}>
+                    <div className="po-upload-section" style={{ border: "1px solid #bbf7d0", borderRadius: 14, padding: 20, background: "#f0fdf4" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            <div>
+                                <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#166534" }}>Package submitted successfully!</span>
+                                <span style={{ display: "block", fontSize: 12, color: "#475569" }}>
+                                    {analysis.detected} request{analysis.detected !== 1 ? "s" : ""} submitted for review. IntegraCare will review and publish approved requests.
+                                </span>
+                            </div>
                         </div>
+                        {(() => {
+                            const steps = [
+                                { label: "Submitted", done: true, desc: "Package received" },
+                                { label: "Internal Review", done: true, desc: "Under review by IntegraCare" },
+                                { label: "Assigned", done: false, desc: "Awaiting internal assignment" },
+                                { label: "Published to Tracker", done: false, desc: "Pending review approval" },
+                                { label: "Complete", done: false, desc: "All requests processed" },
+                            ];
+                            return (
+                                <div style={{ display: "flex", alignItems: "flex-start", gap: 0, marginBottom: 8 }}>
+                                    {steps.map((s, i) => (
+                                        <div key={s.label} style={{ flex: 1, textAlign: "center", position: "relative" }}>
+                                            {i > 0 && (
+                                                <div style={{ position: "absolute", top: 12, left: 0, right: "50%", height: 2, background: s.done ? "#166534" : "#e2e8f0", zIndex: 0 }} />
+                                            )}
+                                            <div style={{ position: "relative", zIndex: 1, width: 24, height: 24, borderRadius: "50%", background: s.done ? "#166534" : "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}>
+                                                {s.done ? (
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                        <polyline points="20 6 9 17 4 12" />
+                                                    </svg>
+                                                ) : (
+                                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#94a3b8" }} />
+                                                )}
+                                            </div>
+                                            <div style={{ marginTop: 6, fontSize: 10, fontWeight: 700, color: s.done ? "#166534" : "#94a3b8" }}>{s.label}</div>
+                                            <div style={{ fontSize: 9, color: "#94a3b8" }}>{s.desc}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            );
+                        })()}
                     </div>
                     <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ marginTop: 12 }}>Upload Another Package</button>
                 </div>
@@ -349,24 +395,30 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
                 </div>
             )}
 
-            <div className="po-stats-row">
-                <div className="po-stat-card">
-                    <span className="po-stat-value">{requests.length}</span>
-                    <span className="po-stat-label">Total Requests</span>
+            {submissions.length > 0 ? (
+                <div className="po-stats-row">
+                    <div className="po-stat-card">
+                        <span className="po-stat-value">{submissions.reduce((s, sub) => s + sub.requestCount, 0)}</span>
+                        <span className="po-stat-label">Total Submitted</span>
+                    </div>
+                    <div className="po-stat-card">
+                        <span className="po-stat-value po-stat-value--green">{submissions.filter(s => s.status === "Submitted").length}</span>
+                        <span className="po-stat-label">Packages In Review</span>
+                    </div>
+                    <div className="po-stat-card">
+                        <span className="po-stat-value po-stat-value--blue">{submissions.length}</span>
+                        <span className="po-stat-label">Total Packages</span>
+                    </div>
+                    <div className="po-stat-card">
+                        <span className="po-stat-value po-stat-value--amber">{needingClarification}</span>
+                        <span className="po-stat-label">Needs Clarification</span>
+                    </div>
                 </div>
-                <div className="po-stat-card">
-                    <span className="po-stat-value po-stat-value--green">{provided}</span>
-                    <span className="po-stat-label">Provided</span>
+            ) : (
+                <div className="po-section" style={{ padding: "24px 16px", textAlign: "center", border: "1px dashed #d1d5db", borderRadius: 12, background: "#fafbfc" }}>
+                    <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>Upload and submit a package to see your submission metrics here.</p>
                 </div>
-                <div className="po-stat-card">
-                    <span className="po-stat-value po-stat-value--blue">{waitingOnInternal}</span>
-                    <span className="po-stat-label">Waiting on Internal</span>
-                </div>
-                <div className="po-stat-card">
-                    <span className="po-stat-value po-stat-value--amber">{needingClarification}</span>
-                    <span className="po-stat-label">Needs Clarification</span>
-                </div>
-            </div>
+            )}
 
             {submissions.length > 0 && (
                 <div className="po-section">
@@ -383,18 +435,19 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
                                 <span style={{ fontSize: 12, color: "#475569" }}>{sub.requestCount}</span>
                                 <span><StatusBadge status={sub.status === "Submitted" ? "Provided" : sub.status} /></span>
                             </div>
-                        ))}
-                    </div>
+                    ))}
                 </div>
+            </div>
             )}
 
+            {portalRequests.length > 0 && (
             <div className="po-section">
                 <h2 className="po-section-title">Recent Requests</h2>
                 <div className="po-requests-table">
                     <div className="po-requests-header">
                         <span>Title</span><span>Community</span><span>Status</span><span>Priority</span><span>Needed By</span><span>Owner</span>
                     </div>
-                    {requests.slice(0, 10).map((req) => (
+                    {portalRequests.slice(0, 10).map((req) => (
                         <div key={req.id} className="po-requests-row" onClick={() => navigate("/portal/requests")} style={{ cursor: "pointer" }}>
                             <span className="po-requests-title">{req.title}</span>
                             <span style={{ fontSize: 12, color: "#64748b" }}>{req.communityNames[0] || "\u2014"}</span>
@@ -406,6 +459,7 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
                     ))}
                 </div>
             </div>
+            )}
         </div>
     );
 }

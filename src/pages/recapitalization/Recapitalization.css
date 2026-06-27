@@ -2031,6 +2031,35 @@
     line-height: 1.5;
 }
 
+/* ── Review Grid Sticky Columns ── */
+
+.review-grid .review-sticky-col {
+    position: sticky;
+    z-index: 3;
+    background: inherit;
+}
+
+.review-grid .review-sticky-check {
+    left: 0;
+    z-index: 4;
+}
+
+.review-grid .review-sticky-id {
+    left: 36px;
+}
+
+.review-grid .review-sticky-title {
+    left: 152px;
+}
+
+.review-grid thead th.review-sticky-col {
+    z-index: 5;
+}
+
+.review-grid thead th.review-sticky-check {
+    z-index: 6;
+}
+
 /* ── Workspace Action Groups ── */
 
 .ws-actions-group-label {

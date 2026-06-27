@@ -149,7 +149,7 @@ const PAGE_SIZE = 50;
 
 const REVIEW_STATE_KEY = "integrasource.recap.demo.reviewStates";
 
-type ReviewState = "Ready to Publish" | "Duplicate Review" | "Needs Follow-up" | "Needs Review";
+type ReviewState = "Ready to Publish" | "Pending Review" | "Clarification Needed" | "Archived";
 
 function ReviewEngine() {
     const navigate = useNavigate();
@@ -256,21 +256,21 @@ function ReviewEngine() {
         "Existing Request": "This request matches a previously published request in the tracker.",
     };
 
-    const getReviewState = (r: RecapRequest, dupType: string): ReviewState => {
+    const getReviewState = (r: RecapRequest, _dupType: string): ReviewState => {
         if (userReviewStates[r.id]) return userReviewStates[r.id];
-        if (dupType !== "None") return "Duplicate Review";
-        if (r.status === "Clarification Needed") return "Needs Follow-up";
-        if (!r.category || !r.category.trim() || !r.team || !r.team.trim() || !r.communityNames.length || r.status === "Open") return "Needs Review";
-        return "Needs Review";
+        if (r.status === "Clarification Needed") return "Clarification Needed";
+        if (!r.category || !r.category.trim() || !r.team || !r.team.trim() || !r.communityNames.length || r.status === "Open") return "Pending Review";
+        return "Pending Review";
     };
 
     const enriched = useMemo(() => {
         return allRequests.map(r => {
             const dupType = getDupType(r.id);
             const reviewState = getReviewState(r, dupType);
-            const aiAct = r.status === "Open" ? "Needs Review" : r.status === "Clarification Needed" ? "Needs Follow-Up" : r.status === "Overdue" ? "Overdue" : r.status === "Provided" ? "Provided" : r.status === "Under Review" ? "Under Review" : "In Progress";
+            const potentialDuplicate = dupType !== "None";
+            const aiAct = r.status === "Open" ? "Pending Review" : r.status === "Clarification Needed" ? "Clarification Needed" : r.status === "Overdue" ? "Overdue" : r.status === "Provided" ? "Provided" : r.status === "Under Review" ? "Under Review" : "In Progress";
             const deliverable = r.title.split(" - ")[0];
-            return { ...r, _duplicateType: dupType, _reviewState: reviewState, _aiAction: aiAct, _deliverable: deliverable, _activityCount: Math.floor(hashId(r.id) % 7) };
+            return { ...r, _duplicateType: dupType, _potentialDuplicate: potentialDuplicate, _reviewState: reviewState, _aiAction: aiAct, _deliverable: deliverable, _activityCount: Math.floor(hashId(r.id) % 7) };
         });
     }, [allRequests, userReviewStates]);
 
@@ -281,7 +281,7 @@ function ReviewEngine() {
     }, [allRequests]);
 
     const reviewStateCounts = useMemo(() => {
-        const counts: Record<string, number> = { "Ready to Publish": 0, "Needs Review": 0, "Duplicate Review": 0, "Needs Follow-up": 0 };
+        const counts: Record<string, number> = { "Ready to Publish": 0, "Pending Review": 0, "Clarification Needed": 0, "Archived": 0 };
         enriched.forEach(r => { counts[r._reviewState] = (counts[r._reviewState] || 0) + 1; });
         return counts;
     }, [enriched]);
@@ -291,9 +291,9 @@ function ReviewEngine() {
     const filtered = useMemo(() => {
         let result = enriched;
         if (activeCardFilter === "ready") result = result.filter(r => r._reviewState === "Ready to Publish");
-        else if (activeCardFilter === "needs_review") result = result.filter(r => r._reviewState === "Needs Review");
-        else if (activeCardFilter === "duplicates") result = result.filter(r => r._reviewState === "Duplicate Review");
-        else if (activeCardFilter === "follow_up") result = result.filter(r => r._reviewState === "Needs Follow-up");
+        else if (activeCardFilter === "pending") result = result.filter(r => r._reviewState === "Pending Review");
+        else if (activeCardFilter === "archived") result = result.filter(r => r._reviewState === "Archived");
+        else if (activeCardFilter === "clarification") result = result.filter(r => r._reviewState === "Clarification Needed");
         else if (activeCardFilter === "critical") result = result.filter(r => r.priority === "High" && (r.status === "Open" || r.status === "Overdue"));
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase();
@@ -410,9 +410,9 @@ function ReviewEngine() {
 
     const REVIEW_STATE_COLORS: Record<ReviewState, string> = {
         "Ready to Publish": "#166534",
-        "Duplicate Review": "#d97706",
-        "Needs Follow-up": "#92400e",
-        "Needs Review": "#1d4ed8",
+        "Pending Review": "#1d4ed8",
+        "Clarification Needed": "#92400e",
+        "Archived": "#64748b",
     };
 
     const activeSummary = scope ? computedSummary : summary;
@@ -498,20 +498,20 @@ function ReviewEngine() {
                     <span className="rc-stat-label">Ready to Publish</span>
                     <span className="rc-stat-desc">Cleared for tracker</span>
                 </div>
-                <div className="rc-stat-card" style={CARD_STYLE("#1d4ed8", activeCardFilter === "needs_review")} onClick={() => handleCardFilter("needs_review")}>
-                    <span className="rc-stat-value">{reviewStateCounts["Needs Review"]}</span>
-                    <span className="rc-stat-label">Needs Review</span>
-                    <span className="rc-stat-desc">Missing info or warnings</span>
+                <div className="rc-stat-card" style={CARD_STYLE("#1d4ed8", activeCardFilter === "pending")} onClick={() => handleCardFilter("pending")}>
+                    <span className="rc-stat-value">{reviewStateCounts["Pending Review"]}</span>
+                    <span className="rc-stat-label">Pending Review</span>
+                    <span className="rc-stat-desc">Missing info or classification</span>
                 </div>
-                <div className="rc-stat-card" style={CARD_STYLE("#d97706", activeCardFilter === "duplicates")} onClick={() => handleCardFilter("duplicates")}>
-                    <span className="rc-stat-value">{reviewStateCounts["Duplicate Review"]}</span>
-                    <span className="rc-stat-label">Duplicate Review</span>
-                    <span className="rc-stat-desc">Flagged by engine</span>
+                <div className="rc-stat-card" style={CARD_STYLE("#92400e", activeCardFilter === "clarification")} onClick={() => handleCardFilter("clarification")}>
+                    <span className="rc-stat-value">{reviewStateCounts["Clarification Needed"]}</span>
+                    <span className="rc-stat-label">Clarification Needed</span>
+                    <span className="rc-stat-desc">Follow-up recommended</span>
                 </div>
-                <div className="rc-stat-card" style={CARD_STYLE("#92400e", activeCardFilter === "follow_up")} onClick={() => handleCardFilter("follow_up")}>
-                    <span className="rc-stat-value">{reviewStateCounts["Needs Follow-up"]}</span>
-                    <span className="rc-stat-label">Needs Follow-Up</span>
-                    <span className="rc-stat-desc">Clarification recommended</span>
+                <div className="rc-stat-card" style={CARD_STYLE("#64748b", activeCardFilter === "archived")} onClick={() => handleCardFilter("archived")}>
+                    <span className="rc-stat-value">{reviewStateCounts["Archived"]}</span>
+                    <span className="rc-stat-label">Archived</span>
+                    <span className="rc-stat-desc">Duplicates &amp; N/A items</span>
                 </div>
                 <div className="rc-stat-card" style={CARD_STYLE("#991b1b", activeCardFilter === "critical")} onClick={() => handleCardFilter("critical")}>
                     <span className="rc-stat-value">{criticalCount}</span>
@@ -565,15 +565,15 @@ function ReviewEngine() {
                         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid #f1f5f9" }}>
                             <span style={{ fontSize: 16, lineHeight: 1 }}>&#9888;</span>
                             <div>
-                                <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#92400e" }}>{reviewStateCounts["Duplicate Review"]} item{reviewStateCounts["Duplicate Review"] !== 1 ? "s" : ""} flagged for duplicate review</span>
-                                <span style={{ display: "block", fontSize: 11, color: "#64748b" }}>Within-package duplicates or possible matches detected. Review recommended before publishing.</span>
+                                <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#92400e" }}>{enriched.filter(r => r._potentialDuplicate).length} item{enriched.filter(r => r._potentialDuplicate).length !== 1 ? "s" : ""} flagged as potential duplicates</span>
+                                <span style={{ display: "block", fontSize: 11, color: "#64748b" }}>Within-package duplicates or possible matches detected. Archive items that are confirmed duplicates.</span>
                             </div>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid #f1f5f9" }}>
                             <span style={{ fontSize: 16, lineHeight: 1 }}>&#9888;</span>
                             <div>
-                                <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#92400e" }}>{reviewStateCounts["Needs Follow-up"]} item{reviewStateCounts["Needs Follow-up"] !== 1 ? "s" : ""} need{reviewStateCounts["Needs Follow-up"] === 1 ? "s" : ""} follow-up clarification</span>
-                                <span style={{ display: "block", fontSize: 11, color: "#64748b" }}>Some requests have incomplete or ambiguous descriptions. Consider clarifying before publishing.</span>
+                                <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#92400e" }}>{reviewStateCounts["Clarification Needed"]} item{reviewStateCounts["Clarification Needed"] !== 1 ? "s" : ""} need{reviewStateCounts["Clarification Needed"] === 1 ? "s" : ""} clarification</span>
+                                <span style={{ display: "block", fontSize: 11, color: "#64748b" }}>Some requests have incomplete or ambiguous descriptions. Clarify before publishing.</span>
                             </div>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px" }}>
@@ -627,9 +627,9 @@ function ReviewEngine() {
                         <select className="rc-filter-select" value={reviewStateFilter} onChange={e => { setReviewStateFilter(e.target.value); setPage(0); }} style={{ minWidth: 130 }}>
                             <option value="All">All Items</option>
                             <option value="Ready to Publish">Ready to Publish</option>
-                            <option value="Needs Review">Needs Review</option>
-                            <option value="Duplicate Review">Duplicate Review</option>
-                            <option value="Needs Follow-up">Needs Follow-up</option>
+                            <option value="Pending Review">Pending Review</option>
+                            <option value="Clarification Needed">Clarification Needed</option>
+                            <option value="Archived">Archived</option>
                         </select>
                     </div>
                 </div>
@@ -643,10 +643,14 @@ function ReviewEngine() {
                         <select value={bulkReviewState} onChange={e => setBulkReviewState(e.target.value)} style={{ fontSize: 11, padding: "3px 20px 3px 6px", border: "1px solid #c7d2fe", borderRadius: 4, minWidth: 130 }}>
                             <option value="">Review State...</option>
                             <option value="Ready to Publish">Ready to Publish</option>
-                            <option value="Needs Review">Needs Review</option>
-                            <option value="Duplicate Review">Duplicate Review</option>
-                            <option value="Needs Follow-up">Needs Follow-up</option>
+                            <option value="Pending Review">Pending Review</option>
+                            <option value="Clarification Needed">Clarification Needed</option>
+                            <option value="Archived">Archived</option>
                         </select>
+                        <div className="rc-bulk-sep" />
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 12, color: "#92400e", fontWeight: 600 }} onClick={() => { if (selectedIds.size === 0) return; const next = { ...userReviewStates }; [...selectedIds].forEach(id => { next[id] = "Archived" as ReviewState; }); localStorage.setItem(REVIEW_STATE_KEY, JSON.stringify(next)); setUserReviewStates(next); showToast(`Archived ${selectedIds.size} item${selectedIds.size !== 1 ? "s" : ""}`); }}>
+                            Archive as Duplicate
+                        </button>
                         <select value={bulkTeam} onChange={e => setBulkTeam(e.target.value)} style={{ fontSize: 11, padding: "3px 20px 3px 6px", border: "1px solid #c7d2fe", borderRadius: 4, minWidth: 120 }}>
                             <option value="">Assign Team...</option>
                             {TEAMS_LIST.map(t => <option key={t} value={t}>{t}</option>)}
@@ -673,8 +677,8 @@ function ReviewEngine() {
 
                 <div className="rc-card-body" style={{ padding: 0 }}>
                     <div style={{ display: "flex", gap: 16, padding: "8px 16px", borderBottom: "1px solid #f1f5f9", fontSize: 11, color: "#64748b", flexWrap: "wrap" }}>
-                        <span><span style={{ color: "#d97706", fontWeight: 700 }}>&#9888;</span> Orange badge = duplicate items detected</span>
-                        <span><span style={{ color: "#92400e", fontWeight: 600 }}>Dup:</span> Within Package / Possible Match / Existing Request</span>
+                        <span><span style={{ color: "#d97706", fontWeight: 700 }}>&#9888;</span> Warning icon = potential duplicate detected</span>
+                        <span>"Archive as Duplicate" moves items to <span style={{ fontWeight: 600 }}>Archived</span> state</span>
                         <span>Empty values show <span style={{ color: "#94a3b8" }}>&mdash;</span></span>
                         <span>Click a row or <span style={{ color: "#4338ca" }}>View</span> to open the detail drawer</span>
                     </div>
@@ -682,37 +686,35 @@ function ReviewEngine() {
                     {filtered.length > 0 ? (
                         <>
                             <div style={{ maxHeight: 520, overflowY: "auto", overflowX: "auto", position: "relative" }}>
-                                <table className="rc-table" style={{ minWidth: 1500, fontSize: 12 }}>
+                                <table className="rc-table review-grid" style={{ minWidth: 1400, fontSize: 12 }}>
                                     <thead style={{ position: "sticky", top: 0, zIndex: 2, background: "#f8fafc" }}>
                                         <tr>
-                                            <th style={{ width: 20, paddingRight: 4 }}>
+                                            <th className="review-sticky-col review-sticky-check" style={{ width: 20, paddingRight: 4 }}>
                                                 <input type="checkbox" className="rc-checkbox-header" checked={paginated.length > 0 && paginated.every(r => selectedIds.has(r.id))} onChange={toggleSelectAll} />
                                             </th>
-                                            <th style={{ minWidth: 100 }}>Intake ID</th>
-                                            <th style={{ minWidth: 200 }}>Request Title</th>
+                                            <th className="review-sticky-col review-sticky-id" style={{ minWidth: 100 }}>Intake ID</th>
+                                            <th className="review-sticky-col review-sticky-title" style={{ minWidth: 200 }}>Request Title</th>
                                             <th style={{ minWidth: 100 }}>Community</th>
                                             <th style={{ minWidth: 130 }}>Category</th>
                                             <th style={{ minWidth: 140 }}>Suggested Team</th>
                                             <th style={{ width: 80 }}>Priority</th>
-                                            <th style={{ minWidth: 100 }}>AI Action</th>
+                                            <th style={{ minWidth: 100 }}>Status</th>
                                             <th style={{ minWidth: 145 }}>Review State</th>
-                                            <th style={{ minWidth: 145 }}>Duplicate Review</th>
+                                            <th style={{ minWidth: 80 }}>Dup.</th>
                                             <th style={{ minWidth: 110 }}>Deliverable</th>
-                                            <th style={{ width: 50 }}>Act.</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {paginated.map((r) => {
-                                            const dupBadgeColor = r._duplicateType === "Within Package" ? "#d97706" : r._duplicateType === "Possible Match" ? "#b45309" : r._duplicateType === "Existing Request" ? "#991b1b" : "#d1d5db";
                                             return (
                                                 <tr key={r.id} className="rc-row-clickable" onClick={() => setDetailItem(r)}>
-                                                    <td onClick={(e) => e.stopPropagation()}>
+                                                    <td className="review-sticky-col review-sticky-check" onClick={(e) => e.stopPropagation()}>
                                                         <input type="checkbox" className="rc-checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
                                                     </td>
-                                                    <td style={{ color: "#475569", fontWeight: 500, fontSize: 11 }} title={r.intakeId}>
+                                                    <td className="review-sticky-col review-sticky-id" style={{ color: "#475569", fontWeight: 500, fontSize: 11 }} title={r.intakeId}>
                                                         {r.intakeId || <span style={{ color: "#94a3b8" }}>&mdash;</span>}
                                                     </td>
-                                                    <td style={{ fontWeight: 600, color: "#0f172a", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.title}>
+                                                    <td className="review-sticky-col review-sticky-title" style={{ fontWeight: 600, color: "#0f172a", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.title}>
                                                         <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                                             {r.title}
                                                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -738,8 +740,8 @@ function ReviewEngine() {
                                                         </select>
                                                     </td>
                                                     <td>
-                                                        <span className={`rc-badge ${r._aiAction === "Needs Review" ? "rc-badge-intake-awaiting" : r._aiAction === "Needs Follow-Up" ? "rc-badge-external-clarification" : "rc-badge-intake-converted"}`} style={{ fontSize: 10 }}>
-                                                            {r._aiAction}
+                                                        <span className={`rc-badge ${r._reviewState === "Pending Review" ? "rc-badge-intake-awaiting" : r._reviewState === "Clarification Needed" ? "rc-badge-external-clarification" : r._reviewState === "Archived" ? "rc-badge-intake-duplicate" : "rc-badge-intake-converted"}`} style={{ fontSize: 10 }}>
+                                                            {r._reviewState === "Ready to Publish" ? "Ready" : r._reviewState}
                                                         </span>
                                                     </td>
                                                     <td onClick={(e) => e.stopPropagation()}>
@@ -749,22 +751,19 @@ function ReviewEngine() {
                                                             style={{ fontSize: 10, padding: "2px 18px 2px 4px", border: `1px solid ${REVIEW_STATE_COLORS[r._reviewState as ReviewState] || "#d1d5db"}`, borderLeft: `3px solid ${REVIEW_STATE_COLORS[r._reviewState as ReviewState] || "#d1d5db"}`, borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 110, cursor: "pointer" }}
                                                         >
                                                             <option value="Ready to Publish">Ready to Publish</option>
-                                                            <option value="Needs Review">Needs Review</option>
-                                                            <option value="Duplicate Review">Duplicate Review</option>
-                                                            <option value="Needs Follow-up">Needs Follow-up</option>
+                                                            <option value="Pending Review">Pending Review</option>
+                                                            <option value="Clarification Needed">Clarification Needed</option>
+                                                            <option value="Archived">Archived</option>
                                                         </select>
                                                     </td>
-                                                    <td style={{ fontSize: 11 }}>
-                                                        {r._duplicateType !== "None" ? (
-                                                            <span title={DUP_TOOLTIP[r._duplicateType]} style={{ color: dupBadgeColor, fontWeight: 600, display: "flex", alignItems: "center", gap: 3, cursor: "help" }}>
-                                                                <span style={{ fontSize: 12 }}>&#9888;</span> {r._duplicateType}
-                                                            </span>
+                                                    <td style={{ fontSize: 11, textAlign: "center" }}>
+                                                        {r._potentialDuplicate ? (
+                                                            <span title={DUP_TOOLTIP[r._duplicateType]} style={{ color: "#d97706", fontSize: 16, cursor: "help" }}>&#9888;</span>
                                                         ) : (
-                                                            <span style={{ color: "#94a3b8" }}>&mdash;</span>
+                                                            <span style={{ color: "#d1d5db" }}>&mdash;</span>
                                                         )}
                                                     </td>
                                                     <td style={{ color: "#475569", fontSize: 11, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r._deliverable}>{r._deliverable}</td>
-                                                    <td style={{ textAlign: "center", color: "#64748b", fontSize: 11 }}>{r._activityCount}</td>
                                                 </tr>
                                             );
                                         })}
@@ -791,9 +790,9 @@ function ReviewEngine() {
                             <span className="iq-empty-title">No items match your current filter.</span>
                             <span className="iq-empty-sub">
                                 {activeCardFilter === "ready" ? "No items are marked Ready to Publish. Set review state in the drawer." :
-                                 activeCardFilter === "needs_review" ? "All items have been reviewed or no items need review." :
-                                 activeCardFilter === "duplicates" ? "No duplicate items were detected in this package." :
-                                 activeCardFilter === "follow_up" ? "No items currently need follow-up clarification." :
+                                 activeCardFilter === "pending" ? "All items have been reviewed or no items are pending review." :
+                                 activeCardFilter === "archived" ? "No archived items. Use 'Archive as Duplicate' bulk action." :
+                                 activeCardFilter === "clarification" ? "No items currently need clarification." :
                                  activeCardFilter === "critical" ? "No critical priority items." :
                                  "Try adjusting your search or filter criteria."}
                             </span>
@@ -844,9 +843,9 @@ function RequestDetailDrawer({ item, onClose, onEdit, onChangeReviewState, revie
 
     const REVIEW_STATE_COLORS: Record<ReviewState, string> = {
         "Ready to Publish": "#166534",
-        "Duplicate Review": "#d97706",
-        "Needs Follow-up": "#92400e",
-        "Needs Review": "#1d4ed8",
+        "Pending Review": "#1d4ed8",
+        "Clarification Needed": "#92400e",
+        "Archived": "#64748b",
     };
 
     return (
@@ -923,18 +922,18 @@ function RequestDetailDrawer({ item, onClose, onEdit, onChangeReviewState, revie
                                 <span className="rc-drawer-field-value" style={{ color: "#64748b", fontStyle: "italic" }}>Unassigned (assign after publish)</span>
                             </div>
                             <div className="rc-drawer-field">
-                                <span className="rc-drawer-field-label">Duplicate Review</span>
+                                <span className="rc-drawer-field-label">Potential Duplicate</span>
                                 <span className={`rc-drawer-field-value`} style={{ color: duplicateType !== "None" ? "#d97706" : "#94a3b8", fontWeight: duplicateType !== "None" ? 600 : 400 }}>
-                                    {duplicateType !== "None" ? `${duplicateType}` : <span style={{ color: "#94a3b8" }}>&mdash;</span>}
+                                    {duplicateType !== "None" ? <span>&#9888; {duplicateType}</span> : <span style={{ color: "#94a3b8" }}>&mdash;</span>}
                                 </span>
                             </div>
                             {duplicateType !== "None" && (
                                 <div className="rc-drawer-field">
                                     <span className="rc-drawer-field-label">Duplicate Reason</span>
                                     <span className="rc-drawer-field-value">
-                                        {duplicateType === "Within Package" ? "Another request with similar title and community exists in this package." :
-                                         duplicateType === "Possible Match" ? "Title and scope partially match another request." :
-                                         "Matches a previously published request in the tracker."}
+                                        {duplicateType === "Within Package" ? "Another request with similar title and community exists in this package. Archive if confirmed." :
+                                         duplicateType === "Possible Match" ? "Title and scope partially match another request. Archive if confirmed." :
+                                         "Matches a previously published request in the tracker. Archive if confirmed."}
                                     </span>
                                 </div>
                             )}
@@ -949,9 +948,9 @@ function RequestDetailDrawer({ item, onClose, onEdit, onChangeReviewState, revie
                             style={{ fontSize: 12, padding: "4px 20px 4px 8px", border: "1px solid #d1d5db", borderRadius: 4, background: "#fff", color: "#111827", width: "100%" }}
                         >
                             <option value="Ready to Publish">Ready to Publish</option>
-                            <option value="Needs Review">Needs Review</option>
-                            <option value="Duplicate Review">Duplicate Review</option>
-                            <option value="Needs Follow-up">Needs Follow-up</option>
+                            <option value="Pending Review">Pending Review</option>
+                            <option value="Clarification Needed">Clarification Needed</option>
+                            <option value="Archived">Archived</option>
                         </select>
                     </div>
 
@@ -982,9 +981,35 @@ function RequestDetailDrawer({ item, onClose, onEdit, onChangeReviewState, revie
 function AssignUserModal({ onClose, onAssign }: { onClose: () => void; onAssign: (user: RecapTeamMember) => void }) {
     const members = getTeamMembers();
     const [search, setSearch] = useState("");
+    const [selectedUser, setSelectedUser] = useState<RecapTeamMember | null>(null);
+    const [confirming, setConfirming] = useState(false);
     const filtered = search.trim()
         ? members.filter(m => m.name.toLowerCase().includes(search.toLowerCase()) || m.email.toLowerCase().includes(search.toLowerCase()) || m.team.toLowerCase().includes(search.toLowerCase()))
         : members;
+
+    if (confirming && selectedUser) {
+        return (
+            <div className="rc-modal-overlay" onClick={onClose}>
+                <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+                    <div className="rc-modal-header">
+                        <h2>Confirm Assignment</h2>
+                        <button className="rc-modal-close" onClick={onClose}>&times;</button>
+                    </div>
+                    <div className="rc-modal-body" style={{ padding: "16px", textAlign: "center" }}>
+                        <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#e0e7ff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#4338ca", margin: "0 auto 10px" }}>
+                            {selectedUser.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                        </div>
+                        <p style={{ fontSize: 14, fontWeight: 600, color: "#0f172a", margin: "0 0 4px" }}>Assign to {selectedUser.name}?</p>
+                        <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>All requests in this package will be assigned to {selectedUser.name} ({selectedUser.team}).</p>
+                    </div>
+                    <div className="rc-modal-footer">
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setConfirming(false); setSelectedUser(null); }}>Back</button>
+                        <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => { onAssign(selectedUser); }}>Confirm Assignment</button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="rc-modal-overlay" onClick={onClose}>
@@ -998,7 +1023,7 @@ function AssignUserModal({ onClose, onAssign }: { onClose: () => void; onAssign:
                         style={{ width: "100%", padding: "6px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 4, marginBottom: 8, boxSizing: "border-box" }} />
                     <div style={{ maxHeight: 240, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
                         {filtered.map(m => (
-                            <div key={m.id} className="rc-row-clickable" style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 4 }} onClick={() => onAssign(m)}>
+                            <div key={m.id} className="rc-row-clickable" style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 4 }} onClick={() => { setSelectedUser(m); setConfirming(true); }}>
                                 <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#e0e7ff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#4338ca", flexShrink: 0 }}>
                                     {m.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
                                 </div>
@@ -1275,7 +1300,7 @@ function IntakeDrawer({
                         const count = bulkUpdateDemoRequests(ids, { owner: user.name, assignedTo: user.name });
                         setShowAssign(false);
                         setDrawerBanner(`Assigned ${count} request${count !== 1 ? "s" : ""} to ${user.name}`);
-                        setTimeout(() => setDrawerBanner(null), 4000);
+                        setTimeout(() => setDrawerBanner(null), 6000);
                     }}
                 />
             )}

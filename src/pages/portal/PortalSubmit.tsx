@@ -299,11 +299,25 @@ function BrokerUploadForm() {
         fileInputRef.current?.click();
     };
 
+    // Window-level drag/drop — prevents browser from navigating to dropped files
+    useEffect(() => {
+        const prevent = (e: DragEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+        };
+        window.addEventListener("dragover", prevent);
+        window.addEventListener("drop", prevent);
+        return () => {
+            window.removeEventListener("dragover", prevent);
+            window.removeEventListener("drop", prevent);
+        };
+    }, []);
+
     // Native drag/drop listeners — guaranteed preventDefault, no browser "+copy" behavior
     useEffect(() => {
         const el = dropZoneRef.current;
         if (!el) return;
-
+    
         const prevent = (e: Event) => {
             e.preventDefault();
             e.stopPropagation();

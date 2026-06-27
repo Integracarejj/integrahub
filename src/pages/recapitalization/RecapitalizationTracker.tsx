@@ -4,7 +4,9 @@ import {
     getRequests, getTransactions, getTeamMembers, getTeams,
     updateRequestStatus, updateRequestOwner, updateRequestTeam,
     updateRequestPriority, updateRequestDueDate, isDemoActive,
+    bulkUpdateDemoRequests,
 } from "../../services/recapDataService";
+
 import type { RecapRequest } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -40,11 +42,23 @@ export default function RecapitalizationTracker() {
     const [bulkModalOpen, setBulkModalOpen] = useState(false);
     const [bulkEdit, setBulkEdit] = useState<BulkEdit>({ owner: "", team: "", priority: "", status: "", dueDate: "", visible: "" });
     const [bulkToast, setBulkToast] = useState("");
+    const [routeModalOpen, setRouteModalOpen] = useState(false);
+    const [routeModalTeam, setRouteModalTeam] = useState("");
+    const [detailModalItem, setDetailModalItem] = useState<RecapRequest | null>(null);
+    const [respondModalOpen, setRespondModalOpen] = useState(false);
+    const [respondText, setRespondText] = useState("");
+    const [publishModalOpen, setPublishModalOpen] = useState(false);
+    const [publishText, setPublishText] = useState("");
 
     const selectAllRef = useRef<HTMLInputElement>(null);
 
     const filtered = useMemo(() => {
         let result = [...allRequests];
+        result.sort((a, b) => {
+            const aPub = a._publishedAt ? new Date(a._publishedAt).getTime() : 0;
+            const bPub = b._publishedAt ? new Date(b._publishedAt).getTime() : 0;
+            return bPub - aPub;
+        });
         if (search) {
             const q = search.toLowerCase();
             result = result.filter(r => r.title.toLowerCase().includes(q) || r.requestId.toLowerCase().includes(q) || r.brokerBuyer.toLowerCase().includes(q));
@@ -128,8 +142,8 @@ export default function RecapitalizationTracker() {
                 </div>
                 <div className="rc-header-actions">
                     <button className="rc-btn rc-btn-primary" onClick={() => navigate("/recapitalization/intake/review")}>Import DD Package</button>
-                    <button className="rc-btn rc-btn-secondary" onClick={() => { setBulkToast("New Request — coming in next sprint"); setTimeout(() => setBulkToast(""), 2500); }}>New Request</button>
-                    <button className="rc-btn rc-btn-secondary" onClick={() => { setBulkToast("Export — coming next sprint"); setTimeout(() => setBulkToast(""), 2500); }}>Export</button>
+                    <button className="rc-btn rc-btn-secondary" onClick={() => navigate("/recapitalization/intake/review")}>New Request</button>
+                    <button className="rc-btn rc-btn-secondary" onClick={() => { setBulkToast("Export feature coming soon"); setTimeout(() => setBulkToast(""), 2500); }}>Export</button>
                 </div>
             </div>
 
@@ -176,11 +190,11 @@ export default function RecapitalizationTracker() {
                         <span>selected</span>
                         <div className="rc-bulk-sep" />
                         <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setBulkEdit({ owner: "", team: "", priority: "", status: "", dueDate: "", visible: "" }); setBulkModalOpen(true); }}>Bulk Update</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setBulkToast("Assign — coming next sprint"); setTimeout(() => setBulkToast(""), 2500); }}>Assign</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setBulkToast("Route to Team — coming next sprint"); setTimeout(() => setBulkToast(""), 2500); }}>Route to Team</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setBulkToast("Mark Duplicate — coming next sprint"); setTimeout(() => setBulkToast(""), 2500); }}>Mark Duplicate</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setBulkToast("Mark Not Applicable — coming next sprint"); setTimeout(() => setBulkToast(""), 2500); }}>Mark Not Applicable</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setBulkToast("Reject — coming next sprint"); setTimeout(() => setBulkToast(""), 2500); }}>Reject</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const ids = [...selectedIds]; const members = getTeamMembers(); if (members.length > 0) { bulkUpdateDemoRequests(ids, { owner: members[0].name, assignedTo: members[0].name }); setRefreshKey(k => k + 1); setBulkToast(`Assigned ${ids.length} request${ids.length !== 1 ? "s" : ""} to ${members[0].name}`); setTimeout(() => setBulkToast(""), 3000); } }}>Assign</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setRouteModalOpen(true); }}>Route to Team</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const ids = [...selectedIds]; ids.forEach(id => updateRequestStatus(id, "Duplicate" as any)); setRefreshKey(k => k + 1); setBulkToast(`Marked ${ids.length} request${ids.length !== 1 ? "s" : ""} as Duplicate`); setTimeout(() => setBulkToast(""), 3000); }}>Mark Duplicate</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const ids = [...selectedIds]; ids.forEach(id => updateRequestStatus(id, "Not Applicable" as any)); setRefreshKey(k => k + 1); setBulkToast(`Marked ${ids.length} request${ids.length !== 1 ? "s" : ""} as Not Applicable`); setTimeout(() => setBulkToast(""), 3000); }}>Mark Not Applicable</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ color: "#991b1b" }} onClick={() => { const ids = [...selectedIds]; ids.forEach(id => updateRequestStatus(id, "Rejected" as any)); setRefreshKey(k => k + 1); setBulkToast(`Rejected ${ids.length} request${ids.length !== 1 ? "s" : ""}`); setTimeout(() => setBulkToast(""), 3000); }}>Reject</button>
                         <div className="rc-bulk-sep" />
                         <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={clearSelection}>Clear Selection</button>
                     </div>
@@ -245,6 +259,8 @@ export default function RecapitalizationTracker() {
                                 <td>
                                     <div className="rc-cell-actions">
                                         <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Open Workspace" onClick={e => { e.stopPropagation(); navigate(`/recapitalization/workspace/${req.intakeId}`); }} style={{ fontSize: 14 }}>&#9998;</button>
+                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Respond Externally" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setRespondModalOpen(true); }} style={{ fontSize: 12, color: "#1d4ed8" }}>R</button>
+                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Publish Update" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setPublishModalOpen(true); }} style={{ fontSize: 12, color: "#166534" }}>P</button>
                                     </div>
                                 </td>
                             </tr>
@@ -303,6 +319,81 @@ export default function RecapitalizationTracker() {
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-ghost" onClick={() => setBulkModalOpen(false)}>Cancel</button>
                             <button className="rc-btn rc-btn-primary" onClick={handleBulkApply} disabled={!bulkEdit.owner && !bulkEdit.team && !bulkEdit.priority && !bulkEdit.status && !bulkEdit.dueDate}>Apply to {selectedIds.size} Selected</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {routeModalOpen && (
+                <div className="rc-modal-overlay" onClick={() => setRouteModalOpen(false)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+                        <div className="rc-modal-header">
+                            <h2>Route to Team</h2>
+                            <button className="rc-modal-close" onClick={() => setRouteModalOpen(false)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "12px 16px" }}>
+                            <select value={routeModalTeam} onChange={e => setRouteModalTeam(e.target.value)} style={{ width: "100%", padding: "6px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 4 }}>
+                                <option value="">Select a team...</option>
+                                {teams.map(t => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setRouteModalOpen(false)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!routeModalTeam} onClick={() => { const ids = [...selectedIds]; bulkUpdateDemoRequests(ids, { team: routeModalTeam }); setRefreshKey(k => k + 1); setRouteModalOpen(false); setRouteModalTeam(""); setBulkToast(`Routed ${ids.length} request${ids.length !== 1 ? "s" : ""} to ${routeModalTeam}`); setTimeout(() => setBulkToast(""), 3000); }}>Route to {routeModalTeam || "..."}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {respondModalOpen && detailModalItem && (
+                <div className="rc-modal-overlay" onClick={() => { setRespondModalOpen(false); setRespondText(""); }}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="rc-modal-header">
+                            <h2>Respond Externally</h2>
+                            <button className="rc-modal-close" onClick={() => { setRespondModalOpen(false); setRespondText(""); }}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "12px 16px" }}>
+                            <p style={{ fontSize: 12, color: "#475569", margin: "0 0 8px" }}>
+                                Send a response for <strong>{detailModalItem.title}</strong>:
+                            </p>
+                            <textarea
+                                value={respondText}
+                                onChange={e => setRespondText(e.target.value)}
+                                placeholder="Type your response..."
+                                rows={4}
+                                style={{ width: "100%", padding: "8px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", font: "inherit", boxSizing: "border-box" }}
+                            />
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => { setRespondModalOpen(false); setRespondText(""); }}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!respondText.trim()} onClick={() => { setBulkToast(`Response sent for ${detailModalItem.title}`); setRespondModalOpen(false); setRespondText(""); setTimeout(() => setBulkToast(""), 3000); }}>Send Response</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {publishModalOpen && detailModalItem && (
+                <div className="rc-modal-overlay" onClick={() => { setPublishModalOpen(false); setPublishText(""); }}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="rc-modal-header">
+                            <h2>Publish Update</h2>
+                            <button className="rc-modal-close" onClick={() => { setPublishModalOpen(false); setPublishText(""); }}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "12px 16px" }}>
+                            <p style={{ fontSize: 12, color: "#475569", margin: "0 0 8px" }}>
+                                Publish an update for <strong>{detailModalItem.title}</strong>:
+                            </p>
+                            <textarea
+                                value={publishText}
+                                onChange={e => setPublishText(e.target.value)}
+                                placeholder="Describe the update..."
+                                rows={4}
+                                style={{ width: "100%", padding: "8px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", font: "inherit", boxSizing: "border-box" }}
+                            />
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => { setPublishModalOpen(false); setPublishText(""); }}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!publishText.trim()} onClick={() => { updateRequestStatus(detailModalItem.id, "Under Review"); setRefreshKey(k => k + 1); setBulkToast(`Update published for ${detailModalItem.title}`); setPublishModalOpen(false); setPublishText(""); setTimeout(() => setBulkToast(""), 3000); }}>Publish Update</button>
                         </div>
                     </div>
                 </div>
