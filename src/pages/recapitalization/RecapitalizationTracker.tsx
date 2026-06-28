@@ -20,7 +20,7 @@ interface BulkEdit {
     visible: string;
 }
 
-const STATUS_OPTIONS = ["Open", "In Progress", "Pending External", "Blocked", "Ready for Review", "Complete", "Not Applicable", "Duplicate"];
+const STATUS_OPTIONS = ["Open", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate"];
 
 export default function RecapitalizationTracker() {
     const navigate = useNavigate();
@@ -188,7 +188,7 @@ export default function RecapitalizationTracker() {
         <div className="rc-page">
             <RecapSubNav />
             <div className="rc-header">
-                <h1>Request Tracker</h1>
+                <h1>Work Queue</h1>
                 <div className="rc-header-left" style={{ gap: 8 }}>
                     {isDemoActive() && <span className="rc-badge rc-badge-visible" style={{ fontSize: 10 }}>ABC Demo Active</span>}
                 </div>
@@ -288,7 +288,7 @@ export default function RecapitalizationTracker() {
                             <th>Status</th>
                             <th>Priority</th>
                             <th>Owner</th>
-                            <th>Team</th>
+                            <th>Category</th>
                             <th className="nowrap">Due</th>
                             <th className="nowrap">Updated</th>
                             <th></th>
@@ -296,7 +296,7 @@ export default function RecapitalizationTracker() {
                     </thead>
                     <tbody>
                         {filtered.map(req => (
-                            <tr key={req.id} className="rc-row-clickable" onClick={() => navigate(`/recapitalization/workspace/${req.intakeId}`, { state: { from: "tracker" } })}>
+                            <tr key={req.id} className="rc-row-clickable" onClick={() => navigate(`/recapitalization/workspace/${req.intakeId}`, { state: { from: "work-queue" } })}>
                                 <td style={{ width: 36 }} onClick={e => e.stopPropagation()}>
                                     <input
                                         type="checkbox"
@@ -341,12 +341,12 @@ export default function RecapitalizationTracker() {
                             {members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                         </select>
                     </td>
-                                <td style={{ fontSize: 12 }}>{req.team}</td>
+                                <td style={{ fontSize: 12, color: "#475569" }}>{req.category || "\u2014"}</td>
                                 <td className="nowrap" style={{ fontSize: 12, color: req.status === "Overdue" ? "#991b1b" : "#475569", fontWeight: req.status === "Overdue" ? 600 : 400 }}>{req.dueDate}</td>
                                 <td className="nowrap" style={{ fontSize: 12, color: "#475569" }}>{req.lastUpdated}</td>
                                 <td>
                                     <div className="rc-cell-actions">
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Edit = Open request workspace" onClick={e => { e.stopPropagation(); navigate(`/recapitalization/workspace/${req.intakeId}`, { state: { from: "tracker" } }); }} style={{ fontSize: 14 }}>&#9998;</button>
+                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Edit = Open request workspace" onClick={e => { e.stopPropagation(); navigate(`/recapitalization/workspace/${req.intakeId}`, { state: { from: "work-queue" } }); }} style={{ fontSize: 14 }}>&#9998;</button>
                                         <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Review = Review internal work / mark ready for review" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setRespondModalOpen(true); }} style={{ fontSize: 12, color: "#1d4ed8" }}>R</button>
                                         <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Publish = Publish to external portal" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setPublishModalOpen(true); }} style={{ fontSize: 12, color: "#166534" }}>P</button>
                                     </div>

@@ -39,7 +39,7 @@ export default function RecapitalizationOverview() {
                         Intake Queue
                     </button>
                     <button className="rc-btn rc-btn-primary" onClick={() => navigate("/recapitalization/tracker")}>
-                        Open Tracker
+                        Open Work Queue
                     </button>
                 </div>
             </div>

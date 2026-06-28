@@ -149,7 +149,7 @@ const PAGE_SIZE = 50;
 
 const REVIEW_STATE_KEY = "integrasource.recap.demo.reviewStates";
 
-type ReviewState = "Ready to Publish" | "Pending Review" | "Clarification Needed" | "Archived";
+type ReviewState = "Move to Work Queue" | "Pending Review" | "Clarification Needed" | "Archived";
 
 function ReviewEngine() {
     const navigate = useNavigate();
@@ -284,7 +284,7 @@ function ReviewEngine() {
     }, [allRequests]);
 
     const reviewStateCounts = useMemo(() => {
-        const counts: Record<string, number> = { "Ready to Publish": 0, "Pending Review": 0, "Clarification Needed": 0, "Archived": 0 };
+        const counts: Record<string, number> = { "Move to Work Queue": 0, "Pending Review": 0, "Clarification Needed": 0, "Archived": 0 };
         enriched.forEach(r => { counts[r._reviewState] = (counts[r._reviewState] || 0) + 1; });
         return counts;
     }, [enriched]);
@@ -293,7 +293,7 @@ function ReviewEngine() {
 
     const filtered = useMemo(() => {
         let result = enriched;
-        if (activeCardFilter === "ready") result = result.filter(r => r._reviewState === "Ready to Publish");
+        if (activeCardFilter === "ready") result = result.filter(r => r._reviewState === "Move to Work Queue");
         else if (activeCardFilter === "pending") result = result.filter(r => r._reviewState === "Pending Review");
         else if (activeCardFilter === "archived") result = result.filter(r => r._reviewState === "Archived");
         else if (activeCardFilter === "clarification") result = result.filter(r => r._reviewState === "Clarification Needed");
@@ -341,7 +341,7 @@ function ReviewEngine() {
     };
 
     const handlePublishReady = () => {
-        const ids = enriched.filter(r => r._reviewState === "Ready to Publish").map(r => r.id);
+        const ids = enriched.filter(r => r._reviewState === "Move to Work Queue").map(r => r.id);
         if (ids.length === 0) return;
         setPublishing(true);
         setTimeout(() => {
@@ -397,10 +397,10 @@ function ReviewEngine() {
         if (selectedIds.size === 0) return;
         const bulkReady = [...selectedIds].filter(id => {
             const r = enriched.find(e => e.id === id);
-            return r && r._reviewState === "Ready to Publish";
+            return r && r._reviewState === "Move to Work Queue";
         });
         if (bulkReady.length === 0) {
-            showToast("No selected items are marked 'Ready to Publish'");
+            showToast("No selected items are marked 'Move to Work Queue'");
             return;
         }
         setPublishing(true);
@@ -424,14 +424,14 @@ function ReviewEngine() {
     const SELECT_STYLE = { fontSize: 11, padding: "2px 20px 2px 6px", border: "1px solid #d1d5db", borderRadius: 4, background: "#fff", color: "#111827", minWidth: 90 };
 
     const REVIEW_STATE_COLORS: Record<ReviewState, string> = {
-        "Ready to Publish": "#166534",
+        "Move to Work Queue": "#166534",
         "Pending Review": "#1d4ed8",
         "Clarification Needed": "#92400e",
         "Archived": "#64748b",
     };
 
     const activeSummary = scope ? computedSummary : summary;
-    const readyCount = reviewStateCounts["Ready to Publish"];
+    const readyCount = reviewStateCounts["Move to Work Queue"];
 
     if (published) {
         const count = publishedCount || (publishAll ? activeSummary.total : readyCount);
@@ -510,8 +510,8 @@ function ReviewEngine() {
                     <span className="rc-stat-label">Total Items</span>
                 </div>
                 <div className="rc-stat-card" style={CARD_STYLE("#166534", activeCardFilter === "ready")} onClick={() => handleCardFilter("ready")}>
-                    <span className="rc-stat-value">{reviewStateCounts["Ready to Publish"]}</span>
-                    <span className="rc-stat-label">Ready to Publish</span>
+                    <span className="rc-stat-value">{reviewStateCounts["Move to Work Queue"]}</span>
+                    <span className="rc-stat-label">Move to Work Queue</span>
                     <span className="rc-stat-desc">Cleared for tracker</span>
                 </div>
                 <div className="rc-stat-card" style={CARD_STYLE("#1d4ed8", activeCardFilter === "pending")} onClick={() => handleCardFilter("pending")}>
@@ -642,7 +642,7 @@ function ReviewEngine() {
                         </select>
                                         <select className="rc-filter-select" value={reviewStateFilter} onChange={e => { setReviewStateFilter(e.target.value); setPage(0); }} style={{ minWidth: 130 }}>
                                             <option value="All">All Items</option>
-                                            <option value="Ready to Publish">Ready to Publish</option>
+                                            <option value="Move to Work Queue">Move to Work Queue</option>
                                             <option value="Pending Review">Pending Review</option>
                                             <option value="Clarification Needed">Clarification Needed</option>
                                             <option value="Archived">Archived</option>
@@ -664,7 +664,7 @@ function ReviewEngine() {
                         <div className="rc-bulk-sep" />
                         <select value={bulkReviewState} onChange={e => setBulkReviewState(e.target.value)} style={{ fontSize: 11, padding: "3px 20px 3px 6px", border: "1px solid #c7d2fe", borderRadius: 4, minWidth: 130 }}>
                             <option value="">Review State...</option>
-                            <option value="Ready to Publish">Ready to Publish</option>
+                            <option value="Move to Work Queue">Move to Work Queue</option>
                             <option value="Pending Review">Pending Review</option>
                             <option value="Clarification Needed">Clarification Needed</option>
                             <option value="Archived">Archived</option>
@@ -748,7 +748,7 @@ function ReviewEngine() {
                                                     </td>
                                                     <td>
                                                         <span className={`rc-badge ${r._reviewState === "Pending Review" ? "rc-badge-intake-awaiting" : r._reviewState === "Clarification Needed" ? "rc-badge-external-clarification" : r._reviewState === "Archived" ? "rc-badge-intake-duplicate" : "rc-badge-intake-converted"}`} style={{ fontSize: 10 }}>
-                                                            {r._reviewState === "Ready to Publish" ? "Ready" : r._reviewState}
+                                                            {r._reviewState === "Move to Work Queue" ? "Ready" : r._reviewState}
                                                         </span>
                                                     </td>
                                                     <td onClick={(e) => e.stopPropagation()}>
@@ -757,7 +757,7 @@ function ReviewEngine() {
                                                             onChange={(e) => persistReviewState(r.id, e.target.value as ReviewState)}
                                                             style={{ fontSize: 10, padding: "2px 18px 2px 4px", border: `1px solid ${REVIEW_STATE_COLORS[r._reviewState as ReviewState] || "#d1d5db"}`, borderLeft: `3px solid ${REVIEW_STATE_COLORS[r._reviewState as ReviewState] || "#d1d5db"}`, borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 110, cursor: "pointer" }}
                                                         >
-                                                            <option value="Ready to Publish">Ready to Publish</option>
+                                                            <option value="Move to Work Queue">Move to Work Queue</option>
                                                             <option value="Pending Review">Pending Review</option>
                                                             <option value="Clarification Needed">Clarification Needed</option>
                                                             <option value="Archived">Archived</option>
@@ -802,7 +802,7 @@ function ReviewEngine() {
                             </div>
                             <span className="iq-empty-title">No items match your current filter.</span>
                             <span className="iq-empty-sub">
-                                {activeCardFilter === "ready" ? "No items are marked Ready to Publish. Set review state in the drawer." :
+                                {activeCardFilter === "ready" ? "No items are marked Move to Work Queue. Set review state in the drawer." :
                                  activeCardFilter === "pending" ? "All items have been reviewed or no items are pending review." :
                                  activeCardFilter === "archived" ? "No archived items. Use 'Archive as Duplicate' bulk action." :
                                  activeCardFilter === "clarification" ? "No items currently need clarification." :
@@ -855,7 +855,7 @@ function RequestDetailDrawer({ item, onClose, onEdit, onChangeReviewState, revie
     };
 
     const REVIEW_STATE_COLORS: Record<ReviewState, string> = {
-        "Ready to Publish": "#166534",
+        "Move to Work Queue": "#166534",
         "Pending Review": "#1d4ed8",
         "Clarification Needed": "#92400e",
         "Archived": "#64748b",
@@ -960,7 +960,7 @@ function RequestDetailDrawer({ item, onClose, onEdit, onChangeReviewState, revie
                             onChange={e => onChangeReviewState(item.id, e.target.value as ReviewState)}
                             style={{ fontSize: 12, padding: "4px 20px 4px 8px", border: "1px solid #d1d5db", borderRadius: 4, background: "#fff", color: "#111827", width: "100%" }}
                         >
-                            <option value="Ready to Publish">Ready to Publish</option>
+                            <option value="Move to Work Queue">Move to Work Queue</option>
                             <option value="Pending Review">Pending Review</option>
                             <option value="Clarification Needed">Clarification Needed</option>
                             <option value="Archived">Archived</option>

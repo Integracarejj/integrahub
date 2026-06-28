@@ -5,9 +5,9 @@ import type { RecapRequest } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
-const STATUS_OPTIONS = ["Open", "In Progress", "Pending External", "Blocked", "Ready for Review", "Complete", "Not Applicable", "Duplicate"];
+const STATUS_OPTIONS = ["Open", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate"];
 
-const CARD_FILTERS = ["all", "assigned", "completed", "inProgress", "blocked", "pendingExternal"] as const;
+const CARD_FILTERS = ["all", "assigned", "completed", "inProgress", "blocked"] as const;
 type CardFilter = (typeof CARD_FILTERS)[number];
 
 export default function RecapitalizationMyWork() {
@@ -60,8 +60,7 @@ export default function RecapitalizationMyWork() {
         const completed = myItems.assignedToMe.filter(r => r.status === "Complete" || r.status === "Provided").length;
         const inProgress = myItems.assignedToMe.filter(r => r.status === "In Progress").length;
         const blocked = myItems.assignedToMe.filter(r => (r.status as string) === "Blocked").length;
-        const pendingExternal = myItems.assignedToMe.filter(r => (r.status as string) === "Pending External" || r.status === "Clarification Needed" || (r.status as string) === "Waiting on Broker").length;
-        return { assigned, completed, inProgress, blocked, pendingExternal };
+        return { assigned, completed, inProgress, blocked };
     }, [myItems.assignedToMe]);
 
     const filteredItems = useMemo(() => {
@@ -75,9 +74,6 @@ export default function RecapitalizationMyWork() {
                 break;
             case "blocked":
                 items = items.filter(r => (r.status as string) === "Blocked");
-                break;
-            case "pendingExternal":
-                items = items.filter(r => (r.status as string) === "Pending External" || r.status === "Clarification Needed" || (r.status as string) === "Waiting on Broker");
                 break;
             default:
                 break;
@@ -224,11 +220,7 @@ export default function RecapitalizationMyWork() {
                     <span className="rc-stat-label">Blocked</span>
                     <span className="rc-stat-desc">{pct(cardCounts.blocked)} of assigned</span>
                 </div>
-                <div className={`rc-stat-card ${activeCard === "pendingExternal" ? "rc-stat-active" : ""}`} onClick={() => setActiveCard(activeCard === "pendingExternal" ? "all" : "pendingExternal")} style={{ borderLeft: "3px solid #92400e", cursor: "pointer" }}>
-                    <span className="rc-stat-value">{cardCounts.pendingExternal}</span>
-                    <span className="rc-stat-label">Pending External</span>
-                    <span className="rc-stat-desc">{pct(cardCounts.pendingExternal)} of assigned</span>
-                </div>
+
             </div>
 
             {/* Bulk actions bar */}

@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 const NAV_ITEMS = [
     { label: "Overview", path: "/recapitalization" },
     { label: "Intake Queue", path: "/recapitalization/intake" },
-    { label: "Request Tracker", path: "/recapitalization/tracker" },
+    { label: "Work Queue", path: "/recapitalization/tracker" },
     { label: "My Work", path: "/recapitalization/my-work" },
     { label: "Documents", path: "/recapitalization/documents" },
     { label: "Reports", path: "/recapitalization/reports" },
