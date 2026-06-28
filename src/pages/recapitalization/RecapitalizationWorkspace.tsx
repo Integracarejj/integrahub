@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { lookupWorkspaceItem, getDocumentsByTransaction, updateRequestStatus, updateRequestOwner, addActivityEntry } from "../../services/recapDataService";
 import type { RecapRequest } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
@@ -51,6 +51,7 @@ function BluePill({ children }: { children: React.ReactNode }) {
 export default function RecapitalizationWorkspace() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const location = useLocation();
     const [wsRefreshKey, setWsRefreshKey] = useState(0);
     const result = useMemo(() => id ? lookupWorkspaceItem(id) : null, [id, wsRefreshKey]);
 
@@ -67,6 +68,12 @@ export default function RecapitalizationWorkspace() {
     const [clarificationText, setClarificationText] = useState("");
 
     const [commentText, setCommentText] = useState("");
+
+    const [completionModal, setCompletionModal] = useState<{ status: "Ready for Review" | "Complete"; note: string; readyForExternal: boolean } | null>(null);
+
+    const backFrom = (location.state as any)?.from || "tracker";
+    const backLabel = backFrom === "my-work" ? "Back to My Work" : "Back to Request Tracker";
+    const backPath = backFrom === "my-work" ? "/recapitalization/my-work" : "/recapitalization/tracker";
 
     if (!result) {
         return (
@@ -188,9 +195,9 @@ export default function RecapitalizationWorkspace() {
             <div className="rc-page" style={{ maxWidth: 1100, gap: 0 }}>
                 {/* Breadcrumb */}
                 <div style={{ marginBottom: 16 }}>
-                    <button onClick={() => navigate("/recapitalization/tracker")} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "none", border: "none", color: "#2563eb", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0 }}>
+                    <button onClick={() => navigate(backPath)} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "none", border: "none", color: "#2563eb", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0 }}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
-                        Back to Request Tracker
+                        {backLabel}
                     </button>
                 </div>
 
@@ -252,7 +259,14 @@ export default function RecapitalizationWorkspace() {
                                     </div>
                                     <select
                                         value={displayStatus}
-                                        onChange={e => doStatusChange(e.target.value as RecapRequest["status"])}
+                                        onChange={e => {
+                                            const newStatus = e.target.value as RecapRequest["status"];
+                                            if (newStatus === "Ready for Review" || newStatus === "Complete") {
+                                                setCompletionModal({ status: newStatus, note: "", readyForExternal: newStatus === "Complete" });
+                                            } else {
+                                                doStatusChange(newStatus);
+                                            }
+                                        }}
                                         style={{ position: "absolute", inset: 0, width: "100%", opacity: 0, cursor: "pointer", fontSize: 13 }}
                                     >
                                         {STATUS_OPTIONS.map(s => (
@@ -330,6 +344,20 @@ export default function RecapitalizationWorkspace() {
 
                     <div style={{ height: 1, background: "#e2e8f0" }} />
 
+                    {/* Visibility Key */}
+                    <div style={{ padding: "10px 32px", display: "flex", gap: 16, flexWrap: "wrap", fontSize: 11, color: "#64748b", background: "#f8faff", borderBottom: "1px solid #e2e8f0" }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                            <strong>Internal</strong>: Notes &amp; artifacts are internal-only until published
+                        </span>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a3 3 0 1 0 3.99 3.98m-9.19-1.17L2 21l2.44-2.44m5.57-5.57L18 5l3 3L13.01 13.01" /></svg>
+                            <strong>External</strong>: Published documents &amp; clarifications are visible on portal
+                        </span>
+                    </div>
+
+                    <div style={{ height: 1, background: "#e2e8f0" }} />
+
                     {/* Accordion Sections — with dividers between */}
                     <div>
                         <AccordionSection
@@ -371,6 +399,20 @@ export default function RecapitalizationWorkspace() {
                                     ))}</tbody>
                                 </table>
                             )}
+                            <div style={{ marginTop: 12, padding: "12px 0", borderTop: "1px solid #e2e8f0" }}>
+                                <button
+                                    className="rc-btn rc-btn-secondary"
+                                    style={{ fontSize: 12 }}
+                                    onClick={() => setBanner("\u2139\ufe0f SharePoint upload integration not yet connected. Internal artifact upload will be available in a future update.")}
+                                >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+                                    Upload Internal Artifact
+                                </button>
+                                <div style={{ marginTop: 8, fontSize: 11, color: "#64748b", fontStyle: "italic", display: "flex", alignItems: "center", gap: 6 }}>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                                    Internal artifacts stay internal until published to the external portal.
+                                </div>
+                            </div>
                         </AccordionSection>
 
                         <div style={{ height: 1, background: "#e2e8f0" }} />
@@ -478,6 +520,54 @@ export default function RecapitalizationWorkspace() {
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-ghost" onClick={() => { setNeedClarificationOpen(false); setClarificationText(""); }}>Cancel</button>
                             <button className="rc-btn rc-btn-primary" disabled={!clarificationText.trim()} onClick={submitClarification}>Send Clarification</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {completionModal && (
+                <div className="rc-modal-overlay" onClick={() => setCompletionModal(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+                        <div className="rc-modal-header">
+                            <h2>Complete Internal Work</h2>
+                            <button className="rc-modal-close" onClick={() => setCompletionModal(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ fontSize: 12, color: "#334155", marginBottom: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+                                <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Request ID</span> {displayId}</div>
+                                <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Deliverable</span> {displayTitle || item.category || "\u2014"}</div>
+                                <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Moving to</span> {completionModal.status}</div>
+                            </div>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6, display: "block" }}>Completion Note</label>
+                            <textarea
+                                value={completionModal.note}
+                                onChange={e => setCompletionModal(prev => prev ? { ...prev, note: e.target.value } : null)}
+                                placeholder="Describe what was completed or any follow-up items..."
+                                rows={4}
+                                style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
+                            />
+                            {completionModal.status === "Ready for Review" && (
+                                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#1e293b", cursor: "pointer", marginTop: 4 }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={completionModal.readyForExternal}
+                                        onChange={e => setCompletionModal(prev => prev ? { ...prev, readyForExternal: e.target.checked } : null)}
+                                    />
+                                    Ready for external review/publishing
+                                </label>
+                            )}
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setCompletionModal(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" onClick={() => {
+                                if (!completionModal) return;
+                                const note = completionModal.note.trim();
+                                if (note) {
+                                    addConversationEntry(note, "Sarah Chen (Internal)");
+                                }
+                                doStatusChange(completionModal.status);
+                                setCompletionModal(null);
+                            }}>Submit & Move to {completionModal.status}</button>
                         </div>
                     </div>
                 </div>

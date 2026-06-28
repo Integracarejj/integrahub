@@ -188,6 +188,13 @@
 .rc-badge-under-review { background: #f0f0ff; color: #5b21b6; border-color: #c4b5fd; }
 .rc-badge-open { background: #f8fafc; color: #475569; border-color: #e2e8f0; }
 .rc-badge-overdue { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+.rc-badge-pending-external { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+.rc-badge-blocked { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+.rc-badge-ready-for-review { background: #f0f0ff; color: #5b21b6; border-color: #c4b5fd; }
+.rc-badge-complete { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+.rc-badge-not-applicable { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
+.rc-badge-duplicate { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+.rc-badge-rejected { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
 
 .rc-badge-high { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
 .rc-badge-medium { background: #fffbeb; color: #92400e; border-color: #fde68a; }
@@ -802,6 +809,17 @@
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+.rc-action-key {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 16px 4px;
+    font-size: 11px;
+    color: #64748b;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fafbfc;
 }
 
 .rc-bulk-bar {

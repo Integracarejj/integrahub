@@ -144,7 +144,7 @@ export default function RecapitalizationMyWork() {
                 </thead>
                 <tbody>
                     {items.map(req => (
-                        <tr key={req.id} className="rc-row-clickable" onClick={() => navigate(`/recapitalization/workspace/${req.intakeId}`)}>
+                        <tr key={req.id} className="rc-row-clickable" onClick={() => navigate(`/recapitalization/workspace/${req.intakeId}`, { state: { from: "my-work" } })}>
                             {showCheckboxes && (
                                 <td style={{ width: 16, paddingRight: 4 }} onClick={e => e.stopPropagation()}>
                                     <input type="checkbox" checked={selectedIds.has(req.id)} onChange={() => {
@@ -335,7 +335,7 @@ export default function RecapitalizationMyWork() {
                         </div>
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-secondary" onClick={() => setDetailItem(null)}>Close</button>
-                            <button className="rc-btn rc-btn-primary" onClick={() => { setDetailItem(null); navigate(`/recapitalization/workspace/${detailItem.intakeId}`); }}>Open Workspace</button>
+                            <button className="rc-btn rc-btn-primary" onClick={() => { setDetailItem(null); navigate(`/recapitalization/workspace/${detailItem.intakeId}`, { state: { from: "my-work" } }); }}>Open Workspace</button>
                         </div>
                     </div>
                 </div>

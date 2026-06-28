@@ -262,6 +262,13 @@ export default function RecapitalizationTracker() {
             </div>
 
             <div className="rc-table-wrap-scroll">
+                <div className="rc-action-key">
+                    <span style={{ fontWeight: 600, color: "#475569" }}>Actions:</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ fontSize: 14 }}>&#9998;</span> Edit</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ color: "#1d4ed8", fontWeight: 700, fontSize: 12 }}>R</span> Review</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ color: "#166534", fontWeight: 700, fontSize: 12 }}>P</span> Publish</span>
+                    <span style={{ color: "#94a3b8", fontSize: 10, marginLeft: "auto" }}>&#9998; Open Workspace &middot; R Respond Externally &middot; P Publish to External Portal</span>
+                </div>
                 <table className="rc-table">
                     <thead>
                         <tr>
@@ -289,7 +296,7 @@ export default function RecapitalizationTracker() {
                     </thead>
                     <tbody>
                         {filtered.map(req => (
-                            <tr key={req.id} className="rc-row-clickable" onClick={() => navigate(`/recapitalization/workspace/${req.intakeId}`)}>
+                            <tr key={req.id} className="rc-row-clickable" onClick={() => navigate(`/recapitalization/workspace/${req.intakeId}`, { state: { from: "tracker" } })}>
                                 <td style={{ width: 36 }} onClick={e => e.stopPropagation()}>
                                     <input
                                         type="checkbox"
@@ -324,15 +331,24 @@ export default function RecapitalizationTracker() {
                                     </div>
                                 </td>
                                 <td><span className={`rc-badge rc-badge-${req.priority.toLowerCase()}`}>{req.priority}</span></td>
-                                <td style={{ color: req.owner ? "#1e293b" : "#64748b", fontSize: 12 }}>{req.owner || "\u2014"}</td>
+                                <td onClick={e => e.stopPropagation()} style={{ fontSize: 12 }}>
+                        <select
+                            value={req.owner || ""}
+                            onChange={e => { const v = e.target.value; updateRequestOwner(req.id, v || null); setRefreshKey(k => k + 1); setBulkToast(v ? `Assigned ${req.requestId} to ${v}` : `${req.requestId}: Unassigned`); }}
+                            style={{ fontSize: 12, padding: "2px 18px 2px 4px", borderRadius: 4, background: "#fff", color: req.owner ? "#111827" : "#64748b", fontWeight: 500, minWidth: 120, cursor: "pointer", border: "1px solid #d1d5db" }}
+                        >
+                            <option value="">Unassigned</option>
+                            {members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                        </select>
+                    </td>
                                 <td style={{ fontSize: 12 }}>{req.team}</td>
                                 <td className="nowrap" style={{ fontSize: 12, color: req.status === "Overdue" ? "#991b1b" : "#475569", fontWeight: req.status === "Overdue" ? 600 : 400 }}>{req.dueDate}</td>
                                 <td className="nowrap" style={{ fontSize: 12, color: "#475569" }}>{req.lastUpdated}</td>
                                 <td>
                                     <div className="rc-cell-actions">
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Open Workspace" onClick={e => { e.stopPropagation(); navigate(`/recapitalization/workspace/${req.intakeId}`); }} style={{ fontSize: 14 }}>&#9998;</button>
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Respond Externally" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setRespondModalOpen(true); }} style={{ fontSize: 12, color: "#1d4ed8" }}>R</button>
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Publish Update" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setPublishModalOpen(true); }} style={{ fontSize: 12, color: "#166534" }}>P</button>
+                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Edit = Open request workspace" onClick={e => { e.stopPropagation(); navigate(`/recapitalization/workspace/${req.intakeId}`, { state: { from: "tracker" } }); }} style={{ fontSize: 14 }}>&#9998;</button>
+                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Review = Review internal work / mark ready for review" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setRespondModalOpen(true); }} style={{ fontSize: 12, color: "#1d4ed8" }}>R</button>
+                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Publish = Publish to external portal" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setPublishModalOpen(true); }} style={{ fontSize: 12, color: "#166534" }}>P</button>
                                     </div>
                                 </td>
                             </tr>
@@ -355,7 +371,7 @@ export default function RecapitalizationTracker() {
                             <div className="rc-modal-field">
                                 <label>Assign Owner</label>
                                 <select value={bulkEdit.owner} onChange={e => handleBulkChange("owner", e.target.value)}>
-                                    <option value="">\u2014 No change \u2014</option>
+                                    <option value="">No change</option>
                                     <option value="__unset">Unassign</option>
                                     {members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                                 </select>
@@ -363,14 +379,14 @@ export default function RecapitalizationTracker() {
                             <div className="rc-modal-field">
                                 <label>Route to Team</label>
                                 <select value={bulkEdit.team} onChange={e => handleBulkChange("team", e.target.value)}>
-                                    <option value="">\u2014 No change \u2014</option>
+                                    <option value="">No change</option>
                                     {teams.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
                             </div>
                             <div className="rc-modal-field">
                                 <label>Set Priority</label>
                                 <select value={bulkEdit.priority} onChange={e => handleBulkChange("priority", e.target.value)}>
-                                    <option value="">\u2014 No change \u2014</option>
+                                    <option value="">No change</option>
                                     <option value="High">High</option>
                                     <option value="Medium">Medium</option>
                                     <option value="Low">Low</option>
@@ -379,7 +395,7 @@ export default function RecapitalizationTracker() {
                             <div className="rc-modal-field">
                                 <label>Set Status</label>
                                 <select value={bulkEdit.status} onChange={e => handleBulkChange("status", e.target.value)}>
-                                    <option value="">\u2014 No change \u2014</option>
+                                    <option value="">No change</option>
                                     {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
                             </div>
@@ -475,12 +491,12 @@ export default function RecapitalizationTracker() {
                 <div className="rc-modal-overlay" onClick={() => { setPublishModalOpen(false); setPublishText(""); }}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
                         <div className="rc-modal-header">
-                            <h2>Publish Update</h2>
+                            <h2>Publish to External Portal</h2>
                             <button className="rc-modal-close" onClick={() => { setPublishModalOpen(false); setPublishText(""); }}>&times;</button>
                         </div>
                         <div className="rc-modal-body" style={{ padding: "12px 16px" }}>
                             <p style={{ fontSize: 12, color: "#475569", margin: "0 0 8px" }}>
-                                Publish an update for <strong>{detailModalItem.title}</strong>:
+                                Publish to external portal for <strong>{detailModalItem.title}</strong>:
                             </p>
                             <textarea
                                 value={publishText}
@@ -492,7 +508,7 @@ export default function RecapitalizationTracker() {
                         </div>
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-ghost" onClick={() => { setPublishModalOpen(false); setPublishText(""); }}>Cancel</button>
-                            <button className="rc-btn rc-btn-primary" disabled={!publishText.trim()} onClick={() => { updateRequestStatus(detailModalItem.id, "Under Review"); setRefreshKey(k => k + 1); setBulkToast(`Update published for ${detailModalItem.title}`); setPublishModalOpen(false); setPublishText(""); }}>Publish Update</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!publishText.trim()} onClick={() => { updateRequestStatus(detailModalItem.id, "Under Review"); setRefreshKey(k => k + 1); setBulkToast(`Published to external portal for ${detailModalItem.title}`); setPublishModalOpen(false); setPublishText(""); }}>Publish to External Portal</button>
                         </div>
                     </div>
                 </div>
