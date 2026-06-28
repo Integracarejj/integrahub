@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { lookupWorkspaceItem, getDocumentsByTransaction, getActivityByTransaction, getTeamMembers, getTeams, bulkUpdateDemoRequests, updateRequestStatus } from "../../services/recapDataService";
+import { lookupWorkspaceItem, getDocumentsByTransaction, getActivityByTransaction, getTeamMembers, getTeams, bulkUpdateDemoRequests, updateRequestStatus, addActivityEntry } from "../../services/recapDataService";
+import type { RecapRequest } from "../../services/recapDataService";
 import type { RecapTeamMember } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -161,6 +162,8 @@ export default function RecapitalizationWorkspace() {
 
     const [saved, setSaved] = useState(false);
     const [showAssign, setShowAssign] = useState(false);
+    const [linkDocName, setLinkDocName] = useState("");
+    const [showLinkInput, setShowLinkInput] = useState(false);
     const [showRoute, setShowRoute] = useState(false);
     const [showConverted, setShowConverted] = useState(false);
     const [banner, setBanner] = useState<string | null>(null);
@@ -239,8 +242,18 @@ export default function RecapitalizationWorkspace() {
 
     const [pendingStatus, setPendingStatus] = useState<string | null>(null);
 
-    function handleStatusChange(newStatus: string) {
-        updateRequestStatus(item.id || item.intakeId || "", newStatus as any);
+    function handleStatusChange(newStatus: RecapRequest["status"]) {
+        updateRequestStatus(item.id || item.intakeId || "", newStatus);
+        addActivityEntry({
+            type: "Status Change",
+            description: `Status changed to ${newStatus}`,
+            userId: "current-user",
+            userName: "Sarah Chen",
+            requestId: item.requestId || item.id,
+            requestTitle: displayTitle,
+            transactionId: item.transactionId,
+            transactionName: item.transactionName || item.transactionId,
+        });
         setWsRefreshKey(k => k + 1);
         setPendingStatus(null);
         setBanner(`Status changed to ${newStatus}`);
@@ -281,38 +294,36 @@ export default function RecapitalizationWorkspace() {
                     {description && <p style={{ fontSize: 12, color: "#475569", margin: "0 0 12px", lineHeight: 1.5, maxWidth: 600 }}>{description}</p>}
                 </div>
                 <div className="ws-header-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-                    <select value={pendingStatus ?? displayStatus} onChange={e => setPendingStatus(e.target.value)} style={{ fontSize: 11, padding: "4px 20px 4px 8px", borderRadius: 4, border: pendingStatus && pendingStatus !== displayStatus ? "1px solid #1d4ed8" : "1px solid #d1d5db", background: "#fff", fontWeight: 600, minWidth: 120, cursor: "pointer" }}>
-                        {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                    {pendingStatus && pendingStatus !== displayStatus && (
-                        <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => handleStatusChange(pendingStatus)}>
-                            Confirm
-                        </button>
-                    )}
                     <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => setShowAssign(true)}>Assign</button>
+                    <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => setShowRoute(true)}>Route to Team</button>
                     <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => setRespondExternalOpen(true)}>Ask Broker Question</button>
-                    <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => wsToast("Upload document — file picker would open here")}>Upload Document</button>
-                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const name = prompt("Enter document name to link:"); if (name) wsToast(`Linked: ${name}`); }}>Link Document</button>
-                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setWsConfirmAction({ title: "Mark this item Complete?", action: () => handleStatusChange("Complete") })} style={{ color: "#166534" }}>Mark Complete</button>
+                    <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => setPublishUpdateOpen(true)}>Publish Update</button>
+                    <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ color: "#166534" }} onClick={() => setWsConfirmAction({ title: "Mark this item Complete?", action: () => handleStatusChange("Complete") })}>Mark Complete</button>
+                    <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ color: "#854d0e" }} onClick={() => setWsConfirmAction({ title: "Mark this item as Duplicate?", action: () => { updateRequestStatus(item.id || item.intakeId || "", "Duplicate"); setWsRefreshKey(k => k + 1); setBanner("Marked as Duplicate"); } })}>Mark Duplicate</button>
+                    <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ color: "#854d0e" }} onClick={() => setWsConfirmAction({ title: "Mark this item as Not Applicable?", action: () => { updateRequestStatus(item.id || item.intakeId || "", "Not Applicable"); setWsRefreshKey(k => k + 1); setBanner("Marked as Not Applicable"); } })}>Mark N/A</button>
                     <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setDraftClarificationOpen(true)}>Add Internal Note</button>
+                    <div style={{ flex: 1 }} />
+                    <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => { bulkUpdateDemoRequests([item.id || item.intakeId || ""].filter(Boolean), { category, team, owner: internalOwner, priority: priority as any, dueDate } as any); setSaved(true); setWsRefreshKey(k => k + 1); setBanner("Draft saved"); }}>
+                        {saved ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg> Saved!</> : "Save Draft"}
+                    </button>
                 </div>
             </div>
 
             {/* Essential Info Grid */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12, marginBottom: 16 }}>
                 <div className="rc-setting-card" style={{ padding: "8px 12px" }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>Status</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em" }}>Status</span>
                     <div style={{ display: "flex", gap: 4, marginTop: 2 }}>
                         <select value={pendingStatus ?? displayStatus} onChange={e => setPendingStatus(e.target.value)} style={{ fontSize: 12, padding: "2px 18px 2px 4px", borderRadius: 4, border: pendingStatus && pendingStatus !== displayStatus ? "1px solid #1d4ed8" : "1px solid #d1d5db", background: "#fff", fontWeight: 600, flex: 1, cursor: "pointer" }}>
                             {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                         {pendingStatus && pendingStatus !== displayStatus && (
-                            <button className="rc-btn rc-btn-primary rc-btn-sm" style={{ fontSize: 9, padding: "1px 6px" }} onClick={() => handleStatusChange(pendingStatus)}>Confirm</button>
+                            <button className="rc-btn rc-btn-primary rc-btn-sm" style={{ fontSize: 9, padding: "1px 6px" }} onClick={() => handleStatusChange(pendingStatus as RecapRequest["status"])}>Confirm</button>
                         )}
                     </div>
                 </div>
                 <div className="rc-setting-card" style={{ padding: "8px 12px" }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>Priority</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em" }}>Priority</span>
                     <select value={priority} onChange={e => { setPriority(e.target.value); bulkUpdateDemoRequests([item.id || item.intakeId || ""].filter(Boolean), { priority: e.target.value as any }); }} style={{ fontSize: 12, padding: "2px 18px 2px 4px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", fontWeight: 600, width: "100%", marginTop: 2, cursor: "pointer" }}>
                         <option value="High">High</option>
                         <option value="Medium">Medium</option>
@@ -320,12 +331,12 @@ export default function RecapitalizationWorkspace() {
                     </select>
                 </div>
                 <div className="rc-setting-card" style={{ padding: "8px 12px" }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>Due Date</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em" }}>Due Date</span>
                     <input type="date" value={dueDate} onChange={e => { setDueDate(e.target.value); bulkUpdateDemoRequests([item.id || item.intakeId || ""].filter(Boolean), { dueDate: e.target.value }); }}
                         style={{ fontSize: 12, padding: "2px 4px", borderRadius: 4, border: "1px solid #d1d5db", width: "100%", marginTop: 2, boxSizing: "border-box" }} />
                 </div>
                 <div className="rc-setting-card" style={{ padding: "8px 12px" }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>Internal Owner</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em" }}>Internal Owner</span>
                     <div style={{ display: "flex", gap: 4, marginTop: 2 }}>
                         <select value={pendingOwner ?? internalOwner} onChange={e => setPendingOwner(e.target.value)} style={{ fontSize: 12, padding: "2px 18px 2px 4px", borderRadius: 4, border: pendingOwner && pendingOwner !== internalOwner ? "1px solid #1d4ed8" : "1px solid #d1d5db", background: "#fff", fontWeight: 600, flex: 1, cursor: "pointer" }}>
                             <option value="">Unassigned</option>
@@ -337,52 +348,34 @@ export default function RecapitalizationWorkspace() {
                     </div>
                 </div>
                 <div className="rc-setting-card" style={{ padding: "8px 12px" }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>Team</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em" }}>Team</span>
                     <select value={team} onChange={e => { setTeam(e.target.value); bulkUpdateDemoRequests([item.id || item.intakeId || ""].filter(Boolean), { team: e.target.value }); }} style={{ fontSize: 12, padding: "2px 18px 2px 4px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", fontWeight: 600, width: "100%", marginTop: 2, cursor: "pointer" }}>
                         {["Financial Analysis", "Regulatory", "Environmental", "Risk Management", "HR & Operations", "DD Management"].map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                 </div>
                 <div className="rc-setting-card" style={{ padding: "8px 12px" }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>Community</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em" }}>Community</span>
                     <span style={{ fontSize: 12, fontWeight: 500, color: "#1e293b", marginTop: 2, display: "block" }}>{communities.slice(0, 2).join(", ") || "\u2014"}</span>
                 </div>
                 <div className="rc-setting-card" style={{ padding: "8px 12px" }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>Broker / Buyer</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em" }}>Broker / Buyer</span>
                     <span style={{ fontSize: 12, fontWeight: 500, color: "#1e293b", marginTop: 2, display: "block" }}>{transaction.brokerName} / {transaction.sellerName}</span>
                 </div>
                 <div className="rc-setting-card" style={{ padding: "8px 12px" }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>Transaction</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em" }}>Transaction</span>
                     <span style={{ fontSize: 12, fontWeight: 500, color: "#1e293b", marginTop: 2, display: "block" }}>{transaction.name}</span>
                 </div>
                 <div className="rc-setting-card" style={{ padding: "8px 12px" }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>Request ID</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em" }}>Request ID</span>
                     <span style={{ fontSize: 12, fontWeight: 500, color: "#1e293b", marginTop: 2, display: "block", fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace' }}>{item.requestId || item.id || "\u2014"}</span>
                 </div>
                 <div className="rc-setting-card" style={{ padding: "8px 12px" }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>Submitted</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em" }}>Submitted</span>
                     <span style={{ fontSize: 12, fontWeight: 500, color: "#1e293b", marginTop: 2, display: "block" }}>{submittedDate}</span>
                 </div>
             </div>
 
-            {/* Actions Row */}
-            <div className="ws-card" style={{ marginBottom: 12 }}>
-                <div className="ws-card-body" style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "8px 12px" }}>
-                    <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => setShowAssign(true)}>Assign</button>
-                    <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => setShowRoute(true)}>Route to Team</button>
-                    <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => setRespondExternalOpen(true)}>Ask Broker Question</button>
-                    <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => setPublishUpdateOpen(true)}>Publish Update</button>
-                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const name = prompt("Enter document name to link:"); if (name) wsToast(`Linked: ${name}`); }}>Link Document</button>
-                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => wsToast("Upload document — file picker would open here")}>Upload</button>
-                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setWsConfirmAction({ title: "Mark this item Complete?", action: () => handleStatusChange("Complete") })} style={{ color: "#166534" }}>Mark Complete</button>
-                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setDraftClarificationOpen(true)}>Add Internal Note</button>
-                    <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ color: "#92400e" }} onClick={() => setWsConfirmAction({ title: "Mark this item as Duplicate?", action: () => { updateRequestStatus(item.id || item.intakeId || "", "Duplicate" as any); setWsRefreshKey(k => k + 1); setBanner("Marked as Duplicate"); } })}>Mark Duplicate</button>
-                    <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ color: "#92400e" }} onClick={() => setWsConfirmAction({ title: "Mark this item as Not Applicable?", action: () => { updateRequestStatus(item.id || item.intakeId || "", "Not Applicable" as any); setWsRefreshKey(k => k + 1); setBanner("Marked as Not Applicable"); } })}>Mark N/A</button>
-                    <div style={{ flex: 1 }} />
-                    <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => { bulkUpdateDemoRequests([item.id || item.intakeId || ""].filter(Boolean), { category, team, owner: internalOwner, priority: priority as any, dueDate } as any); setSaved(true); setWsRefreshKey(k => k + 1); setTimeout(() => setSaved(false), 2000); }}>
-                        {saved ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg> Saved!</> : "Save Draft"}
-                    </button>
-                </div>
-            </div>
+
 
             {/* Collapsible Sections */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -453,7 +446,13 @@ export default function RecapitalizationWorkspace() {
                     {sections.documents && (
                         <div className="ws-card-body" style={{ padding: 0 }}>
                             <div className="ws-card-actions" style={{ padding: "8px 12px", display: "flex", gap: 8 }}>
-                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const name = prompt("Enter document name to link:"); if (name) wsToast(`Linked: ${name}`); }}>Link Existing</button>
+                                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                                    {showLinkInput && (
+                                        <><input type="text" value={linkDocName} onChange={e => setLinkDocName(e.target.value)} placeholder="Enter document name..." style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, border: "1px solid #d1d5db", width: 180 }} />
+                                            <button className="rc-btn rc-btn-primary rc-btn-sm" style={{ fontSize: 9, padding: "1px 6px" }} onClick={() => { if (linkDocName.trim()) { wsToast(`Linked: ${linkDocName.trim()}`); setLinkDocName(""); setShowLinkInput(false); } }}>Link</button></>
+                                    )}
+                                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setShowLinkInput(v => !v)}>Link Existing</button>
+                                </div>
                                 <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => wsToast("Upload document — file picker would open here")}>Upload</button>
                             </div>
                             {documents.length === 0 ? (

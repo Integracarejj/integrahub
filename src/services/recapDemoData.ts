@@ -305,6 +305,18 @@ export function getDemoActivity(limit = 20): RecapActivity[] {
     return state?.activity.slice(0, limit) || [];
 }
 
+export function addDemoActivityEntry(entry: Omit<RecapActivity, "id" | "timestamp">): void {
+    const state = loadState();
+    if (!state) return;
+    const newEntry: RecapActivity = {
+        ...entry,
+        id: `act-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        timestamp: new Date().toISOString().split("T")[0],
+    };
+    state.activity.unshift(newEntry);
+    saveState(state);
+}
+
 export function publishIntake(): { publishedCount: number; publishedIds: string[]; publishedBatchId?: string } {
     const state = loadState();
     if (!state || state.intakePublished) return { publishedCount: 0, publishedIds: [] };

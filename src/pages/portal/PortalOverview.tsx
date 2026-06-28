@@ -6,7 +6,7 @@ import {
     getPortalDocuments, getPortalClarifications, getPortalQuestions,
     getPortalSubmissionsList, loadABCDemoPackage,
     parseUploadedXLSX, extractCategoriesFromParsedRows,
-    getOnlyPortalCreatedRequests,
+    getOnlyPortalCreatedRequests, saveParsedRows,
 } from "../../services/portalMockData";
 import type { ExternalDemoPersona, ParseDiagnostics, PortalPackageSubmission } from "../../services/portalMockData";
 import "./PortalOverview.css";
@@ -153,6 +153,7 @@ function BrokerOverview({ persona }: { persona: ExternalDemoPersona }) {
         try {
             const parsed = await parseUploadedXLSX(selectedFile);
             setDebug(parsed.diagnostics);
+            saveParsedRows(parsed.rows);
             const cats = extractCategoriesFromParsedRows(parsed.rows);
             const result = submitBrokerUploadPackage(selectedFile.name, parsed.count, cats);
             setAnalysis(result);

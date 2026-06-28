@@ -2,6 +2,7 @@ import { isDemoActive, getDemoTransaction, getDemoRequests, getDemoDocuments, in
 import type { RecapRequest, RecapDocument, RecapTransaction, RecapIntakeItem } from "./recapDataService";
 
 const PERSONA_KEY = "integrasource.recap.portalPersona";
+const PARSED_ROWS_KEY = "integrasource.recap.demo.parsedRows";
 
 /* ── Persona Model ──────────────────────────────────────────── */
 
@@ -584,6 +585,15 @@ export function mapParsedRowToRecapRequest(
     const rawDate = row["Due Date"] || "";
     const dueDate = rawDate ? new Date(rawDate).toISOString().split("T")[0] : new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0];
     const now = new Date().toISOString().split("T")[0];
+    const rawTitle = String(row["Request Title"] || row["Title"] || "").trim();
+    const rawDesc = String(row["Description"] || "").trim();
+    let title = rawTitle;
+    if (!title && rawDesc) {
+        title = rawDesc.replace(/\s+(for|at|in|–)\s+[A-Z][A-Za-z\s-]+\.?$/i, "").trim();
+    }
+    if (!title) {
+        title = `Request ${index}`;
+    }
     return {
         id: `${submissionId}-req-${index}`,
         requestId: `DD-${prefix}-${String(index).padStart(3, "0")}`,
@@ -594,8 +604,8 @@ export function mapParsedRowToRecapRequest(
         communityIds: [],
         communityNames: [],
         category: "General",
-        title: String(row["Request Title"] || row["Title"] || `Request ${index}`).trim(),
-        description: String(row["Description"] || "").trim(),
+        title,
+        description: rawDesc,
         owner: String(row["Suggested Internal Owner"] || "").trim() || null,
         team: String(row["Suggested Team"] || "DD Management").trim(),
         status: "Open",
@@ -618,6 +628,16 @@ export function extractCategoriesFromParsedRows(rows: Record<string, string>[]):
     });
     const result = [...cats].filter(Boolean);
     return result.length > 0 ? result : ["Financial Statements", "Licenses", "Environmental", "Insurance", "Legal", "HR / Staffing"];
+}
+
+export function saveParsedRows(rows: Record<string, string>[]): void {
+    localStorage.setItem(PARSED_ROWS_KEY, JSON.stringify(rows));
+}
+export function getParsedRows(): Record<string, string>[] {
+    try { const raw = localStorage.getItem(PARSED_ROWS_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
+}
+export function clearParsedRows(): void {
+    localStorage.removeItem(PARSED_ROWS_KEY);
 }
 
 /* ── Portal Package Submission Helpers ────────────────────────── */
@@ -779,10 +799,17 @@ export function confirmBrokerPackage(submissionId?: string): void {
 
     // Custom package: create intake item + review item (not tracker) records
     const fileBaseName = sub.fileName.replace(/\.[^.]+$/, "").trim();
-    const reviewItems = generatePortalRequests(submissionId, sub.packageName, fileBaseName, sub.requestCount);
+    const parsedRows = getParsedRows();
+    let reviewItems: RecapRequest[];
+    if (parsedRows.length > 0) {
+        reviewItems = parsedRows.map((row, i) => mapParsedRowToRecapRequest(row, submissionId, i + 1, fileBaseName, sub.packageName));
+    } else {
+        reviewItems = generatePortalRequests(submissionId, sub.packageName, fileBaseName, sub.requestCount);
+    }
+    clearParsedRows();
     // Review items are kept for the intake review grid but have _publishedAt: null so they don't appear in tracker
     addPortalCreatedRequests(reviewItems);
-    const intakeItem = createPortalIntakeItem(submissionId, sub.packageName, sub.fileName, sub.requestCount, false);
+    const intakeItem = createPortalIntakeItem(submissionId, sub.packageName, sub.fileName, reviewItems.length, false);
 
     addPortalCreatedIntakeItem(intakeItem);
     updatePortalSubmissionStatus(submissionId, "Submitted");

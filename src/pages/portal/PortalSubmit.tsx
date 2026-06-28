@@ -15,6 +15,7 @@ import {
     loadABCDemoPackage,
     parseUploadedXLSX,
     extractCategoriesFromParsedRows,
+    saveParsedRows,
 } from "../../services/portalMockData";
 import "./PortalSubmit.css";
 
@@ -358,6 +359,7 @@ function BrokerUploadForm() {
         setBanner(null);
         try {
             const parsed = await parseUploadedXLSX(selectedFile);
+            saveParsedRows(parsed.rows);
             const cats = extractCategoriesFromParsedRows(parsed.rows);
             const result = submitBrokerUploadPackage(selectedFile.name, parsed.count, cats);
             setAnalysis(result);

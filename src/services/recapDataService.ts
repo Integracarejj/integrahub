@@ -88,6 +88,14 @@ export function getActivityByTransaction(transactionId: string): RecapActivity[]
     return Mock.getActivityByTransaction(transactionId);
 }
 
+export function addActivityEntry(entry: Omit<RecapActivity, "id" | "timestamp">): void {
+    if (isDemoLoaded()) {
+        Demo.addDemoActivityEntry(entry);
+    } else {
+        Mock.addActivityEntry(entry);
+    }
+}
+
 export function getTeamMembers(): RecapTeamMember[] {
     return Mock.getTeamMembers();
 }
@@ -154,8 +162,14 @@ export function getOverrideRequests(): RecapRequest[] {
 }
 
 export function updateRequestStatus(id: string, status: RecapRequest["status"]): RecapRequest | undefined {
-    if (isDemoLoaded()) return Demo.updateDemoRequest(id, { status });
-    return Mock.updateRequestStatus(id, status);
+    if (isDemoLoaded()) {
+        const result = Demo.updateDemoRequest(id, { status });
+        if (result) return result;
+        return updatePortalRequestStatus(id, status);
+    }
+    const result = Mock.updateRequestStatus(id, status);
+    if (result) return result;
+    return updatePortalRequestStatus(id, status);
 }
 
 export function updateRequestOwner(id: string, owner: string | null): RecapRequest | undefined {
@@ -170,13 +184,25 @@ export function updateRequestOwner(id: string, owner: string | null): RecapReque
 }
 
 export function updateRequestPriority(id: string, priority: RecapRequest["priority"]): RecapRequest | undefined {
-    if (isDemoLoaded()) return Demo.updateDemoRequest(id, { priority });
-    return Mock.updateRequestPriority(id, priority);
+    if (isDemoLoaded()) {
+        const result = Demo.updateDemoRequest(id, { priority });
+        if (result) return result;
+        return updatePortalRequestById(id, { priority });
+    }
+    const result = Mock.updateRequestPriority(id, priority);
+    if (result) return result;
+    return updatePortalRequestById(id, { priority });
 }
 
 export function updateRequestDueDate(id: string, dueDate: string): RecapRequest | undefined {
-    if (isDemoLoaded()) return Demo.updateDemoRequest(id, { dueDate });
-    return Mock.updateRequestDueDate(id, dueDate);
+    if (isDemoLoaded()) {
+        const result = Demo.updateDemoRequest(id, { dueDate });
+        if (result) return result;
+        return updatePortalRequestById(id, { dueDate });
+    }
+    const result = Mock.updateRequestDueDate(id, dueDate);
+    if (result) return result;
+    return updatePortalRequestById(id, { dueDate });
 }
 
 export function updateRequestTeam(id: string, team: string): RecapRequest | undefined {
@@ -375,6 +401,24 @@ export function updatePortalRequestOwner(reqId: string, owner: string | null): R
     return all[idx];
 }
 
+export function updatePortalRequestStatus(reqId: string, status: string): RecapRequest | undefined {
+    const all = getPortalCreatedRequests();
+    const idx = all.findIndex(r => r.id === reqId || r.requestId === reqId || r.intakeId === reqId);
+    if (idx === -1) return;
+    all[idx] = { ...all[idx], status: status as RecapRequest["status"], lastUpdated: new Date().toISOString().split("T")[0] };
+    localStorage.setItem(PORTAL_REQUESTS_KEY, JSON.stringify(all));
+    return all[idx];
+}
+
+export function updatePortalRequestById(reqId: string, patch: Partial<RecapRequest>): RecapRequest | undefined {
+    const all = getPortalCreatedRequests();
+    const idx = all.findIndex(r => r.id === reqId || r.requestId === reqId || r.intakeId === reqId);
+    if (idx === -1) return;
+    all[idx] = { ...all[idx], ...patch, lastUpdated: new Date().toISOString().split("T")[0] };
+    localStorage.setItem(PORTAL_REQUESTS_KEY, JSON.stringify(all));
+    return all[idx];
+}
+
 export function updatePortalRequestTeam(reqId: string, team: string): RecapRequest | undefined {
     const all = getPortalCreatedRequests();
     const idx = all.findIndex(r => r.id === reqId || r.requestId === reqId || r.intakeId === reqId);
@@ -454,4 +498,5 @@ export function clearAllPortalCreatedData(): void {
     localStorage.removeItem(PORTAL_INTAKE_KEY);
     localStorage.removeItem(PORTAL_REQUESTS_KEY);
     localStorage.removeItem(PORTAL_SUBMISSIONS_KEY);
+    localStorage.removeItem("integrasource.recap.demo.parsedRows");
 }

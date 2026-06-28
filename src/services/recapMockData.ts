@@ -35,7 +35,7 @@ export interface RecapRequest {
     description: string;
     owner: string | null;
     team: string;
-    status: "Provided" | "In Progress" | "Clarification Needed" | "Under Review" | "Open" | "Overdue" | "Waiting on Broker" | "Blocked" | "Ready for Review" | "Complete" | "Not Applicable" | "Duplicate";
+    status: "Provided" | "In Progress" | "Clarification Needed" | "Under Review" | "Open" | "Overdue" | "Pending External" | "Blocked" | "Ready for Review" | "Complete" | "Not Applicable" | "Duplicate" | "Rejected";
     priority: "High" | "Medium" | "Low";
     dueDate: string;
     lastUpdated: string;
@@ -580,6 +580,14 @@ export function getActivity(limit?: number): RecapActivity[] {
 export function getActivityByTransaction(transactionId: string): RecapActivity[] {
     return MOCK_ACTIVITY.filter((a) => a.transactionId === transactionId)
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+}
+
+export function addActivityEntry(entry: Omit<RecapActivity, "id" | "timestamp">): void {
+    MOCK_ACTIVITY.push({
+        ...entry,
+        id: `act-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        timestamp: new Date().toISOString().split("T")[0],
+    });
 }
 
 export function getTeamMembers(): RecapTeamMember[] {

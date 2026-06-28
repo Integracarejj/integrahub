@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
     getRequests, getTransactions, getTeamMembers, getTeams,
-    updateRequestStatus, updateRequestOwner, updateRequestTeam,
+    updateRequestStatus, updateRequestOwner, updateRequestTeam, addActivityEntry,
     updateRequestPriority, updateRequestDueDate, isDemoActive,
     bulkUpdateDemoRequests,
 } from "../../services/recapDataService";
@@ -100,6 +100,8 @@ export default function RecapitalizationTracker() {
         return result;
     }, [allRequests, search, filterTxn, filterStatus, filterPriority, filterTeam, filterOwner, overdueOnly, myItems, publishedBatchId, sourcePackageId, sourceIntakeId]);
 
+    const totalActiveRequests = useMemo(() => allRequests.filter(r => r._publishedAt || r._createdFromReview).length, [allRequests]);
+
     const visibleIds = useMemo(() => new Set(filtered.map(r => r.id)), [filtered]);
 
     const allSelected = filtered.length > 0 && filtered.every(r => selectedIds.has(r.id));
@@ -158,8 +160,18 @@ export default function RecapitalizationTracker() {
         setBulkToast(`Updated ${ids.length} request${ids.length !== 1 ? "s" : ""}`);
     }
 
-    function handleStatusChange(req: RecapRequest, newStatus: string) {
-        updateRequestStatus(req.id, newStatus as RecapRequest["status"]);
+    function handleStatusChange(req: RecapRequest, newStatus: RecapRequest["status"]) {
+        updateRequestStatus(req.id, newStatus);
+        addActivityEntry({
+            type: "Status Change",
+            description: `Status changed to ${newStatus}`,
+            userId: "current-user",
+            userName: "Sarah Chen",
+            requestId: req.requestId || req.id,
+            requestTitle: req.title,
+            transactionId: req.transactionId,
+            transactionName: req.transactionName || req.transactionId,
+        });
         setRefreshKey(k => k + 1);
         setBulkToast(`${req.requestId}: status changed to ${newStatus}`);
     }
@@ -305,7 +317,7 @@ export default function RecapitalizationTracker() {
                                             {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                                         </select>
                                         {pendingStatuses[req.id] && pendingStatuses[req.id] !== req.status && (
-                                            <button className="rc-btn rc-btn-primary rc-btn-sm" style={{ fontSize: 9, padding: "1px 6px", whiteSpace: "nowrap", width: "100%" }} onClick={e => { e.stopPropagation(); handleStatusChange(req, pendingStatuses[req.id]); setPendingStatuses(prev => { const n = { ...prev }; delete n[req.id]; return n; }); }}>
+                                            <button className="rc-btn rc-btn-primary rc-btn-sm" style={{ fontSize: 9, padding: "1px 6px", whiteSpace: "nowrap", width: "100%" }} onClick={e => { e.stopPropagation(); handleStatusChange(req, pendingStatuses[req.id] as RecapRequest["status"]); setPendingStatuses(prev => { const n = { ...prev }; delete n[req.id]; return n; }); }}>
                                                 Change to {pendingStatuses[req.id]}
                                             </button>
                                         )}
@@ -330,7 +342,7 @@ export default function RecapitalizationTracker() {
                 {filtered.length === 0 && <div className="rc-empty-state">No requests match your filters</div>}
             </div>
 
-            <div style={{ fontSize: 12, color: "#64748b" }}>Showing {filtered.length} of {allRequests.length} requests</div>
+            <div style={{ fontSize: 12, color: "#64748b" }}>Showing {filtered.length} of {totalActiveRequests} requests</div>
 
             {bulkModalOpen && (
                 <div className="rc-modal-overlay" onClick={() => setBulkModalOpen(false)}>
