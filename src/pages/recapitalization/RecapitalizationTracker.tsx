@@ -52,6 +52,8 @@ export default function RecapitalizationTracker() {
     const [respondText, setRespondText] = useState("");
     const [publishModalOpen, setPublishModalOpen] = useState(false);
     const [publishText, setPublishText] = useState("");
+    const [pendingStatuses, setPendingStatuses] = useState<Record<string, string>>({});
+    const [confirmAction, setConfirmAction] = useState<{ title: string; action: () => void } | null>(null);
 
     const selectAllRef = useRef<HTMLInputElement>(null);
 
@@ -154,14 +156,12 @@ export default function RecapitalizationTracker() {
         setBulkModalOpen(false);
         setBulkEdit({ owner: "", team: "", priority: "", status: "", dueDate: "", visible: "" });
         setBulkToast(`Updated ${ids.length} request${ids.length !== 1 ? "s" : ""}`);
-        setTimeout(() => setBulkToast(""), 3000);
     }
 
     function handleStatusChange(req: RecapRequest, newStatus: string) {
         updateRequestStatus(req.id, newStatus as RecapRequest["status"]);
         setRefreshKey(k => k + 1);
         setBulkToast(`${req.requestId}: status changed to ${newStatus}`);
-        setTimeout(() => setBulkToast(""), 3000);
     }
 
     function clearFilterParam() {
@@ -183,7 +183,7 @@ export default function RecapitalizationTracker() {
                 <div className="rc-header-actions">
                     <button className="rc-btn rc-btn-primary" onClick={() => navigate("/recapitalization/intake/review")}>Import DD Package</button>
                     <button className="rc-btn rc-btn-secondary" onClick={() => navigate("/recapitalization/intake/review")}>New Request</button>
-                    <button className="rc-btn rc-btn-secondary" onClick={() => { setBulkToast("Export feature coming soon"); setTimeout(() => setBulkToast(""), 2500); }}>Export</button>
+                    <button className="rc-btn rc-btn-secondary" onClick={() => setBulkToast("Export feature coming soon")}>Export</button>
                 </div>
             </div>
 
@@ -237,12 +237,12 @@ export default function RecapitalizationTracker() {
                         <span>selected</span>
                         <div className="rc-bulk-sep" />
                         <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setBulkEdit({ owner: "", team: "", priority: "", status: "", dueDate: "", visible: "" }); setBulkModalOpen(true); }}>Bulk Update</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const ids = [...selectedIds]; const members = getTeamMembers(); if (members.length > 0) { bulkUpdateDemoRequests(ids, { owner: members[0].name, assignedTo: members[0].name }); setRefreshKey(k => k + 1); setBulkToast(`Assigned ${ids.length} request${ids.length !== 1 ? "s" : ""} to ${members[0].name}`); setTimeout(() => setBulkToast(""), 3000); } }}>Assign</button>
                         <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setRouteModalOpen(true); }}>Route to Team</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const ids = [...selectedIds]; ids.forEach(id => updateRequestStatus(id, "Duplicate" as any)); setRefreshKey(k => k + 1); setBulkToast(`Marked ${ids.length} request${ids.length !== 1 ? "s" : ""} as Duplicate`); setTimeout(() => setBulkToast(""), 3000); }}>Mark Duplicate</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const ids = [...selectedIds]; ids.forEach(id => updateRequestStatus(id, "Not Applicable" as any)); setRefreshKey(k => k + 1); setBulkToast(`Marked ${ids.length} request${ids.length !== 1 ? "s" : ""} as Not Applicable`); setTimeout(() => setBulkToast(""), 3000); }}>Mark Not Applicable</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ color: "#991b1b" }} onClick={() => { const ids = [...selectedIds]; ids.forEach(id => updateRequestStatus(id, "Rejected" as any)); setRefreshKey(k => k + 1); setBulkToast(`Rejected ${ids.length} request${ids.length !== 1 ? "s" : ""}`); setTimeout(() => setBulkToast(""), 3000); }}>Reject</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const ids = [...selectedIds]; ids.forEach(id => updateRequestStatus(id, "Complete" as any)); setRefreshKey(k => k + 1); setBulkToast(`Marked ${ids.length} request${ids.length !== 1 ? "s" : ""} Complete`); setTimeout(() => setBulkToast(""), 3000); }}>Mark Complete</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const ids = [...selectedIds]; const members = getTeamMembers(); if (members.length > 0) setConfirmAction({ title: `Assign ${ids.length} item${ids.length !== 1 ? "s" : ""} to ${members[0].name}?`, action: () => { bulkUpdateDemoRequests(ids, { owner: members[0].name, assignedTo: members[0].name }); setRefreshKey(k => k + 1); setBulkToast(`Assigned ${ids.length} request${ids.length !== 1 ? "s" : ""} to ${members[0].name}`); }}); }}>Assign</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const ids = [...selectedIds]; setConfirmAction({ title: `Mark ${ids.length} item${ids.length !== 1 ? "s" : ""} as Duplicate?`, action: () => { ids.forEach(id => updateRequestStatus(id, "Duplicate" as any)); setRefreshKey(k => k + 1); setBulkToast(`Marked ${ids.length} request${ids.length !== 1 ? "s" : ""} as Duplicate`); } }); }}>Mark Duplicate</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const ids = [...selectedIds]; setConfirmAction({ title: `Mark ${ids.length} item${ids.length !== 1 ? "s" : ""} as Not Applicable?`, action: () => { ids.forEach(id => updateRequestStatus(id, "Not Applicable" as any)); setRefreshKey(k => k + 1); setBulkToast(`Marked ${ids.length} request${ids.length !== 1 ? "s" : ""} as Not Applicable`); } }); }}>Mark Not Applicable</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ color: "#991b1b" }} onClick={() => { const ids = [...selectedIds]; setConfirmAction({ title: `Reject ${ids.length} item${ids.length !== 1 ? "s" : ""}?`, action: () => { ids.forEach(id => updateRequestStatus(id, "Rejected" as any)); setRefreshKey(k => k + 1); setBulkToast(`Rejected ${ids.length} request${ids.length !== 1 ? "s" : ""}`); } }); }}>Reject</button>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const ids = [...selectedIds]; setConfirmAction({ title: `Mark ${ids.length} item${ids.length !== 1 ? "s" : ""} Complete?`, action: () => { ids.forEach(id => updateRequestStatus(id, "Complete" as any)); setRefreshKey(k => k + 1); setBulkToast(`Marked ${ids.length} request${ids.length !== 1 ? "s" : ""} Complete`); } }); }}>Mark Complete</button>
                         <div className="rc-bulk-sep" />
                         <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={clearSelection}>Clear Selection</button>
                     </div>
@@ -296,13 +296,20 @@ export default function RecapitalizationTracker() {
                                 </td>
                                 <td className="rc-truncate">{req.communityNames.join(", ") || "All"}</td>
                                 <td onClick={e => e.stopPropagation()}>
-                                    <select
-                                        value={req.status}
-                                        onChange={e => handleStatusChange(req, e.target.value)}
-                                        style={{ fontSize: 10, padding: "2px 18px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 100, cursor: "pointer", border: "1px solid #d1d5db" }}
-                                    >
-                                        {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                                    </select>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                        <select
+                                            value={pendingStatuses[req.id] ?? req.status}
+                                            onChange={e => setPendingStatuses(prev => ({ ...prev, [req.id]: e.target.value }))}
+                                            style={{ fontSize: 10, padding: "2px 18px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 100, cursor: "pointer", border: pendingStatuses[req.id] && pendingStatuses[req.id] !== req.status ? "1px solid #1d4ed8" : "1px solid #d1d5db" }}
+                                        >
+                                            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                        {pendingStatuses[req.id] && pendingStatuses[req.id] !== req.status && (
+                                            <button className="rc-btn rc-btn-primary rc-btn-sm" style={{ fontSize: 9, padding: "1px 6px", whiteSpace: "nowrap", width: "100%" }} onClick={e => { e.stopPropagation(); handleStatusChange(req, pendingStatuses[req.id]); setPendingStatuses(prev => { const n = { ...prev }; delete n[req.id]; return n; }); }}>
+                                                Change to {pendingStatuses[req.id]}
+                                            </button>
+                                        )}
+                                    </div>
                                 </td>
                                 <td><span className={`rc-badge rc-badge-${req.priority.toLowerCase()}`}>{req.priority}</span></td>
                                 <td style={{ color: req.owner ? "#1e293b" : "#64748b", fontSize: 12 }}>{req.owner || "\u2014"}</td>
@@ -392,7 +399,25 @@ export default function RecapitalizationTracker() {
                         </div>
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-ghost" onClick={() => setRouteModalOpen(false)}>Cancel</button>
-                            <button className="rc-btn rc-btn-primary" disabled={!routeModalTeam} onClick={() => { const ids = [...selectedIds]; bulkUpdateDemoRequests(ids, { team: routeModalTeam }); setRefreshKey(k => k + 1); setRouteModalOpen(false); setRouteModalTeam(""); setBulkToast(`Routed ${ids.length} request${ids.length !== 1 ? "s" : ""} to ${routeModalTeam}`); setTimeout(() => setBulkToast(""), 3000); }}>Route to {routeModalTeam || "..."}</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!routeModalTeam} onClick={() => { const ids = [...selectedIds]; bulkUpdateDemoRequests(ids, { team: routeModalTeam }); setRefreshKey(k => k + 1); setRouteModalOpen(false); setRouteModalTeam(""); setBulkToast(`Routed ${ids.length} request${ids.length !== 1 ? "s" : ""} to ${routeModalTeam}`); }}>Route to {routeModalTeam || "..."}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {confirmAction && (
+                <div className="rc-modal-overlay" onClick={() => setConfirmAction(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 380 }}>
+                        <div className="rc-modal-header">
+                            <h2>Confirm</h2>
+                            <button className="rc-modal-close" onClick={() => setConfirmAction(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px", textAlign: "center" }}>
+                            <p style={{ fontSize: 14, fontWeight: 600, color: "#1e293b", margin: 0 }}>{confirmAction.title}</p>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setConfirmAction(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" onClick={() => { confirmAction.action(); setConfirmAction(null); }}>Confirm</button>
                         </div>
                     </div>
                 </div>
@@ -428,7 +453,6 @@ export default function RecapitalizationTracker() {
                                 setBulkToast(`Question sent to ${detailModalItem.brokerBuyer} and added to the request activity.`);
                                 setRespondModalOpen(false);
                                 setRespondText("");
-                                setTimeout(() => setBulkToast(""), 4000);
                             }}>Send Question</button>
                         </div>
                     </div>
@@ -456,7 +480,7 @@ export default function RecapitalizationTracker() {
                         </div>
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-ghost" onClick={() => { setPublishModalOpen(false); setPublishText(""); }}>Cancel</button>
-                            <button className="rc-btn rc-btn-primary" disabled={!publishText.trim()} onClick={() => { updateRequestStatus(detailModalItem.id, "Under Review"); setRefreshKey(k => k + 1); setBulkToast(`Update published for ${detailModalItem.title}`); setPublishModalOpen(false); setPublishText(""); setTimeout(() => setBulkToast(""), 4000); }}>Publish Update</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!publishText.trim()} onClick={() => { updateRequestStatus(detailModalItem.id, "Under Review"); setRefreshKey(k => k + 1); setBulkToast(`Update published for ${detailModalItem.title}`); setPublishModalOpen(false); setPublishText(""); }}>Publish Update</button>
                         </div>
                     </div>
                 </div>

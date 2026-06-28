@@ -63,6 +63,10 @@ export function getRequests(): RecapRequest[] {
     return [...Mock.getRequests(), ...portalReqs];
 }
 
+export function getTrackerRequests(): RecapRequest[] {
+    return getRequests().filter(r => r._publishedAt || r._createdFromReview);
+}
+
 export function getDocuments(): RecapDocument[] {
     if (isDemoLoaded()) return Demo.getDemoDocuments();
     return Mock.getDocuments();

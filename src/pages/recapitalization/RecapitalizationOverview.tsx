@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import {
-    getActiveTransactions, getStatusCounts, getRequests,
-    getActivity, getTeamWorkload, getOverrideRequests,
+    getActiveTransactions, getTrackerRequests,
+    getIntakeItems, getActivity, getTeamWorkload,
     isDemoActive,
 } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
@@ -10,18 +10,21 @@ import "./Recapitalization.css";
 export default function RecapitalizationOverview() {
     const navigate = useNavigate();
     const transactions = getActiveTransactions();
-    const statusCounts = getStatusCounts();
-    const allRequests = getRequests();
+    const trackerRequests = getTrackerRequests();
+    const intakeItems = getIntakeItems();
     const recentActivity = getActivity(6);
     const workload = getTeamWorkload();
-    const needingAttention = getOverrideRequests().slice(0, 4);
+    const needingAttention = trackerRequests
+        .filter(r => r.status === "Overdue" || (r.status !== "Provided" && r.status !== "Under Review" && r.dueDate && new Date(r.dueDate) < new Date()))
+        .slice(0, 4);
 
-    const totalRequests = allRequests.length;
-    const provided = statusCounts.Provided || 0;
-    const inProgress = statusCounts["In Progress"] || 0;
-    const clarificationNeeded = statusCounts["Clarification Needed"] || 0;
-    const overdue = statusCounts.Overdue || 0;
-    const newExternal = allRequests.filter(r => r.source === "External" && r.status === "Under Review").length;
+    const totalRequests = trackerRequests.length;
+    const provided = trackerRequests.filter(r => r.status === "Provided").length;
+    const inProgress = trackerRequests.filter(r => r.status === "In Progress").length;
+    const clarificationNeeded = trackerRequests.filter(r => r.status === "Clarification Needed").length;
+    const overdue = trackerRequests.filter(r => r.status === "Overdue").length;
+    const newExternal = trackerRequests.filter(r => r.source === "External" && r.status === "Under Review").length;
+    const intakeItemCount = intakeItems.length;
 
     return (
         <div className="rc-page">
@@ -67,6 +70,11 @@ export default function RecapitalizationOverview() {
                     <span className="rc-stat-value">{newExternal}</span>
                     <span className="rc-stat-label">New External</span>
                     <span className="rc-stat-desc">Awaiting review</span>
+                </div>
+                <div className="rc-stat-card" style={{ borderLeft: "3px solid #7c3aed" }}>
+                    <span className="rc-stat-value">{intakeItemCount}</span>
+                    <span className="rc-stat-label">Intake Items</span>
+                    <span className="rc-stat-desc">Awaiting processing</span>
                 </div>
             </div>
 

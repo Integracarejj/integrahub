@@ -18,6 +18,8 @@ export default function RecapitalizationMyWork() {
     const [bulkToast, setBulkToast] = useState("");
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [activeCard, setActiveCard] = useState<CardFilter>("all");
+    const [pendingStatuses, setPendingStatuses] = useState<Record<string, string>>({});
+    const [confirmAction, setConfirmAction] = useState<{ title: string; action: () => void } | null>(null);
     const members = getTeamMembers();
     const allRequests = useMemo(() => getRequests(), [refreshKey]);
 
@@ -87,7 +89,6 @@ export default function RecapitalizationMyWork() {
         updateRequestStatus(req.id, newStatus as RecapRequest["status"]);
         setRefreshKey(k => k + 1);
         setBulkToast(`${req.requestId}: status changed to ${newStatus}`);
-        setTimeout(() => setBulkToast(""), 3000);
     }
 
     function handleBulkStatus(newStatus: string) {
@@ -96,7 +97,6 @@ export default function RecapitalizationMyWork() {
         setRefreshKey(k => k + 1);
         setBulkToast(`Updated ${ids.length} item${ids.length !== 1 ? "s" : ""} to ${newStatus}`);
         setSelectedIds(new Set());
-        setTimeout(() => setBulkToast(""), 3000);
     }
 
     function handleBulkDueDate(date: string) {
@@ -105,7 +105,6 @@ export default function RecapitalizationMyWork() {
         setRefreshKey(k => k + 1);
         setBulkToast(`Set due date for ${ids.length} item${ids.length !== 1 ? "s" : ""}`);
         setSelectedIds(new Set());
-        setTimeout(() => setBulkToast(""), 3000);
     }
 
     function handleBulkComplete() {
@@ -157,13 +156,20 @@ export default function RecapitalizationMyWork() {
                             <td style={{ fontSize: 12, color: "#475569" }}>{req.communityNames[0] || "\u2014"}</td>
                             <td><PriorityBadge priority={req.priority} /></td>
                             <td onClick={e => e.stopPropagation()}>
-                                <select
-                                    value={req.status}
-                                    onChange={e => handleStatusChange(req, e.target.value)}
-                                    style={{ fontSize: 10, padding: "2px 18px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 100, cursor: "pointer", border: "1px solid #d1d5db" }}
-                                >
-                                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
+                                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                    <select
+                                        value={pendingStatuses[req.id] ?? req.status}
+                                        onChange={e => setPendingStatuses(prev => ({ ...prev, [req.id]: e.target.value }))}
+                                        style={{ fontSize: 10, padding: "2px 18px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 100, cursor: "pointer", border: pendingStatuses[req.id] && pendingStatuses[req.id] !== req.status ? "1px solid #1d4ed8" : "1px solid #d1d5db" }}
+                                    >
+                                        {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                    {pendingStatuses[req.id] && pendingStatuses[req.id] !== req.status && (
+                                        <button className="rc-btn rc-btn-primary rc-btn-sm" style={{ fontSize: 9, padding: "1px 6px", whiteSpace: "nowrap" }} onClick={e => { e.stopPropagation(); handleStatusChange(req, pendingStatuses[req.id]); setPendingStatuses(prev => { const n = { ...prev }; delete n[req.id]; return n; }); }}>
+                                            Change to {pendingStatuses[req.id]}
+                                        </button>
+                                    )}
+                                </div>
                             </td>
                             <td className="nowrap" style={{ fontSize: 12, color: req.status === "Overdue" ? "#991b1b" : "#475569", fontWeight: req.status === "Overdue" ? 600 : 400 }}>{req.dueDate}</td>
                             <td style={{ fontSize: 12, color: req.lastUpdated ? "#475569" : "#94a3b8" }}>{req.lastUpdated || "\u2014"}</td>
@@ -230,7 +236,7 @@ export default function RecapitalizationMyWork() {
                 <div className="rc-bulk-bar" style={{ marginBottom: 8 }}>
                     <span><span className="rc-bulk-count">{selectedIds.size}</span> selected</span>
                     <div className="rc-bulk-sep" />
-                    <select onChange={e => { if (e.target.value) handleBulkStatus(e.target.value); e.target.value = ""; }}
+                    <select onChange={e => { if (e.target.value) setConfirmAction({ title: `Change status of ${selectedIds.size} item${selectedIds.size !== 1 ? "s" : ""} to ${e.target.value}?`, action: () => { handleBulkStatus(e.target.value); } }); e.target.value = ""; }}
                         style={{ fontSize: 11, padding: "2px 18px 2px 6px", borderRadius: 4, border: "1px solid #d1d5db" }}>
                         <option value="">Change Status...</option>
                         {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -238,7 +244,7 @@ export default function RecapitalizationMyWork() {
                     <input type="date" onChange={e => { if (e.target.value) handleBulkDueDate(e.target.value); e.target.value = ""; }}
                         style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, border: "1px solid #d1d5db", maxWidth: 130 }}
                         placeholder="Set due date" />
-                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={handleBulkComplete}>Mark Complete</button>
+                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setConfirmAction({ title: `Mark ${selectedIds.size} item${selectedIds.size !== 1 ? "s" : ""} Complete?`, action: handleBulkComplete })}>Mark Complete</button>
                     <div className="rc-bulk-sep" />
                     <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setSelectedIds(new Set())}>Clear Selection</button>
                 </div>
@@ -265,6 +271,24 @@ export default function RecapitalizationMyWork() {
             <div style={{ fontSize: 12, color: "#64748b", textAlign: "right" }}>
                 Showing {filteredItems.length + myItems.myTeam.length} of {publishedRequests.length} total published requests
             </div>
+
+            {confirmAction && (
+                <div className="rc-modal-overlay" onClick={() => setConfirmAction(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 380 }}>
+                        <div className="rc-modal-header">
+                            <h2>Confirm</h2>
+                            <button className="rc-modal-close" onClick={() => setConfirmAction(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px", textAlign: "center" }}>
+                            <p style={{ fontSize: 14, fontWeight: 600, color: "#1e293b", margin: 0 }}>{confirmAction.title}</p>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setConfirmAction(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" onClick={() => { confirmAction.action(); setConfirmAction(null); }}>Confirm</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {detailItem && (
                 <div className="rc-modal-overlay" onClick={() => setDetailItem(null)}>
