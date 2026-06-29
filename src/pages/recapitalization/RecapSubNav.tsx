@@ -5,6 +5,7 @@ const NAV_ITEMS = [
     { label: "Intake Queue", path: "/recapitalization/intake" },
     { label: "Work Queue", path: "/recapitalization/tracker" },
     { label: "My Work", path: "/recapitalization/my-work" },
+    { label: "DD Operations", path: "/recapitalization/dd-operations" },
     { label: "Documents", path: "/recapitalization/documents" },
     { label: "Reports", path: "/recapitalization/reports" },
     { label: "Settings", path: "/recapitalization/settings" },

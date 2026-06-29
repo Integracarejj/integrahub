@@ -488,7 +488,7 @@ function ReviewEngine() {
                 <div className="rc-header-actions">
                     <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setUpdateCount(k => k + 1); showToast("Refreshed"); }}>Refresh</button>
                     <button className="rc-btn rc-btn-primary" onClick={handleMoveToWorkQueue} disabled={publishing || readyCount === 0} title={readyCount === 0 ? "No items marked 'Move to Work Queue'" : ""}>
-                        {publishing ? "Moving..." : readyCount > 0 ? `Move to Work Queue (${readyCount})` : "Move to Work Queue"}
+                        {publishing ? "Moving..." : "Move Ready Items"}
                     </button>
                     <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={handlePublishAll} disabled={publishing}>
                         Move All to Work Queue

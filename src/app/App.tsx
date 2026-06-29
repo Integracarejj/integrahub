@@ -39,6 +39,7 @@ import RecapitalizationTransactions from "../pages/recapitalization/Recapitaliza
 import RecapitalizationTracker from "../pages/recapitalization/RecapitalizationTracker";
 import RecapitalizationIntake from "../pages/recapitalization/RecapitalizationIntake";
 import RecapitalizationMyWork from "../pages/recapitalization/RecapitalizationMyWork";
+import RecapitalizationDdOperations from "../pages/recapitalization/RecapitalizationDdOperations";
 import RecapitalizationDocuments from "../pages/recapitalization/RecapitalizationDocuments";
 import RecapitalizationReports from "../pages/recapitalization/RecapitalizationReports";
 import RecapitalizationSettings from "../pages/recapitalization/RecapitalizationSettings";
@@ -194,6 +195,7 @@ function AuthAwareRouter() {
                 <Route path="/recapitalization/tracker" element={<RecapitalizationTracker />} />
                 <Route path="/recapitalization/intake/*" element={<RecapitalizationIntake />} />
                 <Route path="/recapitalization/my-work" element={<RecapitalizationMyWork />} />
+                <Route path="/recapitalization/dd-operations" element={<RecapitalizationDdOperations />} />
                 <Route path="/recapitalization/documents" element={<RecapitalizationDocuments />} />
                 <Route path="/recapitalization/reports" element={<RecapitalizationReports />} />
                 <Route path="/recapitalization/settings" element={<RecapitalizationSettings />} />
