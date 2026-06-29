@@ -7,7 +7,7 @@ import "./Recapitalization.css";
 
 const STATUS_OPTIONS: RecapRequest["status"][] = ["Open", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate"];
 
-const TEAM_MEMBERS = ["Sarah Chen", "James Wright", "Lisa Park", "Tom Davies", "Mike O'Brien", "Anna Patel", "David Park", "Carlos Rivera"];
+const TEAM_MEMBERS = ["Sarah Chen", "James Wright", "Lisa Park", "Tom Davies", "Mike O'Brien", "Anna Patel", "David Park", "Carlos Rivera", "Demo User (Test)"];
 
 const STATUS_COLORS: Record<string, string> = {
     "Open": "#2563eb",
@@ -72,7 +72,6 @@ export default function RecapitalizationWorkspace() {
     const [completionSummary, setCompletionSummary] = useState<{ completedBy: string; completedDate: string; completionNotes: string; supportingArtifacts: string[]; reviewer: string } | null>(null);
     const [artifactBanner, setArtifactBanner] = useState<string | null>(null);
     const [publishExternal, setPublishExternal] = useState<{ step: number; selectedArtifacts: string[] } | null>(null);
-    const [rddPrompt, setRddPrompt] = useState<{ requestId: string; title: string; category: string; publishExternal: boolean } | null>(null);
 
     const backFrom = (location.state as any)?.from || "tracker";
     const backLabel = backFrom === "my-work" ? "Back to My Work" : "Back to Work Queue";
@@ -321,7 +320,7 @@ export default function RecapitalizationWorkspace() {
                                     style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "7px 10px", fontSize: 12, fontWeight: 600, borderRadius: 6, background: displayStatus === "Complete" ? "#1d4ed8" : "#f1f5f9", color: displayStatus === "Complete" ? "#fff" : "#94a3b8", border: "none", cursor: displayStatus === "Complete" ? "pointer" : "not-allowed" }}
                                 >
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a3 3 0 1 0 3.99 3.98m-9.19-1.17L2 21l2.44-2.44m5.57-5.57L18 5l3 3L13.01 13.01" /></svg>
-                                    Publish
+                                    Publish External
                                 </button>
                                 <button
                                     onClick={doDuplicate}
@@ -807,19 +806,64 @@ export default function RecapitalizationWorkspace() {
                             )}
 
                             {publishExternal.step === 3 && (
-                                <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "center", textAlign: "center", padding: "12px 0" }}>
-                                    <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
-                                    </div>
-                                    <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Published Externally</div>
-                                    <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.5, maxWidth: 380 }}>
-                                        {displayId} &mdash; {displayTitle || item.category || "Item"} is now visible to the external portal.
-                                    </div>
-                                    {publishExternal.selectedArtifacts.length > 0 && (
-                                        <div style={{ fontSize: 12, color: "#475569" }}>
-                                            Published documents: {publishExternal.selectedArtifacts.join(", ")}
+                                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                    {/* Success section */}
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center", textAlign: "center", padding: "8px 0" }}>
+                                        <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
                                         </div>
-                                    )}
+                                        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Published Externally</div>
+                                        <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.5, maxWidth: 380 }}>
+                                            {displayId} &mdash; {displayTitle || item.category || "Item"} is now visible to the external portal.
+                                        </div>
+                                        {publishExternal.selectedArtifacts.length > 0 && (
+                                            <div style={{ fontSize: 12, color: "#475569" }}>
+                                                Published documents: {publishExternal.selectedArtifacts.join(", ")}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div style={{ height: 1, background: "#e2e8f0" }} />
+
+                                    {/* Community Knowledge prompt */}
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                        <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Promote to Community Knowledge?</div>
+                                        <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
+                                            Making this deliverable available as a community knowledge resource allows it to be reused across future transactions.
+                                        </div>
+                                        <div style={{ padding: "8px 12px", background: "#f8faff", border: "1px solid #dbeafe", borderRadius: 6, fontSize: 12 }}>
+                                            <div style={{ color: "#475569", marginBottom: 4 }}><strong>Request ID:</strong> {displayId}</div>
+                                            <div style={{ color: "#475569", marginBottom: 4 }}><strong>Deliverable:</strong> {displayTitle || item.category || "\u2014"}</div>
+                                            <div style={{ color: "#475569" }}><strong>Category:</strong> {item.category || "\u2014"}</div>
+                                        </div>
+                                        {(() => {
+                                            const reusableKeywords = ["policy", "handbook", "template", "license", "certificate", "insurance", "osha", "compliance", "contract", "benefit", "guideline", "procedure", "standard", "governance"];
+                                            const transactionKeywords = ["payroll", "utility", "expense", "census", "aging", "financial", "bank", "statement", "register", "history", "incident"];
+                                            const cat = (item.category || "").toLowerCase();
+                                            const tit = (displayTitle || "").toLowerCase();
+                                            const isReusable = reusableKeywords.some(k => cat.includes(k) || tit.includes(k));
+                                            const isTransactionSpecific = transactionKeywords.some(k => cat.includes(k) || tit.includes(k));
+                                            let recommendation = "";
+                                            let reason = "";
+                                            if (isReusable && !isTransactionSpecific) {
+                                                recommendation = "Promote to Community Knowledge";
+                                                reason = "This deliverable type is typically reusable across transactions.";
+                                            } else if (isTransactionSpecific) {
+                                                recommendation = "Do not promote";
+                                                reason = "This deliverable appears transaction-specific and may not be reusable.";
+                                            } else {
+                                                recommendation = "Promote to Community Knowledge";
+                                                reason = "Could be reusable based on general classification.";
+                                            }
+                                            return (
+                                                <div style={{ padding: "8px 12px", marginTop: 4, background: recommendation === "Promote to Community Knowledge" ? "#f0fdf4" : "#fffbeb", border: `1px solid ${recommendation === "Promote to Community Knowledge" ? "#bbf7d0" : "#fde68a"}`, borderRadius: 6 }}>
+                                                    <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Recommendation</div>
+                                                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{recommendation}</div>
+                                                    <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>{reason}</div>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -836,83 +880,29 @@ export default function RecapitalizationWorkspace() {
                             {publishExternal.step === 2 && (
                                 <button className="rc-btn rc-btn-primary" onClick={() => {
                                     setPublishExternal(prev => prev ? { ...prev, step: 3 } : null);
-                                    // Set the item as published externally
                                     const now = new Date().toISOString().split("T")[0];
-                                    if (item) { (item as any)._publishedExternal = true; (item as any)._publishedExternalAt = now; }
-                                    setBanner("\u2713 Published externally");
-                                    setBannerError(false);
+                                    if (item) {
+                                        (item as any)._publishedExternal = true;
+                                        (item as any)._publishedExternalAt = now;
+                                    }
+                                    updateRequestStatus(item.id || item.intakeId || "", "Complete");
                                 }}>Confirm Publish External</button>
                             )}
                             {publishExternal.step === 3 && (
                                 <div style={{ display: "flex", gap: 8, width: "100%" }}>
-                                    <button className="rc-btn rc-btn-primary" style={{ flex: 1 }} onClick={() => {
-                                        // Set rddPrompt to trigger RDD prompt
-                                        setRddPrompt({
-                                            requestId: displayId,
-                                            title: displayTitle || item.category || "",
-                                            category: item.category || "",
-                                            publishExternal: true,
-                                        });
+                                    <button className="rc-btn rc-btn-ghost" style={{ flex: 1 }} onClick={() => {
                                         setPublishExternal(null);
-                                    }}>Continue</button>
+                                        setBanner("\u2713 Published externally. Community Knowledge promotion skipped.");
+                                        setBannerError(false);
+                                    }}>Skip for Now</button>
+                                    <button className="rc-btn rc-btn-primary" onClick={() => {
+                                        setPublishExternal(null);
+                                        setBanner("\u2713 Published externally. Promoted to Community Knowledge.");
+                                        setBannerError(false);
+                                    }}>Promote to Community Knowledge</button>
                                     <button className="rc-btn rc-btn-secondary" onClick={() => { setPublishExternal(null); navigate("/recapitalization/tracker"); }}>Return to Work Queue</button>
                                 </div>
                             )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {rddPrompt && (
-                <div className="rc-modal-overlay" onClick={() => setRddPrompt(null)}>
-                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
-                        <div className="rc-modal-header">
-                            <h2>Promote to Reusable DD Library?</h2>
-                            <button className="rc-modal-close" onClick={() => setRddPrompt(null)}>&times;</button>
-                        </div>
-                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                                <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
-                                    This deliverable was published externally. Would you like to promote it to the Reusable DD Library for use across future transactions?
-                                </div>
-                                <div style={{ padding: "8px 12px", background: "#f8faff", border: "1px solid #dbeafe", borderRadius: 6 }}>
-                                    <div style={{ fontSize: 11, color: "#475569", marginBottom: 4 }}><strong>Request ID:</strong> {rddPrompt.requestId}</div>
-                                    <div style={{ fontSize: 11, color: "#475569", marginBottom: 4 }}><strong>Deliverable:</strong> {rddPrompt.title}</div>
-                                    <div style={{ fontSize: 11, color: "#475569", marginBottom: 4 }}><strong>Category:</strong> {rddPrompt.category}</div>
-                                </div>
-                                {/* Recommendation */}
-                                {(() => {
-                                    const reusableKeywords = ["policy", "handbook", "template", "license", "certificate", "insurance", "osha", "compliance", "contract", "benefit", "guideline", "procedure", "standard"];
-                                    const transactionKeywords = ["payroll", "utility", "expense", "census", "aging", "financial", "bank", "statement", "register", "history"];
-                                    const cat = (rddPrompt.category || "").toLowerCase();
-                                    const tit = (rddPrompt.title || "").toLowerCase();
-                                    const isReusable = reusableKeywords.some(k => cat.includes(k) || tit.includes(k));
-                                    const isTransactionSpecific = transactionKeywords.some(k => cat.includes(k) || tit.includes(k));
-                                    let recommendation = "";
-                                    let reason = "";
-                                    if (isReusable && !isTransactionSpecific) {
-                                        recommendation = "Promote to RDD";
-                                        reason = "This deliverable type is typically reusable across transactions.";
-                                    } else if (isTransactionSpecific) {
-                                        recommendation = "Do not promote";
-                                        reason = "This deliverable appears transaction-specific and may not be reusable.";
-                                    } else {
-                                        recommendation = "Promote to RDD";
-                                        reason = "Could be reusable based on general classification.";
-                                    }
-                                    return (
-                                        <div style={{ padding: "8px 12px", background: recommendation === "Promote to RDD" ? "#f0fdf4" : "#fffbeb", border: `1px solid ${recommendation === "Promote to RDD" ? "#bbf7d0" : "#fde68a"}`, borderRadius: 6 }}>
-                                            <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 4 }}>AI Recommendation</div>
-                                            <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{recommendation}</div>
-                                            <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>{reason}</div>
-                                        </div>
-                                    );
-                                })()}
-                            </div>
-                        </div>
-                        <div className="rc-modal-footer">
-                            <button className="rc-btn rc-btn-ghost" onClick={() => { setRddPrompt(null); setBanner("\u2713 Published externally. RDD promotion skipped."); setBannerError(false); }}>Skip for Now</button>
-                            <button className="rc-btn rc-btn-primary" onClick={() => { setRddPrompt(null); setBanner("\u2713 Published externally. RDD promotion queued."); setBannerError(false); }}>Promote to RDD</button>
                         </div>
                     </div>
                 </div>

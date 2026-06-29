@@ -572,6 +572,56 @@ export async function parseUploadedXLSX(file: File): Promise<{
     };
 }
 
+function detectCategoryFromTitle(title: string, description: string): string {
+    const text = (title + " " + description).toLowerCase();
+
+    const rules: [RegExp, string][] = [
+        [/payroll|pay.?roll/, "Financial Statements"],
+        [/audited financial|financial statement|financials/, "Financial Statements"],
+        [/debt|a\/?r\b|accounts? receivable|bank statement|expense history/, "Financial Statements"],
+        [/profit.*loss|p&l|balance sheet|cash flow/, "Financial Statements"],
+        [/license|permit|regulatory/, "Regulatory / Licenses"],
+        [/survey report|state survey/, "Regulatory / Licenses"],
+        [/compliance/, "Regulatory / Licenses"],
+        [/insurance|certificate of insurance|coi\b/, "Insurance"],
+        [/clinical|care plan|incident log|resident|survey results/, "Clinical"],
+        [/hr\b|human resources?|employee|roster|benefits|staffing|handbook/, "HR / Staffing"],
+        [/contract|vendor agreement|service agreement/, "Contracts / Legal"],
+        [/litigation|legal|governance/, "Legal"],
+        [/maintenance|physical plant|utility|facilities|floor plan/, "Physical Plant / Facilities"],
+        [/environmental|phase i|esa|asbestos/, "Environmental"],
+        [/marketing|census|occupancy|sales/, "Marketing / Operations"],
+        [/policy|procedure|guideline|standard/, "HR / Staffing"],
+        [/template/, "HR / Staffing"],
+        [/certificate/, "Insurance"],
+        [/osha/, "Regulatory / Licenses"],
+        [/benefit summary/, "HR / Staffing"],
+    ];
+
+    for (const [pattern, category] of rules) {
+        if (pattern.test(text)) {
+            return category;
+        }
+    }
+    return "";
+}
+
+function detectTeamFromCategory(category: string): string {
+    const map: Record<string, string> = {
+        "Financial Statements": "Financial Analysis",
+        "Regulatory / Licenses": "Regulatory",
+        "Insurance": "Risk Management",
+        "Clinical": "HR & Operations",
+        "HR / Staffing": "HR & Operations",
+        "Contracts / Legal": "Risk Management",
+        "Legal": "Risk Management",
+        "Physical Plant / Facilities": "Environmental",
+        "Environmental": "Environmental",
+        "Marketing / Operations": "HR & Operations",
+    };
+    return map[category] || "";
+}
+
 export function mapParsedRowToRecapRequest(
     row: Record<string, string>,
     submissionId: string,
@@ -603,11 +653,11 @@ export function mapParsedRowToRecapRequest(
         brokerBuyer: "External",
         communityIds: [],
         communityNames: [],
-        category: "General",
+        category: detectCategoryFromTitle(title, rawDesc) || "Unclassified",
         title,
         description: rawDesc,
         owner: String(row["Suggested Internal Owner"] || "").trim() || null,
-        team: String(row["Suggested Team"] || "DD Management").trim(),
+        team: detectTeamFromCategory(detectCategoryFromTitle(title, rawDesc)) || String(row["Suggested Team"] || "").trim() || "",
         status: "Open",
         priority,
         dueDate,

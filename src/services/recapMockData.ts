@@ -513,6 +513,7 @@ const MOCK_TEAM_MEMBERS: RecapTeamMember[] = [
     { id: "user-david", name: "David Park", email: "david.park@integracare.com", team: "DD Management", role: "Manager", activeLoad: 1 },
     { id: "user-anna", name: "Anna Patel", email: "anna.patel@integracare.com", team: "HR & Operations", role: "Analyst", activeLoad: 0 },
     { id: "user-carlos", name: "Carlos Rivera", email: "carlos.rivera@integracare.com", team: "Financial Analysis", role: "Director", activeLoad: 2 },
+    { id: "user-demo", name: "Demo User (Test)", email: "demo.user@integracare.com", team: "DD Management", role: "Demo Analyst", activeLoad: 2 },
 ];
 
 const MOCK_CATEGORIES: RecapCategory[] = [

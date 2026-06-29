@@ -41,6 +41,8 @@ export default function RecapitalizationTracker() {
 
     const [overdueOnly, setOverdueOnly] = useState(false);
     const [myItems, setMyItems] = useState(false);
+    const myWorkUserKey = "integrasource.recap.myWorkUser";
+    const [currentUser, setCurrentUser] = useState(() => localStorage.getItem(myWorkUserKey) || "Sarah Chen");
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
     const [bulkModalOpen, setBulkModalOpen] = useState(false);
@@ -52,9 +54,8 @@ export default function RecapitalizationTracker() {
     const [respondModalOpen, setRespondModalOpen] = useState(false);
     const [respondText, setRespondText] = useState("");
     const [publishModalOpen, setPublishModalOpen] = useState(false);
-    const [publishText, setPublishText] = useState("");
-    const [pendingStatuses, setPendingStatuses] = useState<Record<string, string>>({});
     const [confirmAction, setConfirmAction] = useState<{ title: string; action: () => void } | null>(null);
+    const [statusConfirm, setStatusConfirm] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
     const [pendingAssign, setPendingAssign] = useState<{ req: RecapRequest; owner: string } | null>(null);
 
     const selectAllRef = useRef<HTMLInputElement>(null);
@@ -98,12 +99,12 @@ export default function RecapitalizationTracker() {
         if (filterTeam !== "all") result = result.filter(r => r.team === filterTeam);
         if (filterOwner !== "all") result = result.filter(r => (r.owner || "Unassigned") === filterOwner);
         if (overdueOnly) result = result.filter(r => r.status === "Overdue");
-        if (myItems) result = result.filter(r => r.owner === "Sarah Chen");
+        if (myItems) result = result.filter(r => r.owner === currentUser);
         if (filterExternal === "internal") result = result.filter(r => !(r as any)._publishedExternal && r.status !== "Complete");
         if (filterExternal === "ready") result = result.filter(r => !(r as any)._publishedExternal && r.status === "Complete");
         if (filterExternal === "published") result = result.filter(r => (r as any)._publishedExternal);
         return result;
-    }, [allRequests, search, filterTxn, filterStatus, filterPriority, filterTeam, filterOwner, filterExternal, overdueOnly, myItems, publishedBatchId, sourcePackageId, sourceIntakeId]);
+    }, [allRequests, search, filterTxn, filterStatus, filterPriority, filterTeam, filterOwner, filterExternal, overdueOnly, myItems, currentUser, publishedBatchId, sourcePackageId, sourceIntakeId]);
 
     const totalActiveRequests = useMemo(() => allRequests.filter(r => r._publishedAt || r._createdFromReview).length, [allRequests]);
 
@@ -256,8 +257,23 @@ export default function RecapitalizationTracker() {
                     </select>
                     <div className="rc-toggle-group">
                         <button className={`rc-toggle-btn${!myItems ? " rc-toggle-active" : ""}`} onClick={() => setMyItems(false)}>All Items</button>
-                        <button className={`rc-toggle-btn${myItems ? " rc-toggle-active" : ""}`} onClick={() => setMyItems(true)}>My Items</button>
+                        <button className={`rc-toggle-btn${myItems ? " rc-toggle-active" : ""}`} onClick={() => {
+                            setMyItems(true);
+                            const stored = localStorage.getItem(myWorkUserKey);
+                            if (stored) setCurrentUser(stored);
+                        }}>My Items</button>
                     </div>
+                    {myItems && (
+                        <select
+                            className="rc-filter-select"
+                            value={currentUser}
+                            onChange={e => { setCurrentUser(e.target.value); localStorage.setItem(myWorkUserKey, e.target.value); }}
+                            style={{ fontSize: 11, minWidth: 120 }}
+                            title="Switch user to test My Work views (demo)"
+                        >
+                            {members.map(m => <option key={m.id} value={m.name}>{m.name} {m.id === "user-demo" ? "(Demo)" : ""}</option>)}
+                        </select>
+                    )}
                 </div>
 
                 {selectedIds.size > 0 && (
@@ -333,20 +349,18 @@ export default function RecapitalizationTracker() {
                                 </td>
                                 <td className="rc-truncate">{req.communityNames.join(", ") || "All"}</td>
                                 <td onClick={e => e.stopPropagation()}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                        <select
-                                            value={pendingStatuses[req.id] ?? req.status}
-                                            onChange={e => setPendingStatuses(prev => ({ ...prev, [req.id]: e.target.value }))}
-                                            style={{ fontSize: 10, padding: "2px 18px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 100, cursor: "pointer", border: pendingStatuses[req.id] && pendingStatuses[req.id] !== req.status ? "1px solid #1d4ed8" : "1px solid #d1d5db" }}
-                                        >
-                                            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                                        </select>
-                                        {pendingStatuses[req.id] && pendingStatuses[req.id] !== req.status && (
-                                            <button className="rc-btn rc-btn-primary rc-btn-sm" style={{ fontSize: 9, padding: "1px 6px", whiteSpace: "nowrap", width: "100%" }} onClick={e => { e.stopPropagation(); handleStatusChange(req, pendingStatuses[req.id] as RecapRequest["status"]); setPendingStatuses(prev => { const n = { ...prev }; delete n[req.id]; return n; }); }}>
-                                                Change to {pendingStatuses[req.id]}
-                                            </button>
-                                        )}
-                                    </div>
+                                    <select
+                                        value={req.status}
+                                        onChange={e => {
+                                            const newStatus = e.target.value;
+                                            if (newStatus !== req.status) {
+                                                setStatusConfirm({ req, newStatus });
+                                            }
+                                        }}
+                                        style={{ fontSize: 10, padding: "2px 18px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 100, cursor: "pointer", border: "1px solid #d1d5db" }}
+                                    >
+                                        {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
                                 </td>
                                 <td style={{ fontSize: 11 }}>
                                     <span style={{
@@ -409,10 +423,33 @@ export default function RecapitalizationTracker() {
                     </div>
                 </div>
             )}
+
+            {statusConfirm && (
+                <div className="rc-modal-overlay" onClick={() => setStatusConfirm(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+                        <div className="rc-modal-header">
+                            <h2>Change Status</h2>
+                            <button className="rc-modal-close" onClick={() => setStatusConfirm(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ fontSize: 14, color: "#1e293b", fontWeight: 500, margin: 0 }}>
+                                Change <strong>{statusConfirm.req.requestId}</strong> &mdash; {statusConfirm.req.title.split(" - ").slice(1).join(" - ").trim() || statusConfirm.req.title} to <strong>{statusConfirm.newStatus}</strong>?
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setStatusConfirm(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" onClick={() => {
+                                handleStatusChange(statusConfirm.req, statusConfirm.newStatus as RecapRequest["status"]);
+                                setStatusConfirm(null);
+                            }}>Change Status</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             </div>
 
             <div style={{ fontSize: 12, color: "#64748b" }}>Showing {filtered.length} of {totalActiveRequests} requests</div>
-
             {bulkModalOpen && (
                 <div className="rc-modal-overlay" onClick={() => setBulkModalOpen(false)}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()}>
@@ -541,27 +578,47 @@ export default function RecapitalizationTracker() {
             )}
 
             {publishModalOpen && detailModalItem && (
-                <div className="rc-modal-overlay" onClick={() => { setPublishModalOpen(false); setPublishText(""); }}>
+                <div className="rc-modal-overlay" onClick={() => setPublishModalOpen(false)}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
                         <div className="rc-modal-header">
-                            <h2>Publish to External Portal</h2>
-                            <button className="rc-modal-close" onClick={() => { setPublishModalOpen(false); setPublishText(""); }}>&times;</button>
+                            <h2>Publish External</h2>
+                            <button className="rc-modal-close" onClick={() => setPublishModalOpen(false)}>&times;</button>
                         </div>
                         <div className="rc-modal-body" style={{ padding: "12px 16px" }}>
-                            <p style={{ fontSize: 12, color: "#475569", margin: "0 0 8px" }}>
-                                Publish to external portal for <strong>{detailModalItem.title}</strong>:
-                            </p>
-                            <textarea
-                                value={publishText}
-                                onChange={e => setPublishText(e.target.value)}
-                                placeholder="Describe the update..."
-                                rows={4}
-                                style={{ width: "100%", padding: "8px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", font: "inherit", boxSizing: "border-box" }}
-                            />
+                            {detailModalItem.status !== "Complete" ? (
+                                <div style={{ padding: "8px 12px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, fontSize: 12, color: "#92400e" }}>
+                                    <strong>&#9888; Status must be "Complete" before publishing externally.</strong>
+                                    <div style={{ marginTop: 4 }}>Current status: <strong>{detailModalItem.status}</strong></div>
+                                </div>
+                            ) : (
+                                <>
+                                    <p style={{ fontSize: 12, color: "#475569", margin: "0 0 4px" }}>
+                                        You are about to publish this request to the external portal:
+                                    </p>
+                                    <div style={{ marginTop: 10, padding: "10px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12, color: "#1e293b" }}>
+                                        <div><strong>Request ID:</strong> {detailModalItem.requestId}</div>
+                                        <div style={{ marginTop: 4 }}><strong>Deliverable:</strong> {detailModalItem.title}</div>
+                                    </div>
+                                    <p style={{ fontSize: 12, color: "#6b7280", margin: "12px 0 0" }}>
+                                        Published items will remain visible in the Work Queue with a "Published External" badge.
+                                    </p>
+                                </>
+                            )}
                         </div>
                         <div className="rc-modal-footer">
-                            <button className="rc-btn rc-btn-ghost" onClick={() => { setPublishModalOpen(false); setPublishText(""); }}>Cancel</button>
-                            <button className="rc-btn rc-btn-primary" disabled={!publishText.trim()} onClick={() => { updateRequestStatus(detailModalItem.id, "Under Review"); setRefreshKey(k => k + 1); setBulkToast(`Published to external portal for ${detailModalItem.title}`); setPublishModalOpen(false); setPublishText(""); }}>Publish to External Portal</button>
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setPublishModalOpen(false)}>Cancel</button>
+                            {detailModalItem.status === "Complete" && (
+                                <button className="rc-btn rc-btn-primary" onClick={() => {
+                                    const req = getRequests().find(r => r.id === detailModalItem.id);
+                                    if (req) {
+                                        (req as any)._publishedExternal = true;
+                                        (req as any)._publishedExternalAt = new Date().toISOString().split("T")[0];
+                                    }
+                                    setRefreshKey(k => k + 1);
+                                    setBulkToast(`\u2713 Published "${detailModalItem.title}" externally.`);
+                                    setPublishModalOpen(false);
+                                }}>Confirm Publish External</button>
+                            )}
                         </div>
                     </div>
                 </div>

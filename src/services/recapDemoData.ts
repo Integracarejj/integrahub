@@ -334,7 +334,7 @@ export function publishIntake(): { publishedCount: number; publishedIds: string[
         r._sourceReviewItemId = r.requestId;
         r.lastUpdated = nowDate;
         publishedIds.push(r.id);
-        if (r.status === "Open") r.status = "In Progress";
+        // Keep status as Open; do not auto-change to In Progress
     });
     state.transaction.totalRequests = state.requests.length;
     state.transaction.inProgressCount = state.requests.filter(r => r.status === "In Progress").length;
@@ -532,7 +532,7 @@ export function publishSelectedRequests(ids: string[], sourceInfo?: { sourceInta
             if (sourceInfo?.sourcePackageId) r._sourcePackageId = sourceInfo.sourcePackageId;
             publishedCount++;
             publishedIds.push(r.id);
-            if (r.status === "Open") r.status = "In Progress";
+            // Keep status as Open; do not auto-change to In Progress
         }
     });
     state.transaction.totalRequests = state.requests.length;

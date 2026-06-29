@@ -142,8 +142,8 @@ function hashId(id: string): number {
     return Math.abs(h);
 }
 
-const CATEGORIES_LIST = ["Financial Statements", "Licenses", "Environmental", "Insurance", "Legal", "HR / Staffing", "Physical Plant", "Regulatory", "Operations", "Marketing"];
-const TEAMS_LIST = ["Financial Analysis", "Regulatory", "Environmental", "Risk Management", "HR & Operations", "DD Management"];
+const CATEGORIES_LIST = ["Financial Statements", "Regulatory / Licenses", "Insurance", "Clinical", "HR / Staffing", "Contracts / Legal", "Legal", "Physical Plant / Facilities", "Environmental", "Marketing / Operations", "Unclassified"];
+const TEAMS_LIST = ["", "Financial Analysis", "Regulatory", "Environmental", "Risk Management", "HR & Operations", "DD Management"];
 const PRIORITIES_LIST: RecapRequest["priority"][] = ["High", "Medium", "Low"];
 const PAGE_SIZE = 50;
 
@@ -741,7 +741,7 @@ function ReviewEngine() {
                                                     <td className="review-sticky-col review-sticky-deliverable" style={{ fontWeight: 600, color: "#0f172a", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r._deliverable || r.title}>
                                                         {r._deliverable || r.title}
                                                     </td>
-                                                    <td>
+                                                    <td onClick={(e) => e.stopPropagation()}>
                                                         <select value={r.priority} onChange={e => { e.stopPropagation(); doEdit(r.id, { priority: e.target.value as RecapRequest["priority"] }); }} style={SELECT_STYLE}>
                                                             {PRIORITIES_LIST.map(p => <option key={p} value={p}>{p}</option>)}
                                                         </select>
@@ -764,12 +764,12 @@ function ReviewEngine() {
                                                         </select>
                                                     </td>
                                                     <td style={{ color: "#475569" }}>{r.communityNames[0] || <span style={{ color: "#94a3b8" }}>&mdash;</span>}</td>
-                                                    <td>
+                                                    <td onClick={(e) => e.stopPropagation()}>
                                                         <select value={r.category} onChange={e => { e.stopPropagation(); doEdit(r.id, { category: e.target.value }); }} style={SELECT_STYLE}>
                                                             {CATEGORIES_LIST.map(c => <option key={c} value={c}>{c}</option>)}
                                                         </select>
                                                     </td>
-                                                    <td>
+                                                    <td onClick={(e) => e.stopPropagation()}>
                                                         <select value={r.team} onChange={e => { e.stopPropagation(); doEdit(r.id, { team: e.target.value }); }} style={SELECT_STYLE}>
                                                             {TEAMS_LIST.map(t => <option key={t} value={t}>{t}</option>)}
                                                         </select>

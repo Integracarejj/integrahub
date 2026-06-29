@@ -308,7 +308,7 @@ export function publishSelectedRequests(ids: string[], sourceInfo?: { sourceInta
                 publishedCount++;
                 publishedIds.push(r.id);
                 portalUpdated = true;
-                if (r.status === "Open" || (r.status as string) === "Awaiting Review") r.status = "In Progress";
+                // Keep status as Open; do not auto-change to In Progress
             }
             return r;
         });

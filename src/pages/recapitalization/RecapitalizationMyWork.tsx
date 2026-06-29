@@ -194,7 +194,7 @@ export default function RecapitalizationMyWork() {
                 </div>
                 <div className="rc-header-actions">
                     <select className="rc-filter-select" value={activeUser} onChange={e => setActiveUser(e.target.value)}>
-                        {members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                        {members.map(m => <option key={m.id} value={m.name}>{m.name}{m.id === "user-demo" ? " (Demo)" : ""}</option>)}
                     </select>
                 </div>
             </div>
