@@ -18,6 +18,7 @@ export default function RecapitalizationMyWork() {
     const [bulkToast, setBulkToast] = useState("");
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [activeCard, setActiveCard] = useState<CardFilter>("all");
+    const [activeView, setActiveView] = useState<"assigned-to-me" | "my-team" | "needs-dd-review" | "recently-updated">("assigned-to-me");
     const [pendingStatuses, setPendingStatuses] = useState<Record<string, string>>({});
     const [confirmAction, setConfirmAction] = useState<{ title: string; action: () => void } | null>(null);
     const members = getTeamMembers();
@@ -52,6 +53,28 @@ export default function RecapitalizationMyWork() {
             });
         return { assignedToMe, myTeam };
     }, [publishedRequests, activeUser, members]);
+
+    const needsDDReview = useMemo(() => {
+        return publishedRequests
+            .filter(r => r.status === "Complete" && !r._publishedExternal)
+            .sort((a, b) => {
+                const aDue = a.dueDate || "9999-99-99";
+                const bDue = b.dueDate || "9999-99-99";
+                if (aDue !== bDue) return aDue.localeCompare(bDue);
+                const pMap: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
+                return (pMap[a.priority] || 1) - (pMap[b.priority] || 1);
+            });
+    }, [publishedRequests]);
+
+    const recentlyUpdated = useMemo(() => {
+        return [...publishedRequests]
+            .filter(r => r.lastUpdated)
+            .sort((a, b) => {
+                const aDate = a.lastUpdated || "";
+                const bDate = b.lastUpdated || "";
+                return bDate.localeCompare(aDate);
+            });
+    }, [publishedRequests]);
 
     const totalAssigned = myItems.assignedToMe.length;
 
@@ -199,6 +222,7 @@ export default function RecapitalizationMyWork() {
                 </div>
             </div>
 
+            {activeView === "assigned-to-me" && (
             <div className="rc-stats-row">
                 <div className={`rc-stat-card ${activeCard === "assigned" ? "rc-stat-active" : ""}`} onClick={() => setActiveCard(activeCard === "assigned" ? "all" : "assigned")} style={{ cursor: "pointer" }}>
                     <span className="rc-stat-value">{cardCounts.assigned}</span>
@@ -220,8 +244,8 @@ export default function RecapitalizationMyWork() {
                     <span className="rc-stat-label">Blocked</span>
                     <span className="rc-stat-desc">{pct(cardCounts.blocked)} of assigned</span>
                 </div>
-
             </div>
+            )}
 
             {/* Bulk actions bar */}
             {selectedIds.size > 0 && (
@@ -242,27 +266,32 @@ export default function RecapitalizationMyWork() {
                 </div>
             )}
 
-            <div className="rc-card">
-                <div className="rc-card-header">
-                    <h2>Assigned to Me ({filteredItems.length})</h2>
-                </div>
-                <div className="rc-card-body" style={{ padding: 0 }}>
-                    {renderTable(filteredItems, "No items assigned to you.", true)}
-                </div>
+            <div className="rc-view-tabs" style={{ display: "flex", gap: 0, marginBottom: 16, borderBottom: "2px solid #e2e8f0" }}>
+                {(["assigned-to-me", "my-team", "needs-dd-review", "recently-updated"] as const).map(view => (
+                    <button key={view} onClick={() => { setActiveView(view); if (view !== "assigned-to-me") setActiveCard("all"); }}
+                        style={{ padding: "8px 16px", fontSize: 13, fontWeight: activeView === view ? 700 : 500, color: activeView === view ? "#1d4ed8" : "#475569", background: "none", border: "none", borderBottom: activeView === view ? "2px solid #1d4ed8" : "2px solid transparent", marginBottom: -2, cursor: "pointer", transition: "all 0.15s" }}>
+                        {view === "assigned-to-me" ? "Assigned to Me" : view === "my-team" ? "My Team" : view === "needs-dd-review" ? "Needs DD Review" : "Recently Updated"}
+                    </button>
+                ))}
             </div>
 
             <div className="rc-card">
                 <div className="rc-card-header">
-                    <h2>My Team ({myItems.myTeam.length})</h2>
+                    <h2>
+                        {activeView === "assigned-to-me" ? `Assigned to Me (${filteredItems.length})` :
+                         activeView === "my-team" ? `My Team (${myItems.myTeam.length})` :
+                         activeView === "needs-dd-review" ? `Needs DD Review (${needsDDReview.length})` :
+                         `Recently Updated (${recentlyUpdated.length})`}
+                    </h2>
                 </div>
                 <div className="rc-card-body" style={{ padding: 0 }}>
-                    {renderTable(myItems.myTeam, "No items for your team.", false)}
+                    {activeView === "assigned-to-me" && renderTable(filteredItems, "No items assigned to you.", true)}
+                    {activeView === "my-team" && renderTable(myItems.myTeam, "No items for your team.", false)}
+                    {activeView === "needs-dd-review" && renderTable(needsDDReview, "No items needing DD review.", false)}
+                    {activeView === "recently-updated" && renderTable(recentlyUpdated, "No recently updated items.", false)}
                 </div>
             </div>
 
-            <div style={{ fontSize: 12, color: "#475569", textAlign: "right" }}>
-                Showing {filteredItems.length + myItems.myTeam.length} of {publishedRequests.length} total published requests
-            </div>
 
             {confirmAction && (
                 <div className="rc-modal-overlay" onClick={() => setConfirmAction(null)}>

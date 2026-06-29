@@ -51,9 +51,7 @@ export default function RecapitalizationTracker() {
     const [routeModalOpen, setRouteModalOpen] = useState(false);
     const [routeModalTeam, setRouteModalTeam] = useState("");
     const [detailModalItem, setDetailModalItem] = useState<RecapRequest | null>(null);
-    const [respondModalOpen, setRespondModalOpen] = useState(false);
-    const [respondText, setRespondText] = useState("");
-    const [publishModalOpen, setPublishModalOpen] = useState(false);
+    const [publishStep, setPublishStep] = useState(0);
     const [confirmAction, setConfirmAction] = useState<{ title: string; action: () => void } | null>(null);
     const [statusConfirm, setStatusConfirm] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
     const [pendingAssign, setPendingAssign] = useState<{ req: RecapRequest; owner: string } | null>(null);
@@ -208,7 +206,6 @@ export default function RecapitalizationTracker() {
                 <div className="rc-header-actions">
                     <div className="rc-action-key" style={{ display: "flex", gap: 12, alignItems: "center", marginRight: 8 }}>
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "#334155" }}><span style={{ fontSize: 13 }}>&#9998;</span> Open Workspace</span>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "#334155" }}><span style={{ color: "#1d4ed8", fontWeight: 700, fontSize: 12 }}>R</span> Review / Respond</span>
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "#334155" }}><span style={{ color: "#166534", fontWeight: 700, fontSize: 12 }}>P</span> Publish External</span>
                     </div>
                     <button className="rc-btn rc-btn-primary" onClick={() => navigate("/recapitalization/intake/review")}>Import DD Package</button>
@@ -389,9 +386,8 @@ export default function RecapitalizationTracker() {
                                 <td className="nowrap" style={{ fontSize: 12, color: "#475569" }}>{req.lastUpdated}</td>
                                 <td>
                                     <div className="rc-cell-actions">
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Edit = Open request workspace" onClick={e => { e.stopPropagation(); navigate(`/recapitalization/workspace/${req.intakeId}`, { state: { from: "work-queue" } }); }} style={{ fontSize: 14 }}>&#9998;</button>
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Review = Review internal work / mark ready for review" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setRespondModalOpen(true); }} style={{ fontSize: 12, color: "#1d4ed8" }}>R</button>
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Publish = Publish to external portal" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setPublishModalOpen(true); }} style={{ fontSize: 12, color: "#166534" }}>P</button>
+                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Open Workspace" onClick={e => { e.stopPropagation(); navigate(`/recapitalization/workspace/${req.intakeId}`, { state: { from: "work-queue" } }); }} style={{ fontSize: 14 }}>&#9998;</button>
+                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Publish External" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setPublishStep(1); }} style={{ fontSize: 12, color: "#166534" }}>P</button>
                                     </div>
                                 </td>
                             </tr>
@@ -542,79 +538,169 @@ export default function RecapitalizationTracker() {
                 </div>
             )}
 
-            {respondModalOpen && detailModalItem && (
-                <div className="rc-modal-overlay" onClick={() => { setRespondModalOpen(false); setRespondText(""); }}>
-                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            {publishStep > 0 && detailModalItem && (
+                <div className="rc-modal-overlay" onClick={() => { if (publishStep < 3) setPublishStep(0); }}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
                         <div className="rc-modal-header">
-                            <h2>Ask Broker Question</h2>
-                            <button className="rc-modal-close" onClick={() => { setRespondModalOpen(false); setRespondText(""); }}>&times;</button>
+                            <h2>
+                                {detailModalItem.status !== "Complete" ? "Publish External" :
+                                    publishStep === 1 ? "Publish to External Portal" :
+                                    publishStep === 2 ? "Confirm External Publication" :
+                                    "Published Externally"}
+                            </h2>
+                            <button className="rc-modal-close" onClick={() => setPublishStep(0)}>&times;</button>
                         </div>
-                        <div className="rc-modal-body" style={{ padding: "12px 16px" }}>
-                            <div style={{ fontSize: 12, color: "#475569", marginBottom: 12, display: "flex", flexDirection: "column", gap: 4 }}>
-                                <span><strong>Intake ID:</strong> {detailModalItem.intakeId}</span>
-                                <span><strong>Request ID:</strong> {detailModalItem.requestId}</span>
-                                <span><strong>Deliverable:</strong> {detailModalItem.title}</span>
-                                <span><strong>Community:</strong> {detailModalItem.communityNames.join(", ")}</span>
-                                <span><strong>Broker/Buyer:</strong> {detailModalItem.brokerBuyer}</span>
-                                {detailModalItem.description && <span style={{ marginTop: 4, padding: "6px 8px", background: "#f8fafc", borderRadius: 4, fontSize: 11, color: "#64748b", lineHeight: 1.4 }}>{detailModalItem.description}</span>}
-                            </div>
-                            <textarea
-                                value={respondText}
-                                onChange={e => setRespondText(e.target.value)}
-                                placeholder="Type your question or response..."
-                                rows={4}
-                                style={{ width: "100%", padding: "8px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", font: "inherit", boxSizing: "border-box" }}
-                            />
-                        </div>
-                        <div className="rc-modal-footer">
-                            <button className="rc-btn rc-btn-ghost" onClick={() => { setRespondModalOpen(false); setRespondText(""); }}>Cancel</button>
-                            <button className="rc-btn rc-btn-primary" disabled={!respondText.trim()} onClick={() => {
-                                setBulkToast(`Question sent to ${detailModalItem.brokerBuyer} and added to the request activity.`);
-                                setRespondModalOpen(false);
-                                setRespondText("");
-                            }}>Send Question</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {publishModalOpen && detailModalItem && (
-                <div className="rc-modal-overlay" onClick={() => setPublishModalOpen(false)}>
-                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
-                        <div className="rc-modal-header">
-                            <h2>Publish External</h2>
-                            <button className="rc-modal-close" onClick={() => setPublishModalOpen(false)}>&times;</button>
-                        </div>
-                        <div className="rc-modal-body" style={{ padding: "12px 16px" }}>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
                             {detailModalItem.status !== "Complete" ? (
-                                <div style={{ padding: "8px 12px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, fontSize: 12, color: "#92400e" }}>
-                                    <strong>&#9888; Status must be "Complete" before publishing externally.</strong>
-                                    <div style={{ marginTop: 4 }}>Current status: <strong>{detailModalItem.status}</strong></div>
+                                <div style={{ padding: "12px 16px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, fontSize: 13, color: "#92400e" }}>
+                                    <strong>&#9888; Complete internal work before publishing externally.</strong>
+                                    <div style={{ marginTop: 6 }}>Current status: <strong>{detailModalItem.status}</strong></div>
                                 </div>
                             ) : (
                                 <>
-                                    <p style={{ fontSize: 12, color: "#475569", margin: "0 0 4px" }}>
-                                        You are about to publish this request to the external portal:
-                                    </p>
-                                    <div style={{ marginTop: 10, padding: "10px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12, color: "#1e293b" }}>
-                                        <div><strong>Request ID:</strong> {detailModalItem.requestId}</div>
-                                        <div style={{ marginTop: 4 }}><strong>Deliverable:</strong> {detailModalItem.title}</div>
+                                    <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+                                        {[1, 2, 3].map(s => (
+                                            <div key={s} style={{ flex: 1, height: 3, borderRadius: 2, background: s <= publishStep ? "#1d4ed8" : "#e2e8f0", transition: "background 0.2s" }} />
+                                        ))}
                                     </div>
-                                    <p style={{ fontSize: 12, color: "#6b7280", margin: "12px 0 0" }}>
-                                        Published items will remain visible in the Work Queue with a "Published External" badge.
-                                    </p>
+                                    <div style={{ fontSize: 11, color: "#334155", marginBottom: 12, fontWeight: 600 }}>Step {publishStep} of 3</div>
+
+                                    {publishStep === 1 && (
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                            <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", marginBottom: 4 }}>Review Details</div>
+                                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                                                <div>
+                                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Request ID</div>
+                                                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{detailModalItem.requestId}</div>
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Intake ID</div>
+                                                    <div style={{ fontSize: 13, color: "#334155" }}>{detailModalItem.intakeId}</div>
+                                                </div>
+                                                <div style={{ gridColumn: "1 / -1" }}>
+                                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Deliverable</div>
+                                                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{detailModalItem.title}</div>
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Status</div>
+                                                    <div style={{ fontSize: 13, color: "#334155" }}>{detailModalItem.status}</div>
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Community</div>
+                                                    <div style={{ fontSize: 13, color: "#334155" }}>{detailModalItem.communityNames.join(", ") || "\u2014"}</div>
+                                                </div>
+                                            </div>
+                                            <div style={{ padding: "8px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b", display: "flex", alignItems: "center", gap: 6 }}>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                                You are about to make this request and documents visible to the external broker/buyer portal.
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {publishStep === 2 && (
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                            <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Confirm External Publication</div>
+                                            <div style={{ padding: "8px 12px", background: "#f8faff", border: "1px solid #dbeafe", borderRadius: 6 }}>
+                                                <div style={{ fontSize: 11, color: "#334155", marginBottom: 4 }}><strong>Request ID:</strong> {detailModalItem.requestId}</div>
+                                                <div style={{ fontSize: 11, color: "#334155", marginBottom: 4 }}><strong>Deliverable:</strong> {detailModalItem.title}</div>
+                                            </div>
+                                            <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
+                                                Please confirm you want to publish these materials externally.
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {publishStep === 3 && (
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                            <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center", textAlign: "center", padding: "8px 0" }}>
+                                                <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                                                </div>
+                                                <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Published Externally</div>
+                                                <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.5, maxWidth: 380 }}>
+                                                    {detailModalItem.requestId} &mdash; {detailModalItem.title} is now visible to the external portal.
+                                                </div>
+                                            </div>
+
+                                            <div style={{ height: 1, background: "#e2e8f0" }} />
+
+                                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                                <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Promote to Community Knowledge?</div>
+                                                <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.5 }}>
+                                                    Making this deliverable available as a community knowledge resource allows it to be reused across future transactions.
+                                                </div>
+                                                <div style={{ padding: "8px 12px", background: "#f8faff", border: "1px solid #dbeafe", borderRadius: 6, fontSize: 12 }}>
+                                                    <div style={{ color: "#334155", marginBottom: 4 }}><strong>Request ID:</strong> {detailModalItem.requestId}</div>
+                                                    <div style={{ color: "#334155", marginBottom: 4 }}><strong>Deliverable:</strong> {detailModalItem.title}</div>
+                                                    <div style={{ color: "#334155" }}><strong>Category:</strong> {detailModalItem.category || "\u2014"}</div>
+                                                </div>
+                                                {(() => {
+                                                    const reusableKeywords = ["policy", "handbook", "template", "license", "certificate", "insurance", "osha", "compliance", "contract", "benefit", "guideline", "procedure", "standard", "governance"];
+                                                    const transactionKeywords = ["payroll", "utility", "expense", "census", "aging", "financial", "bank", "statement", "register", "history", "incident"];
+                                                    const cat = (detailModalItem.category || "").toLowerCase();
+                                                    const tit = (detailModalItem.title || "").toLowerCase();
+                                                    const isReusable = reusableKeywords.some(k => cat.includes(k) || tit.includes(k));
+                                                    const isTransactionSpecific = transactionKeywords.some(k => cat.includes(k) || tit.includes(k));
+                                                    let recommendation = "";
+                                                    let reason = "";
+                                                    if (isReusable && !isTransactionSpecific) {
+                                                        recommendation = "Promote to Community Knowledge";
+                                                        reason = "This deliverable type is typically reusable across transactions.";
+                                                    } else if (isTransactionSpecific) {
+                                                        recommendation = "Do not promote";
+                                                        reason = "This deliverable appears transaction-specific and may not be reusable.";
+                                                    } else {
+                                                        recommendation = "Promote to Community Knowledge";
+                                                        reason = "Could be reusable based on general classification.";
+                                                    }
+                                                    return (
+                                                        <div style={{ padding: "8px 12px", marginTop: 4, background: recommendation === "Promote to Community Knowledge" ? "#f0fdf4" : "#fffbeb", border: `1px solid ${recommendation === "Promote to Community Knowledge" ? "#bbf7d0" : "#fde68a"}`, borderRadius: 6 }}>
+                                                            <div style={{ fontSize: 11, color: "#334155", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Recommendation</div>
+                                                            <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{recommendation}</div>
+                                                            <div style={{ fontSize: 11, color: "#334155", marginTop: 2 }}>{reason}</div>
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </div>
+                                        </div>
+                                    )}
                                 </>
                             )}
                         </div>
                         <div className="rc-modal-footer">
-                            <button className="rc-btn rc-btn-ghost" onClick={() => setPublishModalOpen(false)}>Cancel</button>
-                            {detailModalItem.status === "Complete" && (
-                                <button className="rc-btn rc-btn-primary" onClick={() => {
-                                    updateRequestExternalStatus(detailModalItem.id);
-                                    setRefreshKey(k => k + 1);
-                                    setBulkToast(`\u2713 Published "${detailModalItem.title}" externally.`);
-                                    setPublishModalOpen(false);
-                                }}>Confirm Publish External</button>
+                            {detailModalItem.status !== "Complete" ? (
+                                <button className="rc-btn rc-btn-primary" onClick={() => setPublishStep(0)}>Close</button>
+                            ) : (
+                                <>
+                                    {publishStep < 3 && (
+                                        <button className="rc-btn rc-btn-ghost" onClick={() => setPublishStep(0)}>Cancel</button>
+                                    )}
+                                    {publishStep === 2 && (
+                                        <button className="rc-btn rc-btn-secondary" onClick={() => setPublishStep(1)}>Back</button>
+                                    )}
+                                    {publishStep === 1 && (
+                                        <button className="rc-btn rc-btn-primary" onClick={() => setPublishStep(2)}>Continue</button>
+                                    )}
+                                    {publishStep === 2 && (
+                                        <button className="rc-btn rc-btn-primary" onClick={() => {
+                                            updateRequestExternalStatus(detailModalItem.id);
+                                            setRefreshKey(k => k + 1);
+                                            setPublishStep(3);
+                                        }}>Confirm Publish External</button>
+                                    )}
+                                    {publishStep === 3 && (
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%" }}>
+                                            <button className="rc-btn rc-btn-primary" style={{ width: "100%" }} onClick={() => {
+                                                setPublishStep(0);
+                                                setBulkToast(`\u2713 Published "${detailModalItem.title}" externally. Promoted to Community Knowledge.`);
+                                            }}>Promote to Community Knowledge</button>
+                                            <button className="rc-btn rc-btn-ghost" style={{ width: "100%" }} onClick={() => {
+                                                setPublishStep(0);
+                                                setBulkToast(`\u2713 Published "${detailModalItem.title}" externally.`);
+                                            }}>Skip for Now</button>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>
