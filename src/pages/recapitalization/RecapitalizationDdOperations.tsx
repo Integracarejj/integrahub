@@ -16,16 +16,16 @@ export default function RecapitalizationDdOperations() {
     const [statusConfirm, setStatusConfirm] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
     const members = getTeamMembers();
-    const ddTeam = "DD Management";
-    const ddMembers = useMemo(() => members.filter(m => m.team === ddTeam), [members]);
+    const ddMembers = useMemo(() => members.filter(m => m.team === "DD Management"), [members]);
     const allRequests = useMemo(() => getRequests(), [refreshKey]);
 
-    const ddItems = useMemo(() => {
-        return allRequests.filter(r => r.team === ddTeam && (r._publishedAt || r._createdFromReview));
+    // Use same data source as Work Queue: published/converted items
+    const workQueueItems = useMemo(() => {
+        return allRequests.filter(r => r._publishedAt || r._createdFromReview);
     }, [allRequests]);
 
     const assignedToMe = useMemo(() => {
-        return ddItems
+        return workQueueItems
             .filter(r => r.owner === activeUser || r.assignedTo === activeUser)
             .sort((a, b) => {
                 const aDate = a.lastUpdated || "";
@@ -37,22 +37,18 @@ export default function RecapitalizationDdOperations() {
                 const pMap: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
                 return (pMap[a.priority] || 1) - (pMap[b.priority] || 1);
             });
-    }, [ddItems, activeUser]);
+    }, [workQueueItems, activeUser]);
 
     const myTeamItems = useMemo(() => {
-        return ddItems
-            .filter(r => r.owner !== activeUser && r.assignedTo !== activeUser)
-            .sort((a, b) => {
-                const aDue = a.dueDate || "9999-99-99";
-                const bDue = b.dueDate || "9999-99-99";
-                if (aDue !== bDue) return aDue.localeCompare(bDue);
-                const pMap: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
-                return (pMap[a.priority] || 1) - (pMap[b.priority] || 1);
-            });
-    }, [ddItems, activeUser]);
+        return [...workQueueItems].sort((a, b) => {
+            const aDate = a.lastUpdated || "";
+            const bDate = b.lastUpdated || "";
+            return bDate.localeCompare(aDate);
+        });
+    }, [workQueueItems]);
 
     const needsDDReview = useMemo(() => {
-        return ddItems
+        return workQueueItems
             .filter(r => r.status === "Complete" && !r._publishedExternal)
             .sort((a, b) => {
                 const aDue = a.dueDate || "9999-99-99";
@@ -61,10 +57,10 @@ export default function RecapitalizationDdOperations() {
                 const pMap: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
                 return (pMap[a.priority] || 1) - (pMap[b.priority] || 1);
             });
-    }, [ddItems]);
+    }, [workQueueItems]);
 
     const readyToPublish = useMemo(() => {
-        return ddItems
+        return workQueueItems
             .filter(r => r.status === "Complete" && !r._publishedExternal)
             .sort((a, b) => {
                 const aDue = a.dueDate || "9999-99-99";
@@ -73,13 +69,13 @@ export default function RecapitalizationDdOperations() {
                 const pMap: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
                 return (pMap[a.priority] || 1) - (pMap[b.priority] || 1);
             });
-    }, [ddItems]);
+    }, [workQueueItems]);
 
     const recentlyUpdated = useMemo(() => {
-        return [...ddItems]
+        return [...workQueueItems]
             .filter(r => r.lastUpdated)
             .sort((a, b) => (b.lastUpdated || "").localeCompare(a.lastUpdated || ""));
-    }, [ddItems]);
+    }, [workQueueItems]);
 
     const activeItems = useMemo(() => {
         switch (activeView) {
@@ -97,11 +93,11 @@ export default function RecapitalizationDdOperations() {
     }
 
     const emptyMessages: Record<ViewTab, string> = {
-        "assigned-to-me": "No DD items assigned to you.",
-        "my-team": "No DD items for your team.",
-        "needs-dd-review": "No DD items needing review.",
-        "ready-to-publish": "No DD items ready to publish.",
-        "recently-updated": "No recently updated DD items.",
+        "assigned-to-me": "No items assigned to you.",
+        "my-team": "No items in the work queue.",
+        "needs-dd-review": "No items needing DD review.",
+        "ready-to-publish": "No items ready to publish.",
+        "recently-updated": "No recently updated items.",
     };
 
     const tabLabels: Record<ViewTab, string> = {
