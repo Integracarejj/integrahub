@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { lookupWorkspaceItem, getDocumentsByTransaction, updateRequestStatus, updateRequestOwner, addActivityEntry } from "../../services/recapDataService";
+import { lookupWorkspaceItem, getDocumentsByTransaction, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, addActivityEntry } from "../../services/recapDataService";
 import type { RecapRequest } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -83,7 +83,7 @@ export default function RecapitalizationWorkspace() {
                 <RecapSubNav />
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "80px 20px", gap: 12, textAlign: "center" }}>
                     <h2 style={{ fontSize: 20, color: "#0f172a", margin: 0 }}>Item Not Found</h2>
-                    <p style={{ fontSize: 14, color: "#64748b" }}>The requested workspace item could not be found.</p>
+                    <p style={{ fontSize: 14, color: "#475569" }}>The requested workspace item could not be found.</p>
                     <button className="rc-btn rc-btn-primary" onClick={() => navigate("/recapitalization/intake")}>Back to Intake Queue</button>
                 </div>
             </div>
@@ -354,7 +354,7 @@ export default function RecapitalizationWorkspace() {
                     <div style={{ height: 1, background: "#e2e8f0" }} />
 
                     {/* Visibility Key */}
-                    <div style={{ padding: "10px 32px", display: "flex", gap: 16, flexWrap: "wrap", fontSize: 11, color: "#64748b", background: "#f8faff", borderBottom: "1px solid #e2e8f0" }}>
+                    <div style={{ padding: "10px 32px", display: "flex", gap: 16, flexWrap: "wrap", fontSize: 11, color: "#475569", background: "#f8faff", borderBottom: "1px solid #e2e8f0" }}>
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
                             <strong>Internal</strong>: Notes &amp; artifacts are internal-only until published
@@ -813,7 +813,7 @@ export default function RecapitalizationWorkspace() {
                                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
                                         </div>
                                         <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Published Externally</div>
-                                        <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.5, maxWidth: 380 }}>
+                                        <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.5, maxWidth: 380 }}>
                                             {displayId} &mdash; {displayTitle || item.category || "Item"} is now visible to the external portal.
                                         </div>
                                         {publishExternal.selectedArtifacts.length > 0 && (
@@ -828,7 +828,7 @@ export default function RecapitalizationWorkspace() {
                                     {/* Community Knowledge prompt */}
                                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                                         <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Promote to Community Knowledge?</div>
-                                        <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
+                                        <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.5 }}>
                                             Making this deliverable available as a community knowledge resource allows it to be reused across future transactions.
                                         </div>
                                         <div style={{ padding: "8px 12px", background: "#f8faff", border: "1px solid #dbeafe", borderRadius: 6, fontSize: 12 }}>
@@ -859,7 +859,7 @@ export default function RecapitalizationWorkspace() {
                                                 <div style={{ padding: "8px 12px", marginTop: 4, background: recommendation === "Promote to Community Knowledge" ? "#f0fdf4" : "#fffbeb", border: `1px solid ${recommendation === "Promote to Community Knowledge" ? "#bbf7d0" : "#fde68a"}`, borderRadius: 6 }}>
                                                     <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Recommendation</div>
                                                     <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{recommendation}</div>
-                                                    <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>{reason}</div>
+                                                    <div style={{ fontSize: 11, color: "#334155", marginTop: 2 }}>{reason}</div>
                                                 </div>
                                             );
                                         })()}
@@ -880,27 +880,22 @@ export default function RecapitalizationWorkspace() {
                             {publishExternal.step === 2 && (
                                 <button className="rc-btn rc-btn-primary" onClick={() => {
                                     setPublishExternal(prev => prev ? { ...prev, step: 3 } : null);
-                                    const now = new Date().toISOString().split("T")[0];
-                                    if (item) {
-                                        (item as any)._publishedExternal = true;
-                                        (item as any)._publishedExternalAt = now;
-                                    }
-                                    updateRequestStatus(item.id || item.intakeId || "", "Complete");
+                                    updateRequestExternalStatus(item.id || item.intakeId || "");
                                 }}>Confirm Publish External</button>
                             )}
                             {publishExternal.step === 3 && (
-                                <div style={{ display: "flex", gap: 8, width: "100%" }}>
-                                    <button className="rc-btn rc-btn-ghost" style={{ flex: 1 }} onClick={() => {
-                                        setPublishExternal(null);
-                                        setBanner("\u2713 Published externally. Community Knowledge promotion skipped.");
-                                        setBannerError(false);
-                                    }}>Skip for Now</button>
-                                    <button className="rc-btn rc-btn-primary" onClick={() => {
+                                <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%" }}>
+                                    <button className="rc-btn rc-btn-primary" style={{ width: "100%" }} onClick={() => {
                                         setPublishExternal(null);
                                         setBanner("\u2713 Published externally. Promoted to Community Knowledge.");
                                         setBannerError(false);
                                     }}>Promote to Community Knowledge</button>
-                                    <button className="rc-btn rc-btn-secondary" onClick={() => { setPublishExternal(null); navigate("/recapitalization/tracker"); }}>Return to Work Queue</button>
+                                    <button className="rc-btn rc-btn-ghost" style={{ width: "100%" }} onClick={() => {
+                                        setPublishExternal(null);
+                                        setBanner("\u2713 Published externally. Community Knowledge promotion skipped.");
+                                        setBannerError(false);
+                                    }}>Skip for Now</button>
+                                    <button className="rc-btn rc-btn-secondary" style={{ width: "100%" }} onClick={() => { setPublishExternal(null); navigate("/recapitalization/tracker"); }}>Return to Work Queue</button>
                                 </div>
                             )}
                         </div>

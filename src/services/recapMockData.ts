@@ -50,6 +50,8 @@ export interface RecapRequest {
     _sourcePackageId?: string;
     _sourceReviewItemId?: string;
     _createdFromReview?: boolean;
+    _publishedExternal?: boolean;
+    _publishedExternalAt?: string;
 }
 
 export interface RecapIntakeItem {
@@ -693,6 +695,16 @@ export function updateRequestTeam(id: string, team: string): RecapRequest | unde
     const req = MOCK_REQUESTS.find((r) => r.id === id);
     if (req) {
         req.team = team;
+        req.lastUpdated = new Date().toISOString().split("T")[0];
+    }
+    return req;
+}
+
+export function updateExternalPublishStatus(id: string): RecapRequest | undefined {
+    const req = MOCK_REQUESTS.find((r) => r.id === id);
+    if (req) {
+        req._publishedExternal = true;
+        req._publishedExternalAt = new Date().toISOString().split("T")[0];
         req.lastUpdated = new Date().toISOString().split("T")[0];
     }
     return req;

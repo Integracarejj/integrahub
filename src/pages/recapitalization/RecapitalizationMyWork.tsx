@@ -194,7 +194,7 @@ export default function RecapitalizationMyWork() {
                 </div>
                 <div className="rc-header-actions">
                     <select className="rc-filter-select" value={activeUser} onChange={e => setActiveUser(e.target.value)}>
-                        {members.map(m => <option key={m.id} value={m.name}>{m.name}{m.id === "user-demo" ? " (Demo)" : ""}</option>)}
+                        {members.map(m => <option key={m.id} value={m.name}>{m.name}{m.id === "user-demo" ? " (Test Persona)" : ""}</option>)}
                     </select>
                 </div>
             </div>
@@ -260,7 +260,7 @@ export default function RecapitalizationMyWork() {
                 </div>
             </div>
 
-            <div style={{ fontSize: 12, color: "#64748b", textAlign: "right" }}>
+            <div style={{ fontSize: 12, color: "#475569", textAlign: "right" }}>
                 Showing {filteredItems.length + myItems.myTeam.length} of {publishedRequests.length} total published requests
             </div>
 

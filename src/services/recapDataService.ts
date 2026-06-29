@@ -216,6 +216,17 @@ export function updateRequestTeam(id: string, team: string): RecapRequest | unde
     return updatePortalRequestTeam(id, team);
 }
 
+export function updateRequestExternalStatus(id: string): RecapRequest | undefined {
+    if (isDemoLoaded()) {
+        const result = Demo.updateDemoRequest(id, { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0] });
+        if (result) return result;
+        return updatePortalRequestById(id, { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0] });
+    }
+    const result = Mock.updateExternalPublishStatus(id);
+    if (result) return result;
+    return updatePortalRequestById(id, { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0] });
+}
+
 export function toggleExternalVisibility(id: string): RecapRequest | undefined {
     if (isDemoLoaded()) {
         const req = Demo.getDemoRequestById(id);

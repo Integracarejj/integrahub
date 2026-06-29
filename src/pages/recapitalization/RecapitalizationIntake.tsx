@@ -101,7 +101,7 @@ function ImportModal({ onClose, onImport }: { onClose: () => void; onImport: (na
                                 <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
                             </svg>
                             <p style={{ fontSize: 14, fontWeight: 600, color: "#1e293b" }}>Processing {fileName}...</p>
-                            <p style={{ fontSize: 12, color: "#64748b" }}>Running classification engine...</p>
+                            <p style={{ fontSize: 12, color: "#475569" }}>Running classification engine...</p>
                             <div style={{ width: "100%", height: 6, background: "#e2e8f0", borderRadius: 3, marginTop: 12, overflow: "hidden" }}>
                                 <div style={{ width: "70%", height: "100%", background: "#4f46e5", borderRadius: 3, animation: "none" }} />
                             </div>
@@ -350,6 +350,7 @@ function ReviewEngine() {
             setPublishedBatchId(result.publishedBatchId);
             setPublishing(false);
             setPublished(true);
+            setSelectedIds(new Set());
         }, 1500);
     };
 
@@ -410,6 +411,7 @@ function ReviewEngine() {
             setPublishedBatchId(result.publishedBatchId);
             setPublishing(false);
             setPublished(true);
+            setSelectedIds(new Set());
         }, 1500);
     };
 
@@ -582,21 +584,21 @@ function ReviewEngine() {
                             <span style={{ fontSize: 16, lineHeight: 1 }}>&#9888;</span>
                             <div>
                                 <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#92400e" }}>{enriched.filter(r => r._potentialDuplicate).length} item{enriched.filter(r => r._potentialDuplicate).length !== 1 ? "s" : ""} flagged as potential duplicates</span>
-                                <span style={{ display: "block", fontSize: 11, color: "#64748b" }}>Within-package duplicates or possible matches detected. Archive items that are confirmed duplicates.</span>
+                                <span style={{ display: "block", fontSize: 11, color: "#475569" }}>Within-package duplicates or possible matches detected. Archive items that are confirmed duplicates.</span>
                             </div>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid #f1f5f9" }}>
                             <span style={{ fontSize: 16, lineHeight: 1 }}>&#9888;</span>
                             <div>
                                 <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#92400e" }}>{reviewStateCounts["Clarification Needed"]} item{reviewStateCounts["Clarification Needed"] !== 1 ? "s" : ""} need{reviewStateCounts["Clarification Needed"] === 1 ? "s" : ""} clarification</span>
-                                <span style={{ display: "block", fontSize: 11, color: "#64748b" }}>Some requests have incomplete or ambiguous descriptions. Clarify before publishing.</span>
+                                <span style={{ display: "block", fontSize: 11, color: "#475569" }}>Some requests have incomplete or ambiguous descriptions. Clarify before publishing.</span>
                             </div>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px" }}>
                             <span style={{ fontSize: 16, lineHeight: 1 }}>&#128200;</span>
                             <div>
                                 <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1d4ed8" }}>{Object.keys(activeSummary.categories).length} categories detected</span>
-                                <span style={{ display: "block", fontSize: 11, color: "#64748b" }}>Classification engine assigned categories and teams. Review routing suggestions below.</span>
+                                <span style={{ display: "block", fontSize: 11, color: "#475569" }}>Classification engine assigned categories and teams. Review routing suggestions below.</span>
                             </div>
                         </div>
                     </div>
@@ -1454,9 +1456,9 @@ function IntakeQueue() {
         }
     };
 
-    const clearSelection = () => {
+    function clearSelection() {
         setSelectedIds(new Set());
-    };
+    }
 
     const handleRowClick = (item: RecapIntakeItem) => {
         if (item.type === "Broker Upload") {

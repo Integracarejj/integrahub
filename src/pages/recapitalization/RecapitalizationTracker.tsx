@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import {
     getRequests, getTransactions, getTeamMembers, getTeams,
     updateRequestStatus, updateRequestOwner, updateRequestTeam, addActivityEntry,
-    updateRequestPriority, updateRequestDueDate, isDemoActive,
+    updateRequestPriority, updateRequestDueDate, updateRequestExternalStatus, isDemoActive,
     bulkUpdateDemoRequests,
 } from "../../services/recapDataService";
 
@@ -163,6 +163,7 @@ export default function RecapitalizationTracker() {
         setRefreshKey(k => k + 1);
         setBulkModalOpen(false);
         setBulkEdit({ owner: "", team: "", priority: "", status: "", dueDate: "", visible: "" });
+        clearSelection();
         const parts: string[] = [];
         if (bulkEdit.owner) parts.push(`Owner: ${bulkEdit.owner === "__unset" ? "Unassigned" : bulkEdit.owner}`);
         if (bulkEdit.team) parts.push(`Team: ${bulkEdit.team}`);
@@ -205,6 +206,11 @@ export default function RecapitalizationTracker() {
                     {isDemoActive() && <span className="rc-badge rc-badge-visible" style={{ fontSize: 10 }}>ABC Demo Active</span>}
                 </div>
                 <div className="rc-header-actions">
+                    <div className="rc-action-key" style={{ display: "flex", gap: 12, alignItems: "center", marginRight: 8 }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "#334155" }}><span style={{ fontSize: 13 }}>&#9998;</span> Open Workspace</span>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "#334155" }}><span style={{ color: "#1d4ed8", fontWeight: 700, fontSize: 12 }}>R</span> Review / Respond</span>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "#334155" }}><span style={{ color: "#166534", fontWeight: 700, fontSize: 12 }}>P</span> Publish External</span>
+                    </div>
                     <button className="rc-btn rc-btn-primary" onClick={() => navigate("/recapitalization/intake/review")}>Import DD Package</button>
                     <button className="rc-btn rc-btn-secondary" onClick={() => navigate("/recapitalization/intake/review")}>New Request</button>
                     <button className="rc-btn rc-btn-secondary" onClick={() => setBulkToast("Export feature coming soon")}>Export</button>
@@ -271,7 +277,7 @@ export default function RecapitalizationTracker() {
                             style={{ fontSize: 11, minWidth: 120 }}
                             title="Switch user to test My Work views (demo)"
                         >
-                            {members.map(m => <option key={m.id} value={m.name}>{m.name} {m.id === "user-demo" ? "(Demo)" : ""}</option>)}
+                            {members.map(m => <option key={m.id} value={m.name}>{m.name} {m.id === "user-demo" ? "(Test Persona)" : ""}</option>)}
                         </select>
                     )}
                 </div>
@@ -297,11 +303,6 @@ export default function RecapitalizationTracker() {
             )}
 
             <div className="rc-table-wrap-scroll">
-                <div className="rc-action-key">
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12 }}><span style={{ fontSize: 14 }}>&#9998;</span> <strong>Open Workspace</strong></span>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12 }}><span style={{ color: "#1d4ed8", fontWeight: 700, fontSize: 13 }}>R</span> <strong>Review / Respond</strong></span>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12 }}><span style={{ color: "#166534", fontWeight: 700, fontSize: 13 }}>P</span> <strong>Publish External</strong></span>
-                </div>
                 <table className="rc-table">
                     <thead>
                         <tr>
@@ -366,7 +367,7 @@ export default function RecapitalizationTracker() {
                                     <span style={{
                                         display: "inline-block", padding: "1px 6px", borderRadius: 3, fontSize: 10, fontWeight: 700,
                                         background: (req as any)._publishedExternal ? "#f0fdf4" : (req.status === "Complete" ? "#fffbeb" : "#f1f5f9"),
-                                        color: (req as any)._publishedExternal ? "#166534" : (req.status === "Complete" ? "#92400e" : "#94a3b8"),
+                                        color: (req as any)._publishedExternal ? "#166534" : (req.status === "Complete" ? "#92400e" : "#475569"),
                                         border: `1px solid ${(req as any)._publishedExternal ? "#bbf7d0" : (req.status === "Complete" ? "#fde68a" : "#e2e8f0")}`,
                                     }}>
                                         {(req as any)._publishedExternal ? "Published External" : req.status === "Complete" ? "Ready to Publish" : "Internal Only"}
@@ -377,7 +378,7 @@ export default function RecapitalizationTracker() {
                         <select
                             value={req.owner || ""}
                             onChange={e => { if (e.target.value !== (req.owner || "")) setPendingAssign({ req, owner: e.target.value }); }}
-                            style={{ fontSize: 12, padding: "2px 18px 2px 4px", borderRadius: 4, background: "#fff", color: req.owner ? "#111827" : "#64748b", fontWeight: 500, minWidth: 120, cursor: "pointer", border: "1px solid #d1d5db" }}
+                            style={{ fontSize: 12, padding: "2px 18px 2px 4px", borderRadius: 4, background: "#fff", color: req.owner ? "#111827" : "#475569", fontWeight: 500, minWidth: 120, cursor: "pointer", border: "1px solid #d1d5db" }}
                         >
                             <option value="">Unassigned</option>
                             {members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
@@ -449,7 +450,7 @@ export default function RecapitalizationTracker() {
 
             </div>
 
-            <div style={{ fontSize: 12, color: "#64748b" }}>Showing {filtered.length} of {totalActiveRequests} requests</div>
+            <div style={{ fontSize: 12, color: "#475569" }}>Showing {filtered.length} of {totalActiveRequests} requests</div>
             {bulkModalOpen && (
                 <div className="rc-modal-overlay" onClick={() => setBulkModalOpen(false)}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()}>
@@ -609,11 +610,7 @@ export default function RecapitalizationTracker() {
                             <button className="rc-btn rc-btn-ghost" onClick={() => setPublishModalOpen(false)}>Cancel</button>
                             {detailModalItem.status === "Complete" && (
                                 <button className="rc-btn rc-btn-primary" onClick={() => {
-                                    const req = getRequests().find(r => r.id === detailModalItem.id);
-                                    if (req) {
-                                        (req as any)._publishedExternal = true;
-                                        (req as any)._publishedExternalAt = new Date().toISOString().split("T")[0];
-                                    }
+                                    updateRequestExternalStatus(detailModalItem.id);
                                     setRefreshKey(k => k + 1);
                                     setBulkToast(`\u2713 Published "${detailModalItem.title}" externally.`);
                                     setPublishModalOpen(false);
