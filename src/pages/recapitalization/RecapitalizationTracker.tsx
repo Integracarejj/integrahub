@@ -205,8 +205,8 @@ export default function RecapitalizationTracker() {
                 </div>
                 <div className="rc-header-actions">
                     <div className="rc-action-key" style={{ display: "flex", gap: 12, alignItems: "center", marginRight: 8 }}>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "#334155" }}><span style={{ fontSize: 13 }}>&#9998;</span> Open Workspace</span>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "#334155" }}><span style={{ color: "#166534", fontWeight: 700, fontSize: 12 }}>P</span> Publish External</span>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "#111827" }}>P</span>
+                        <span style={{ fontSize: 11, color: "#475569" }}>Publish External</span>
                     </div>
                     <button className="rc-btn rc-btn-primary" onClick={() => navigate("/recapitalization/intake/review")}>Import DD Package</button>
                     <button className="rc-btn rc-btn-secondary" onClick={() => navigate("/recapitalization/intake/review")}>New Request</button>
@@ -300,7 +300,7 @@ export default function RecapitalizationTracker() {
             )}
 
             <div className="rc-table-wrap-scroll">
-                <table className="rc-table">
+                <table className="rc-table" style={{ width: "100%", tableLayout: "auto" }}>
                     <thead>
                         <tr>
                             <th style={{ width: 36 }}>
@@ -312,18 +312,15 @@ export default function RecapitalizationTracker() {
                                     onChange={handleSelectAll}
                                 />
                             </th>
-                            <th>Intake ID</th>
-                            <th>Request ID</th>
-                            <th>Deliverable</th>
-                            <th>Community</th>
-                            <th>Status</th>
-                            <th style={{ fontSize: 10 }}>External</th>
-                            <th>Priority</th>
-                            <th>Owner</th>
-                            <th>Category</th>
-                            <th className="nowrap">Due</th>
-                            <th className="nowrap">Updated</th>
-                            <th></th>
+                            <th style={{ minWidth: 90, whiteSpace: "nowrap" }}>Request ID</th>
+                            <th style={{ minWidth: 160 }}>Deliverable</th>
+                            <th style={{ minWidth: 60, whiteSpace: "nowrap" }}>Status</th>
+                            <th style={{ minWidth: 55, whiteSpace: "nowrap" }}>External</th>
+                            <th style={{ minWidth: 50, whiteSpace: "nowrap" }}>Priority</th>
+                            <th style={{ minWidth: 80, whiteSpace: "nowrap" }}>Owner</th>
+                            <th style={{ minWidth: 60 }}>Category</th>
+                            <th style={{ minWidth: 60, whiteSpace: "nowrap" }}>Due</th>
+                            <th style={{ width: 32 }}></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -337,15 +334,13 @@ export default function RecapitalizationTracker() {
                                         onChange={() => handleSelectOne(req.id)}
                                     />
                                 </td>
-                                <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#475569" }}>{req.intakeId}</td>
-                                <td style={{ fontWeight: 600, fontSize: 12, color: "#334155" }}>{req.requestId}</td>
-                                <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 200 }}>
+                                <td style={{ fontWeight: 600, fontSize: 12, color: "#111827" }}>{req.requestId}</td>
+                                <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 200, color: "#111827" }}>
                                     {req._publishedAt && new Date(req._publishedAt).getTime() > Date.now() - 86400000 && (
-                                        <span className="rc-badge rc-badge-visible" style={{ fontSize: 9, padding: "1px 5px", marginRight: 6, verticalAlign: "middle" }}>Newly Added</span>
+                                        <span className="rc-badge rc-badge-visible" style={{ fontSize: 9, padding: "1px 5px", marginRight: 6, verticalAlign: "middle" }}>New</span>
                                     )}
                                     {req.title.split(" - ").slice(1).join(" - ").trim() || req.title}
                                 </td>
-                                <td className="rc-truncate">{req.communityNames.join(", ") || "All"}</td>
                                 <td onClick={e => e.stopPropagation()}>
                                     <select
                                         value={req.status}
@@ -355,39 +350,36 @@ export default function RecapitalizationTracker() {
                                                 setStatusConfirm({ req, newStatus });
                                             }
                                         }}
-                                        style={{ fontSize: 10, padding: "2px 18px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 100, cursor: "pointer", border: "1px solid #d1d5db" }}
+                                        style={{ fontSize: 11, padding: "2px 18px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 100, cursor: "pointer", border: "1px solid #cbd5e1" }}
                                     >
                                         {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>
                                 </td>
                                 <td style={{ fontSize: 11 }}>
-                                    <span style={{
-                                        display: "inline-block", padding: "1px 6px", borderRadius: 3, fontSize: 10, fontWeight: 700,
-                                        background: (req as any)._publishedExternal ? "#f0fdf4" : (req.status === "Complete" ? "#fffbeb" : "#f1f5f9"),
-                                        color: (req as any)._publishedExternal ? "#166534" : (req.status === "Complete" ? "#92400e" : "#475569"),
-                                        border: `1px solid ${(req as any)._publishedExternal ? "#bbf7d0" : (req.status === "Complete" ? "#fde68a" : "#e2e8f0")}`,
-                                    }}>
-                                        {(req as any)._publishedExternal ? "Published External" : req.status === "Complete" ? "Ready to Publish" : "Internal Only"}
-                                    </span>
+                                    {(req as any)._publishedExternal ? (
+                                        <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700, background: "#f0fdf4", color: "#166534", border: "1px solid #86efac" }}>Published</span>
+                                    ) : req.status === "Complete" ? (
+                                        <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700, background: "#fffbeb", color: "#b45309", border: "1px solid #fde68a" }}>Ready</span>
+                                    ) : (
+                                        <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700, background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe" }}>Internal</span>
+                                    )}
                                 </td>
                                 <td><span className={`rc-badge rc-badge-${req.priority.toLowerCase()}`}>{req.priority}</span></td>
                                 <td onClick={e => e.stopPropagation()} style={{ fontSize: 12 }}>
-                        <select
-                            value={req.owner || ""}
-                            onChange={e => { if (e.target.value !== (req.owner || "")) setPendingAssign({ req, owner: e.target.value }); }}
-                            style={{ fontSize: 12, padding: "2px 18px 2px 4px", borderRadius: 4, background: "#fff", color: req.owner ? "#111827" : "#475569", fontWeight: 500, minWidth: 120, cursor: "pointer", border: "1px solid #d1d5db" }}
-                        >
-                            <option value="">Unassigned</option>
-                            {members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
-                        </select>
-                    </td>
-                                <td style={{ fontSize: 12, color: "#475569" }}>{req.category || "\u2014"}</td>
-                                <td className="nowrap" style={{ fontSize: 12, color: req.status === "Overdue" ? "#991b1b" : "#475569", fontWeight: req.status === "Overdue" ? 600 : 400 }}>{req.dueDate}</td>
-                                <td className="nowrap" style={{ fontSize: 12, color: "#475569" }}>{req.lastUpdated}</td>
+                                    <select
+                                        value={req.owner || ""}
+                                        onChange={e => { if (e.target.value !== (req.owner || "")) setPendingAssign({ req, owner: e.target.value }); }}
+                                        style={{ fontSize: 12, padding: "1px 18px 1px 4px", borderRadius: 4, background: "#fff", color: req.owner ? "#111827" : "#475569", fontWeight: 500, minWidth: 100, cursor: "pointer", border: "1px solid #cbd5e1", maxWidth: 120 }}
+                                    >
+                                        <option value="">Unassigned</option>
+                                        {members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                                    </select>
+                                </td>
+                                <td style={{ fontSize: 12, color: req.category ? "#334155" : "#94a3b8" }}>{req.category || "\u2014"}</td>
+                                <td className="nowrap" style={{ fontSize: 12, color: req.status === "Overdue" ? "#dc2626" : "#334155", fontWeight: req.status === "Overdue" ? 600 : 400 }}>{req.dueDate}</td>
                                 <td>
                                     <div className="rc-cell-actions">
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Open Workspace" onClick={e => { e.stopPropagation(); navigate(`/recapitalization/workspace/${req.intakeId}`, { state: { from: "work-queue" } }); }} style={{ fontSize: 14 }}>&#9998;</button>
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Publish External" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setPublishStep(1); }} style={{ fontSize: 12, color: "#166534" }}>P</button>
+                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Publish External" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setPublishStep(1); }} style={{ fontSize: 12, fontWeight: 700, color: "#166534" }}>P</button>
                                     </div>
                                 </td>
                             </tr>
@@ -395,6 +387,7 @@ export default function RecapitalizationTracker() {
                     </tbody>
                 </table>
                 {filtered.length === 0 && <div className="rc-empty-state">No requests match your filters</div>}
+            </div>
             {pendingAssign && (
                 <div className="rc-modal-overlay" onClick={() => setPendingAssign(null)}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
@@ -443,8 +436,6 @@ export default function RecapitalizationTracker() {
                     </div>
                 </div>
             )}
-
-            </div>
 
             <div style={{ fontSize: 12, color: "#475569" }}>Showing {filtered.length} of {totalActiveRequests} requests</div>
             {bulkModalOpen && (

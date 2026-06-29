@@ -222,30 +222,28 @@ export default function RecapitalizationMyWork() {
                 </div>
             </div>
 
-            {activeView === "assigned-to-me" && (
             <div className="rc-stats-row">
-                <div className={`rc-stat-card ${activeCard === "assigned" ? "rc-stat-active" : ""}`} onClick={() => setActiveCard(activeCard === "assigned" ? "all" : "assigned")} style={{ cursor: "pointer" }}>
+                <div className={`rc-stat-card ${activeCard === "assigned" ? "rc-stat-active" : ""}`} onClick={() => { setActiveView("assigned-to-me"); setActiveCard(activeCard === "assigned" ? "all" : "assigned"); }} style={{ cursor: "pointer" }}>
                     <span className="rc-stat-value">{cardCounts.assigned}</span>
                     <span className="rc-stat-label">Assigned to Me</span>
                     <span className="rc-stat-desc">{pct(cardCounts.assigned)} of work</span>
                 </div>
-                <div className={`rc-stat-card ${activeCard === "completed" ? "rc-stat-active" : ""}`} onClick={() => setActiveCard(activeCard === "completed" ? "all" : "completed")} style={{ borderLeft: "3px solid #166534", cursor: "pointer" }}>
+                <div className={`rc-stat-card ${activeCard === "completed" ? "rc-stat-active" : ""}`} onClick={() => { setActiveView("assigned-to-me"); setActiveCard(activeCard === "completed" ? "all" : "completed"); }} style={{ borderLeft: "3px solid #166534", cursor: "pointer" }}>
                     <span className="rc-stat-value">{cardCounts.completed}</span>
                     <span className="rc-stat-label">Completed</span>
                     <span className="rc-stat-desc">{pct(cardCounts.completed)} of assigned</span>
                 </div>
-                <div className={`rc-stat-card ${activeCard === "inProgress" ? "rc-stat-active" : ""}`} onClick={() => setActiveCard(activeCard === "inProgress" ? "all" : "inProgress")} style={{ borderLeft: "3px solid #1d4ed8", cursor: "pointer" }}>
+                <div className={`rc-stat-card ${activeCard === "inProgress" ? "rc-stat-active" : ""}`} onClick={() => { setActiveView("assigned-to-me"); setActiveCard(activeCard === "inProgress" ? "all" : "inProgress"); }} style={{ borderLeft: "3px solid #1d4ed8", cursor: "pointer" }}>
                     <span className="rc-stat-value">{cardCounts.inProgress}</span>
                     <span className="rc-stat-label">In Progress</span>
                     <span className="rc-stat-desc">{pct(cardCounts.inProgress)} of assigned</span>
                 </div>
-                <div className={`rc-stat-card ${activeCard === "blocked" ? "rc-stat-active" : ""}`} onClick={() => setActiveCard(activeCard === "blocked" ? "all" : "blocked")} style={{ borderLeft: "3px solid #991b1b", cursor: "pointer" }}>
+                <div className={`rc-stat-card ${activeCard === "blocked" ? "rc-stat-active" : ""}`} onClick={() => { setActiveView("assigned-to-me"); setActiveCard(activeCard === "blocked" ? "all" : "blocked"); }} style={{ borderLeft: "3px solid #991b1b", cursor: "pointer" }}>
                     <span className="rc-stat-value">{cardCounts.blocked}</span>
                     <span className="rc-stat-label">Blocked</span>
                     <span className="rc-stat-desc">{pct(cardCounts.blocked)} of assigned</span>
                 </div>
             </div>
-            )}
 
             {/* Bulk actions bar */}
             {selectedIds.size > 0 && (
