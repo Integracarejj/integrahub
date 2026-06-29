@@ -340,7 +340,7 @@ function ReviewEngine() {
         else setSelectedIds(new Set(paginated.map(r => r.id)));
     };
 
-    const handlePublishReady = () => {
+    const handleMoveToWorkQueue = () => {
         const ids = enriched.filter(r => r._reviewState === "Move to Work Queue").map(r => r.id);
         if (ids.length === 0) return;
         setPublishing(true);
@@ -393,7 +393,7 @@ function ReviewEngine() {
         }
     };
 
-    const handleBulkPublishSelected = () => {
+    const handleBulkMoveToWorkQueue = () => {
         if (selectedIds.size === 0) return;
         const bulkReady = [...selectedIds].filter(id => {
             const r = enriched.find(e => e.id === id);
@@ -454,12 +454,12 @@ function ReviewEngine() {
                             <polyline points="20 6 9 17 4 12" />
                         </svg>
                     </div>
-                    <h2>Published to Tracker!</h2>
-                    <p>{count} DD request{count !== 1 ? "s are" : " is"} now available in the Request Tracker.</p>
+                    <h2>Moved to Work Queue!</h2>
+                    <p>{count} DD request{count !== 1 ? "s are" : " is"} now available in the Work Queue.</p>
                     <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-                        <button className="rc-btn rc-btn-primary" onClick={() => navigate("/recapitalization/tracker")}>Open Tracker</button>
+                        <button className="rc-btn rc-btn-primary" onClick={() => navigate("/recapitalization/tracker")}>Open Work Queue</button>
                         <button className="rc-btn rc-btn-secondary" onClick={() => { setPublished(false); setPublishedCount(0); setPublishedBatchId(undefined); setPublishAll(false); }}>Return to Intake Queue</button>
-                        <button className="rc-btn rc-btn-ghost" onClick={() => navigate(`/recapitalization/tracker?publishedBatchId=${publishedBatchId}`)}>View Published Requests</button>
+                        <button className="rc-btn rc-btn-ghost" onClick={() => navigate(`/recapitalization/tracker?publishedBatchId=${publishedBatchId}`)}>View in Work Queue</button>
                     </div>
                 </div>
             </div>
@@ -485,17 +485,17 @@ function ReviewEngine() {
                 </div>
                 <div className="rc-header-actions">
                     <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setUpdateCount(k => k + 1); showToast("Refreshed"); }}>Refresh</button>
-                    <button className="rc-btn rc-btn-primary" onClick={handlePublishReady} disabled={publishing || readyCount === 0} title={readyCount === 0 ? "No items are ready to publish" : ""}>
-                        {publishing ? "Publishing..." : `Publish Ready Requests (${readyCount})`}
+                    <button className="rc-btn rc-btn-primary" onClick={handleMoveToWorkQueue} disabled={publishing || readyCount === 0} title={readyCount === 0 ? "No items marked 'Move to Work Queue'" : ""}>
+                        {publishing ? "Moving..." : `Move to Work Queue (${readyCount})`}
                     </button>
                     <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={handlePublishAll} disabled={publishing}>
-                        Publish All Demo Requests
+                        Move All to Work Queue
                     </button>
                 </div>
             </div>
 
             <p style={{ fontSize: 13, color: "#475569", margin: "0 0 12px 0", lineHeight: 1.5 }}>
-                Review the AI-classified package, correct routing, resolve warnings, and publish ready requests to the tracker.
+                Review the AI-classified package, correct routing, resolve warnings, and move ready requests to the Work Queue.
             </p>
 
             {publishing && (
@@ -689,7 +689,7 @@ function ReviewEngine() {
                             Apply Bulk Updates
                         </button>
                         <div className="rc-bulk-sep" />
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 12, color: "#166534", fontWeight: 600 }} onClick={handleBulkPublishSelected}>
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 12, color: "#166534", fontWeight: 600 }} onClick={handleBulkMoveToWorkQueue}>
                             Publish Selected
                         </button>
                         <div className="rc-bulk-sep" />

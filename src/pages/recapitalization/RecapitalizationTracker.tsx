@@ -37,6 +37,7 @@ export default function RecapitalizationTracker() {
     const [filterPriority, setFilterPriority] = useState("all");
     const [filterTeam, setFilterTeam] = useState("all");
     const [filterOwner, setFilterOwner] = useState("all");
+    const [filterExternal, setFilterExternal] = useState("all");
 
     const [overdueOnly, setOverdueOnly] = useState(false);
     const [myItems, setMyItems] = useState(false);
@@ -54,6 +55,7 @@ export default function RecapitalizationTracker() {
     const [publishText, setPublishText] = useState("");
     const [pendingStatuses, setPendingStatuses] = useState<Record<string, string>>({});
     const [confirmAction, setConfirmAction] = useState<{ title: string; action: () => void } | null>(null);
+    const [pendingAssign, setPendingAssign] = useState<{ req: RecapRequest; owner: string } | null>(null);
 
     const selectAllRef = useRef<HTMLInputElement>(null);
 
@@ -97,8 +99,11 @@ export default function RecapitalizationTracker() {
         if (filterOwner !== "all") result = result.filter(r => (r.owner || "Unassigned") === filterOwner);
         if (overdueOnly) result = result.filter(r => r.status === "Overdue");
         if (myItems) result = result.filter(r => r.owner === "Sarah Chen");
+        if (filterExternal === "internal") result = result.filter(r => !(r as any)._publishedExternal && r.status !== "Complete");
+        if (filterExternal === "ready") result = result.filter(r => !(r as any)._publishedExternal && r.status === "Complete");
+        if (filterExternal === "published") result = result.filter(r => (r as any)._publishedExternal);
         return result;
-    }, [allRequests, search, filterTxn, filterStatus, filterPriority, filterTeam, filterOwner, overdueOnly, myItems, publishedBatchId, sourcePackageId, sourceIntakeId]);
+    }, [allRequests, search, filterTxn, filterStatus, filterPriority, filterTeam, filterOwner, filterExternal, overdueOnly, myItems, publishedBatchId, sourcePackageId, sourceIntakeId]);
 
     const totalActiveRequests = useMemo(() => allRequests.filter(r => r._publishedAt || r._createdFromReview).length, [allRequests]);
 
@@ -157,7 +162,13 @@ export default function RecapitalizationTracker() {
         setRefreshKey(k => k + 1);
         setBulkModalOpen(false);
         setBulkEdit({ owner: "", team: "", priority: "", status: "", dueDate: "", visible: "" });
-        setBulkToast(`Updated ${ids.length} request${ids.length !== 1 ? "s" : ""}`);
+        const parts: string[] = [];
+        if (bulkEdit.owner) parts.push(`Owner: ${bulkEdit.owner === "__unset" ? "Unassigned" : bulkEdit.owner}`);
+        if (bulkEdit.team) parts.push(`Team: ${bulkEdit.team}`);
+        if (bulkEdit.status) parts.push(`Status: ${bulkEdit.status}`);
+        if (bulkEdit.priority) parts.push(`Priority: ${bulkEdit.priority}`);
+        if (bulkEdit.dueDate) parts.push(`Due: ${bulkEdit.dueDate}`);
+        setBulkToast(`Bulk update complete. ${ids.length} request${ids.length !== 1 ? "s" : ""} updated.${parts.length > 0 ? " " + parts.join(" | ") : ""}`);
     }
 
     function handleStatusChange(req: RecapRequest, newStatus: RecapRequest["status"]) {
@@ -237,6 +248,12 @@ export default function RecapitalizationTracker() {
                         <input type="checkbox" checked={overdueOnly} onChange={e => setOverdueOnly(e.target.checked)} />
                         Overdue Only
                     </label>
+                    <select className="rc-filter-select" value={filterExternal} onChange={e => setFilterExternal(e.target.value)} style={{ fontSize: 11, minWidth: 100 }}>
+                        <option value="all">All External</option>
+                        <option value="internal">Internal Only</option>
+                        <option value="ready">Ready to Publish</option>
+                        <option value="published">Published External</option>
+                    </select>
                     <div className="rc-toggle-group">
                         <button className={`rc-toggle-btn${!myItems ? " rc-toggle-active" : ""}`} onClick={() => setMyItems(false)}>All Items</button>
                         <button className={`rc-toggle-btn${myItems ? " rc-toggle-active" : ""}`} onClick={() => setMyItems(true)}>My Items</button>
@@ -248,26 +265,26 @@ export default function RecapitalizationTracker() {
                         <span className="rc-bulk-count">{selectedIds.size}</span>
                         <span>selected</span>
                         <div className="rc-bulk-sep" />
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setBulkEdit({ owner: "", team: "", priority: "", status: "", dueDate: "", visible: "" }); setBulkModalOpen(true); }}>Bulk Update</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setRouteModalOpen(true); }}>Route to Team</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const ids = [...selectedIds]; const members = getTeamMembers(); if (members.length > 0) setConfirmAction({ title: `Assign ${ids.length} item${ids.length !== 1 ? "s" : ""} to ${members[0].name}?`, action: () => { bulkUpdateDemoRequests(ids, { owner: members[0].name, assignedTo: members[0].name }); setRefreshKey(k => k + 1); setBulkToast(`Assigned ${ids.length} request${ids.length !== 1 ? "s" : ""} to ${members[0].name}`); }}); }}>Assign</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const ids = [...selectedIds]; setConfirmAction({ title: `Mark ${ids.length} item${ids.length !== 1 ? "s" : ""} as Duplicate?`, action: () => { ids.forEach(id => updateRequestStatus(id, "Duplicate" as any)); setRefreshKey(k => k + 1); setBulkToast(`Marked ${ids.length} request${ids.length !== 1 ? "s" : ""} as Duplicate`); } }); }}>Mark Duplicate</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const ids = [...selectedIds]; setConfirmAction({ title: `Mark ${ids.length} item${ids.length !== 1 ? "s" : ""} as Not Applicable?`, action: () => { ids.forEach(id => updateRequestStatus(id, "Not Applicable" as any)); setRefreshKey(k => k + 1); setBulkToast(`Marked ${ids.length} request${ids.length !== 1 ? "s" : ""} as Not Applicable`); } }); }}>Mark Not Applicable</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ color: "#991b1b" }} onClick={() => { const ids = [...selectedIds]; setConfirmAction({ title: `Reject ${ids.length} item${ids.length !== 1 ? "s" : ""}?`, action: () => { ids.forEach(id => updateRequestStatus(id, "Rejected" as any)); setRefreshKey(k => k + 1); setBulkToast(`Rejected ${ids.length} request${ids.length !== 1 ? "s" : ""}`); } }); }}>Reject</button>
-                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { const ids = [...selectedIds]; setConfirmAction({ title: `Mark ${ids.length} item${ids.length !== 1 ? "s" : ""} Complete?`, action: () => { ids.forEach(id => updateRequestStatus(id, "Complete" as any)); setRefreshKey(k => k + 1); setBulkToast(`Marked ${ids.length} request${ids.length !== 1 ? "s" : ""} Complete`); } }); }}>Mark Complete</button>
+                        <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => { setBulkEdit({ owner: "", team: "", priority: "", status: "", dueDate: "", visible: "" }); setBulkModalOpen(true); }}>Bulk Update</button>
                         <div className="rc-bulk-sep" />
                         <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={clearSelection}>Clear Selection</button>
                     </div>
                 )}
             </div>
 
+            {bulkToast && (
+                <div style={{ padding: "8px 14px", marginBottom: 12, borderRadius: 6, background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 10 }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                    <span>{bulkToast}</span>
+                    <button style={{ background: "none", border: "none", color: "#166534", marginLeft: "auto", cursor: "pointer", fontSize: 14, fontWeight: 700, padding: 0, lineHeight: 1 }} onClick={() => setBulkToast("")}>&times;</button>
+                </div>
+            )}
+
             <div className="rc-table-wrap-scroll">
                 <div className="rc-action-key">
-                    <span style={{ fontWeight: 600, color: "#475569" }}>Actions:</span>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ fontSize: 14 }}>&#9998;</span> Edit</span>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ color: "#1d4ed8", fontWeight: 700, fontSize: 12 }}>R</span> Review</span>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ color: "#166534", fontWeight: 700, fontSize: 12 }}>P</span> Publish</span>
-                    <span style={{ color: "#94a3b8", fontSize: 10, marginLeft: "auto" }}>&#9998; Open Workspace &middot; R Respond Externally &middot; P Publish to External Portal</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12 }}><span style={{ fontSize: 14 }}>&#9998;</span> <strong>Open Workspace</strong></span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12 }}><span style={{ color: "#1d4ed8", fontWeight: 700, fontSize: 13 }}>R</span> <strong>Review / Respond</strong></span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12 }}><span style={{ color: "#166534", fontWeight: 700, fontSize: 13 }}>P</span> <strong>Publish External</strong></span>
                 </div>
                 <table className="rc-table">
                     <thead>
@@ -286,6 +303,7 @@ export default function RecapitalizationTracker() {
                             <th>Deliverable</th>
                             <th>Community</th>
                             <th>Status</th>
+                            <th style={{ fontSize: 10 }}>External</th>
                             <th>Priority</th>
                             <th>Owner</th>
                             <th>Category</th>
@@ -309,7 +327,7 @@ export default function RecapitalizationTracker() {
                                 <td style={{ fontWeight: 600, fontSize: 12, color: "#334155" }}>{req.requestId}</td>
                                 <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 200 }}>
                                     {req._publishedAt && new Date(req._publishedAt).getTime() > Date.now() - 86400000 && (
-                                        <span className="rc-badge rc-badge-visible" style={{ fontSize: 9, padding: "1px 5px", marginRight: 6, verticalAlign: "middle" }}>Newly Published</span>
+                                        <span className="rc-badge rc-badge-visible" style={{ fontSize: 9, padding: "1px 5px", marginRight: 6, verticalAlign: "middle" }}>Newly Added</span>
                                     )}
                                     {req.title.split(" - ").slice(1).join(" - ").trim() || req.title}
                                 </td>
@@ -330,11 +348,21 @@ export default function RecapitalizationTracker() {
                                         )}
                                     </div>
                                 </td>
+                                <td style={{ fontSize: 11 }}>
+                                    <span style={{
+                                        display: "inline-block", padding: "1px 6px", borderRadius: 3, fontSize: 10, fontWeight: 700,
+                                        background: (req as any)._publishedExternal ? "#f0fdf4" : (req.status === "Complete" ? "#fffbeb" : "#f1f5f9"),
+                                        color: (req as any)._publishedExternal ? "#166534" : (req.status === "Complete" ? "#92400e" : "#94a3b8"),
+                                        border: `1px solid ${(req as any)._publishedExternal ? "#bbf7d0" : (req.status === "Complete" ? "#fde68a" : "#e2e8f0")}`,
+                                    }}>
+                                        {(req as any)._publishedExternal ? "Published External" : req.status === "Complete" ? "Ready to Publish" : "Internal Only"}
+                                    </span>
+                                </td>
                                 <td><span className={`rc-badge rc-badge-${req.priority.toLowerCase()}`}>{req.priority}</span></td>
                                 <td onClick={e => e.stopPropagation()} style={{ fontSize: 12 }}>
                         <select
                             value={req.owner || ""}
-                            onChange={e => { const v = e.target.value; updateRequestOwner(req.id, v || null); setRefreshKey(k => k + 1); setBulkToast(v ? `Assigned ${req.requestId} to ${v}` : `${req.requestId}: Unassigned`); }}
+                            onChange={e => { if (e.target.value !== (req.owner || "")) setPendingAssign({ req, owner: e.target.value }); }}
                             style={{ fontSize: 12, padding: "2px 18px 2px 4px", borderRadius: 4, background: "#fff", color: req.owner ? "#111827" : "#64748b", fontWeight: 500, minWidth: 120, cursor: "pointer", border: "1px solid #d1d5db" }}
                         >
                             <option value="">Unassigned</option>
@@ -356,6 +384,31 @@ export default function RecapitalizationTracker() {
                     </tbody>
                 </table>
                 {filtered.length === 0 && <div className="rc-empty-state">No requests match your filters</div>}
+            {pendingAssign && (
+                <div className="rc-modal-overlay" onClick={() => setPendingAssign(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+                        <div className="rc-modal-header">
+                            <h2>Assign Owner</h2>
+                            <button className="rc-modal-close" onClick={() => setPendingAssign(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ fontSize: 14, color: "#1e293b", fontWeight: 500, margin: 0 }}>
+                                Assign <strong>{pendingAssign.req.requestId}</strong> &mdash; {pendingAssign.req.title.split(" - ").slice(1).join(" - ").trim() || pendingAssign.req.title} to <strong>{pendingAssign.owner || "Unassigned"}</strong>?
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setPendingAssign(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" onClick={() => {
+                                const v = pendingAssign.owner;
+                                updateRequestOwner(pendingAssign.req.id, v || null);
+                                setRefreshKey(k => k + 1);
+                                setBulkToast(v ? `Assigned ${pendingAssign.req.requestId} to ${v}` : `${pendingAssign.req.requestId}: Unassigned`);
+                                setPendingAssign(null);
+                            }}>Assign</button>
+                        </div>
+                    </div>
+                </div>
+            )}
             </div>
 
             <div style={{ fontSize: 12, color: "#64748b" }}>Showing {filtered.length} of {totalActiveRequests} requests</div>
@@ -514,12 +567,7 @@ export default function RecapitalizationTracker() {
                 </div>
             )}
 
-            {bulkToast && (
-                <div style={{ position: "fixed", bottom: 24, right: 24, background: "#0f172a", color: "#fff", padding: "10px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600, zIndex: 3000, boxShadow: "0 4px 16px rgba(0,0,0,0.2)" }}>
-                    {bulkToast}
-                    <button style={{ background: "none", border: "none", color: "#fff", marginLeft: 8, cursor: "pointer", fontSize: 12 }} onClick={() => setBulkToast("")}>OK</button>
-                </div>
-            )}
+
         </div>
     );
 }

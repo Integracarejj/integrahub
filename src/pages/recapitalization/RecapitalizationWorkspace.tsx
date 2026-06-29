@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { lookupWorkspaceItem, getDocumentsByTransaction, updateRequestStatus, updateRequestOwner, addActivityEntry, getCategories } from "../../services/recapDataService";
+import { lookupWorkspaceItem, getDocumentsByTransaction, updateRequestStatus, updateRequestOwner, addActivityEntry } from "../../services/recapDataService";
 import type { RecapRequest } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -70,7 +70,9 @@ export default function RecapitalizationWorkspace() {
     const [completionModal, setCompletionModal] = useState<{ note: string; readyForReview: boolean } | null>(null);
     const [workArtifacts, setWorkArtifacts] = useState<{ id: string; name: string; size: number; uploadedAt: string }[]>([]);
     const [completionSummary, setCompletionSummary] = useState<{ completedBy: string; completedDate: string; completionNotes: string; supportingArtifacts: string[]; reviewer: string } | null>(null);
-    const [publishWizard, setPublishWizard] = useState<{ step: number; publishExternal: boolean; promoteToLibrary: boolean; ddCategory: string } | null>(null);
+    const [artifactBanner, setArtifactBanner] = useState<string | null>(null);
+    const [publishExternal, setPublishExternal] = useState<{ step: number; selectedArtifacts: string[] } | null>(null);
+    const [rddPrompt, setRddPrompt] = useState<{ requestId: string; title: string; category: string; publishExternal: boolean } | null>(null);
 
     const backFrom = (location.state as any)?.from || "tracker";
     const backLabel = backFrom === "my-work" ? "Back to My Work" : "Back to Work Queue";
@@ -313,7 +315,7 @@ export default function RecapitalizationWorkspace() {
                                     Clarify
                                 </button>
                                 <button
-                                    onClick={() => setPublishWizard({ step: 1, publishExternal: false, promoteToLibrary: false, ddCategory: "" })}
+                                    onClick={() => setPublishExternal({ step: 1, selectedArtifacts: workArtifacts.map(a => a.name) })}
                                     disabled={displayStatus !== "Complete"}
                                     title={displayStatus !== "Complete" ? "Publishing requires Complete status" : "Publish this deliverable"}
                                     style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "7px 10px", fontSize: 12, fontWeight: 600, borderRadius: 6, background: displayStatus === "Complete" ? "#1d4ed8" : "#f1f5f9", color: displayStatus === "Complete" ? "#fff" : "#94a3b8", border: "none", cursor: displayStatus === "Complete" ? "pointer" : "not-allowed" }}
@@ -429,8 +431,7 @@ export default function RecapitalizationWorkspace() {
                                         }));
                                         setWorkArtifacts(prev => [...prev, ...newArtifacts]);
                                         if (files.length > 0) {
-                                            setBanner(`\u2713 ${files.length} work artifact${files.length !== 1 ? "s" : ""} uploaded`);
-                                            setBannerError(false);
+                                            setArtifactBanner(`\u2713 ${files.length} work artifact${files.length !== 1 ? "s" : ""} uploaded`);
                                         }
                                     }}
                                     style={{ border: "2px dashed #d1d5db", borderRadius: 8, padding: "20px 16px", textAlign: "center", cursor: "pointer", background: "#fafbfc", transition: "border-color 0.15s, background 0.15s" }}
@@ -457,13 +458,20 @@ export default function RecapitalizationWorkspace() {
                                             }));
                                             setWorkArtifacts(prev => [...prev, ...newArtifacts]);
                                             if (files.length > 0) {
-                                                setBanner(`\u2713 ${files.length} work artifact${files.length !== 1 ? "s" : ""} uploaded`);
-                                                setBannerError(false);
+                                                setArtifactBanner(`\u2713 ${files.length} work artifact${files.length !== 1 ? "s" : ""} uploaded`);
                                             }
                                             e.target.value = "";
                                         }}
                                     />
-                                </div>
+                                    </div>
+
+                                {artifactBanner && (
+                                    <div style={{ padding: "6px 10px", marginTop: 6, borderRadius: 6, background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                                        <span style={{ flex: 1 }}>{artifactBanner}</span>
+                                        <button style={{ background: "none", border: "none", color: "#166534", cursor: "pointer", fontSize: 14, fontWeight: 700, padding: 0, lineHeight: 1 }} onClick={() => setArtifactBanner(null)}>&times;</button>
+                                    </div>
+                                )}
 
                                 {/* Artifact list */}
                                 {workArtifacts.length > 0 && (
@@ -698,185 +706,213 @@ export default function RecapitalizationWorkspace() {
                 </div>
             )}
 
-            {publishWizard && (
-                <div className="rc-modal-overlay" onClick={() => setPublishWizard(null)}>
-                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 540 }}>
+            {publishExternal && (
+                <div className="rc-modal-overlay" onClick={() => { if (publishExternal.step < 3) setPublishExternal(null); }}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
                         <div className="rc-modal-header">
                             <h2>
-                                {publishWizard.step === 1 && "Publish: Review Details"}
-                                {publishWizard.step === 2 && "Publish: External Portal"}
-                                {publishWizard.step === 3 && "Publish: DD Library"}
-                                {publishWizard.step === 4 && "Publish: Complete"}
+                                {publishExternal.step === 1 && "Publish to External Portal"}
+                                {publishExternal.step === 2 && "Confirm External Publication"}
+                                {publishExternal.step === 3 && "Published Externally"}
                             </h2>
-                            <button className="rc-modal-close" onClick={() => setPublishWizard(null)}>&times;</button>
+                            <button className="rc-modal-close" onClick={() => setPublishExternal(null)}>&times;</button>
                         </div>
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
                             {/* Step indicator */}
                             <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-                                {[1, 2, 3, 4].map(s => (
-                                    <div key={s} style={{ flex: 1, height: 3, borderRadius: 2, background: s <= publishWizard.step ? "#1d4ed8" : "#e2e8f0", transition: "background 0.2s" }} />
+                                {[1, 2, 3].map(s => (
+                                    <div key={s} style={{ flex: 1, height: 3, borderRadius: 2, background: s <= publishExternal.step ? "#1d4ed8" : "#e2e8f0", transition: "background 0.2s" }} />
                                 ))}
                             </div>
-                            <div style={{ fontSize: 11, color: "#64748b", marginBottom: 12, fontWeight: 600 }}>Step {publishWizard.step} of 4</div>
+                            <div style={{ fontSize: 11, color: "#64748b", marginBottom: 12, fontWeight: 600 }}>Step {publishExternal.step} of 3</div>
 
-                            {publishWizard.step === 1 && (
-                                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", marginBottom: 4 }}>Review Request Details</div>
+                            {publishExternal.step === 1 && (
+                                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", marginBottom: 4 }}>Review Details</div>
                                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                                         <div>
                                             <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Request ID</div>
                                             <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{displayId}</div>
                                         </div>
                                         <div>
+                                            <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Intake ID</div>
+                                            <div style={{ fontSize: 13, color: "#334155" }}>{item.intakeId || "\u2014"}</div>
+                                        </div>
+                                        <div style={{ gridColumn: "1 / -1" }}>
                                             <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Deliverable</div>
                                             <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{displayTitle || item.category || "\u2014"}</div>
                                         </div>
                                         <div>
-                                            <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Category</div>
-                                            <div style={{ fontSize: 13, color: "#334155" }}>{item.category || "\u2014"}</div>
+                                            <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Completed By</div>
+                                            <div style={{ fontSize: 13, color: "#334155" }}>{completionSummary?.completedBy || internalOwner || "\u2014"}</div>
                                         </div>
                                         <div>
-                                            <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Transaction</div>
-                                            <div style={{ fontSize: 13, color: "#334155" }}>{transaction.name}</div>
-                                        </div>
-                                        <div>
-                                            <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Status</div>
-                                            <div style={{ fontSize: 13, fontWeight: 600, color: "#166534" }}>{displayStatus}</div>
-                                        </div>
-                                        <div>
-                                            <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Internal Owner</div>
-                                            <div style={{ fontSize: 13, color: "#334155" }}>{internalOwner || "\u2014"}</div>
+                                            <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Completed Date</div>
+                                            <div style={{ fontSize: 13, color: "#334155" }}>{completionSummary?.completedDate || "\u2014"}</div>
                                         </div>
                                     </div>
-                                    {completionSummary && (
-                                        <div style={{ padding: "8px 12px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 6, fontSize: 12, color: "#166534", display: "flex", alignItems: "center", gap: 6 }}>
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
-                                            Work marked Complete on {completionSummary.completedDate}
+                                    {completionSummary?.completionNotes && (
+                                        <div style={{ padding: "8px 12px", background: "#f8faff", border: "1px solid #dbeafe", borderRadius: 6 }}>
+                                            <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Completion Summary</div>
+                                            <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.5 }}>{completionSummary.completionNotes}</div>
                                         </div>
                                     )}
-                                </div>
-                            )}
-
-                            {publishWizard.step === 2 && (
-                                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Publish to External Portal?</div>
-                                    <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
-                                        Publishing makes the deliverable and its supporting artifacts visible to external users (brokers, buyers) through the external portal. Clarifications and published documents will be shared.
-                                    </div>
-                                    <div style={{ display: "flex", gap: 8 }}>
-                                        <button
-                                            onClick={() => setPublishWizard(prev => prev ? { ...prev, publishExternal: true } : null)}
-                                            style={{ flex: 1, padding: "10px 14px", fontSize: 13, fontWeight: 600, borderRadius: 8, border: publishWizard.publishExternal ? "2px solid #1d4ed8" : "1px solid #e2e8f0", background: publishWizard.publishExternal ? "#eff6ff" : "#fff", color: "#1e293b", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}
-                                        >
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={publishWizard.publishExternal ? "#1d4ed8" : "#64748b"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a3 3 0 1 0 3.99 3.98m-9.19-1.17L2 21l2.44-2.44m5.57-5.57L18 5l3 3L13.01 13.01" /></svg>
-                                            <span>Yes, publish externally</span>
-                                            <span style={{ fontSize: 11, color: "#64748b", fontWeight: 400 }}>Visible on portal</span>
-                                        </button>
-                                        <button
-                                            onClick={() => setPublishWizard(prev => prev ? { ...prev, publishExternal: false } : null)}
-                                            style={{ flex: 1, padding: "10px 14px", fontSize: 13, fontWeight: 600, borderRadius: 8, border: !publishWizard.publishExternal ? "2px solid #1d4ed8" : "1px solid #e2e8f0", background: !publishWizard.publishExternal ? "#f1f5f9" : "#fff", color: "#1e293b", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}
-                                        >
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={!publishWizard.publishExternal ? "#475569" : "#64748b"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" /><line x1="12" y1="7" x2="12" y2="17" /><polyline points="9 10 12 7 15 10" /></svg>
-                                            <span>No, keep internal only</span>
-                                            <span style={{ fontSize: 11, color: "#64748b", fontWeight: 400 }}>Internal team only</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {publishWizard.step === 3 && (
-                                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Promote to Reusable DD Library?</div>
-                                    <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
-                                        Promoting to the DD Library makes this deliverable available as a reusable resource across transactions. Select a category to organize it.
-                                    </div>
-                                    <div style={{ display: "flex", gap: 8 }}>
-                                        <button
-                                            onClick={() => setPublishWizard(prev => prev ? { ...prev, promoteToLibrary: true } : null)}
-                                            style={{ flex: 1, padding: "10px 14px", fontSize: 13, fontWeight: 600, borderRadius: 8, border: publishWizard.promoteToLibrary ? "2px solid #1d4ed8" : "1px solid #e2e8f0", background: publishWizard.promoteToLibrary ? "#eff6ff" : "#fff", color: "#1e293b", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}
-                                        >
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={publishWizard.promoteToLibrary ? "#1d4ed8" : "#64748b"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
-                                            <span>Yes, promote to library</span>
-                                            <span style={{ fontSize: 11, color: "#64748b", fontWeight: 400 }}>Make reusable</span>
-                                        </button>
-                                        <button
-                                            onClick={() => setPublishWizard(prev => prev ? { ...prev, promoteToLibrary: false } : null)}
-                                            style={{ flex: 1, padding: "10px 14px", fontSize: 13, fontWeight: 600, borderRadius: 8, border: !publishWizard.promoteToLibrary ? "2px solid #1d4ed8" : "1px solid #e2e8f0", background: !publishWizard.promoteToLibrary ? "#f1f5f9" : "#fff", color: "#1e293b", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}
-                                        >
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={!publishWizard.promoteToLibrary ? "#475569" : "#64748b"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" /><line x1="12" y1="7" x2="12" y2="17" /><polyline points="9 10 12 7 15 10" /></svg>
-                                            <span>No, keep as-is</span>
-                                            <span style={{ fontSize: 11, color: "#64748b", fontWeight: 400 }}>Not promoted</span>
-                                        </button>
-                                    </div>
-                                    {publishWizard.promoteToLibrary && (
-                                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                            <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>DD Library Category</label>
-                                            <select
-                                                value={publishWizard.ddCategory}
-                                                onChange={e => setPublishWizard(prev => prev ? { ...prev, ddCategory: e.target.value } : null)}
-                                                style={{ padding: "7px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, color: "#0f172a", background: "#fff" }}
-                                            >
-                                                <option value="">Select category...</option>
-                                                {getCategories().map(c => (
-                                                    <option key={c.id} value={c.name}>{c.name}</option>
-                                                ))}
-                                            </select>
+                                    {workArtifacts.length > 0 ? (
+                                        <div>
+                                            <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 4 }}>Work Artifacts</div>
+                                            {workArtifacts.map(art => (
+                                                <label key={art.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 12, color: "#1e293b", cursor: "pointer" }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={publishExternal.selectedArtifacts.includes(art.name)}
+                                                        onChange={e => {
+                                                            if (e.target.checked) {
+                                                                setPublishExternal(prev => prev ? { ...prev, selectedArtifacts: [...prev.selectedArtifacts, art.name] } : null);
+                                                            } else {
+                                                                setPublishExternal(prev => prev ? { ...prev, selectedArtifacts: prev.selectedArtifacts.filter(n => n !== art.name) } : null);
+                                                            }
+                                                        }}
+                                                    />
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
+                                                    <span>{art.name}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div style={{ padding: "8px 12px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, fontSize: 12, color: "#92400e" }}>
+                                            <strong>Warning:</strong> No artifacts are attached to this request. Publishing with no supporting documents will share minimal information.
                                         </div>
                                     )}
+                                    <div style={{ padding: "8px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b", display: "flex", alignItems: "center", gap: 6 }}>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                        You are about to make this request and selected documents visible to the external broker/buyer portal.
+                                    </div>
                                 </div>
                             )}
 
-                            {publishWizard.step === 4 && (
+                            {publishExternal.step === 2 && (
+                                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Confirm External Publication</div>
+                                    <div style={{ padding: "8px 12px", background: "#f8faff", border: "1px solid #dbeafe", borderRadius: 6 }}>
+                                        <div style={{ fontSize: 11, color: "#475569", marginBottom: 4 }}><strong>Request ID:</strong> {displayId}</div>
+                                        <div style={{ fontSize: 11, color: "#475569", marginBottom: 4 }}><strong>Deliverable:</strong> {displayTitle || item.category || "\u2014"}</div>
+                                        {publishExternal.selectedArtifacts.length > 0 && (
+                                            <div style={{ fontSize: 11, color: "#475569" }}><strong>Documents ({publishExternal.selectedArtifacts.length}):</strong> {publishExternal.selectedArtifacts.join(", ")}</div>
+                                        )}
+                                    </div>
+                                    <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
+                                        Please confirm you want to publish these materials externally.
+                                    </div>
+                                </div>
+                            )}
+
+                            {publishExternal.step === 3 && (
                                 <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "center", textAlign: "center", padding: "12px 0" }}>
                                     <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
                                     </div>
-                                    <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Publish Complete</div>
-                                    <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.5, maxWidth: 340 }}>
-                                        {publishWizard.publishExternal
-                                            ? "This deliverable has been published and is now visible on the external portal."
-                                            : "Publishing complete. This deliverable remains internal only."}
-                                        {publishWizard.promoteToLibrary && " It has also been promoted to the DD Library."}
+                                    <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Published Externally</div>
+                                    <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.5, maxWidth: 380 }}>
+                                        {displayId} &mdash; {displayTitle || item.category || "Item"} is now visible to the external portal.
                                     </div>
-                                    <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", textAlign: "left", padding: "8px 12px", background: "#f8faff", border: "1px solid #dbeafe", borderRadius: 6, fontSize: 12, color: "#334155" }}>
-                                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                            <span style={{ color: "#475569" }}>External Portal</span>
-                                            <span style={{ fontWeight: 600 }}>{publishWizard.publishExternal ? "Published" : "Not published"}</span>
+                                    {publishExternal.selectedArtifacts.length > 0 && (
+                                        <div style={{ fontSize: 12, color: "#475569" }}>
+                                            Published documents: {publishExternal.selectedArtifacts.join(", ")}
                                         </div>
-                                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                            <span style={{ color: "#475569" }}>DD Library</span>
-                                            <span style={{ fontWeight: 600 }}>{publishWizard.promoteToLibrary ? `Promoted (${publishWizard.ddCategory})` : "Not promoted"}</span>
-                                        </div>
-                                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                            <span style={{ color: "#475569" }}>Published By</span>
-                                            <span style={{ fontWeight: 600 }}>Sarah Chen</span>
-                                        </div>
-                                    </div>
+                                    )}
                                 </div>
                             )}
                         </div>
                         <div className="rc-modal-footer">
-                            {publishWizard.step < 4 && (
-                                <button className="rc-btn rc-btn-ghost" onClick={() => setPublishWizard(null)}>Cancel</button>
+                            {publishExternal.step < 3 && (
+                                <button className="rc-btn rc-btn-ghost" onClick={() => setPublishExternal(null)}>Cancel</button>
                             )}
-                            {publishWizard.step > 1 && publishWizard.step < 4 && (
-                                <button className="rc-btn rc-btn-secondary" onClick={() => setPublishWizard(prev => prev ? { ...prev, step: prev.step - 1 } : null)}>Back</button>
+                            {publishExternal.step === 2 && (
+                                <button className="rc-btn rc-btn-secondary" onClick={() => setPublishExternal(prev => prev ? { ...prev, step: 1 } : null)}>Back</button>
                             )}
-                            {publishWizard.step < 4 ? (
-                                <button
-                                    className="rc-btn rc-btn-primary"
-                                    disabled={publishWizard.step === 3 && publishWizard.promoteToLibrary && !publishWizard.ddCategory}
-                                    onClick={() => setPublishWizard(prev => prev ? { ...prev, step: prev.step + 1 } : null)}
-                                >
-                                    {publishWizard.step === 1 ? "Continue" : publishWizard.step === 2 ? "Continue" : "Publish"}
-                                </button>
-                            ) : (
+                            {publishExternal.step === 1 && (
+                                <button className="rc-btn rc-btn-primary" onClick={() => setPublishExternal(prev => prev ? { ...prev, step: 2 } : null)}>Continue</button>
+                            )}
+                            {publishExternal.step === 2 && (
                                 <button className="rc-btn rc-btn-primary" onClick={() => {
-                                    setPublishWizard(null);
-                                    setBanner("\u2713 Published successfully");
+                                    setPublishExternal(prev => prev ? { ...prev, step: 3 } : null);
+                                    // Set the item as published externally
+                                    const now = new Date().toISOString().split("T")[0];
+                                    if (item) { (item as any)._publishedExternal = true; (item as any)._publishedExternalAt = now; }
+                                    setBanner("\u2713 Published externally");
                                     setBannerError(false);
-                                }}>Done</button>
+                                }}>Confirm Publish External</button>
                             )}
+                            {publishExternal.step === 3 && (
+                                <div style={{ display: "flex", gap: 8, width: "100%" }}>
+                                    <button className="rc-btn rc-btn-primary" style={{ flex: 1 }} onClick={() => {
+                                        // Set rddPrompt to trigger RDD prompt
+                                        setRddPrompt({
+                                            requestId: displayId,
+                                            title: displayTitle || item.category || "",
+                                            category: item.category || "",
+                                            publishExternal: true,
+                                        });
+                                        setPublishExternal(null);
+                                    }}>Continue</button>
+                                    <button className="rc-btn rc-btn-secondary" onClick={() => { setPublishExternal(null); navigate("/recapitalization/tracker"); }}>Return to Work Queue</button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {rddPrompt && (
+                <div className="rc-modal-overlay" onClick={() => setRddPrompt(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="rc-modal-header">
+                            <h2>Promote to Reusable DD Library?</h2>
+                            <button className="rc-modal-close" onClick={() => setRddPrompt(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
+                                    This deliverable was published externally. Would you like to promote it to the Reusable DD Library for use across future transactions?
+                                </div>
+                                <div style={{ padding: "8px 12px", background: "#f8faff", border: "1px solid #dbeafe", borderRadius: 6 }}>
+                                    <div style={{ fontSize: 11, color: "#475569", marginBottom: 4 }}><strong>Request ID:</strong> {rddPrompt.requestId}</div>
+                                    <div style={{ fontSize: 11, color: "#475569", marginBottom: 4 }}><strong>Deliverable:</strong> {rddPrompt.title}</div>
+                                    <div style={{ fontSize: 11, color: "#475569", marginBottom: 4 }}><strong>Category:</strong> {rddPrompt.category}</div>
+                                </div>
+                                {/* Recommendation */}
+                                {(() => {
+                                    const reusableKeywords = ["policy", "handbook", "template", "license", "certificate", "insurance", "osha", "compliance", "contract", "benefit", "guideline", "procedure", "standard"];
+                                    const transactionKeywords = ["payroll", "utility", "expense", "census", "aging", "financial", "bank", "statement", "register", "history"];
+                                    const cat = (rddPrompt.category || "").toLowerCase();
+                                    const tit = (rddPrompt.title || "").toLowerCase();
+                                    const isReusable = reusableKeywords.some(k => cat.includes(k) || tit.includes(k));
+                                    const isTransactionSpecific = transactionKeywords.some(k => cat.includes(k) || tit.includes(k));
+                                    let recommendation = "";
+                                    let reason = "";
+                                    if (isReusable && !isTransactionSpecific) {
+                                        recommendation = "Promote to RDD";
+                                        reason = "This deliverable type is typically reusable across transactions.";
+                                    } else if (isTransactionSpecific) {
+                                        recommendation = "Do not promote";
+                                        reason = "This deliverable appears transaction-specific and may not be reusable.";
+                                    } else {
+                                        recommendation = "Promote to RDD";
+                                        reason = "Could be reusable based on general classification.";
+                                    }
+                                    return (
+                                        <div style={{ padding: "8px 12px", background: recommendation === "Promote to RDD" ? "#f0fdf4" : "#fffbeb", border: `1px solid ${recommendation === "Promote to RDD" ? "#bbf7d0" : "#fde68a"}`, borderRadius: 6 }}>
+                                            <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 4 }}>AI Recommendation</div>
+                                            <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{recommendation}</div>
+                                            <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>{reason}</div>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => { setRddPrompt(null); setBanner("\u2713 Published externally. RDD promotion skipped."); setBannerError(false); }}>Skip for Now</button>
+                            <button className="rc-btn rc-btn-primary" onClick={() => { setRddPrompt(null); setBanner("\u2713 Published externally. RDD promotion queued."); setBannerError(false); }}>Promote to RDD</button>
                         </div>
                     </div>
                 </div>
