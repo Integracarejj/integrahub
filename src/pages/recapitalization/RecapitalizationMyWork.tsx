@@ -19,10 +19,18 @@ export default function RecapitalizationMyWork() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [activeCard, setActiveCard] = useState<CardFilter>("all");
     const [activeView, setActiveView] = useState<"assigned-to-me" | "my-team" | "needs-dd-review" | "recently-updated">("assigned-to-me");
-    const [pendingStatuses, setPendingStatuses] = useState<Record<string, string>>({});
+    const [statusConfirm, setStatusConfirm] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
     const [confirmAction, setConfirmAction] = useState<{ title: string; action: () => void } | null>(null);
     const members = getTeamMembers();
     const allRequests = useMemo(() => getRequests(), [refreshKey]);
+
+    const currentUser = useMemo(() => members.find(m => m.name === activeUser), [members, activeUser]);
+    const canSeeExtendedTabs = useMemo(() => {
+        if (!currentUser) return false;
+        const ddTeams = ["DD Management"];
+        const ddRoles = ["Manager", "Director", "Lead", "Admin"];
+        return ddTeams.includes(currentUser.team) || ddRoles.some(r => currentUser.role.includes(r));
+    }, [currentUser]);
 
     // Only show published/createdFromReview items
     const publishedRequests = useMemo(() => allRequests.filter(r => r._publishedAt || r._createdFromReview), [allRequests]);
@@ -177,17 +185,15 @@ export default function RecapitalizationMyWork() {
                             <td onClick={e => e.stopPropagation()}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                     <select
-                                        value={pendingStatuses[req.id] ?? req.status}
-                                        onChange={e => setPendingStatuses(prev => ({ ...prev, [req.id]: e.target.value }))}
-                                        style={{ fontSize: 10, padding: "2px 18px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 100, cursor: "pointer", border: pendingStatuses[req.id] && pendingStatuses[req.id] !== req.status ? "1px solid #1d4ed8" : "1px solid #d1d5db" }}
+                                        value={req.status}
+                                        onChange={e => {
+                                            const newStatus = e.target.value;
+                                            if (newStatus !== req.status) setStatusConfirm({ req, newStatus });
+                                        }}
+                                        style={{ fontSize: 10, padding: "2px 18px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 100, cursor: "pointer", border: "1px solid #d1d5db" }}
                                     >
                                         {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>
-                                    {pendingStatuses[req.id] && pendingStatuses[req.id] !== req.status && (
-                                        <button className="rc-btn rc-btn-primary rc-btn-sm" style={{ fontSize: 9, padding: "1px 6px", whiteSpace: "nowrap" }} onClick={e => { e.stopPropagation(); handleStatusChange(req, pendingStatuses[req.id]); setPendingStatuses(prev => { const n = { ...prev }; delete n[req.id]; return n; }); }}>
-                                            Change to {pendingStatuses[req.id]}
-                                        </button>
-                                    )}
                                 </div>
                             </td>
                             <td className="nowrap" style={{ fontSize: 12, color: req.status === "Overdue" ? "#991b1b" : "#475569", fontWeight: req.status === "Overdue" ? 600 : 400 }}>{req.dueDate}</td>
@@ -265,7 +271,7 @@ export default function RecapitalizationMyWork() {
             )}
 
             <div className="rc-view-tabs" style={{ display: "flex", gap: 0, marginBottom: 16, borderBottom: "2px solid #e2e8f0" }}>
-                {(["assigned-to-me", "my-team", "needs-dd-review", "recently-updated"] as const).map(view => (
+                {(["assigned-to-me", ...(canSeeExtendedTabs ? ["my-team", "needs-dd-review", "recently-updated"] as const : [])] as const).map(view => (
                     <button key={view} onClick={() => { setActiveView(view); if (view !== "assigned-to-me") setActiveCard("all"); }}
                         style={{ padding: "8px 16px", fontSize: 13, fontWeight: activeView === view ? 700 : 500, color: activeView === view ? "#1d4ed8" : "#475569", background: "none", border: "none", borderBottom: activeView === view ? "2px solid #1d4ed8" : "2px solid transparent", marginBottom: -2, cursor: "pointer", transition: "all 0.15s" }}>
                         {view === "assigned-to-me" ? "Assigned to Me" : view === "my-team" ? "My Team" : view === "needs-dd-review" ? "Needs DD Review" : "Recently Updated"}
@@ -290,6 +296,29 @@ export default function RecapitalizationMyWork() {
                 </div>
             </div>
 
+
+            {statusConfirm && (
+                <div className="rc-modal-overlay" onClick={() => setStatusConfirm(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+                        <div className="rc-modal-header">
+                            <h2>Change Status</h2>
+                            <button className="rc-modal-close" onClick={() => setStatusConfirm(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ fontSize: 14, color: "#1e293b", fontWeight: 500, margin: 0 }}>
+                                Change <strong>{statusConfirm.req.requestId}</strong> &mdash; {statusConfirm.req.title.split(" - ").slice(1).join(" - ").trim() || statusConfirm.req.title} to <strong>{statusConfirm.newStatus}</strong>?
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setStatusConfirm(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" onClick={() => {
+                                handleStatusChange(statusConfirm.req, statusConfirm.newStatus);
+                                setStatusConfirm(null);
+                            }}>Change Status</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {confirmAction && (
                 <div className="rc-modal-overlay" onClick={() => setConfirmAction(null)}>

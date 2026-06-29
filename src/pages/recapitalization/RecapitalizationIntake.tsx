@@ -118,13 +118,13 @@ function ImportModal({ onClose, onImport }: { onClose: () => void; onImport: (na
                                 setTimeout(() => { setImporting(false); onImport("ABC_Company_Portfolio_Gold_Standard_DD_Package.xlsx"); }, 1200);
                             }}
                         >
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 8px" }}>
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 8px" }}>
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                                 <polyline points="17 8 12 3 7 8" />
                                 <line x1="12" y1="3" x2="12" y2="15" />
                             </svg>
                             <p style={{ fontSize: 13, fontWeight: 600, color: "#1e293b", margin: 0 }}>Drop your DD package here</p>
-                            <p style={{ fontSize: 11, color: "#64748b", margin: "4px 0 0" }}>or click to browse (mock import)</p>
+                            <p style={{ fontSize: 11, color: "#475569", margin: "4px 0 0" }}>or click to browse (mock import)</p>
                         </div>
                     )}
                 </div>
@@ -550,7 +550,7 @@ function ReviewEngine() {
                                 <div style={{ flex: 1, height: 8, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
                                     <div style={{ height: "100%", width: `${(count / activeSummary.total) * 100}%`, background: "#4338ca", borderRadius: 4 }} />
                                 </div>
-                                <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b", minWidth: 30, textAlign: "right" }}>{count}</span>
+                                <span style={{ fontSize: 12, fontWeight: 600, color: "#475569", minWidth: 30, textAlign: "right" }}>{count}</span>
                             </div>
                         ))}
                     </div>
@@ -567,7 +567,7 @@ function ReviewEngine() {
                                 <div style={{ flex: 1, height: 8, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
                                     <div style={{ height: "100%", width: `${(count / activeSummary.total) * 100}%`, background: "#1d4ed8", borderRadius: 4 }} />
                                 </div>
-                                <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b", minWidth: 30, textAlign: "right" }}>{count}</span>
+                                <span style={{ fontSize: 12, fontWeight: 600, color: "#475569", minWidth: 30, textAlign: "right" }}>{count}</span>
                             </div>
                         ))}
                     </div>
@@ -620,7 +620,7 @@ function ReviewEngine() {
                     </h2>
                     <div className="rc-flex-center" style={{ gap: 8, flexWrap: "wrap" }}>
                         <div className="iq-search-box">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <circle cx="11" cy="11" r="8" />
                                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
                             </svg>
@@ -700,10 +700,10 @@ function ReviewEngine() {
                 )}
 
                 <div className="rc-card-body" style={{ padding: 0 }}>
-                    <div style={{ display: "flex", gap: 16, padding: "8px 16px", borderBottom: "1px solid #f1f5f9", fontSize: 11, color: "#64748b", flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 16, padding: "8px 16px", borderBottom: "1px solid #e2e8f0", fontSize: 11, color: "#475569", flexWrap: "wrap" }}>
                         <span><span style={{ color: "#d97706", fontWeight: 700 }}>&#9888;</span> Warning icon = potential duplicate detected</span>
                         <span>"Archive as Duplicate" moves items to <span style={{ fontWeight: 600 }}>Archived</span> state</span>
-                        <span>Empty values show <span style={{ color: "#94a3b8" }}>&mdash;</span></span>
+                        <span>Empty values show <span style={{ color: "#475569" }}>&mdash;</span></span>
                         <span>Click a row or <span style={{ color: "#4338ca" }}>View</span> to open the detail drawer</span>
                     </div>
 
@@ -737,7 +737,7 @@ function ReviewEngine() {
                                                     <td className="review-sticky-col review-sticky-id" style={{ color: "#475569", fontWeight: 500, fontSize: 11 }} title={r.intakeId}>
                                                         <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                                             {r._potentialDuplicate && <span title={DUP_TOOLTIP[r._duplicateType]} style={{ color: "#d97706", fontSize: 14, cursor: "help", flexShrink: 0 }}>&#9888;</span>}
-                                                            {r.intakeId || <span style={{ color: "#94a3b8" }}>&mdash;</span>}
+                                                            {r.intakeId || <span style={{ color: "#475569" }}>&mdash;</span>}
                                                         </span>
                                                     </td>
                                                     <td className="review-sticky-col review-sticky-deliverable" style={{ fontWeight: 600, color: "#0f172a", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r._deliverable || r.title}>
@@ -765,7 +765,7 @@ function ReviewEngine() {
                                                             <option value="Archived">Archived</option>
                                                         </select>
                                                     </td>
-                                                    <td style={{ color: "#475569" }}>{r.communityNames[0] || <span style={{ color: "#94a3b8" }}>&mdash;</span>}</td>
+                                                    <td style={{ color: "#475569" }}>{r.communityNames[0] || <span style={{ color: "#475569" }}>&mdash;</span>}</td>
                                                     <td onClick={(e) => e.stopPropagation()}>
                                                         <select value={r.category} onChange={e => { e.stopPropagation(); doEdit(r.id, { category: e.target.value }); }} style={SELECT_STYLE}>
                                                             {CATEGORIES_LIST.map(c => <option key={c} value={c}>{c}</option>)}
@@ -776,8 +776,8 @@ function ReviewEngine() {
                                                             {TEAMS_LIST.map(t => <option key={t} value={t}>{t}</option>)}
                                                         </select>
                                                     </td>
-                                                    <td style={{ color: r.owner ? "#1e293b" : "#94a3b8", fontSize: 12, whiteSpace: "nowrap" }}>
-                                                        {r.owner || <span style={{ color: "#94a3b8" }}>&mdash;</span>}
+                                                    <td style={{ color: r.owner ? "#1e293b" : "#475569", fontSize: 12, whiteSpace: "nowrap" }}>
+                                                        {r.owner || <span style={{ color: "#475569" }}>&mdash;</span>}
                                                     </td>
                                                 </tr>
                                             );
@@ -785,7 +785,7 @@ function ReviewEngine() {
                                     </tbody>
                                 </table>
                             </div>
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px", borderTop: "1px solid #e2e8f0", fontSize: 12, color: "#64748b" }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px", borderTop: "1px solid #e2e8f0", fontSize: 12, color: "#475569" }}>
                                 <span>Showing {rangeStart}&ndash;{rangeEnd} of {filtered.length} items</span>
                                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                                     <button className="rc-btn rc-btn-ghost rc-btn-sm" disabled={safePage === 0} onClick={() => setPage(safePage - 1)} style={{ fontSize: 11, padding: "2px 10px" }}>Previous</button>
@@ -797,7 +797,7 @@ function ReviewEngine() {
                     ) : (
                         <div className="iq-empty-inbox" style={{ padding: "40px 20px" }}>
                             <div className="iq-empty-icon">
-                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                                     <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
                                     <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
                                 </svg>
@@ -891,14 +891,14 @@ function RequestDetailDrawer({ item, onClose, onEdit, onChangeReviewState, revie
                             {item.title}
                         </p>
                         {item.description && (
-                            <p style={{ fontSize: 12, color: "#64748b", lineHeight: 1.4, margin: "6px 0 0" }}>
+                            <p style={{ fontSize: 12, color: "#475569", lineHeight: 1.4, margin: "6px 0 0" }}>
                                 {item.description}
                             </p>
                         )}
                         <div className="iq-detail-grid" style={{ marginTop: 8 }}>
                             <div className="rc-drawer-field">
                                 <span className="rc-drawer-field-label">Community</span>
-                                <span className="rc-drawer-field-value">{item.communityNames.join(", ") || <span style={{ color: "#94a3b8" }}>&mdash;</span>}</span>
+                                <span className="rc-drawer-field-value">{item.communityNames.join(", ") || <span style={{ color: "#475569" }}>&mdash;</span>}</span>
                             </div>
                         </div>
                     </div>
@@ -934,12 +934,12 @@ function RequestDetailDrawer({ item, onClose, onEdit, onChangeReviewState, revie
                             </div>
                             <div className="rc-drawer-field">
                                 <span className="rc-drawer-field-label">Internal Owner</span>
-                                <span className="rc-drawer-field-value" style={{ color: "#64748b", fontStyle: "italic" }}>Unassigned (assign after publish)</span>
+                                <span className="rc-drawer-field-value" style={{ color: "#475569", fontStyle: "italic" }}>Unassigned</span>
                             </div>
                             <div className="rc-drawer-field">
                                 <span className="rc-drawer-field-label">Potential Duplicate</span>
-                                <span className={`rc-drawer-field-value`} style={{ color: duplicateType !== "None" ? "#d97706" : "#94a3b8", fontWeight: duplicateType !== "None" ? 600 : 400 }}>
-                                    {duplicateType !== "None" ? <span>&#9888; {duplicateType}</span> : <span style={{ color: "#94a3b8" }}>&mdash;</span>}
+                                <span className={`rc-drawer-field-value`} style={{ color: duplicateType !== "None" ? "#d97706" : "#475569", fontWeight: duplicateType !== "None" ? 600 : 400 }}>
+                                    {duplicateType !== "None" ? <span>&#9888; {duplicateType}</span> : <span style={{ color: "#475569" }}>&mdash;</span>}
                                 </span>
                             </div>
                             {duplicateType !== "None" && (
@@ -971,7 +971,7 @@ function RequestDetailDrawer({ item, onClose, onEdit, onChangeReviewState, revie
 
                     <div className="rc-drawer-section">
                         <div className="rc-drawer-section-title">Activity Count</div>
-                        <span style={{ fontSize: 13, color: "#64748b" }}>{Math.floor(hashId(item.id) % 7)} activities (placeholder)</span>
+                        <span style={{ fontSize: 13, color: "#475569" }}>{Math.floor(hashId(item.id) % 7)} activities (placeholder)</span>
                     </div>
 
                     <hr className="rc-divider" />
@@ -1015,7 +1015,7 @@ function AssignUserModal({ onClose, onAssign }: { onClose: () => void; onAssign:
                             {selectedUser.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
                         </div>
                         <p style={{ fontSize: 14, fontWeight: 600, color: "#0f172a", margin: "0 0 4px" }}>Assign to {selectedUser.name}?</p>
-                        <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>All requests in this package will be assigned to {selectedUser.name} ({selectedUser.team}).</p>
+                        <p style={{ fontSize: 12, color: "#475569", margin: 0 }}>All requests in this package will be assigned to {selectedUser.name} ({selectedUser.team}).</p>
                     </div>
                     <div className="rc-modal-footer">
                         <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setConfirming(false); setSelectedUser(null); }}>Back</button>
@@ -1044,11 +1044,11 @@ function AssignUserModal({ onClose, onAssign }: { onClose: () => void; onAssign:
                                 </div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ fontSize: 12, fontWeight: 600, color: "#0f172a" }}>{m.name}</div>
-                                    <div style={{ fontSize: 11, color: "#64748b" }}>{m.email} &middot; {m.team}</div>
+                                    <div style={{ fontSize: 11, color: "#475569" }}>{m.email} &middot; {m.team}</div>
                                 </div>
                             </div>
                         ))}
-                        {filtered.length === 0 && <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", padding: 12 }}>No matching users found.</div>}
+                        {filtered.length === 0 && <div style={{ fontSize: 12, color: "#475569", textAlign: "center", padding: 12 }}>No matching users found.</div>}
                     </div>
                 </div>
                 <div className="rc-modal-footer">
@@ -1236,7 +1236,7 @@ function IntakeDrawer({
                             <div className="rc-timeline-item">
                                 <div className="rc-timeline-dot" style={{ background: "#e2e8f0" }} />
                                 <div className="rc-timeline-content">
-                                    <span className="rc-timeline-desc" style={{ color: "#64748b" }}>Awaiting review</span>
+                                    <span className="rc-timeline-desc" style={{ color: "#475569" }}>Awaiting review</span>
                                     <span className="rc-timeline-meta">Pending action</span>
                                 </div>
                             </div>
@@ -1345,7 +1345,7 @@ function IntakeDrawer({
                                 <polyline points="20 6 9 17 4 12" />
                             </svg>
                             <p style={{ fontSize: 13, fontWeight: 600, color: "#1e293b", margin: 0 }}>{item.title} converted!</p>
-                            <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0 0" }}>This intake item is now an official DD request in the tracker.</p>
+                            <p style={{ fontSize: 12, color: "#475569", margin: "4px 0 0" }}>This intake item is now an official DD request in the tracker.</p>
                         </div>
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => setShowConverted(false)}>Done</button>
@@ -1605,7 +1605,7 @@ function IntakeQueue() {
                         </h2>
                         <div className="rc-flex-center" style={{ gap: 8 }}>
                             <div className="iq-search-box">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <circle cx="11" cy="11" r="8" />
                                     <line x1="21" y1="21" x2="16.65" y2="16.65" />
                                 </svg>
@@ -1645,7 +1645,7 @@ function IntakeQueue() {
                                     if (item) handleRowClick(item);
                                 }}>Open</button>
                             ) : (
-                                <span style={{ fontSize: 11, color: "#64748b" }}>Open (select 1)</span>
+                                <span style={{ fontSize: 11, color: "#475569" }}>Open (select 1)</span>
                             )}
                             <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => {
                                 [...selectedIds].forEach(id => {
@@ -1752,7 +1752,7 @@ function IntakeQueue() {
                                                         ? item.communityNames.slice(0, 2).join(", ") + (item.communityNames.length > 2 ? ` +${item.communityNames.length - 2}` : "")
                                                         : "\u2014"}
                                                 </td>
-                                                <td style={{ color: "#64748b", fontSize: 12 }}>{timeAgo(item.submittedAt)}</td>
+                                                <td style={{ color: "#475569", fontSize: 12 }}>{timeAgo(item.submittedAt)}</td>
                                                 <td>
                                                     <span className={`rc-badge ${STATUS_BADGE[item.status] || "rc-badge-open"}`} style={{ fontSize: 10 }}>
                                                         {item.status}
@@ -1771,7 +1771,7 @@ function IntakeQueue() {
                         ) : (
                             <div className="iq-empty-inbox">
                                 <div className="iq-empty-icon">
-                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                                         <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
                                         <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
                                     </svg>

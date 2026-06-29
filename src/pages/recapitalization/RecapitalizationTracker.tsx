@@ -224,7 +224,7 @@ export default function RecapitalizationTracker() {
             <div className="rc-card">
                 <div className="rc-filter-bar">
                     <div className="rc-search-box">
-                        <span style={{ color: "#64748b", fontSize: 14 }}>&#8981;</span>
+                        <span style={{ color: "#475569", fontSize: 14 }}>&#8981;</span>
                         <input placeholder="Search requests..." value={search} onChange={e => setSearch(e.target.value)} />
                     </div>
                     <select className="rc-filter-select" value={filterTxn} onChange={e => setFilterTxn(e.target.value)}>

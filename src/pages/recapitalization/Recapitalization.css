@@ -240,7 +240,7 @@
     background: transparent;
 }
 
-.rc-search-box input::placeholder { color: #64748b; }
+.rc-search-box input::placeholder { color: #475569; }
 
 .rc-filter-select {
     padding: 6px 10px;

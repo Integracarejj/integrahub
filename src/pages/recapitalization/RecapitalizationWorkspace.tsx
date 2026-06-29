@@ -237,11 +237,11 @@ export default function RecapitalizationWorkspace() {
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", fontSize: 12, color: "#475569" }}>
                                 <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
                                     {communities.slice(0, 2).join(", ") || "\u2014"}
                                 </span>
                                 <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>
                                     {transaction.name}
                                 </span>
                             </div>
@@ -288,8 +288,8 @@ export default function RecapitalizationWorkspace() {
                                             </>
                                         ) : (
                                             <>
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-                                                <span style={{ color: "#64748b" }}>Unassigned</span>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                                <span style={{ color: "#475569" }}>Unassigned</span>
                                             </>
                                         )}
                                     </div>
@@ -356,11 +356,11 @@ export default function RecapitalizationWorkspace() {
                     {/* Visibility Key */}
                     <div style={{ padding: "10px 32px", display: "flex", gap: 16, flexWrap: "wrap", fontSize: 11, color: "#475569", background: "#f8faff", borderBottom: "1px solid #e2e8f0" }}>
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
                             <strong>Internal</strong>: Notes &amp; artifacts are internal-only until published
                         </span>
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a3 3 0 1 0 3.99 3.98m-9.19-1.17L2 21l2.44-2.44m5.57-5.57L18 5l3 3L13.01 13.01" /></svg>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a3 3 0 1 0 3.99 3.98m-9.19-1.17L2 21l2.44-2.44m5.57-5.57L18 5l3 3L13.01 13.01" /></svg>
                             <strong>External</strong>: Published documents &amp; clarifications are visible on portal
                         </span>
                     </div>
@@ -380,7 +380,7 @@ export default function RecapitalizationWorkspace() {
                                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, padding: "10px 12px", background: "#f8faff", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 13, color: "#1e293b" }}>
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
                                     <span>{item.fileName}</span>
-                                    {item.rowsFound && <span style={{ color: "#64748b", fontSize: 12 }}>({item.rowsFound} rows found)</span>}
+                                    {item.rowsFound && <span style={{ color: "#475569", fontSize: 12 }}>({item.rowsFound} rows found)</span>}
                                 </div>
                             )}
                         </AccordionSection>
@@ -394,7 +394,7 @@ export default function RecapitalizationWorkspace() {
                             onToggle={() => toggleSection("documents")}
                         >
                             {documents.length === 0 ? (
-                                <div style={{ padding: "12px 0", color: "#64748b", fontSize: 13 }}>No documents linked yet</div>
+                                <div style={{ padding: "12px 0", color: "#475569", fontSize: 13 }}>No documents linked yet</div>
                             ) : (
                                 <table className="rc-table">
                                     <thead><tr><th>File Name</th><th>Category</th><th>Related Request</th><th></th></tr></thead>
@@ -402,7 +402,7 @@ export default function RecapitalizationWorkspace() {
                                         <tr key={doc.id}>
                                             <td style={{ fontWeight: 500 }}>{doc.name}</td>
                                             <td>{doc.category}</td>
-                                            <td style={{ fontSize: 12, color: "#64748b" }}>{doc.requestTitle || "\u2014"}</td>
+                                            <td style={{ fontSize: 12, color: "#475569" }}>{doc.requestTitle || "\u2014"}</td>
                                             <td><button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 10, color: "#2563eb" }}>Open in SP</button></td>
                                         </tr>
                                     ))}</tbody>
@@ -437,11 +437,11 @@ export default function RecapitalizationWorkspace() {
                                     onDragEnter={e => { (e.target as HTMLElement).style.borderColor = "#2563eb"; (e.target as HTMLElement).style.background = "#eff6ff"; }}
                                     onDragLeave={e => { (e.target as HTMLElement).style.borderColor = "#d1d5db"; (e.target as HTMLElement).style.background = "#fafbfc"; }}
                                 >
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 6 }}>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 6 }}>
                                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
                                     </svg>
                                     <div style={{ fontSize: 12, color: "#475569", fontWeight: 500 }}>Drag & drop work artifacts here</div>
-                                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>or click to select files (internal only)</div>
+                                    <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>or click to select files (internal only)</div>
                                     <input
                                         type="file"
                                         multiple
@@ -479,8 +479,8 @@ export default function RecapitalizationWorkspace() {
                                             <div key={art.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "#f8faff", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12, color: "#1e293b" }}>
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
                                                 <span style={{ flex: 1, fontWeight: 500 }}>{art.name}</span>
-                                                <span style={{ color: "#94a3b8", fontSize: 11 }}>{(art.size / 1024).toFixed(0)} KB</span>
-                                                <span style={{ color: "#94a3b8", fontSize: 11 }}>{art.uploadedAt}</span>
+                                                <span style={{ color: "#475569", fontSize: 11 }}>{(art.size / 1024).toFixed(0)} KB</span>
+                                                <span style={{ color: "#475569", fontSize: 11 }}>{art.uploadedAt}</span>
                                                 <button
                                                     onClick={() => setWorkArtifacts(prev => prev.filter(a => a.id !== art.id))}
                                                     style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "2px 4px" }}
@@ -491,7 +491,7 @@ export default function RecapitalizationWorkspace() {
                                     </div>
                                 )}
 
-                                <div style={{ marginTop: 8, fontSize: 11, color: "#64748b", fontStyle: "italic", display: "flex", alignItems: "center", gap: 6 }}>
+                                <div style={{ marginTop: 8, fontSize: 11, color: "#475569", fontStyle: "italic", display: "flex", alignItems: "center", gap: 6 }}>
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
                                     Internal artifacts stay internal until published to the external portal.
                                 </div>
@@ -507,7 +507,7 @@ export default function RecapitalizationWorkspace() {
                             onToggle={() => toggleSection("conversation")}
                         >
                             {localQuestions.length === 0 ? (
-                                <div style={{ padding: "12px 0", color: "#64748b", fontSize: 13 }}>No conversation entries yet</div>
+                                <div style={{ padding: "12px 0", color: "#475569", fontSize: 13 }}>No conversation entries yet</div>
                             ) : (
                                 <div style={{ display: "flex", flexDirection: "column" }}>
                                     {localQuestions.map(q => {
@@ -534,7 +534,7 @@ export default function RecapitalizationWorkspace() {
                                                         }}>
                                                             {q.status}
                                                         </span>
-                                                        <span style={{ color: "#94a3b8", marginLeft: "auto", fontSize: 11 }}>{q.timestamp}</span>
+                                                        <span style={{ color: "#475569", marginLeft: "auto", fontSize: 11 }}>{q.timestamp}</span>
                                                     </div>
                                                     <div style={{ fontSize: 13, color: "#1e293b", lineHeight: 1.5 }}>{q.question}</div>
                                                     {q.response && (
@@ -615,7 +615,7 @@ export default function RecapitalizationWorkspace() {
                                     )}
                                 </div>
                             ) : (
-                                <div style={{ padding: "12px 0", color: "#64748b", fontSize: 13, display: "flex", flexDirection: "column", gap: 6 }}>
+                                <div style={{ padding: "12px 0", color: "#475569", fontSize: 13, display: "flex", flexDirection: "column", gap: 6 }}>
                                     <span>This work item has not been marked as Complete yet.</span>
                                     <span style={{ fontSize: 12 }}>Change the status to "Complete" to record your completion summary.</span>
                                 </div>
@@ -680,7 +680,7 @@ export default function RecapitalizationWorkspace() {
                                 rows={4}
                                 style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
                             />
-                            <div style={{ fontSize: 11, color: "#64748b", fontStyle: "italic", display: "flex", alignItems: "center", gap: 6 }}>
+                            <div style={{ fontSize: 11, color: "#475569", fontStyle: "italic", display: "flex", alignItems: "center", gap: 6 }}>
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
                                 Completion notes are saved in the Completion Summary section below.
                             </div>
@@ -723,7 +723,7 @@ export default function RecapitalizationWorkspace() {
                                     <div key={s} style={{ flex: 1, height: 3, borderRadius: 2, background: s <= publishExternal.step ? "#1d4ed8" : "#e2e8f0", transition: "background 0.2s" }} />
                                 ))}
                             </div>
-                            <div style={{ fontSize: 11, color: "#64748b", marginBottom: 12, fontWeight: 600 }}>Step {publishExternal.step} of 3</div>
+                            <div style={{ fontSize: 11, color: "#475569", marginBottom: 12, fontWeight: 600 }}>Step {publishExternal.step} of 3</div>
 
                             {publishExternal.step === 1 && (
                                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -857,7 +857,7 @@ export default function RecapitalizationWorkspace() {
                                             }
                                             return (
                                                 <div style={{ padding: "8px 12px", marginTop: 4, background: recommendation === "Promote to Community Knowledge" ? "#f0fdf4" : "#fffbeb", border: `1px solid ${recommendation === "Promote to Community Knowledge" ? "#bbf7d0" : "#fde68a"}`, borderRadius: 6 }}>
-                                                    <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Recommendation</div>
+                                                    <div style={{ fontSize: 11, color: "#475569", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Recommendation</div>
                                                     <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{recommendation}</div>
                                                     <div style={{ fontSize: 11, color: "#334155", marginTop: 2 }}>{reason}</div>
                                                 </div>
