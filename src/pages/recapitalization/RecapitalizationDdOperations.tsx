@@ -17,15 +17,18 @@ export default function RecapitalizationDdOperations() {
     const [refreshKey, setRefreshKey] = useState(0);
     const members = getTeamMembers();
     const ddMembers = useMemo(() => members.filter(m => m.team === "DD Management"), [members]);
+
+    // Exact same data source as RecapitalizationTracker / Work Queue
     const allRequests = useMemo(() => getRequests(), [refreshKey]);
 
-    // Use same data source as Work Queue: published/converted items
-    const workQueueItems = useMemo(() => {
-        return allRequests.filter(r => r._publishedAt || r._createdFromReview);
+    // Exact same filter as Work Queue uses, with fallback if no items have been moved yet
+    const workItems = useMemo(() => {
+        const published = allRequests.filter(r => r._publishedAt || r._createdFromReview);
+        return published.length > 0 ? published : allRequests;
     }, [allRequests]);
 
     const assignedToMe = useMemo(() => {
-        return workQueueItems
+        return workItems
             .filter(r => r.owner === activeUser || r.assignedTo === activeUser)
             .sort((a, b) => {
                 const aDate = a.lastUpdated || "";
@@ -37,19 +40,19 @@ export default function RecapitalizationDdOperations() {
                 const pMap: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
                 return (pMap[a.priority] || 1) - (pMap[b.priority] || 1);
             });
-    }, [workQueueItems, activeUser]);
+    }, [workItems, activeUser]);
 
     const myTeamItems = useMemo(() => {
-        return [...workQueueItems].sort((a, b) => {
+        return [...workItems].sort((a, b) => {
             const aDate = a.lastUpdated || "";
             const bDate = b.lastUpdated || "";
             return bDate.localeCompare(aDate);
         });
-    }, [workQueueItems]);
+    }, [workItems]);
 
     const needsDDReview = useMemo(() => {
-        return workQueueItems
-            .filter(r => r.status === "Complete" && !r._publishedExternal)
+        return workItems
+            .filter(r => r.status === "Complete" && r._externalStatus !== "Published External")
             .sort((a, b) => {
                 const aDue = a.dueDate || "9999-99-99";
                 const bDue = b.dueDate || "9999-99-99";
@@ -57,11 +60,11 @@ export default function RecapitalizationDdOperations() {
                 const pMap: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
                 return (pMap[a.priority] || 1) - (pMap[b.priority] || 1);
             });
-    }, [workQueueItems]);
+    }, [workItems]);
 
     const readyToPublish = useMemo(() => {
-        return workQueueItems
-            .filter(r => r.status === "Complete" && !r._publishedExternal)
+        return workItems
+            .filter(r => r.status === "Complete" && r._externalStatus === "Ready to Publish")
             .sort((a, b) => {
                 const aDue = a.dueDate || "9999-99-99";
                 const bDue = b.dueDate || "9999-99-99";
@@ -69,13 +72,13 @@ export default function RecapitalizationDdOperations() {
                 const pMap: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
                 return (pMap[a.priority] || 1) - (pMap[b.priority] || 1);
             });
-    }, [workQueueItems]);
+    }, [workItems]);
 
     const recentlyUpdated = useMemo(() => {
-        return [...workQueueItems]
+        return [...workItems]
             .filter(r => r.lastUpdated)
             .sort((a, b) => (b.lastUpdated || "").localeCompare(a.lastUpdated || ""));
-    }, [workQueueItems]);
+    }, [workItems]);
 
     const activeItems = useMemo(() => {
         switch (activeView) {
@@ -113,13 +116,14 @@ export default function RecapitalizationDdOperations() {
     );
 
     const ExternalStatus = ({ req }: { req: RecapRequest }) => {
-        if (req._publishedExternal) {
-            return <span style={{ color: "#166534", fontWeight: 600, fontSize: 11, background: "#f0fdf4", padding: "1px 6px", borderRadius: 4 }}>Published</span>;
+        switch (req._externalStatus) {
+            case "Published External":
+                return <span style={{ color: "#166534", fontWeight: 600, fontSize: 11, background: "#f0fdf4", padding: "1px 6px", borderRadius: 4 }}>Published External</span>;
+            case "Ready to Publish":
+                return <span style={{ color: "#92400e", fontWeight: 600, fontSize: 11, background: "#fffbeb", padding: "1px 6px", borderRadius: 4 }}>Ready to Publish</span>;
+            default:
+                return <span style={{ color: "#475569", fontSize: 11 }}>Internal Only</span>;
         }
-        if (req.status === "Complete") {
-            return <span style={{ color: "#92400e", fontWeight: 600, fontSize: 11, background: "#fffbeb", padding: "1px 6px", borderRadius: 4 }}>Ready</span>;
-        }
-        return <span style={{ color: "#475569", fontSize: 11 }}>Internal</span>;
     };
 
     function renderTable(items: RecapRequest[], emptyMsg: string) {
@@ -191,7 +195,7 @@ export default function RecapitalizationDdOperations() {
                 {(["assigned-to-me", "my-team", "needs-dd-review", "ready-to-publish", "recently-updated"] as const).map(view => (
                     <button key={view} onClick={() => setActiveView(view)}
                         style={{ padding: "8px 16px", fontSize: 13, fontWeight: activeView === view ? 700 : 500, color: activeView === view ? "#1d4ed8" : "#475569", background: "none", border: "none", borderBottom: activeView === view ? "2px solid #1d4ed8" : "2px solid transparent", marginBottom: -2, cursor: "pointer", transition: "all 0.15s" }}>
-                        {tabLabels[view]} ({activeItems.length})
+                        {tabLabels[view]}
                     </button>
                 ))}
             </div>

@@ -218,13 +218,13 @@ export function updateRequestTeam(id: string, team: string): RecapRequest | unde
 
 export function updateRequestExternalStatus(id: string): RecapRequest | undefined {
     if (isDemoLoaded()) {
-        const result = Demo.updateDemoRequest(id, { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0] });
+        const result = Demo.updateDemoRequest(id, { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0], _externalStatus: "Published External" });
         if (result) return result;
-        return updatePortalRequestById(id, { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0] });
+        return updatePortalRequestById(id, { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0], _externalStatus: "Published External" });
     }
     const result = Mock.updateExternalPublishStatus(id);
     if (result) return result;
-    return updatePortalRequestById(id, { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0] });
+    return updatePortalRequestById(id, { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0], _externalStatus: "Published External" });
 }
 
 export function toggleExternalVisibility(id: string): RecapRequest | undefined {
@@ -314,6 +314,7 @@ export function publishSelectedRequests(ids: string[], sourceInfo?: { sourceInta
                 r.lastUpdated = nowDate;
                 r._createdFromReview = true;
                 r._sourceReviewItemId = r.requestId;
+                r._externalStatus = "Internal Only";
                 if (sourceInfo?.sourceIntakeId) r._sourceIntakeId = sourceInfo.sourceIntakeId;
                 if (sourceInfo?.sourcePackageId) r._sourcePackageId = sourceInfo.sourcePackageId;
                 publishedCount++;

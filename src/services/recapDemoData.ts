@@ -179,6 +179,7 @@ function generateDemoState(): RecapDemoState {
             createdDate: randDate(60, 30),
             assignedTo: Math.random() > 0.3 ? owner.name : null,
             _publishedAt: null,
+            _externalStatus: "Internal Only",
         });
 
         if (i <= 20) {
@@ -332,6 +333,7 @@ export function publishIntake(): { publishedCount: number; publishedIds: string[
         r._convertedAt = now;
         r._createdFromReview = true;
         r._sourceReviewItemId = r.requestId;
+        r._externalStatus = "Internal Only";
         r.lastUpdated = nowDate;
         publishedIds.push(r.id);
         // Keep status as Open; do not auto-change to In Progress
@@ -528,6 +530,7 @@ export function publishSelectedRequests(ids: string[], sourceInfo?: { sourceInta
             r.lastUpdated = nowDate;
             r._createdFromReview = true;
             r._sourceReviewItemId = r.requestId;
+            r._externalStatus = "Internal Only";
             if (sourceInfo?.sourceIntakeId) r._sourceIntakeId = sourceInfo.sourceIntakeId;
             if (sourceInfo?.sourcePackageId) r._sourcePackageId = sourceInfo.sourcePackageId;
             publishedCount++;
