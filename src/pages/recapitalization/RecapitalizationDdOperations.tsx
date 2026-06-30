@@ -1,13 +1,13 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { getRequests, getTeamMembers, updateRequestStatus, getDocuments } from "../../services/recapDataService";
+import { getRequests, getTeamMembers, updateRequestStatus, getDocuments, updateRequestReturnToOwner } from "../../services/recapDataService";
 import type { RecapRequest } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
 const STATUS_OPTIONS = ["Open", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate"];
 
-type ViewTab = "assigned-to-me" | "my-team" | "needs-dd-review" | "ready-to-publish" | "recently-updated";
+type ViewTab = "assigned-to-me" | "my-team" | "needs-dd-review" | "ready-to-publish" | "needs-reassignment" | "recently-updated";
 
 export default function RecapitalizationDdOperations() {
     const navigate = useNavigate();
@@ -15,6 +15,7 @@ export default function RecapitalizationDdOperations() {
     const [activeView, setActiveView] = useState<ViewTab>("assigned-to-me");
     const [statusConfirm, setStatusConfirm] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
     const [artifactWarning, setArtifactWarning] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
+    const [returnToOwner, setReturnToOwner] = useState<{ req: RecapRequest; reason: string } | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
     const members = getTeamMembers();
     const ddMembers = useMemo(() => members.filter(m => m.team === "DD Management"), [members]);
@@ -73,6 +74,16 @@ export default function RecapitalizationDdOperations() {
             });
     }, [workItems]);
 
+    const needsReassignment = useMemo(() => {
+        return workItems
+            .filter(r => r._needsReassignment || (r._misassignedReason && !r.owner))
+            .sort((a, b) => {
+                const aDate = a.lastUpdated || "";
+                const bDate = b.lastUpdated || "";
+                return bDate.localeCompare(aDate);
+            });
+    }, [workItems]);
+
     const recentlyUpdated = useMemo(() => {
         return [...workItems]
             .filter(r => r.lastUpdated)
@@ -85,9 +96,10 @@ export default function RecapitalizationDdOperations() {
             case "my-team": return myTeamItems;
             case "needs-dd-review": return needsDDReview;
             case "ready-to-publish": return readyToPublish;
+            case "needs-reassignment": return needsReassignment;
             case "recently-updated": return recentlyUpdated;
         }
-    }, [activeView, assignedToMe, myTeamItems, needsDDReview, readyToPublish, recentlyUpdated]);
+    }, [activeView, assignedToMe, myTeamItems, needsDDReview, readyToPublish, needsReassignment, recentlyUpdated]);
 
     function hasDocuments(req: RecapRequest): boolean {
         const docs = getDocuments();
@@ -104,6 +116,7 @@ export default function RecapitalizationDdOperations() {
         "my-team": "No items in the work queue.",
         "needs-dd-review": "No items needing DD review.",
         "ready-to-publish": "No items ready to publish.",
+        "needs-reassignment": "No items needing reassignment.",
         "recently-updated": "No recently updated items.",
     };
 
@@ -112,6 +125,7 @@ export default function RecapitalizationDdOperations() {
         "my-team": "My Team",
         "needs-dd-review": "Needs DD Review",
         "ready-to-publish": "Ready to Publish",
+        "needs-reassignment": "Needs Reassignment",
         "recently-updated": "Recently Updated",
     };
 
@@ -146,6 +160,7 @@ export default function RecapitalizationDdOperations() {
                         <th style={{ minWidth: 80 }}>Category</th>
                         <th style={{ minWidth: 80 }}>Due</th>
                         <th style={{ minWidth: 80 }}>Updated</th>
+                        <th style={{ minWidth: 80 }}>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -180,6 +195,20 @@ export default function RecapitalizationDdOperations() {
                             <td style={{ fontSize: 12, color: "#475569" }}>{req.category}</td>
                             <td className="nowrap" style={{ fontSize: 12, color: req.status === "Overdue" ? "#991b1b" : "#475569", fontWeight: req.status === "Overdue" ? 600 : 400 }}>{req.dueDate}</td>
                             <td style={{ fontSize: 12, color: "#475569" }}>{req.lastUpdated}</td>
+                            <td onClick={e => e.stopPropagation()}>
+                                {req.owner && activeView !== "needs-reassignment" && (
+                                    <button
+                                        onClick={() => setReturnToOwner({ req, reason: "" })}
+                                        style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#92400e", border: "1px solid #fde68a", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                        title="Return this item to the original owner"
+                                    >
+                                        Return to Owner
+                                    </button>
+                                )}
+                                {activeView === "needs-reassignment" && (
+                                    <span style={{ fontSize: 10, color: "#475569", fontStyle: "italic" }}>Needs assignment</span>
+                                )}
+                            </td>
                         </tr>
                     ))}
                 </tbody>
@@ -202,7 +231,7 @@ export default function RecapitalizationDdOperations() {
             </div>
 
             <div className="rc-view-tabs" style={{ display: "flex", gap: 0, marginBottom: 16, borderBottom: "2px solid #e2e8f0" }}>
-                {(["assigned-to-me", "my-team", "needs-dd-review", "ready-to-publish", "recently-updated"] as const).map(view => (
+                {(["assigned-to-me", "my-team", "needs-dd-review", "ready-to-publish", "needs-reassignment", "recently-updated"] as const).map(view => (
                     <button key={view} onClick={() => setActiveView(view)}
                         style={{ padding: "8px 16px", fontSize: 13, fontWeight: activeView === view ? 700 : 500, color: activeView === view ? "#1d4ed8" : "#475569", background: "none", border: "none", borderBottom: activeView === view ? "2px solid #1d4ed8" : "2px solid transparent", marginBottom: -2, cursor: "pointer", transition: "all 0.15s" }}>
                         {tabLabels[view]}
@@ -237,6 +266,47 @@ export default function RecapitalizationDdOperations() {
                                 handleStatusChange(statusConfirm.req, statusConfirm.newStatus);
                                 setStatusConfirm(null);
                             }}>Change Status</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {returnToOwner && (
+                <div className="rc-modal-overlay" onClick={() => setReturnToOwner(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="rc-modal-header">
+                            <h2>Return to Owner</h2>
+                            <button className="rc-modal-close" onClick={() => setReturnToOwner(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                <div style={{ fontSize: 13, color: "#334155" }}>
+                                    Return <strong>{returnToOwner.req.requestId}</strong> &mdash; {returnToOwner.req.title.split(" - ").slice(1).join(" - ").trim() || returnToOwner.req.title} to <strong>{returnToOwner.req.owner}</strong>?
+                                </div>
+                                <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
+                                    This will set the status to "Clarification Needed" and send the item back to the owner with a reason.
+                                </div>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                                    Return Reason <span style={{ color: "#dc2626" }}>*</span>
+                                </label>
+                                <textarea
+                                    value={returnToOwner.reason}
+                                    onChange={e => setReturnToOwner(prev => prev ? { ...prev, reason: e.target.value } : null)}
+                                    placeholder="Explain why this item is being returned..."
+                                    rows={3}
+                                    style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
+                                />
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setReturnToOwner(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!returnToOwner.reason.trim()} onClick={() => {
+                                const reason = returnToOwner.reason.trim();
+                                if (!reason) return;
+                                updateRequestReturnToOwner(returnToOwner.req.id, reason, activeUser);
+                                setRefreshKey(k => k + 1);
+                                setReturnToOwner(null);
+                            }}>Return to Owner</button>
                         </div>
                     </div>
                 </div>

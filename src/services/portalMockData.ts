@@ -84,6 +84,7 @@ export interface PortalRequest {
     externalStatus?: string;
     /** Internal field: whether this was published externally */
     _publishedExternal?: boolean;
+    _publishedWithoutDocuments?: boolean;
 }
 
 export interface PortalQuestion {
@@ -240,6 +241,7 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
         brokerBuyer: req.brokerBuyer,
         externalStatus: req._externalStatus,
         _publishedExternal: !!req._publishedExternal,
+        _publishedWithoutDocuments: req._publishedWithoutDocuments,
     };
 }
 

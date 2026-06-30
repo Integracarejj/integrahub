@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { lookupWorkspaceItem, getDocumentsByTransaction, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, addActivityEntry } from "../../services/recapDataService";
+import { lookupWorkspaceItem, getDocumentsByTransaction, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry } from "../../services/recapDataService";
 import type { RecapRequest } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -69,7 +69,6 @@ export default function RecapitalizationWorkspace() {
 
     const [completionModal, setCompletionModal] = useState<{ note: string; readyForReview: boolean } | null>(null);
     const [workArtifacts, setWorkArtifacts] = useState<{ id: string; name: string; size: number; uploadedAt: string }[]>([]);
-    const [completionSummary, setCompletionSummary] = useState<{ completedBy: string; completedDate: string; completionNotes: string; supportingArtifacts: string[]; reviewer: string } | null>(null);
     const [artifactBanner, setArtifactBanner] = useState<string | null>(null);
     const [publishExternal, setPublishExternal] = useState<{ step: number; selectedArtifacts: string[] } | null>(null);
 
@@ -93,7 +92,7 @@ export default function RecapitalizationWorkspace() {
     const { transaction } = result;
     const item = result.item as any;
 
-    const displayId = item.intakeId || item.requestId || item.id;
+    const displayId = item.requestId || item.intakeId || item.id;
     const displayTitle = item.title || item.fileName || "";
     const displayStatus = item.status;
     const communities = item.communityNames || [];
@@ -105,6 +104,22 @@ export default function RecapitalizationWorkspace() {
     const statusColor = STATUS_COLORS[displayStatus] || "#64748b";
 
     const documents = useMemo(() => getDocumentsByTransaction(item.transactionId), [item.transactionId]);
+
+    const completionSummary = useMemo(() => {
+        if (result.type === "request") {
+            const req = result.item as RecapRequest;
+            if (req._completedBy) {
+                return {
+                    completedBy: req._completedBy,
+                    completedDate: req._completedAt || "",
+                    completionNotes: req._completionNotes || "",
+                    supportingArtifacts: workArtifacts.filter(a => a.name).map(a => a.name),
+                    reviewer: "",
+                };
+            }
+        }
+        return null;
+    }, [result, workArtifacts]);
 
     useEffect(() => {
         setInternalOwner(item.suggestedOwner || item.owner || "");
@@ -224,6 +239,12 @@ export default function RecapitalizationWorkspace() {
                             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
                                 <BluePill>Request ID</BluePill>
                                 <span style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', letterSpacing: "-0.01em" }}>{displayId}</span>
+                                {item.intakeId && item.intakeId !== displayId && (
+                                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 8 }}>
+                                        <span style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em" }}>Intake ID</span>
+                                        <span style={{ fontSize: 13, fontWeight: 600, color: "#475569", fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace' }}>{item.intakeId}</span>
+                                    </div>
+                                )}
                                 {isDuplicate && (
                                     <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca" }}>
                                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
@@ -696,14 +717,26 @@ export default function RecapitalizationWorkspace() {
                             <button className="rc-btn rc-btn-primary" onClick={() => {
                                 if (!completionModal) return;
                                 const note = completionModal.note.trim();
-                                setCompletionSummary({
+                                const now = new Date().toISOString().split("T")[0];
+                                const reqId = item.id || item.intakeId || "";
+                                updateRequestCompletion(reqId, {
                                     completedBy: "Sarah Chen",
-                                    completedDate: new Date().toISOString().split("T")[0],
+                                    completedAt: now,
                                     completionNotes: note,
-                                    supportingArtifacts: workArtifacts.filter(a => a.name).map(a => a.name),
-                                    reviewer: "",
                                 });
-                                doStatusChange("Complete");
+                                addActivityEntry({
+                                    type: "Status Change",
+                                    description: `Marked as Complete. Notes: ${note || "none provided"}`,
+                                    userId: "current-user",
+                                    userName: "Sarah Chen",
+                                    requestId: item.requestId || item.id,
+                                    requestTitle: displayTitle || item.category || "",
+                                    transactionId: item.transactionId,
+                                    transactionName: item.transactionName || item.transactionId,
+                                });
+                                setWsRefreshKey(k => k + 1);
+                                setBanner("\u2713 Work completed and recorded");
+                                setBannerError(false);
                                 setCompletionModal(null);
                             }}>Submit Completion</button>
                         </div>
@@ -886,7 +919,7 @@ export default function RecapitalizationWorkspace() {
                             {publishExternal.step === 2 && (
                                 <button className="rc-btn rc-btn-primary" onClick={() => {
                                     setPublishExternal(prev => prev ? { ...prev, step: 3 } : null);
-                                    updateRequestExternalStatus(item.id || item.intakeId || "");
+                                    updateRequestExternalStatus(item.id || item.intakeId || "", workArtifacts.length === 0);
                                 }}>Confirm Publish External</button>
                             )}
                             {publishExternal.step === 3 && (

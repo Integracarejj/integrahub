@@ -720,6 +720,11 @@ function BuyerOverview({ persona }: { persona: ExternalDemoPersona }) {
                                     <span className="po-requests-title">
                                         {req.title}
                                         <span style={{ fontSize: 10, color: "#64748b", marginLeft: 6 }}>{req.requestId}</span>
+                                        {req._publishedWithoutDocuments && (
+                                            <span style={{ fontSize: 10, color: "#92400e", fontStyle: "italic", display: "block", marginTop: 1 }}>
+                                                Published without supporting document
+                                            </span>
+                                        )}
                                     </span>
                                     <span style={{ fontSize: 12, color: "#64748b" }}>{req.category}</span>
                                     <span><span style={{ display: "inline-block", padding: "1px 6px", borderRadius: 3, fontSize: 10, fontWeight: 700, background: "#f0fdf4", color: "#166534", border: "1px solid #86efac" }}>Published</span></span>

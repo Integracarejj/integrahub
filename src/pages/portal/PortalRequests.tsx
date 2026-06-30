@@ -99,6 +99,11 @@ export default function PortalRequests() {
                         <div style={{ display: "flex", flexDirection: "column" }}>
                             <span style={{ fontWeight: 600, color: "var(--is-text-heading, #0f172a)" }}>{req.title}</span>
                             <span style={{ fontSize: 10, color: "#94a3b8" }}>{req.requestId}</span>
+                            {req._publishedWithoutDocuments && (
+                                <span style={{ fontSize: 10, color: "#92400e", fontStyle: "italic", marginTop: 2 }}>
+                                    Published without supporting document
+                                </span>
+                            )}
                         </div>
                         <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.communityNames[0] || "\u2014"}</span>
                         <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.category}</span>

@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { getRequests, isDemoActive, getTeamMembers, updateRequestStatus, bulkUpdateDemoRequests, getDocuments } from "../../services/recapDataService";
+import { getRequests, isDemoActive, getTeamMembers, updateRequestStatus, bulkUpdateDemoRequests, getDocuments, updateRequestNotMine } from "../../services/recapDataService";
 import type { RecapRequest } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -20,6 +20,7 @@ export default function RecapitalizationMyWork() {
     const [activeView, setActiveView] = useState<ViewTab>("active-work");
     const [statusConfirm, setStatusConfirm] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
     const [artifactWarning, setArtifactWarning] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
+    const [notMine, setNotMine] = useState<{ req: RecapRequest; reason: string } | null>(null);
     const [confirmAction, setConfirmAction] = useState<{ title: string; action: () => void } | null>(null);
     const members = getTeamMembers();
     const allRequests = useMemo(() => getRequests(), [refreshKey]);
@@ -114,6 +115,16 @@ export default function RecapitalizationMyWork() {
     }
 
     function handleBulkComplete() {
+        const ids = [...selectedIds];
+        const allReqs = publishedRequests;
+        const noArtifactItems = ids.filter(reqId => {
+            const req = allReqs.find(r => r.id === reqId);
+            return req && !hasDocuments(req);
+        });
+        if (noArtifactItems.length > 0) {
+            setBulkToast(`Warning: ${noArtifactItems.length} item${noArtifactItems.length !== 1 ? "s" : ""} ha${noArtifactItems.length !== 1 ? "ve" : "s"} no artifacts. Use per-item status change to mark Complete.`);
+            return;
+        }
         handleBulkStatus("Complete");
     }
 
@@ -155,6 +166,7 @@ export default function RecapitalizationMyWork() {
                         <th style={{ minWidth: 80 }}>Updated</th>
                         <th style={{ minWidth: 80 }}>Team</th>
                         <th style={{ minWidth: 100 }}>Request ID</th>
+                        <th style={{ minWidth: 70 }}>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -194,6 +206,17 @@ export default function RecapitalizationMyWork() {
                             <td style={{ fontSize: 12, color: req.lastUpdated ? "#475569" : "#94a3b8" }}>{req.lastUpdated || "\u2014"}</td>
                             <td style={{ fontSize: 12 }}>{req.team}</td>
                             <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#475569" }}>{req.requestId}</td>
+                            <td onClick={e => e.stopPropagation()}>
+                                {req.owner === activeUser && req.status !== "Complete" && (
+                                    <button
+                                        onClick={() => setNotMine({ req, reason: "" })}
+                                        style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#dc2626", border: "1px solid #fecaca", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                        title="Report this item was not assigned to you"
+                                    >
+                                        Not Mine
+                                    </button>
+                                )}
+                            </td>
                         </tr>
                     ))}
                 </tbody>
@@ -307,6 +330,48 @@ export default function RecapitalizationMyWork() {
                                 setArtifactWarning(null);
                                 handleStatusChange(req, newStatus);
                             }}>Mark Complete Anyway</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {notMine && (
+                <div className="rc-modal-overlay" onClick={() => setNotMine(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="rc-modal-header">
+                            <h2>Not Mine</h2>
+                            <button className="rc-modal-close" onClick={() => setNotMine(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                <div style={{ fontSize: 13, color: "#334155" }}>
+                                    Report <strong>{notMine.req.requestId}</strong> &mdash; {notMine.req.title.split(" - ").slice(1).join(" - ").trim() || notMine.req.title} as <strong>not assigned to you</strong>?
+                                </div>
+                                <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
+                                    This will remove you as the owner and send the item to the Needs Reassignment queue in DD Operations.
+                                </div>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                                    Reason <span style={{ color: "#dc2626" }}>*</span>
+                                </label>
+                                <textarea
+                                    value={notMine.reason}
+                                    onChange={e => setNotMine(prev => prev ? { ...prev, reason: e.target.value } : null)}
+                                    placeholder="Why is this item not yours? (e.g., wrong team, wrong person, wrong category...)"
+                                    rows={3}
+                                    style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
+                                />
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setNotMine(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!notMine.reason.trim()} onClick={() => {
+                                const reason = notMine.reason.trim();
+                                if (!reason) return;
+                                updateRequestNotMine(notMine.req.id, reason);
+                                setRefreshKey(k => k + 1);
+                                setBulkToast(`${notMine.req.requestId}: reported as not mine`);
+                                setNotMine(null);
+                            }}>Report Not Mine</button>
                         </div>
                     </div>
                 </div>

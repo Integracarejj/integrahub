@@ -53,6 +53,14 @@ export interface RecapRequest {
     _externalStatus?: "Internal Only" | "Ready to Publish" | "Published External";
     _publishedExternal?: boolean;
     _publishedExternalAt?: string;
+    _publishedWithoutDocuments?: boolean;
+    _completedBy?: string | null;
+    _completedAt?: string | null;
+    _completionNotes?: string | null;
+    _returnReason?: string | null;
+    _returnedBy?: string | null;
+    _misassignedReason?: string | null;
+    _needsReassignment?: boolean;
 }
 
 export interface RecapIntakeItem {
@@ -701,12 +709,13 @@ export function updateRequestTeam(id: string, team: string): RecapRequest | unde
     return req;
 }
 
-export function updateExternalPublishStatus(id: string): RecapRequest | undefined {
+export function updateExternalPublishStatus(id: string, publishedWithoutDocuments?: boolean): RecapRequest | undefined {
     const req = MOCK_REQUESTS.find((r) => r.id === id);
     if (req) {
         req._publishedExternal = true;
         req._publishedExternalAt = new Date().toISOString().split("T")[0];
         req._externalStatus = "Published External";
+        req._publishedWithoutDocuments = publishedWithoutDocuments ?? false;
         req.lastUpdated = new Date().toISOString().split("T")[0];
     }
     return req;

@@ -58,6 +58,10 @@ export function getRequests(): RecapRequest[] {
     const portalReqs = getPortalCreatedRequests();
     if (isDemoLoaded()) {
         const demo = Demo.getDemoRequests();
+        // If a custom package was uploaded (portal requests from non-ABC txn), isolate demo data
+        if (portalReqs.some(r => r.transactionId !== "txn-abc")) {
+            return portalReqs;
+        }
         return [...demo, ...portalReqs];
     }
     return [...Mock.getRequests(), ...portalReqs];
@@ -216,15 +220,100 @@ export function updateRequestTeam(id: string, team: string): RecapRequest | unde
     return updatePortalRequestTeam(id, team);
 }
 
-export function updateRequestExternalStatus(id: string): RecapRequest | undefined {
+export function updateRequestCompletion(id: string, data: { completedBy: string; completedAt: string; completionNotes: string }): RecapRequest | undefined {
     if (isDemoLoaded()) {
-        const result = Demo.updateDemoRequest(id, { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0], _externalStatus: "Published External" });
+        const result = Demo.updateDemoRequest(id, {
+            status: "Complete",
+            _completedBy: data.completedBy,
+            _completedAt: data.completedAt,
+            _completionNotes: data.completionNotes || null,
+        });
         if (result) return result;
-        return updatePortalRequestById(id, { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0], _externalStatus: "Published External" });
+        return updatePortalRequestById(id, {
+            status: "Complete",
+            _completedBy: data.completedBy,
+            _completedAt: data.completedAt,
+            _completionNotes: data.completionNotes || null,
+        });
     }
-    const result = Mock.updateExternalPublishStatus(id);
+    const req = Mock.getRequestById(id);
+    if (req) {
+        req.status = "Complete";
+        req._completedBy = data.completedBy;
+        req._completedAt = data.completedAt;
+        req._completionNotes = data.completionNotes || null;
+        req.lastUpdated = new Date().toISOString().split("T")[0];
+        return req;
+    }
+    return updatePortalRequestById(id, {
+        status: "Complete",
+        _completedBy: data.completedBy,
+        _completedAt: data.completedAt,
+        _completionNotes: data.completionNotes || null,
+    });
+}
+
+export function updateRequestReturnToOwner(id: string, reason: string, returnedBy: string): RecapRequest | undefined {
+    if (isDemoLoaded()) {
+        return Demo.updateDemoRequest(id, {
+            status: "Clarification Needed",
+            _returnReason: reason,
+            _returnedBy: returnedBy,
+        });
+    }
+    const req = Mock.getRequestById(id);
+    if (req) {
+        req.status = "Clarification Needed";
+        req._returnReason = reason;
+        req._returnedBy = returnedBy;
+        req.lastUpdated = new Date().toISOString().split("T")[0];
+        return req;
+    }
+    return updatePortalRequestById(id, {
+        status: "Clarification Needed",
+        _returnReason: reason,
+        _returnedBy: returnedBy,
+    });
+}
+
+export function updateRequestNotMine(id: string, reason: string): RecapRequest | undefined {
+    if (isDemoLoaded()) {
+        return Demo.updateDemoRequest(id, {
+            status: "Open",
+            owner: null,
+            assignedTo: null,
+            _misassignedReason: reason,
+            _needsReassignment: true,
+        });
+    }
+    const req = Mock.getRequestById(id);
+    if (req) {
+        req.status = "Open";
+        req.owner = null;
+        req.assignedTo = null;
+        req._misassignedReason = reason;
+        req._needsReassignment = true;
+        req.lastUpdated = new Date().toISOString().split("T")[0];
+        return req;
+    }
+    return updatePortalRequestById(id, {
+        status: "Open",
+        owner: null,
+        assignedTo: null,
+        _misassignedReason: reason,
+        _needsReassignment: true,
+    });
+}
+
+export function updateRequestExternalStatus(id: string, publishedWithoutDocuments?: boolean): RecapRequest | undefined {
+    if (isDemoLoaded()) {
+        const result = Demo.updateDemoRequest(id, { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0], _externalStatus: "Published External", _publishedWithoutDocuments: publishedWithoutDocuments ?? false });
+        if (result) return result;
+        return updatePortalRequestById(id, { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0], _externalStatus: "Published External", _publishedWithoutDocuments: publishedWithoutDocuments ?? false });
+    }
+    const result = Mock.updateExternalPublishStatus(id, publishedWithoutDocuments);
     if (result) return result;
-    return updatePortalRequestById(id, { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0], _externalStatus: "Published External" });
+    return updatePortalRequestById(id, { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0], _externalStatus: "Published External", _publishedWithoutDocuments: publishedWithoutDocuments ?? false });
 }
 
 export function toggleExternalVisibility(id: string): RecapRequest | undefined {
