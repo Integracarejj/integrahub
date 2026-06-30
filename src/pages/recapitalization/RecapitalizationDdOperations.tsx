@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { getRequests, getTeamMembers, updateRequestStatus } from "../../services/recapDataService";
+import { getRequests, getTeamMembers, updateRequestStatus, getDocuments } from "../../services/recapDataService";
 import type { RecapRequest } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -14,14 +14,13 @@ export default function RecapitalizationDdOperations() {
     const [activeUser, setActiveUser] = useState("David Park");
     const [activeView, setActiveView] = useState<ViewTab>("assigned-to-me");
     const [statusConfirm, setStatusConfirm] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
+    const [artifactWarning, setArtifactWarning] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
     const members = getTeamMembers();
     const ddMembers = useMemo(() => members.filter(m => m.team === "DD Management"), [members]);
 
-    // Exact same data source as RecapitalizationTracker / Work Queue
     const allRequests = useMemo(() => getRequests(), [refreshKey]);
 
-    // Exact same filter as Work Queue uses, with fallback if no items have been moved yet
     const workItems = useMemo(() => {
         const published = allRequests.filter(r => r._publishedAt || r._createdFromReview);
         return published.length > 0 ? published : allRequests;
@@ -90,6 +89,11 @@ export default function RecapitalizationDdOperations() {
         }
     }, [activeView, assignedToMe, myTeamItems, needsDDReview, readyToPublish, recentlyUpdated]);
 
+    function hasDocuments(req: RecapRequest): boolean {
+        const docs = getDocuments();
+        return docs.some(d => d.requestId === req.requestId || d.requestTitle === req.title);
+    }
+
     function handleStatusChange(req: RecapRequest, newStatus: string) {
         updateRequestStatus(req.id, newStatus as RecapRequest["status"]);
         setRefreshKey(k => k + 1);
@@ -156,7 +160,13 @@ export default function RecapitalizationDdOperations() {
                                         value={req.status}
                                         onChange={e => {
                                             const newStatus = e.target.value;
-                                            if (newStatus !== req.status) setStatusConfirm({ req, newStatus });
+                                            if (newStatus !== req.status) {
+                                                if (newStatus === "Complete" && !hasDocuments(req)) {
+                                                    setArtifactWarning({ req, newStatus });
+                                                } else {
+                                                    setStatusConfirm({ req, newStatus });
+                                                }
+                                            }
                                         }}
                                         style={{ fontSize: 10, padding: "2px 18px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 100, cursor: "pointer", border: "1px solid #d1d5db" }}
                                     >
@@ -227,6 +237,36 @@ export default function RecapitalizationDdOperations() {
                                 handleStatusChange(statusConfirm.req, statusConfirm.newStatus);
                                 setStatusConfirm(null);
                             }}>Change Status</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {artifactWarning && (
+                <div className="rc-modal-overlay" onClick={() => setArtifactWarning(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="rc-modal-header">
+                            <h2>No Artifact Attached</h2>
+                            <button className="rc-modal-close" onClick={() => setArtifactWarning(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                <div style={{ fontSize: 14, color: "#991b1b", fontWeight: 600 }}>
+                                    No artifact is attached to this request. Marking complete will send it to DD Review without supporting documentation.
+                                </div>
+                                <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
+                                    <strong>{artifactWarning.req.requestId}</strong> &mdash; {artifactWarning.req.title.split(" - ").slice(1).join(" - ").trim() || artifactWarning.req.title}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setArtifactWarning(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" onClick={() => {
+                                const req = artifactWarning.req;
+                                const newStatus = artifactWarning.newStatus;
+                                setArtifactWarning(null);
+                                handleStatusChange(req, newStatus);
+                            }}>Mark Complete Anyway</button>
                         </div>
                     </div>
                 </div>

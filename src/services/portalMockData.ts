@@ -81,6 +81,9 @@ export interface PortalRequest {
     owner: string | null;
     team: string;
     brokerBuyer: string;
+    externalStatus?: string;
+    /** Internal field: whether this was published externally */
+    _publishedExternal?: boolean;
 }
 
 export interface PortalQuestion {
@@ -209,6 +212,14 @@ function mapRecapToPortalTxn(txn: RecapTransaction): PortalTransaction {
 }
 
 function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
+    let portalStatus: string = req.status;
+    if (req._externalStatus === "Published External") {
+        portalStatus = "Published";
+    } else if (req._externalStatus === "Ready to Publish") {
+        portalStatus = "Available";
+    } else if (req.status === "Complete") {
+        portalStatus = "Under Review";
+    }
     return {
         id: req.id,
         requestId: req.requestId,
@@ -217,7 +228,7 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
         transactionName: req.transactionName,
         title: req.title,
         category: req.category,
-        status: req.status,
+        status: portalStatus,
         priority: req.priority,
         neededBy: req.dueDate,
         submittedAt: req.createdDate,
@@ -227,6 +238,8 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
         owner: req.owner,
         team: req.team,
         brokerBuyer: req.brokerBuyer,
+        externalStatus: req._externalStatus,
+        _publishedExternal: !!req._publishedExternal,
     };
 }
 

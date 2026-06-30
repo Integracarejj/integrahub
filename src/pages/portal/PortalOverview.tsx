@@ -657,6 +657,7 @@ function BuyerOverview({ persona }: { persona: ExternalDemoPersona }) {
     const open = requests.filter(r => r.status === "Open").length;
 
     const recentPublished = documents.slice(0, 3);
+    const publishedRequests = requests.filter(r => r.externalStatus === "Published External").slice(0, 5);
 
     return (
         <div className="portal-overview">
@@ -706,19 +707,30 @@ function BuyerOverview({ persona }: { persona: ExternalDemoPersona }) {
 
             <div className="po-bottom-row">
                 <div className="po-section">
-                    <h2 className="po-section-title">Recently Published Documents</h2>
-                    {recentPublished.length === 0 ? (
-                        <div style={{ padding: 16, fontSize: 13, color: "#64748b" }}>No documents published yet.</div>
+                    <h2 className="po-section-title">Recently Published</h2>
+                    {recentPublished.length === 0 && publishedRequests.length === 0 ? (
+                        <div style={{ padding: 16, fontSize: 13, color: "#64748b" }}>No items published yet.</div>
                     ) : (
                         <div className="po-requests-table">
                             <div className="po-requests-header">
-                                <span>Name</span><span>Category</span><span>Community</span><span>Uploaded</span>
+                                <span>Item</span><span>Category</span><span>Status</span><span>Updated</span>
                             </div>
+                            {publishedRequests.map((req) => (
+                                <div key={req.id} className="po-requests-row" onClick={() => navigate("/portal/requests")} style={{ cursor: "pointer" }}>
+                                    <span className="po-requests-title">
+                                        {req.title}
+                                        <span style={{ fontSize: 10, color: "#64748b", marginLeft: 6 }}>{req.requestId}</span>
+                                    </span>
+                                    <span style={{ fontSize: 12, color: "#64748b" }}>{req.category}</span>
+                                    <span><span style={{ display: "inline-block", padding: "1px 6px", borderRadius: 3, fontSize: 10, fontWeight: 700, background: "#f0fdf4", color: "#166534", border: "1px solid #86efac" }}>Published</span></span>
+                                    <span className="po-needed-by">{req.updatedAt || "\u2014"}</span>
+                                </div>
+                            ))}
                             {recentPublished.map((doc) => (
                                 <div key={doc.id} className="po-requests-row" onClick={() => navigate("/portal/documents")} style={{ cursor: "pointer" }}>
                                     <span className="po-requests-title">{doc.name}</span>
                                     <span style={{ fontSize: 12, color: "#64748b" }}>{doc.category}</span>
-                                    <span style={{ fontSize: 12, color: "#64748b" }}>{doc.communityNames[0] || "\u2014"}</span>
+                                    <span><span style={{ display: "inline-block", padding: "1px 6px", borderRadius: 3, fontSize: 10, fontWeight: 700, background: "#f0fdf4", color: "#166534", border: "1px solid #86efac" }}>Available</span></span>
                                     <span className="po-needed-by">{doc.uploadedAt}</span>
                                 </div>
                             ))}

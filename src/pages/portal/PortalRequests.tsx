@@ -9,6 +9,8 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
     "Under Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
     "Open": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
     "Overdue": { bg: "#fef2f2", text: "#991b1b", border: "#fecaca" },
+    "Published": { bg: "#f0fdf4", text: "#166534", border: "#86efac" },
+    "Available": { bg: "#f0fdf4", text: "#166534", border: "#bbf7d0" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -72,6 +74,8 @@ export default function PortalRequests() {
                     <option value="Clarification Needed">Clarification Needed</option>
                     <option value="Under Review">Under Review</option>
                     <option value="Provided">Provided</option>
+                    <option value="Published">Published</option>
+                    <option value="Available">Available</option>
                     <option value="Overdue">Overdue</option>
                 </select>
                 <select className="rc-filter-select" value={filterCommunity} onChange={(e) => setFilterCommunity(e.target.value)} style={{ minWidth: 140 }}>
@@ -102,15 +106,17 @@ export default function PortalRequests() {
                         <span style={{ fontSize: 12, fontWeight: 600, color: req.priority === "High" ? "#991b1b" : req.priority === "Medium" ? "#92400e" : "#166534" }}>{req.priority}</span>
                         <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.neededBy}</span>
                         <span>
-                            {persona.role === "Owner / Seller" && req.status !== "Provided" && req.status !== "Under Review" && (
+                            {req.externalStatus === "Published External" ? (
+                                <span style={{ fontSize: 10, color: "#166534", fontWeight: 600 }}>Published</span>
+                            ) : req.externalStatus === "Ready to Publish" ? (
+                                <span style={{ fontSize: 10, color: "#92400e", fontWeight: 600 }}>Available</span>
+                            ) : persona.role === "Owner / Seller" && req.status !== "Provided" && req.status !== "Under Review" && req.status !== "Published" && req.status !== "Available" ? (
                                 <button className="rc-btn rc-btn-primary rc-btn-sm" style={{ fontSize: 10 }} onClick={() => window.alert("Upload document mock")}>Upload</button>
-                            )}
-                            {persona.role === "Buyer" && (
+                            ) : persona.role === "Buyer" && req.status !== "Published" && req.status !== "Available" ? (
                                 <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 10 }} onClick={() => window.alert("Request clarification mock")}>Clarify</button>
-                            )}
-                            {persona.role === "Broker" && (
+                            ) : persona.role === "Broker" && req.status !== "Published" && req.status !== "Available" ? (
                                 <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 10 }} onClick={() => window.alert("Route / assign mock")}>Route</button>
-                            )}
+                            ) : null}
                         </span>
                     </div>
                 ))}
