@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { getRequests, isDemoActive, getTeamMembers, updateRequestStatus, bulkUpdateDemoRequests, getDocuments, updateRequestNotMine } from "../../services/recapDataService";
+import { getRequests, isDemoActive, getTeamMembers, updateRequestStatus, bulkUpdateDemoRequests, getDocuments, updateRequestNotMine, addActivityEntry } from "../../services/recapDataService";
 import type { RecapRequest } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -101,13 +101,39 @@ export default function RecapitalizationMyWork() {
 
     function handleStatusChange(req: RecapRequest, newStatus: string) {
         updateRequestStatus(req.id, newStatus as RecapRequest["status"]);
+        addActivityEntry({
+            type: "Status Change",
+            description: `${req.requestId}: Status changed to ${newStatus} by ${activeUser}`,
+            userId: activeUser,
+            userName: activeUser,
+            requestId: req.id,
+            requestTitle: req.title,
+            transactionId: req.transactionId,
+            transactionName: req.transactionName,
+        });
         setRefreshKey(k => k + 1);
         setBulkToast(`${req.requestId}: status changed to ${newStatus}`);
     }
 
     function handleBulkStatus(newStatus: string) {
         const ids = [...selectedIds];
-        ids.forEach(id => updateRequestStatus(id, newStatus as RecapRequest["status"]));
+        const reqs = workItems;
+        ids.forEach(id => {
+            const req = reqs.find(r => r.id === id);
+            updateRequestStatus(id, newStatus as RecapRequest["status"]);
+            if (req) {
+                addActivityEntry({
+                    type: "Status Change",
+                    description: `${req.requestId}: Status changed to ${newStatus} by ${activeUser}`,
+                    userId: activeUser,
+                    userName: activeUser,
+                    requestId: req.id,
+                    requestTitle: req.title,
+                    transactionId: req.transactionId,
+                    transactionName: req.transactionName,
+                });
+            }
+        });
         setRefreshKey(k => k + 1);
         setBulkToast(`Updated ${ids.length} item${ids.length !== 1 ? "s" : ""} to ${newStatus}`);
         setSelectedIds(new Set());

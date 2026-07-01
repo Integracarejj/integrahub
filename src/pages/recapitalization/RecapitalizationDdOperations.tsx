@@ -1,13 +1,13 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { getRequests, getTeamMembers, updateRequestStatus, updateRequestOwner, getDocuments, updateRequestReturnToOwner, getActivity } from "../../services/recapDataService";
+import { getRequests, getTeamMembers, updateRequestStatus, updateRequestOwner, getDocuments, updateRequestReturnToOwner, getActivity, addActivityEntry } from "../../services/recapDataService";
 import type { RecapRequest } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
 const STATUS_OPTIONS = ["Open", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate"];
 
-type ViewTab = "needs-dd-review" | "needs-reassignment" | "returned-to-owners" | "published-external" | "activity-feed" | "full-work-queue";
+type ViewTab = "needs-dd-review" | "ready-to-publish" | "needs-reassignment" | "returned-to-owners" | "published-external" | "activity-feed" | "full-work-queue";
 
 export default function RecapitalizationDdOperations() {
     const navigate = useNavigate();
@@ -29,7 +29,9 @@ export default function RecapitalizationDdOperations() {
     }, [allRequests]);
 
     /* ── KPIs ── */
-    const kpiNeedsDDReview = useMemo(() => workItems.filter(r => r.status === "Complete" && r._externalStatus !== "Published External").length, [workItems]);
+    const NEEDS_DD_REVIEW_STATUSES = ["Blocked", "Duplicate", "Not Applicable", "Clarification Needed"];
+    const kpiNeedsDDReview = useMemo(() => workItems.filter(r => NEEDS_DD_REVIEW_STATUSES.includes(r.status) && !r._returnReason).length, [workItems]);
+    const kpiReadyToPublish = useMemo(() => workItems.filter(r => r.status === "Complete" && r._externalStatus !== "Published External").length, [workItems]);
     const kpiNeedsReassignment = useMemo(() => workItems.filter(r => r._needsReassignment || (r._misassignedReason && !r.owner)).length, [workItems]);
     const kpiReturnedToOwners = useMemo(() => workItems.filter(r => r._returnReason).length, [workItems]);
     const kpiPublishedExternal = useMemo(() => workItems.filter(r => r._externalStatus === "Published External").length, [workItems]);
@@ -40,13 +42,23 @@ export default function RecapitalizationDdOperations() {
 
     const needsDDReview = useMemo(() => {
         return workItems
-            .filter(r => r.status === "Complete" && r._externalStatus !== "Published External")
+            .filter(r => NEEDS_DD_REVIEW_STATUSES.includes(r.status) && !r._returnReason)
             .sort((a, b) => {
                 const aDue = a.dueDate || "9999-99-99";
                 const bDue = b.dueDate || "9999-99-99";
                 if (aDue !== bDue) return aDue.localeCompare(bDue);
                 const pMap: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
                 return (pMap[a.priority] || 1) - (pMap[b.priority] || 1);
+            });
+    }, [workItems]);
+
+    const readyToPublish = useMemo(() => {
+        return workItems
+            .filter(r => r.status === "Complete" && r._externalStatus !== "Published External")
+            .sort((a, b) => {
+                const aDate = a.lastUpdated || "";
+                const bDate = b.lastUpdated || "";
+                return bDate.localeCompare(aDate);
             });
     }, [workItems]);
 
@@ -95,13 +107,14 @@ export default function RecapitalizationDdOperations() {
     const activeItems = useMemo(() => {
         switch (activeView) {
             case "needs-dd-review": return needsDDReview;
+            case "ready-to-publish": return readyToPublish;
             case "needs-reassignment": return needsReassignment;
             case "returned-to-owners": return returnedToOwnersItems;
             case "published-external": return publishedExternalItems;
             case "activity-feed": return [];
             case "full-work-queue": return fullWorkQueue;
         }
-    }, [activeView, needsDDReview, needsReassignment, returnedToOwnersItems, publishedExternalItems, fullWorkQueue]);
+    }, [activeView, needsDDReview, readyToPublish, needsReassignment, returnedToOwnersItems, publishedExternalItems, fullWorkQueue]);
 
     function hasDocuments(req: RecapRequest): boolean {
         const docs = getDocuments();
@@ -110,11 +123,22 @@ export default function RecapitalizationDdOperations() {
 
     function handleStatusChange(req: RecapRequest, newStatus: string) {
         updateRequestStatus(req.id, newStatus as RecapRequest["status"]);
+        addActivityEntry({
+            type: "Status Change",
+            description: `${req.requestId}: Status changed to ${newStatus} by ${activeUser}`,
+            userId: activeUser,
+            userName: activeUser,
+            requestId: req.id,
+            requestTitle: req.title,
+            transactionId: req.transactionId,
+            transactionName: req.transactionName,
+        });
         setRefreshKey(k => k + 1);
     }
 
     const emptyMessages: Record<ViewTab, string> = {
         "needs-dd-review": "No items needing DD review.",
+        "ready-to-publish": "No items ready to publish.",
         "needs-reassignment": "No items needing reassignment.",
         "returned-to-owners": "No items returned to owners.",
         "published-external": "No items published externally.",
@@ -124,6 +148,7 @@ export default function RecapitalizationDdOperations() {
 
     const tabLabels: Record<ViewTab, string> = {
         "needs-dd-review": "Needs DD Review",
+        "ready-to-publish": "Ready to Publish",
         "needs-reassignment": "Needs Reassignment",
         "returned-to-owners": "Returned to Owners",
         "published-external": "Published External",
@@ -133,6 +158,7 @@ export default function RecapitalizationDdOperations() {
 
     const kpiCards = [
         { label: "Needs DD Review", count: kpiNeedsDDReview, tab: "needs-dd-review" as ViewTab, color: "#1d4ed8" },
+        { label: "Ready to Publish", count: kpiReadyToPublish, tab: "ready-to-publish" as ViewTab, color: "#047857" },
         { label: "Needs Reassignment", count: kpiNeedsReassignment, tab: "needs-reassignment" as ViewTab, color: "#dc2626" },
         { label: "Returned to Owners", count: kpiReturnedToOwners, tab: "returned-to-owners" as ViewTab, color: "#7c3aed" },
         { label: "Published External", count: kpiPublishedExternal, tab: "published-external" as ViewTab, color: "#166534" },
@@ -190,6 +216,7 @@ export default function RecapitalizationDdOperations() {
     function renderTable(items: RecapRequest[], emptyMsg: string) {
         if (items.length === 0) return <div className="rc-empty-state" style={{ padding: 20 }}>{emptyMsg}</div>;
         return (
+            <div style={{ overflowX: "auto", maxHeight: "calc(100vh - 310px)", overflowY: "auto" }}>
             <table className="rc-table">
                 <thead>
                     <tr>
@@ -203,7 +230,7 @@ export default function RecapitalizationDdOperations() {
                         <th style={{ minWidth: 80 }}>Team</th>
                         <th style={{ minWidth: 80 }}>Due</th>
                         <th style={{ minWidth: 80 }}>Updated</th>
-                        <th style={{ minWidth: 90 }}>Actions</th>
+                        <th style={{ minWidth: 160 }}>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -238,7 +265,7 @@ export default function RecapitalizationDdOperations() {
                             <td style={{ fontSize: 12 }}>{req.team}</td>
                             <td className="nowrap" style={{ fontSize: 12, color: req.status === "Overdue" ? "#991b1b" : "#475569", fontWeight: req.status === "Overdue" ? 600 : 400 }}>{req.dueDate}</td>
                             <td style={{ fontSize: 12, color: "#475569" }}>{req.lastUpdated}</td>
-                            <td onClick={e => e.stopPropagation()} style={{ whiteSpace: "nowrap", minWidth: 120 }}>
+                            <td onClick={e => e.stopPropagation()} style={{ whiteSpace: "nowrap", minWidth: 160 }}>
                                 {activeView === "needs-dd-review" && req.owner && (
                                     <button
                                         onClick={() => setReturnToOwner({ req, reason: "" })}
@@ -255,10 +282,23 @@ export default function RecapitalizationDdOperations() {
                                             const newOwner = e.target.value;
                                             if (newOwner) {
                                                 updateRequestOwner(req.id, newOwner);
+                                                updateRequestStatus(req.id, "Open" as RecapRequest["status"]);
+                                                req._needsReassignment = false;
+                                                req._misassignedReason = null;
+                                                addActivityEntry({
+                                                    type: "Assignment",
+                                                    description: `${req.requestId}: Reassigned to ${newOwner} by ${activeUser}`,
+                                                    userId: activeUser,
+                                                    userName: activeUser,
+                                                    requestId: req.id,
+                                                    requestTitle: req.title,
+                                                    transactionId: req.transactionId,
+                                                    transactionName: req.transactionName,
+                                                });
                                                 setRefreshKey(k => k + 1);
                                             }
                                         }}
-                                        style={{ fontSize: 10, padding: "2px 4px", borderRadius: 4, border: "1px solid #d1d5db", cursor: "pointer", minWidth: 100 }}
+                                        style={{ fontSize: 10, padding: "2px 4px", borderRadius: 4, border: "1px solid #d1d5db", cursor: "pointer", minWidth: 110 }}
                                     >
                                         <option value="">Assign...</option>
                                         {members.filter(m => m.team !== "DD Management").map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
@@ -269,6 +309,7 @@ export default function RecapitalizationDdOperations() {
                     ))}
                 </tbody>
             </table>
+            </div>
         );
     }
 
@@ -303,7 +344,7 @@ export default function RecapitalizationDdOperations() {
             </div>
 
             <div className="rc-view-tabs" style={{ display: "flex", gap: 0, marginBottom: 16, borderBottom: "2px solid #e2e8f0", overflowX: "auto" }}>
-                {(["needs-dd-review", "needs-reassignment", "returned-to-owners", "published-external", "activity-feed", "full-work-queue"] as const).map(view => (
+                {(["needs-dd-review", "ready-to-publish", "needs-reassignment", "returned-to-owners", "published-external", "activity-feed", "full-work-queue"] as const).map(view => (
                     <button key={view} onClick={() => setActiveView(view)}
                         style={{ padding: "8px 16px", fontSize: 13, fontWeight: activeView === view ? 700 : 500, color: activeView === view ? "#1d4ed8" : "#475569", background: "none", border: "none", borderBottom: activeView === view ? "2px solid #1d4ed8" : "2px solid transparent", marginBottom: -2, cursor: "pointer", transition: "all 0.15s", whiteSpace: "nowrap" }}>
                         {tabLabels[view]}

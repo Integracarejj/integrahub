@@ -156,6 +156,16 @@ export default function RecapitalizationWorkspace() {
         const reqId = item.id || item.intakeId || "";
         updateRequestOwner(reqId, newOwner || null);
         setInternalOwner(newOwner);
+        addActivityEntry({
+            type: "Assignment",
+            description: `${displayId}: ${newOwner ? `Assigned to ${newOwner}` : "Unassigned"} by Sarah Chen`,
+            userId: "current-user",
+            userName: "Sarah Chen",
+            requestId: item.requestId || item.id,
+            requestTitle: displayTitle || item.category || "",
+            transactionId: item.transactionId,
+            transactionName: item.transactionName || item.transactionId,
+        });
         setWsRefreshKey(k => k + 1);
         setBanner(newOwner ? `\u2713 Assigned to ${newOwner}` : "\u2713 Unassigned");
         setBannerError(false);
@@ -881,6 +891,16 @@ export default function RecapitalizationWorkspace() {
                                 <button className="rc-btn rc-btn-primary" onClick={() => {
                                     setPublishExternal(prev => prev ? { ...prev, step: 3 } : null);
                                     updateRequestExternalStatus(item.id || item.intakeId || "", workArtifacts.length === 0);
+                                    addActivityEntry({
+                                        type: "Status Change",
+                                        description: `${displayId}: Published externally by Sarah Chen`,
+                                        userId: "current-user",
+                                        userName: "Sarah Chen",
+                                        requestId: item.requestId || item.id,
+                                        requestTitle: displayTitle || item.category || "",
+                                        transactionId: item.transactionId,
+                                        transactionName: item.transactionName || item.transactionId,
+                                    });
                                 }}>Confirm Publish External</button>
                             )}
                             {publishExternal.step === 3 && (
