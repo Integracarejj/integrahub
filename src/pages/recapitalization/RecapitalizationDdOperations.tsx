@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { getRequests, getTeamMembers, updateRequestStatus, getDocuments, updateRequestReturnToOwner, getActivity } from "../../services/recapDataService";
-import type { RecapRequest, RecapActivity } from "../../services/recapDataService";
+import type { RecapRequest } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
