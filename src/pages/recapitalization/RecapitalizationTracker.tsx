@@ -4,7 +4,7 @@ import {
     getRequests, getTransactions, getTeamMembers, getTeams,
     updateRequestStatus, updateRequestOwner, updateRequestTeam, addActivityEntry,
     updateRequestPriority, updateRequestDueDate, updateRequestExternalStatus, isDemoActive,
-    bulkUpdateDemoRequests,
+    bulkUpdateDemoRequests, getDocuments,
 } from "../../services/recapDataService";
 
 import type { RecapRequest } from "../../services/recapDataService";
@@ -185,6 +185,11 @@ export default function RecapitalizationTracker() {
         });
         setRefreshKey(k => k + 1);
         setBulkToast(`${req.requestId}: status changed to ${newStatus}`);
+    }
+
+    function hasDocuments(req: RecapRequest): boolean {
+        const docs = getDocuments();
+        return docs.some(d => d.requestId === req.requestId || d.requestTitle === req.title);
     }
 
     function clearFilterParam() {
@@ -581,6 +586,12 @@ export default function RecapitalizationTracker() {
                                                     <div style={{ fontSize: 13, color: "#334155" }}>{detailModalItem.communityNames.join(", ") || "\u2014"}</div>
                                                 </div>
                                             </div>
+                                            {!hasDocuments(detailModalItem) && (
+                                                <div style={{ padding: "8px 12px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, fontSize: 12, color: "#92400e", display: "flex", alignItems: "center", gap: 6 }}>
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                                    No supporting documents or work artifacts attached to this request. Publishing without artifacts will make only metadata visible externally.
+                                                </div>
+                                            )}
                                             <div style={{ padding: "8px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b", display: "flex", alignItems: "center", gap: 6 }}>
                                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                                                 You are about to make this request and documents visible to the external broker/buyer portal.
@@ -612,47 +623,6 @@ export default function RecapitalizationTracker() {
                                                     {detailModalItem.requestId} &mdash; {detailModalItem.title} is now visible to the external portal.
                                                 </div>
                                             </div>
-
-                                            <div style={{ height: 1, background: "#e2e8f0" }} />
-
-                                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                                <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Promote to Community Knowledge?</div>
-                                                <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.5 }}>
-                                                    Making this deliverable available as a community knowledge resource allows it to be reused across future transactions.
-                                                </div>
-                                                <div style={{ padding: "8px 12px", background: "#f8faff", border: "1px solid #dbeafe", borderRadius: 6, fontSize: 12 }}>
-                                                    <div style={{ color: "#334155", marginBottom: 4 }}><strong>Request ID:</strong> {detailModalItem.requestId}</div>
-                                                    <div style={{ color: "#334155", marginBottom: 4 }}><strong>Deliverable:</strong> {detailModalItem.title}</div>
-                                                    <div style={{ color: "#334155" }}><strong>Category:</strong> {detailModalItem.category || "\u2014"}</div>
-                                                </div>
-                                                {(() => {
-                                                    const reusableKeywords = ["policy", "handbook", "template", "license", "certificate", "insurance", "osha", "compliance", "contract", "benefit", "guideline", "procedure", "standard", "governance"];
-                                                    const transactionKeywords = ["payroll", "utility", "expense", "census", "aging", "financial", "bank", "statement", "register", "history", "incident"];
-                                                    const cat = (detailModalItem.category || "").toLowerCase();
-                                                    const tit = (detailModalItem.title || "").toLowerCase();
-                                                    const isReusable = reusableKeywords.some(k => cat.includes(k) || tit.includes(k));
-                                                    const isTransactionSpecific = transactionKeywords.some(k => cat.includes(k) || tit.includes(k));
-                                                    let recommendation = "";
-                                                    let reason = "";
-                                                    if (isReusable && !isTransactionSpecific) {
-                                                        recommendation = "Promote to Community Knowledge";
-                                                        reason = "This deliverable type is typically reusable across transactions.";
-                                                    } else if (isTransactionSpecific) {
-                                                        recommendation = "Do not promote";
-                                                        reason = "This deliverable appears transaction-specific and may not be reusable.";
-                                                    } else {
-                                                        recommendation = "Promote to Community Knowledge";
-                                                        reason = "Could be reusable based on general classification.";
-                                                    }
-                                                    return (
-                                                        <div style={{ padding: "8px 12px", marginTop: 4, background: recommendation === "Promote to Community Knowledge" ? "#f0fdf4" : "#fffbeb", border: `1px solid ${recommendation === "Promote to Community Knowledge" ? "#bbf7d0" : "#fde68a"}`, borderRadius: 6 }}>
-                                                            <div style={{ fontSize: 11, color: "#334155", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Recommendation</div>
-                                                            <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{recommendation}</div>
-                                                            <div style={{ fontSize: 11, color: "#334155", marginTop: 2 }}>{reason}</div>
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </div>
                                         </div>
                                     )}
                                 </>
@@ -683,12 +653,8 @@ export default function RecapitalizationTracker() {
                                         <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%" }}>
                                             <button className="rc-btn rc-btn-primary" style={{ width: "100%" }} onClick={() => {
                                                 setPublishStep(0);
-                                                setBulkToast(`\u2713 Published "${detailModalItem.title}" externally. Promoted to Community Knowledge.`);
-                                            }}>Promote to Community Knowledge</button>
-                                            <button className="rc-btn rc-btn-ghost" style={{ width: "100%" }} onClick={() => {
-                                                setPublishStep(0);
                                                 setBulkToast(`\u2713 Published "${detailModalItem.title}" externally.`);
-                                            }}>Skip for Now</button>
+                                            }}>Done</button>
                                         </div>
                                     )}
                                 </>

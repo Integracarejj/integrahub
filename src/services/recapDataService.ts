@@ -14,7 +14,17 @@ export type {
 export function getTransactions(): RecapTransaction[] {
     if (isDemoLoaded()) {
         const txn = Demo.getDemoTransaction();
-        return txn ? [txn] : [];
+        const result = txn ? [txn] : [];
+        // Include synthetic transactions for any portal-created packages (e.g. BonJovi)
+        const portalReqs = getPortalCreatedRequests();
+        const seenIds = new Set(result.map(t => t.id));
+        portalReqs.forEach(r => {
+            if (!seenIds.has(r.transactionId)) {
+                seenIds.add(r.transactionId);
+                result.push(makePortalTransaction(r.transactionId, r.transactionName));
+            }
+        });
+        return result;
     }
     return Mock.getTransactions();
 }
@@ -27,6 +37,10 @@ export function getTransactionById(id: string): RecapTransaction | undefined {
     if (isDemoLoaded()) {
         const txn = Demo.getDemoTransaction();
         if (txn && txn.id === id) return txn;
+        // Check portal requests for matching transaction ID
+        const portalReqs = getPortalCreatedRequests();
+        const found = portalReqs.find(r => r.transactionId === id);
+        if (found) return makePortalTransaction(found.transactionId, found.transactionName);
         return;
     }
     return Mock.getTransactionById(id);
@@ -58,10 +72,6 @@ export function getRequests(): RecapRequest[] {
     const portalReqs = getPortalCreatedRequests();
     if (isDemoLoaded()) {
         const demo = Demo.getDemoRequests();
-        // If a custom package was uploaded (portal requests from non-ABC txn), isolate demo data
-        if (portalReqs.some(r => r.transactionId !== "txn-abc")) {
-            return portalReqs;
-        }
         return [...demo, ...portalReqs];
     }
     return [...Mock.getRequests(), ...portalReqs];
@@ -131,6 +141,10 @@ export function getDeliverables(): RecapDeliverable[] {
     return Mock.getDeliverables();
 }
 
+function makePortalTransaction(transactionId: string, transactionName: string): RecapTransaction {
+    return { id: transactionId, name: transactionName, description: "", status: "Active" as const, sellerName: "", buyerName: "", brokerName: "", targetClose: "", totalRequests: 0, providedCount: 0, inProgressCount: 0, clarificationNeededCount: 0, overdueCount: 0, communities: [] };
+}
+
 export function lookupWorkspaceItem(id: string): { type: "intake"; item: RecapIntakeItem; transaction: RecapTransaction } | { type: "request"; item: RecapRequest; transaction: RecapTransaction } | null {
     if (isDemoLoaded()) {
         const intake = Demo.getDemoIntakeItem();
@@ -147,14 +161,12 @@ export function lookupWorkspaceItem(id: string): { type: "intake"; item: RecapIn
     const portalIntakes = getPortalCreatedIntakeItems();
     const foundPortal = portalIntakes.find(i => i.id === id || i.intakeId === id);
     if (foundPortal) {
-        const txn = Demo.getDemoTransaction();
-        return { type: "intake", item: foundPortal, transaction: txn || { id: "txn-portal", name: foundPortal.transactionName, description: "", status: "Active", sellerName: "", buyerName: "", brokerName: "", targetClose: "", totalRequests: 0, providedCount: 0, inProgressCount: 0, clarificationNeededCount: 0, overdueCount: 0, communities: [] } };
+        return { type: "intake", item: foundPortal, transaction: makePortalTransaction(foundPortal.transactionId, foundPortal.transactionName) };
     }
     const portalReqs = getPortalCreatedRequests();
     const foundReq = portalReqs.find(r => r.id === id || r.intakeId === id);
     if (foundReq) {
-        const txn = Demo.getDemoTransaction();
-        return { type: "request", item: foundReq, transaction: txn || { id: "txn-portal", name: foundReq.transactionName, description: "", status: "Active", sellerName: "", buyerName: "", brokerName: "", targetClose: "", totalRequests: 0, providedCount: 0, inProgressCount: 0, clarificationNeededCount: 0, overdueCount: 0, communities: [] } };
+        return { type: "request", item: foundReq, transaction: makePortalTransaction(foundReq.transactionId, foundReq.transactionName) };
     }
     if (isDemoLoaded()) return null;
     return Mock.lookupWorkspaceItem(id);
@@ -493,6 +505,10 @@ export function initDemo(): void {
 
 export function resetDemo(): void {
     Demo.resetDemo();
+}
+
+export function resetAllRecapData(): void {
+    Demo.resetAllRecapData();
 }
 
 export function isDemoActive(): boolean {

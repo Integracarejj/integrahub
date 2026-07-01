@@ -276,6 +276,21 @@ export function resetDemo(): void {
     localStorage.removeItem("integrasource.recap.demo.portalSubmissions");
 }
 
+const ALL_RECAP_KEYS = [
+    DEMO_KEY,
+    "integrasource.recap.demo.reviewStates",
+    "integrasource.recap.demo.portalIntakeItems",
+    "integrasource.recap.demo.portalRequests",
+    "integrasource.recap.demo.portalSubmissions",
+    "integrasource.recap.demo.parsedRows",
+    "integrasource.recap.myWorkUser",
+];
+
+export function resetAllRecapData(): void {
+    ALL_RECAP_KEYS.forEach(key => localStorage.removeItem(key));
+    console.log("[resetAllRecapData] All recap localStorage keys cleared");
+}
+
 export function getDemoTransaction(): RecapTransaction | null {
     const state = loadState();
     return state?.transaction || null;

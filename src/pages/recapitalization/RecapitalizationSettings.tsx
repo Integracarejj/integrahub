@@ -1,6 +1,6 @@
 import { useState } from "react";
 import RecapSubNav from "./RecapSubNav";
-import { isDemoActive, initDemo, resetDemo, resetRequestTracker, getRequests, getDemoTransaction, clearAllPortalCreatedData } from "../../services/recapDataService";
+import { isDemoActive, initDemo, resetDemo, resetAllRecapData, resetRequestTracker, getRequests, getDemoTransaction, clearAllPortalCreatedData } from "../../services/recapDataService";
 import "./Recapitalization.css";
 
 const SETTING_GROUPS = [
@@ -60,16 +60,14 @@ export default function RecapitalizationSettings() {
     };
 
     const handleResetDemo = () => {
-        clearAllPortalCreatedData();
+        resetAllRecapData();
         initDemo();
-        localStorage.removeItem(REVIEW_STATE_KEY);
         setRefreshKey(k => k + 1);
         showBanner("Demo data reset to initial state");
     };
 
     const handleClearDemo = () => {
-        resetDemo();
-        localStorage.removeItem(REVIEW_STATE_KEY);
+        resetAllRecapData();
         setDemoLoaded(false);
         setRefreshKey(k => k + 1);
         showBanner("Demo data cleared — returning to standard mock data");

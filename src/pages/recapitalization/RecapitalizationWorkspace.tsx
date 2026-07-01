@@ -846,7 +846,6 @@ export default function RecapitalizationWorkspace() {
 
                             {publishExternal.step === 3 && (
                                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                                    {/* Success section */}
                                     <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center", textAlign: "center", padding: "8px 0" }}>
                                         <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
@@ -860,48 +859,6 @@ export default function RecapitalizationWorkspace() {
                                                 Published documents: {publishExternal.selectedArtifacts.join(", ")}
                                             </div>
                                         )}
-                                    </div>
-
-                                    <div style={{ height: 1, background: "#e2e8f0" }} />
-
-                                    {/* Community Knowledge prompt */}
-                                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                        <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Promote to Community Knowledge?</div>
-                                        <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.5 }}>
-                                            Making this deliverable available as a community knowledge resource allows it to be reused across future transactions.
-                                        </div>
-                                        <div style={{ padding: "8px 12px", background: "#f8faff", border: "1px solid #dbeafe", borderRadius: 6, fontSize: 12 }}>
-                                            <div style={{ color: "#475569", marginBottom: 4 }}><strong>Request ID:</strong> {displayId}</div>
-                                            <div style={{ color: "#475569", marginBottom: 4 }}><strong>Deliverable:</strong> {displayTitle || item.category || "\u2014"}</div>
-                                            <div style={{ color: "#475569" }}><strong>Category:</strong> {item.category || "\u2014"}</div>
-                                        </div>
-                                        {(() => {
-                                            const reusableKeywords = ["policy", "handbook", "template", "license", "certificate", "insurance", "osha", "compliance", "contract", "benefit", "guideline", "procedure", "standard", "governance"];
-                                            const transactionKeywords = ["payroll", "utility", "expense", "census", "aging", "financial", "bank", "statement", "register", "history", "incident"];
-                                            const cat = (item.category || "").toLowerCase();
-                                            const tit = (displayTitle || "").toLowerCase();
-                                            const isReusable = reusableKeywords.some(k => cat.includes(k) || tit.includes(k));
-                                            const isTransactionSpecific = transactionKeywords.some(k => cat.includes(k) || tit.includes(k));
-                                            let recommendation = "";
-                                            let reason = "";
-                                            if (isReusable && !isTransactionSpecific) {
-                                                recommendation = "Promote to Community Knowledge";
-                                                reason = "This deliverable type is typically reusable across transactions.";
-                                            } else if (isTransactionSpecific) {
-                                                recommendation = "Do not promote";
-                                                reason = "This deliverable appears transaction-specific and may not be reusable.";
-                                            } else {
-                                                recommendation = "Promote to Community Knowledge";
-                                                reason = "Could be reusable based on general classification.";
-                                            }
-                                            return (
-                                                <div style={{ padding: "8px 12px", marginTop: 4, background: recommendation === "Promote to Community Knowledge" ? "#f0fdf4" : "#fffbeb", border: `1px solid ${recommendation === "Promote to Community Knowledge" ? "#bbf7d0" : "#fde68a"}`, borderRadius: 6 }}>
-                                                    <div style={{ fontSize: 11, color: "#475569", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Recommendation</div>
-                                                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{recommendation}</div>
-                                                    <div style={{ fontSize: 11, color: "#334155", marginTop: 2 }}>{reason}</div>
-                                                </div>
-                                            );
-                                        })()}
                                     </div>
                                 </div>
                             )}
@@ -926,14 +883,9 @@ export default function RecapitalizationWorkspace() {
                                 <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%" }}>
                                     <button className="rc-btn rc-btn-primary" style={{ width: "100%" }} onClick={() => {
                                         setPublishExternal(null);
-                                        setBanner("\u2713 Published externally. Promoted to Community Knowledge.");
+                                        setBanner("\u2713 Published externally.");
                                         setBannerError(false);
-                                    }}>Promote to Community Knowledge</button>
-                                    <button className="rc-btn rc-btn-ghost" style={{ width: "100%" }} onClick={() => {
-                                        setPublishExternal(null);
-                                        setBanner("\u2713 Published externally. Community Knowledge promotion skipped.");
-                                        setBannerError(false);
-                                    }}>Skip for Now</button>
+                                    }}>Done</button>
                                     <button className="rc-btn rc-btn-secondary" style={{ width: "100%" }} onClick={() => { setPublishExternal(null); navigate("/recapitalization/tracker"); }}>Return to Work Queue</button>
                                 </div>
                             )}
