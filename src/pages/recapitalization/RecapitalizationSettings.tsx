@@ -1,6 +1,6 @@
 import { useState } from "react";
 import RecapSubNav from "./RecapSubNav";
-import { isDemoActive, initDemo, resetDemo, resetAllRecapData, resetRequestTracker, getRequests, getDemoTransaction, clearAllPortalCreatedData } from "../../services/recapDataService";
+import { isDemoActive, initDemo, resetAllRecapData, resetRequestTracker, getRequests, getDemoTransaction, clearAllPortalCreatedData } from "../../services/recapDataService";
 import "./Recapitalization.css";
 
 const SETTING_GROUPS = [
