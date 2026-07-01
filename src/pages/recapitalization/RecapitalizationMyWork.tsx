@@ -16,6 +16,7 @@ export default function RecapitalizationMyWork() {
     const [detailItem, setDetailItem] = useState<RecapRequest | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
     const [bulkToast, setBulkToast] = useState("");
+    const [successMsg, setSuccessMsg] = useState<{ title: string; body: string } | null>(null);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [activeView, setActiveView] = useState<ViewTab>("active-work");
     const [statusConfirm, setStatusConfirm] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
@@ -25,13 +26,16 @@ export default function RecapitalizationMyWork() {
     const members = getTeamMembers();
     const allRequests = useMemo(() => getRequests(), [refreshKey]);
 
-    const publishedRequests = useMemo(() => allRequests.filter(r => r._publishedAt || r._createdFromReview), [allRequests]);
+    const workItems = useMemo(() => {
+        const published = allRequests.filter(r => r._publishedAt || r._createdFromReview);
+        return published.length > 0 ? published : allRequests;
+    }, [allRequests]);
 
     const user = members.find(m => m.name === activeUser);
     const userTeam = user?.team || "";
 
     const assignedToMe = useMemo(() => {
-        return publishedRequests
+        return workItems
             .filter(r => r.owner === activeUser || r.assignedTo === activeUser)
             .sort((a, b) => {
                 const aDate = a.lastUpdated || "";
@@ -43,12 +47,15 @@ export default function RecapitalizationMyWork() {
                 const pMap: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
                 return (pMap[a.priority] || 1) - (pMap[b.priority] || 1);
             });
-    }, [publishedRequests, activeUser]);
+    }, [workItems, activeUser]);
 
     const activeWork = useMemo(() => {
         return assignedToMe.filter(r =>
             r.status !== "Complete" &&
-            r._externalStatus !== "Ready to Publish"
+            r._externalStatus !== "Ready to Publish" &&
+            r._externalStatus !== "Published External" &&
+            !RETURNED_STATUSES.includes(r.status) &&
+            !r._needsReassignment
         );
     }, [assignedToMe]);
 
@@ -61,7 +68,7 @@ export default function RecapitalizationMyWork() {
     }, [assignedToMe]);
 
     const myTeamItems = useMemo(() => {
-        return publishedRequests
+        return workItems
             .filter(r => r.team === userTeam && r.owner !== activeUser && r.assignedTo !== activeUser)
             .sort((a, b) => {
                 const aDue = a.dueDate || "9999-99-99";
@@ -70,7 +77,7 @@ export default function RecapitalizationMyWork() {
                 const pMap: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
                 return (pMap[a.priority] || 1) - (pMap[b.priority] || 1);
             });
-    }, [publishedRequests, userTeam, activeUser]);
+    }, [workItems, userTeam, activeUser]);
 
     const returnedItems = useMemo(() => {
         return assignedToMe.filter(r =>
@@ -116,7 +123,7 @@ export default function RecapitalizationMyWork() {
 
     function handleBulkComplete() {
         const ids = [...selectedIds];
-        const allReqs = publishedRequests;
+        const allReqs = workItems;
         const noArtifactItems = ids.filter(reqId => {
             const req = allReqs.find(r => r.id === reqId);
             return req && !hasDocuments(req);
@@ -151,6 +158,10 @@ export default function RecapitalizationMyWork() {
         <span className={`rc-badge rc-badge-${priority.toLowerCase()}`} style={{ fontSize: 10 }}>{priority}</span>
     );
 
+    function openWorkspace(req: RecapRequest) {
+        navigate(`/recapitalization/workspace/${req.intakeId}`, { state: { from: "my-work" } });
+    }
+
     function renderTable(items: RecapRequest[], emptyMsg: string, showCheckboxes = false) {
         if (items.length === 0) return <div className="rc-empty-state" style={{ padding: 20 }}>{emptyMsg}</div>;
         return (
@@ -158,20 +169,21 @@ export default function RecapitalizationMyWork() {
                 <thead>
                     <tr>
                         {showCheckboxes && <th style={{ width: 16, paddingRight: 4 }}></th>}
+                        <th style={{ minWidth: 110 }}>Request ID</th>
                         <th style={{ minWidth: 160 }}>Deliverable</th>
                         <th style={{ minWidth: 80 }}>Community</th>
                         <th style={{ minWidth: 60 }}>Priority</th>
                         <th style={{ minWidth: 110 }}>Status</th>
+                        {activeView !== "my-team" && <th style={{ minWidth: 80 }}>Owner</th>}
+                        <th style={{ minWidth: 80 }}>Team</th>
                         <th style={{ minWidth: 80 }}>Due</th>
                         <th style={{ minWidth: 80 }}>Updated</th>
-                        <th style={{ minWidth: 80 }}>Team</th>
-                        <th style={{ minWidth: 100 }}>Request ID</th>
-                        <th style={{ minWidth: 70 }}>Actions</th>
+                        <th style={{ minWidth: 80 }}>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {items.map(req => (
-                        <tr key={req.id} className="rc-row-clickable" onClick={() => navigate(`/recapitalization/workspace/${req.intakeId}`, { state: { from: "my-work" } })}>
+                        <tr key={req.id} className="rc-row-clickable" onClick={() => openWorkspace(req)}>
                             {showCheckboxes && (
                                 <td style={{ width: 16, paddingRight: 4 }} onClick={e => e.stopPropagation()}>
                                     <input type="checkbox" checked={selectedIds.has(req.id)} onChange={() => {
@@ -179,6 +191,7 @@ export default function RecapitalizationMyWork() {
                                     }} />
                                 </td>
                             )}
+                            <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#475569", fontWeight: 600 }}>{req.requestId}</td>
                             <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 200 }}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</td>
                             <td style={{ fontSize: 12, color: "#475569" }}>{req.communityNames[0] || "\u2014"}</td>
                             <td><PriorityBadge priority={req.priority} /></td>
@@ -202,12 +215,12 @@ export default function RecapitalizationMyWork() {
                                     </select>
                                 </div>
                             </td>
+                            {activeView !== "my-team" && <td style={{ fontSize: 12, color: "#475569" }}>{req.owner || "\u2014"}</td>}
+                            <td style={{ fontSize: 12 }}>{req.team}</td>
                             <td className="nowrap" style={{ fontSize: 12, color: req.status === "Overdue" ? "#991b1b" : "#475569", fontWeight: req.status === "Overdue" ? 600 : 400 }}>{req.dueDate}</td>
                             <td style={{ fontSize: 12, color: req.lastUpdated ? "#475569" : "#94a3b8" }}>{req.lastUpdated || "\u2014"}</td>
-                            <td style={{ fontSize: 12 }}>{req.team}</td>
-                            <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#475569" }}>{req.requestId}</td>
                             <td onClick={e => e.stopPropagation()}>
-                                {req.owner === activeUser && req.status !== "Complete" && (
+                                {(activeView === "active-work" || activeView === "returned") && req.owner === activeUser && req.status !== "Complete" && req._externalStatus !== "Published External" && (
                                     <button
                                         onClick={() => setNotMine({ req, reason: "" })}
                                         style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#dc2626", border: "1px solid #fecaca", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
@@ -345,10 +358,10 @@ export default function RecapitalizationMyWork() {
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
                             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                                 <div style={{ fontSize: 13, color: "#334155" }}>
-                                    Report <strong>{notMine.req.requestId}</strong> &mdash; {notMine.req.title.split(" - ").slice(1).join(" - ").trim() || notMine.req.title} as <strong>not assigned to you</strong>?
+                                    This will remove you as the owner and send this item to DD Operations for reassignment.
                                 </div>
                                 <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
-                                    This will remove you as the owner and send the item to the Needs Reassignment queue in DD Operations.
+                                    <strong>{notMine.req.requestId}</strong> &mdash; {notMine.req.title.split(" - ").slice(1).join(" - ").trim() || notMine.req.title}
                                 </div>
                                 <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
                                     Reason <span style={{ color: "#dc2626" }}>*</span>
@@ -367,9 +380,12 @@ export default function RecapitalizationMyWork() {
                             <button className="rc-btn rc-btn-primary" disabled={!notMine.reason.trim()} onClick={() => {
                                 const reason = notMine.reason.trim();
                                 if (!reason) return;
-                                updateRequestNotMine(notMine.req.id, reason);
+                                updateRequestNotMine(notMine.req.id, reason, activeUser);
                                 setRefreshKey(k => k + 1);
-                                setBulkToast(`${notMine.req.requestId}: reported as not mine`);
+                                setSuccessMsg({
+                                    title: "Not Mine Reported",
+                                    body: `${notMine.req.requestId} has been moved to DD Operations for reassignment.`,
+                                });
                                 setNotMine(null);
                             }}>Report Not Mine</button>
                         </div>
@@ -440,7 +456,25 @@ export default function RecapitalizationMyWork() {
                         </div>
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-secondary" onClick={() => setDetailItem(null)}>Close</button>
-                            <button className="rc-btn rc-btn-primary" onClick={() => { setDetailItem(null); navigate(`/recapitalization/workspace/${detailItem.intakeId}`, { state: { from: "my-work" } }); }}>Open Workspace</button>
+                            <button className="rc-btn rc-btn-primary" onClick={() => { setDetailItem(null); openWorkspace(detailItem); }}>Open Workspace</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {successMsg && (
+                <div className="rc-modal-overlay" onClick={() => setSuccessMsg(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+                        <div className="rc-modal-header">
+                            <h2>{successMsg.title}</h2>
+                            <button className="rc-modal-close" onClick={() => setSuccessMsg(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "20px", textAlign: "center" }}>
+                            <div style={{ fontSize: 40, marginBottom: 8 }}>&#10003;</div>
+                            <div style={{ fontSize: 14, color: "#166534", fontWeight: 500, lineHeight: 1.5 }}>{successMsg.body}</div>
+                        </div>
+                        <div className="rc-modal-footer" style={{ justifyContent: "center" }}>
+                            <button className="rc-btn rc-btn-primary" onClick={() => setSuccessMsg(null)}>OK</button>
                         </div>
                     </div>
                 </div>

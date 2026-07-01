@@ -254,55 +254,85 @@ export function updateRequestCompletion(id: string, data: { completedBy: string;
 }
 
 export function updateRequestReturnToOwner(id: string, reason: string, returnedBy: string): RecapRequest | undefined {
+    let req: RecapRequest | undefined;
     if (isDemoLoaded()) {
-        return Demo.updateDemoRequest(id, {
+        req = Demo.updateDemoRequest(id, {
             status: "Clarification Needed",
             _returnReason: reason,
             _returnedBy: returnedBy,
         });
+    } else {
+        req = Mock.getRequestById(id);
+        if (req) {
+            req.status = "Clarification Needed";
+            req._returnReason = reason;
+            req._returnedBy = returnedBy;
+            req.lastUpdated = new Date().toISOString().split("T")[0];
+        } else {
+            req = updatePortalRequestById(id, {
+                status: "Clarification Needed",
+                _returnReason: reason,
+                _returnedBy: returnedBy,
+            });
+        }
     }
-    const req = Mock.getRequestById(id);
     if (req) {
-        req.status = "Clarification Needed";
-        req._returnReason = reason;
-        req._returnedBy = returnedBy;
-        req.lastUpdated = new Date().toISOString().split("T")[0];
-        return req;
+        addActivityEntry({
+            type: "Status Change",
+            description: `${req.requestId}: Returned to owner ${req.owner || "Unknown"} by ${returnedBy}. Reason: ${reason}`,
+            userId: returnedBy,
+            userName: returnedBy,
+            requestId: req.id,
+            requestTitle: req.title,
+            transactionId: req.transactionId,
+            transactionName: req.transactionName,
+        });
     }
-    return updatePortalRequestById(id, {
-        status: "Clarification Needed",
-        _returnReason: reason,
-        _returnedBy: returnedBy,
-    });
+    return req;
 }
 
-export function updateRequestNotMine(id: string, reason: string): RecapRequest | undefined {
+export function updateRequestNotMine(id: string, reason: string, userName: string): RecapRequest | undefined {
+    let req: RecapRequest | undefined;
     if (isDemoLoaded()) {
-        return Demo.updateDemoRequest(id, {
+        req = Demo.updateDemoRequest(id, {
             status: "Open",
             owner: null,
             assignedTo: null,
             _misassignedReason: reason,
             _needsReassignment: true,
         });
+    } else {
+        req = Mock.getRequestById(id);
+        if (req) {
+            req.status = "Open";
+            req.owner = null;
+            req.assignedTo = null;
+            req._misassignedReason = reason;
+            req._needsReassignment = true;
+            req.lastUpdated = new Date().toISOString().split("T")[0];
+        } else {
+            req = updatePortalRequestById(id, {
+                status: "Open",
+                owner: null,
+                assignedTo: null,
+                _misassignedReason: reason,
+                _needsReassignment: true,
+            });
+        }
     }
-    const req = Mock.getRequestById(id);
     if (req) {
-        req.status = "Open";
-        req.owner = null;
-        req.assignedTo = null;
-        req._misassignedReason = reason;
-        req._needsReassignment = true;
-        req.lastUpdated = new Date().toISOString().split("T")[0];
-        return req;
+        addActivityEntry({
+            type: "Status Change",
+            description: `${req.requestId}: Reported as Not Mine by ${userName}. Reason: ${reason}`,
+            userId: userName,
+            userName,
+            requestId: req.id,
+            requestTitle: req.title,
+            transactionId: req.transactionId,
+            transactionName: req.transactionName,
+        });
     }
-    return updatePortalRequestById(id, {
-        status: "Open",
-        owner: null,
-        assignedTo: null,
-        _misassignedReason: reason,
-        _needsReassignment: true,
-    });
+    return req;
 }
 
 export function updateRequestExternalStatus(id: string, publishedWithoutDocuments?: boolean): RecapRequest | undefined {
