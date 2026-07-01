@@ -1,6 +1,7 @@
 import type { RecapTransaction, RecapRequest, RecapIntakeItem, RecapDocument, RecapActivity } from "./recapMockData";
 
 const DEMO_KEY = "integrasource.recap.demo";
+const RECAP_WIPED_KEY = "integrasource.recap.wiped";
 
 const ABC_COMMUNITIES = [
     { id: "abc-cr", name: "Cedar Ridge" },
@@ -289,6 +290,22 @@ const ALL_RECAP_KEYS = [
 export function resetAllRecapData(): void {
     ALL_RECAP_KEYS.forEach(key => localStorage.removeItem(key));
     console.log("[resetAllRecapData] All recap localStorage keys cleared");
+}
+
+export function isRecapWiped(): boolean {
+    return localStorage.getItem(RECAP_WIPED_KEY) === "true";
+}
+
+export function setRecapWiped(): void {
+    resetAllRecapData();
+    localStorage.removeItem("integrasource.recap.portalPersona");
+    localStorage.setItem(RECAP_WIPED_KEY, "true");
+    console.log("[setRecapWiped] All recap data wiped — flag set");
+}
+
+export function clearRecapWiped(): void {
+    localStorage.removeItem(RECAP_WIPED_KEY);
+    console.log("[clearRecapWiped] Wipe flag cleared");
 }
 
 export function getDemoTransaction(): RecapTransaction | null {

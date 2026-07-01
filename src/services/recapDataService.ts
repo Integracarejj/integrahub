@@ -1,4 +1,4 @@
-import { isDemoLoaded } from "./recapDemoData";
+import { isDemoLoaded, isRecapWiped } from "./recapDemoData";
 import * as Demo from "./recapDemoData";
 import * as Mock from "./recapMockData";
 import type {
@@ -11,7 +11,22 @@ export type {
     RecapDocument, RecapActivity, RecapTeamMember, RecapCategory, RecapDeliverable,
 };
 
+export function isRecapDataWiped(): boolean {
+    return isRecapWiped();
+}
+
 export function getTransactions(): RecapTransaction[] {
+    if (isRecapWiped()) {
+        const portalReqs = getPortalCreatedRequests();
+        const seen = new Set<string>();
+        return portalReqs.reduce<RecapTransaction[]>((acc, r) => {
+            if (!seen.has(r.transactionId)) {
+                seen.add(r.transactionId);
+                acc.push(makePortalTransaction(r.transactionId, r.transactionName));
+            }
+            return acc;
+        }, []);
+    }
     if (isDemoLoaded()) {
         const txn = Demo.getDemoTransaction();
         const result = txn ? [txn] : [];
@@ -57,6 +72,7 @@ export function getRequestById(id: string): RecapRequest | undefined {
 
 export function getIntakeItems(): RecapIntakeItem[] {
     const portalItems = getPortalCreatedIntakeItems();
+    if (isRecapWiped()) return portalItems;
     if (isDemoLoaded()) {
         const item = Demo.getDemoIntakeItem();
         return item ? [item, ...portalItems] : portalItems;
@@ -70,6 +86,7 @@ export function getIntakeItemsByType(type: RecapIntakeItem["type"]): RecapIntake
 
 export function getRequests(): RecapRequest[] {
     const portalReqs = getPortalCreatedRequests();
+    if (isRecapWiped()) return portalReqs;
     if (isDemoLoaded()) {
         const demo = Demo.getDemoRequests();
         return [...demo, ...portalReqs];
@@ -82,6 +99,7 @@ export function getTrackerRequests(): RecapRequest[] {
 }
 
 export function getDocuments(): RecapDocument[] {
+    if (isRecapWiped()) return [];
     if (isDemoLoaded()) return Demo.getDemoDocuments();
     return Mock.getDocuments();
 }
@@ -91,11 +109,13 @@ export function getDocumentsByTransaction(transactionId: string): RecapDocument[
 }
 
 export function getActivity(limit?: number): RecapActivity[] {
+    if (isRecapWiped()) return [];
     if (isDemoLoaded()) return Demo.getDemoActivity(limit);
     return Mock.getActivity(limit);
 }
 
 export function getActivityByTransaction(transactionId: string): RecapActivity[] {
+    if (isRecapWiped()) return [];
     if (isDemoLoaded()) {
         return Demo.getDemoActivity(999).filter((a) => a.transactionId === transactionId);
     }
@@ -103,6 +123,7 @@ export function getActivityByTransaction(transactionId: string): RecapActivity[]
 }
 
 export function addActivityEntry(entry: Omit<RecapActivity, "id" | "timestamp">): void {
+    if (isRecapWiped()) return;
     if (isDemoLoaded()) {
         Demo.addDemoActivityEntry(entry);
     } else {
@@ -123,21 +144,25 @@ export function getCategories(): RecapCategory[] {
 }
 
 export function getTeams(): string[] {
+    if (isRecapWiped()) return Mock.getTeams();
     if (isDemoLoaded()) return Demo.getDemoTeams();
     return Mock.getTeams();
 }
 
 export function getTeamWorkload(): { team: string; total: number; activeLoad: number }[] {
+    if (isRecapWiped()) return [];
     if (isDemoLoaded()) return Demo.getDemoWorkload();
     return Mock.getTeamWorkload();
 }
 
 export function getStatusCounts(): Record<string, number> {
+    if (isRecapWiped()) return {};
     if (isDemoLoaded()) return Demo.getDemoStatusCounts();
     return Mock.getStatusCounts();
 }
 
 export function getDeliverables(): RecapDeliverable[] {
+    if (isRecapWiped()) return [];
     return Mock.getDeliverables();
 }
 
@@ -146,6 +171,15 @@ function makePortalTransaction(transactionId: string, transactionName: string): 
 }
 
 export function lookupWorkspaceItem(id: string): { type: "intake"; item: RecapIntakeItem; transaction: RecapTransaction } | { type: "request"; item: RecapRequest; transaction: RecapTransaction } | null {
+    if (isRecapWiped()) {
+        const portalIntakes = getPortalCreatedIntakeItems();
+        const foundPortal = portalIntakes.find(i => i.id === id || i.intakeId === id);
+        if (foundPortal) return { type: "intake", item: foundPortal, transaction: makePortalTransaction(foundPortal.transactionId, foundPortal.transactionName) };
+        const portalReqs = getPortalCreatedRequests();
+        const foundReq = portalReqs.find(r => r.id === id || r.intakeId === id);
+        if (foundReq) return { type: "request", item: foundReq, transaction: makePortalTransaction(foundReq.transactionId, foundReq.transactionName) };
+        return null;
+    }
     if (isDemoLoaded()) {
         const intake = Demo.getDemoIntakeItem();
         if (intake && (intake.id === id || intake.intakeId === id)) {
@@ -173,6 +207,7 @@ export function lookupWorkspaceItem(id: string): { type: "intake"; item: RecapIn
 }
 
 export function getOverrideRequests(): RecapRequest[] {
+    if (isRecapWiped()) return [];
     if (isDemoLoaded()) return Demo.getDemoOverrideRequests();
     return Mock.getOverrideRequests();
 }
@@ -375,6 +410,7 @@ export function getMyWork(userName: string): {
     needsMyResponse: RecapRequest[];
     waitingOnExternal: RecapRequest[];
 } {
+    if (isRecapWiped()) return { assignedToMe: [], assignedToMyTeam: [], dueThisWeek: [], overdue: [], needsMyResponse: [], waitingOnExternal: [] };
     if (isDemoLoaded()) {
         const demo = Demo.getDemoMyWork(userName);
         const user = Mock.getTeamMembers().find((m) => m.name === userName);
@@ -501,6 +537,7 @@ export function resetRequestTracker(): { clearedCount: number } {
 }
 
 export function initDemo(): void {
+    if (isRecapWiped()) return;
     Demo.initDemo();
 }
 
@@ -648,4 +685,12 @@ export function clearAllPortalCreatedData(): void {
     localStorage.removeItem(PORTAL_REQUESTS_KEY);
     localStorage.removeItem(PORTAL_SUBMISSIONS_KEY);
     localStorage.removeItem("integrasource.recap.demo.parsedRows");
+}
+
+export function setRecapWiped(): void {
+    Demo.setRecapWiped();
+}
+
+export function clearRecapWiped(): void {
+    Demo.clearRecapWiped();
 }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import RecapSubNav from "./RecapSubNav";
-import { isDemoActive, initDemo, resetAllRecapData, resetRequestTracker, getRequests, getDemoTransaction, clearAllPortalCreatedData } from "../../services/recapDataService";
+import { isRecapDataWiped, setRecapWiped } from "../../services/recapDataService";
 import "./Recapitalization.css";
 
 const SETTING_GROUPS = [
@@ -38,57 +38,56 @@ const SETTING_GROUPS = [
 ];
 
 export default function RecapitalizationSettings() {
-    const [demoLoaded, setDemoLoaded] = useState(isDemoActive());
-    const [demoToast, setDemoToast] = useState("");
-    const [_refreshKey, setRefreshKey] = useState(0);
-    const demoTxn = demoLoaded ? getDemoTransaction() : null;
-
-    const REVIEW_STATE_KEY = "integrasource.recap.demo.reviewStates";
+    const [wiped, setWiped] = useState(isRecapDataWiped());
+    const [toast, setToast] = useState("");
+    const [confirmOpen, setConfirmOpen] = useState(false);
 
     const showBanner = (msg: string) => {
-        setDemoToast(msg);
-        setTimeout(() => setDemoToast(""), 4000);
+        setToast(msg);
+        setTimeout(() => setToast(""), 4000);
     };
 
-    const handleLoadDemo = () => {
-        clearAllPortalCreatedData();
-        initDemo();
-        localStorage.removeItem(REVIEW_STATE_KEY);
-        setDemoLoaded(true);
-        setRefreshKey(k => k + 1);
-        showBanner("ABC Company Portfolio demo loaded — 300 requests, 5 communities");
-    };
-
-    const handleResetDemo = () => {
-        resetAllRecapData();
-        initDemo();
-        setRefreshKey(k => k + 1);
-        showBanner("Demo data reset to initial state");
-    };
-
-    const handleClearDemo = () => {
-        resetAllRecapData();
-        setDemoLoaded(false);
-        setRefreshKey(k => k + 1);
-        showBanner("Demo data cleared — returning to standard mock data");
+    const handleWipe = () => {
+        setRecapWiped();
+        setWiped(true);
+        setConfirmOpen(false);
+        showBanner("Recapitalization test data wiped. Intake, Work Queue, My Work, DD Ops, and Activity Feed are now empty.");
     };
 
     return (
         <div className="rc-page">
             <RecapSubNav />
-            {demoToast && (
+            {toast && (
                 <div style={{
                     padding: "10px 16px", margin: "0 24px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600,
                     background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0",
                 }}>
-                    {demoToast}
+                    {toast}
                 </div>
             )}
+
+            {confirmOpen && (
+                <div className="rc-modal-overlay" onClick={() => setConfirmOpen(false)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+                        <div className="rc-modal-header">
+                            <h2>Wipe Recapitalization Test Data</h2>
+                            <button className="rc-modal-close" onClick={() => setConfirmOpen(false)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px", fontSize: 13, color: "#334155", lineHeight: 1.6 }}>
+                            <p style={{ margin: 0 }}>
+                                This will clear all Recapitalization test data from Intake, Work Queue, My Work, DD Operations, External Portal Preview, and Activity Feed. This is for testing only.
+                            </p>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setConfirmOpen(false)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" onClick={handleWipe} style={{ background: "#dc2626", borderColor: "#dc2626" }}>Wipe Recapitalization Test Data</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="rc-header">
                 <h1>Settings</h1>
-                <div className="rc-header-actions">
-                    <button className="rc-btn rc-btn-primary rc-btn-sm">Save Changes</button>
-                </div>
             </div>
 
             {SETTING_GROUPS.map(group => (
@@ -123,54 +122,23 @@ export default function RecapitalizationSettings() {
                 </div>
             </div>
 
-            <div className="rc-card" style={{ border: "1px solid #dbeafe" }}>
+            <div className="rc-card" style={{ border: "1px solid #fecaca" }}>
                 <div className="rc-card-header">
-                    <h2>Demo Data</h2>
-                    <span className={`rc-badge ${demoLoaded ? "rc-badge-visible" : "rc-badge-hidden"}`} style={{ fontSize: 10 }}>
-                        {demoLoaded ? "Demo Active" : "Not Loaded"}
+                    <h2>Test Data Management</h2>
+                    <span className="rc-badge rc-badge-visible" style={{ fontSize: 10, background: wiped ? "#fef2f2" : "#f0fdf4", color: wiped ? "#991b1b" : "#166534" }}>
+                        {wiped ? "Data Wiped" : "Seeded Data Active"}
                     </span>
                 </div>
                 <div className="rc-card-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {demoTxn && (
-                        <div className="rc-setting-card">
-                            <div className="rc-setting-info">
-                                <span className="rc-setting-name">{demoTxn.name}</span>
-                                <span className="rc-setting-desc">{demoTxn.description} &middot; {demoTxn.communities.length} communities &middot; {demoTxn.totalRequests} requests</span>
-                            </div>
-                            <span className="rc-setting-value">{demoTxn.status}</span>
-                        </div>
-                    )}
-                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                        <button className="rc-btn rc-btn-primary" onClick={handleLoadDemo} disabled={demoLoaded}>
-                            Load ABC Company Portfolio Demo
-                        </button>
-                        <button className="rc-btn rc-btn-secondary" onClick={handleResetDemo} disabled={!demoLoaded}>
-                            Reset Demo Data
-                        </button>
-                        <button className="rc-btn rc-btn-ghost" onClick={handleClearDemo} disabled={!demoLoaded}>
-                            Clear Recap Demo Data
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div className="rc-card" style={{ border: "1px solid #dbeafe" }}>
-                <div className="rc-card-header">
-                    <h2>Preview / Test Tools</h2>
-                    <span className="rc-badge rc-badge-visible" style={{ fontSize: 10 }}>Preview Mode</span>
-                </div>
-                <div className="rc-card-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     <p style={{ fontSize: 12, color: "#64748b", margin: 0, lineHeight: 1.5 }}>
-                        Preview Mode only. Used to validate publish-to-tracker workflow.
+                        {wiped
+                            ? "All recap test data has been wiped. Navigate to Intake Queue and import a package to start fresh."
+                            : "Seeded demo and mock data is currently active across Intake, Work Queue, My Work, and DD Operations."
+                        }
                     </p>
                     <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                        <button className="rc-btn rc-btn-secondary" disabled={!demoLoaded} onClick={() => {
-                            const allBefore = getRequests().filter(r => (r as any)._publishedAt || (r as any)._createdFromReview).length;
-                            const result = resetRequestTracker();
-                            const allAfter = getRequests().filter(r => (r as any)._publishedAt || (r as any)._createdFromReview).length;
-                            showBanner(`Request Tracker test data cleared. Before: ${allBefore}, Cleared: ${result.clearedCount}, After: ${allAfter}.`);
-                        }}>
-                            Reset Request Tracker Test Data
+                        <button className="rc-btn rc-btn-primary" onClick={() => setConfirmOpen(true)} style={{ background: "#dc2626", borderColor: "#dc2626" }}>
+                            Wipe Recapitalization Test Data
                         </button>
                     </div>
                 </div>

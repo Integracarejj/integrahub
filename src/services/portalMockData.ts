@@ -1,4 +1,4 @@
-import { isDemoActive, getDemoTransaction, getDemoRequests, getDemoDocuments, initDemo, getDemoEngineSummary, addPortalCreatedIntakeItem, addPortalCreatedRequests, addPortalSubmission, getPortalSubmissions, updatePortalSubmissionStatus, clearAllPortalCreatedData } from "./recapDataService";
+import { isDemoActive, getDemoTransaction, getDemoRequests, getDemoDocuments, initDemo, getDemoEngineSummary, addPortalCreatedIntakeItem, addPortalCreatedRequests, addPortalSubmission, getPortalSubmissions, updatePortalSubmissionStatus, clearAllPortalCreatedData, isRecapDataWiped } from "./recapDataService";
 import type { RecapRequest, RecapDocument, RecapTransaction, RecapIntakeItem } from "./recapDataService";
 
 const PERSONA_KEY = "integrasource.recap.portalPersona";
@@ -266,8 +266,11 @@ function mapRecapToPortalDocument(doc: RecapDocument): PortalDocument {
 /* ── Data Retrieval ─────────────────────────────────────────── */
 
 function getRecapData(): { txn: RecapTransaction | null; requests: RecapRequest[]; documents: RecapDocument[] } {
-    if (!isDemoActive()) {
+    if (!isRecapDataWiped() && !isDemoActive()) {
         initDemo();
+    }
+    if (isRecapDataWiped()) {
+        return { txn: null, requests: [], documents: [] };
     }
     return {
         txn: getDemoTransaction(),
@@ -789,7 +792,7 @@ export function submitBrokerUploadPackage(
 
     // ABC Demo flow — unchanged
     if (!fileName || fileName === "ABC Gold Standard Demo Package") {
-        if (!isDemoActive()) initDemo();
+        if (!isRecapDataWiped() && !isDemoActive()) initDemo();
         const summary = getDemoEngineSummary();
         const submission: PortalPackageSubmission = {
             id: submissionId,
@@ -848,7 +851,7 @@ export function submitBrokerUploadPackage(
 
 export function confirmBrokerPackage(submissionId?: string): void {
     if (!submissionId) {
-        if (!isDemoActive()) initDemo();
+        if (!isRecapDataWiped() && !isDemoActive()) initDemo();
         return;
     }
 
@@ -857,7 +860,7 @@ export function confirmBrokerPackage(submissionId?: string): void {
     if (!sub) return;
 
     if (sub.isABCDemo) {
-        if (!isDemoActive()) initDemo();
+        if (!isRecapDataWiped() && !isDemoActive()) initDemo();
         updatePortalSubmissionStatus(submissionId, "Submitted");
         return;
     }
@@ -881,7 +884,7 @@ export function confirmBrokerPackage(submissionId?: string): void {
 }
 
 export function loadABCDemoPackage(): void {
-    if (!isDemoActive()) initDemo();
+    if (!isRecapDataWiped() && !isDemoActive()) initDemo();
 }
 
 export function getPortalSubmissionsList(): PortalPackageSubmission[] {
