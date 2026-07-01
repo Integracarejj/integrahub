@@ -402,6 +402,7 @@ export function bulkUpdateDemoRequests(ids: string[], patch: Partial<RecapReques
 }
 
 export function getDemoEngineSummary() {
+    if (!isDemoLoaded()) return { total: 0, needsReview: 0, possibleDuplicates: 0, needsFollowUp: 0, critical: 0, categories: {}, teams: {} };
     return Demo.getDemoEngineSummary();
 }
 
@@ -520,6 +521,7 @@ export function getDemoTransaction(): RecapTransaction | null {
 }
 
 export function getDemoRequests() {
+    if (!isDemoLoaded()) return [];
     return Demo.getDemoRequests();
 }
 
