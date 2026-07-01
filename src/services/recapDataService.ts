@@ -8,7 +8,7 @@ import type {
 
 export type {
     RecapTransaction, RecapRequest, RecapIntakeItem,
-    RecapDocument, RecapActivity, RecapTeamMember, RecapCategory, RecapDeliverable,
+    RecapDocument, RecapActivity, RecapTeamMember, RecapCategory, RecapDeliverable, WorkArtifact,
 };
 
 export function isRecapDataWiped(): boolean {
@@ -109,9 +109,10 @@ export function getDocumentsByTransaction(transactionId: string): RecapDocument[
 }
 
 export function getActivity(limit?: number): RecapActivity[] {
-    if (isRecapWiped()) return [];
-    if (isDemoLoaded()) return Demo.getDemoActivity(limit);
-    return Mock.getActivity(limit);
+    const persisted = getPersistedActivity();
+    const source: RecapActivity[] = isRecapWiped() ? [] : (isDemoLoaded() ? Demo.getDemoActivity(999) : Mock.getActivity(999));
+    const merged = [...persisted, ...source].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return limit ? merged.slice(0, limit) : merged;
 }
 
 export function getActivityByTransaction(transactionId: string): RecapActivity[] {
@@ -123,11 +124,20 @@ export function getActivityByTransaction(transactionId: string): RecapActivity[]
 }
 
 export function addActivityEntry(entry: Omit<RecapActivity, "id" | "timestamp">): void {
-    if (isRecapWiped()) return;
-    if (isDemoLoaded()) {
-        Demo.addDemoActivityEntry(entry);
-    } else {
-        Mock.addActivityEntry(entry);
+    const newEntry: RecapActivity = {
+        ...entry,
+        id: `act-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        timestamp: new Date().toISOString(),
+    };
+    const persisted = getPersistedActivity();
+    persisted.unshift(newEntry);
+    savePersistedActivity(persisted);
+    if (!isRecapWiped()) {
+        if (isDemoLoaded()) {
+            Demo.addDemoActivityEntry(entry);
+        } else {
+            Mock.addActivityEntry(entry);
+        }
     }
 }
 
@@ -568,6 +578,70 @@ export function getDemoDocuments() {
 
 export function getDemoStatusCounts() {
     return Demo.getDemoStatusCounts();
+}
+
+/* ── Activity Feed persistence (prototype — not gated by wiped) ── */
+
+const ACTIVITY_FEED_KEY = "integrasource.recap.activityFeed";
+
+function getPersistedActivity(): RecapActivity[] {
+    try {
+        const raw = localStorage.getItem(ACTIVITY_FEED_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+}
+
+function savePersistedActivity(entries: RecapActivity[]): void {
+    localStorage.setItem(ACTIVITY_FEED_KEY, JSON.stringify(entries));
+}
+
+/* ── Work Artifacts persistence (prototype metadata only) ── */
+
+const ARTIFACTS_KEY = "integrasource.recap.artifacts";
+
+export interface WorkArtifact {
+    id: string;
+    name: string;
+    size: number;
+    uploadedAt: string;
+}
+
+export function getWorkArtifactsByRequest(requestId: string): WorkArtifact[] {
+    try {
+        const raw = localStorage.getItem(ARTIFACTS_KEY);
+        const store: Record<string, WorkArtifact[]> = raw ? JSON.parse(raw) : {};
+        return store[requestId] || [];
+    } catch { return []; }
+}
+
+export function saveWorkArtifact(requestId: string, artifact: WorkArtifact): void {
+    try {
+        const raw = localStorage.getItem(ARTIFACTS_KEY);
+        const store: Record<string, WorkArtifact[]> = raw ? JSON.parse(raw) : {};
+        if (!store[requestId]) store[requestId] = [];
+        store[requestId].push(artifact);
+        localStorage.setItem(ARTIFACTS_KEY, JSON.stringify(store));
+    } catch { }
+}
+
+export function saveWorkArtifacts(requestId: string, artifacts: WorkArtifact[]): void {
+    try {
+        const raw = localStorage.getItem(ARTIFACTS_KEY);
+        const store: Record<string, WorkArtifact[]> = raw ? JSON.parse(raw) : {};
+        store[requestId] = artifacts;
+        localStorage.setItem(ARTIFACTS_KEY, JSON.stringify(store));
+    } catch { }
+}
+
+export function removeWorkArtifact(requestId: string, artifactId: string): void {
+    try {
+        const raw = localStorage.getItem(ARTIFACTS_KEY);
+        const store: Record<string, WorkArtifact[]> = raw ? JSON.parse(raw) : {};
+        if (store[requestId]) {
+            store[requestId] = store[requestId].filter(a => a.id !== artifactId);
+            localStorage.setItem(ARTIFACTS_KEY, JSON.stringify(store));
+        }
+    } catch { }
 }
 
 /* ── Portal-created data (packages submitted via external portal) ── */

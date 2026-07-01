@@ -1,10 +1,11 @@
 import { useNavigate } from "react-router-dom";
-import { getTransactions } from "../../services/recapMockData";
+import { getTransactions, isRecapDataWiped } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
 export default function RecapitalizationTransactions() {
     const navigate = useNavigate();
+    const wiped = isRecapDataWiped();
     const transactions = getTransactions();
 
     return (
@@ -16,6 +17,10 @@ export default function RecapitalizationTransactions() {
                     <button className="rc-btn rc-btn-secondary rc-btn-sm">New Transaction</button>
                 </div>
             </div>
+
+            {wiped && transactions.length === 0 && (
+                <div className="rc-empty-state">No transactions — all test data has been wiped.</div>
+            )}
 
             {transactions.map(txn => {
                 const pct = txn.totalRequests > 0 ? Math.round(txn.providedCount / txn.totalRequests * 100) : 0;

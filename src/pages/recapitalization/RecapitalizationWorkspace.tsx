@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { lookupWorkspaceItem, getDocumentsByTransaction, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry } from "../../services/recapDataService";
-import type { RecapRequest } from "../../services/recapDataService";
+import { lookupWorkspaceItem, getDocumentsByTransaction, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, saveWorkArtifacts, removeWorkArtifact } from "../../services/recapDataService";
+import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
@@ -68,7 +68,7 @@ export default function RecapitalizationWorkspace() {
     const [commentText, setCommentText] = useState("");
 
     const [completionModal, setCompletionModal] = useState<{ note: string; readyForReview: boolean } | null>(null);
-    const [workArtifacts, setWorkArtifacts] = useState<{ id: string; name: string; size: number; uploadedAt: string }[]>([]);
+    const [workArtifacts, setWorkArtifacts] = useState<WorkArtifact[]>(() => id ? getWorkArtifactsByRequest(id) : []);
     const [artifactBanner, setArtifactBanner] = useState<string | null>(null);
     const [publishExternal, setPublishExternal] = useState<{ step: number; selectedArtifacts: string[] } | null>(null);
 
@@ -449,7 +449,9 @@ export default function RecapitalizationWorkspace() {
                                             size: f.size,
                                             uploadedAt: new Date().toISOString().split("T")[0],
                                         }));
-                                        setWorkArtifacts(prev => [...prev, ...newArtifacts]);
+                                        const updated = [...workArtifacts, ...newArtifacts];
+                                        setWorkArtifacts(updated);
+                                        saveWorkArtifacts(id!, updated);
                                         if (files.length > 0) {
                                             setArtifactBanner(`\u2713 ${files.length} work artifact${files.length !== 1 ? "s" : ""} uploaded`);
                                         }
@@ -476,7 +478,9 @@ export default function RecapitalizationWorkspace() {
                                                 size: f.size,
                                                 uploadedAt: new Date().toISOString().split("T")[0],
                                             }));
-                                            setWorkArtifacts(prev => [...prev, ...newArtifacts]);
+                                            const updated = [...workArtifacts, ...newArtifacts];
+                                            setWorkArtifacts(updated);
+                                            saveWorkArtifacts(id!, updated);
                                             if (files.length > 0) {
                                                 setArtifactBanner(`\u2713 ${files.length} work artifact${files.length !== 1 ? "s" : ""} uploaded`);
                                             }
@@ -503,7 +507,7 @@ export default function RecapitalizationWorkspace() {
                                                 <span style={{ color: "#475569", fontSize: 11 }}>{(art.size / 1024).toFixed(0)} KB</span>
                                                 <span style={{ color: "#475569", fontSize: 11 }}>{art.uploadedAt}</span>
                                                 <button
-                                                    onClick={() => setWorkArtifacts(prev => prev.filter(a => a.id !== art.id))}
+                                                    onClick={() => { removeWorkArtifact(id!, art.id); setWorkArtifacts(prev => prev.filter(a => a.id !== art.id)); }}
                                                     style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "2px 4px" }}
                                                     title="Remove artifact"
                                                 >&times;</button>

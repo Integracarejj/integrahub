@@ -1,6 +1,6 @@
 import { useState } from "react";
 import RecapSubNav from "./RecapSubNav";
-import { isDemoActive, getDemoReports } from "../../services/recapDataService";
+import { isDemoActive, getDemoReports, isRecapDataWiped } from "../../services/recapDataService";
 import "./Recapitalization.css";
 
 function toast(msg: string) {
@@ -75,7 +75,8 @@ function buildDemoReportCards(): typeof REPORT_CARDS {
 
 export default function RecapitalizationReports() {
     const demo = isDemoActive();
-    const cards = demo ? buildDemoReportCards() : REPORT_CARDS;
+    const wiped = isRecapDataWiped();
+    const cards = wiped ? [] : (demo ? buildDemoReportCards() : REPORT_CARDS);
     const [selectedReport, setSelectedReport] = useState<typeof REPORT_CARDS[number] | null>(null);
 
     return (
@@ -94,25 +95,31 @@ export default function RecapitalizationReports() {
                 <div className="rc-placeholder-banner-icon">&#128202;</div>
                 <div>
                     <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: "var(--is-text-heading, #0f172a)", marginBottom: 4 }}>
-                        Reports Dashboard {demo ? "(Live)" : "(Preview)"}
+                        Reports Dashboard {wiped ? "(No Data)" : demo ? "(Live)" : "(Preview)"}
                     </span>
                     <span style={{ display: "block", fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
-                        {demo
+                        {wiped
+                            ? "All test data has been wiped. Reporting data will generate once new intake packages are imported and published."
+                            : demo
                             ? "Reports computed live from ABC Company Portfolio demo data across 300 requests and 5 communities."
                             : "Reporting will be powered by real data once the tracker is live. These cards show the planned metrics."}
                     </span>
                 </div>
             </div>
 
-            <div className="rc-three-col">
-                {cards.map(card => (
-                    <div key={card.title} className="rc-mock-report-card" style={{ borderTop: `3px solid ${card.color}`, cursor: "pointer" }} onClick={() => setSelectedReport(card)}>
-                        <div className="rc-mock-report-value">{card.value}</div>
-                        <div className="rc-mock-report-title">{card.title}</div>
-                        <div className="rc-mock-report-desc">{card.desc}</div>
-                    </div>
-                ))}
-            </div>
+            {wiped ? (
+                <div className="rc-empty-state">No reporting data available — wipe all test data is active.</div>
+            ) : (
+                <div className="rc-three-col">
+                    {cards.map(card => (
+                        <div key={card.title} className="rc-mock-report-card" style={{ borderTop: `3px solid ${card.color}`, cursor: "pointer" }} onClick={() => setSelectedReport(card)}>
+                            <div className="rc-mock-report-value">{card.value}</div>
+                            <div className="rc-mock-report-title">{card.title}</div>
+                            <div className="rc-mock-report-desc">{card.desc}</div>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {selectedReport && (
                 <div className="rc-modal-overlay" onClick={() => setSelectedReport(null)}>
