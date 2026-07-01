@@ -8,7 +8,7 @@ import type {
 
 export type {
     RecapTransaction, RecapRequest, RecapIntakeItem,
-    RecapDocument, RecapActivity, RecapTeamMember, RecapCategory, RecapDeliverable, WorkArtifact,
+    RecapDocument, RecapActivity, RecapTeamMember, RecapCategory, RecapDeliverable,
 };
 
 export function isRecapDataWiped(): boolean {
