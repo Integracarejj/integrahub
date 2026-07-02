@@ -62,6 +62,9 @@ export interface RecapRequest {
     _misassignedReason?: string | null;
     _needsReassignment?: boolean;
     _statusNotes?: string | null;
+    _reusableKnowledgeCandidate?: boolean;
+    _reusableKnowledgeStatus?: "Promoted" | "Skipped" | null;
+    _reusableKnowledgeArtifactIds?: string[];
 }
 
 export interface RecapIntakeItem {

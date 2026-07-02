@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes } from "../../services/recapDataService";
+import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -921,11 +921,11 @@ export default function RecapitalizationWorkspace() {
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
                             {/* Step indicator */}
                             <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-                                {[1, 2, 3].map(s => (
+                                {[1, 2, 3, 4].map(s => (
                                     <div key={s} style={{ flex: 1, height: 3, borderRadius: 2, background: s <= publishExternal.step ? "#1d4ed8" : "#e2e8f0", transition: "background 0.2s" }} />
                                 ))}
                             </div>
-                            <div style={{ fontSize: 11, color: "#475569", marginBottom: 12, fontWeight: 600 }}>Step {publishExternal.step} of 3</div>
+                            <div style={{ fontSize: 11, color: "#475569", marginBottom: 12, fontWeight: 600 }}>Step {publishExternal.step} of 4</div>
 
                             {publishExternal.step === 1 && (
                                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -1023,6 +1023,55 @@ export default function RecapitalizationWorkspace() {
                                             </div>
                                         )}
                                     </div>
+
+                                    <div style={{ height: 1, background: "#e2e8f0" }} />
+
+                                    {/* Promote to Reusable Knowledge */}
+                                    <div>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polygon points="12 6 15 10 20 10 16 14 18 18 12 15 6 18 8 14 4 10 9 10" /></svg>
+                                            Promote to Reusable Knowledge?
+                                        </div>
+                                        {workArtifacts.length === 0 ? (
+                                            <div style={{ padding: "8px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12, color: "#475569" }}>
+                                                No artifacts attached. Nothing can be promoted to Reusable Knowledge.
+                                            </div>
+                                        ) : (
+                                            (() => {
+                                                const rec = getReusableKnowledgeRecommendation(item.category || "");
+                                                return (
+                                                    <>
+                                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px", marginBottom: 10 }}>
+                                                            <div>
+                                                                <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Request ID</div>
+                                                                <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{displayId}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Artifact Count</div>
+                                                                <div style={{ fontSize: 13, color: "#334155" }}>{workArtifacts.length}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Deliverable</div>
+                                                                <div style={{ fontSize: 13, color: "#334155" }}>{displayTitle || item.category || "\u2014"}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Category</div>
+                                                                <div style={{ fontSize: 13, color: "#334155" }}>{item.category || "\u2014"}</div>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ padding: "8px 12px", borderRadius: 6, fontSize: 12, lineHeight: 1.5,
+                                                            background: rec.action === "Promote" ? "#f0fdf4" : rec.action === "Do not promote" ? "#fef2f2" : "#fffbeb",
+                                                            border: `1px solid ${rec.action === "Promote" ? "#bbf7d0" : rec.action === "Do not promote" ? "#fecaca" : "#fde68a"}`,
+                                                            color: rec.action === "Promote" ? "#166534" : rec.action === "Do not promote" ? "#991b1b" : "#92400e",
+                                                        }}>
+                                                            <div style={{ fontWeight: 700, marginBottom: 2 }}>AI Recommendation: {rec.action}</div>
+                                                            <div>{rec.reason}</div>
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()
+                                        )}
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -1055,12 +1104,33 @@ export default function RecapitalizationWorkspace() {
                             )}
                             {publishExternal.step === 3 && (
                                 <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%" }}>
-                                    <button className="rc-btn rc-btn-primary" style={{ width: "100%" }} onClick={() => {
-                                        setPublishExternal(null);
-                                        setBanner("\u2713 Published externally.");
-                                        setBannerError(false);
-                                    }}>Done</button>
-                                    <button className="rc-btn rc-btn-secondary" style={{ width: "100%" }} onClick={() => { setPublishExternal(null); navigate("/recapitalization/tracker"); }}>Return to Work Queue</button>
+                                    {workArtifacts.length > 0 ? (
+                                        <>
+                                            <button className="rc-btn rc-btn-primary" style={{ width: "100%" }} onClick={() => {
+                                                const reqId = item.id || item.intakeId || "";
+                                                promoteToReusableKnowledge(reqId, "Promoted", workArtifacts.map(a => a.id), "Sarah Chen");
+                                                setPublishExternal(null);
+                                                setBanner(`\u2713 Published externally. ${displayId} promoted to Reusable Knowledge.`);
+                                                setBannerError(false);
+                                                setWsRefreshKey(k => k + 1);
+                                            }}>Promote to Reusable Knowledge</button>
+                                            <button className="rc-btn rc-btn-secondary" style={{ width: "100%" }} onClick={() => {
+                                                const reqId = item.id || item.intakeId || "";
+                                                promoteToReusableKnowledge(reqId, "Skipped", workArtifacts.map(a => a.id), "Sarah Chen");
+                                                setPublishExternal(null);
+                                                setBanner(`\u2713 Published externally. ${displayId} skipped Reusable Knowledge promotion.`);
+                                                setBannerError(false);
+                                                setWsRefreshKey(k => k + 1);
+                                            }}>Skip for Now</button>
+                                        </>
+                                    ) : (
+                                        <button className="rc-btn rc-btn-primary" style={{ width: "100%" }} onClick={() => {
+                                            setPublishExternal(null);
+                                            setBanner("\u2713 Published externally.");
+                                            setBannerError(false);
+                                        }}>Done</button>
+                                    )}
+                                    <button className="rc-btn rc-btn-ghost" style={{ width: "100%" }} onClick={() => { setPublishExternal(null); navigate(backPath); }}>{backLabel}</button>
                                 </div>
                             )}
                         </div>

@@ -4,7 +4,7 @@ import {
     getRequests, getTransactions, getTeamMembers, getTeams,
     updateRequestStatus, updateRequestOwner, updateRequestTeam, addActivityEntry,
     updateRequestPriority, updateRequestDueDate, updateRequestExternalStatus, isDemoActive,
-    bulkUpdateDemoRequests, getDocuments, getWorkArtifactsByRequest,
+    bulkUpdateDemoRequests, getDocuments, getWorkArtifactsByRequest, promoteToReusableKnowledge, getReusableKnowledgeRecommendation,
 } from "../../services/recapDataService";
 
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
@@ -606,11 +606,11 @@ export default function RecapitalizationTracker() {
                             ) : (
                                 <>
                                     <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-                                        {[1, 2, 3].map(s => (
+                                        {[1, 2, 3, 4].map(s => (
                                             <div key={s} style={{ flex: 1, height: 3, borderRadius: 2, background: s <= publishStep ? "#1d4ed8" : "#e2e8f0", transition: "background 0.2s" }} />
                                         ))}
                                     </div>
-                                    <div style={{ fontSize: 11, color: "#334155", marginBottom: 12, fontWeight: 600 }}>Step {publishStep} of 3</div>
+                                    <div style={{ fontSize: 11, color: "#334155", marginBottom: 12, fontWeight: 600 }}>Step {publishStep} of 4</div>
 
                                     {publishStep === 1 && (
                                         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -674,6 +674,57 @@ export default function RecapitalizationTracker() {
                                                     {detailModalItem.requestId} &mdash; {detailModalItem.title} is now visible to the external portal.
                                                 </div>
                                             </div>
+
+                                            <div style={{ height: 1, background: "#e2e8f0" }} />
+
+                                            {/* Promote to Reusable Knowledge */}
+                                            <div>
+                                                <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polygon points="12 6 15 10 20 10 16 14 18 18 12 15 6 18 8 14 4 10 9 10" /></svg>
+                                                    Promote to Reusable Knowledge?
+                                                </div>
+                                                {(() => {
+                                                    const artifacts = getWorkArtifactsByRequest(detailModalItem.requestId || detailModalItem.intakeId || detailModalItem.id);
+                                                    if (artifacts.length === 0) {
+                                                        return (
+                                                            <div style={{ padding: "8px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12, color: "#475569" }}>
+                                                                No artifacts attached. Nothing can be promoted to Reusable Knowledge.
+                                                            </div>
+                                                        );
+                                                    }
+                                                    const rec = getReusableKnowledgeRecommendation(detailModalItem.category || "");
+                                                    return (
+                                                        <>
+                                                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px", marginBottom: 10 }}>
+                                                                <div>
+                                                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Request ID</div>
+                                                                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{detailModalItem.requestId}</div>
+                                                                </div>
+                                                                <div>
+                                                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Artifact Count</div>
+                                                                    <div style={{ fontSize: 13, color: "#334155" }}>{artifacts.length}</div>
+                                                                </div>
+                                                                <div>
+                                                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Deliverable</div>
+                                                                    <div style={{ fontSize: 13, color: "#334155" }}>{detailModalItem.title}</div>
+                                                                </div>
+                                                                <div>
+                                                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Category</div>
+                                                                    <div style={{ fontSize: 13, color: "#334155" }}>{detailModalItem.category || "\u2014"}</div>
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ padding: "8px 12px", borderRadius: 6, fontSize: 12, lineHeight: 1.5,
+                                                                background: rec.action === "Promote" ? "#f0fdf4" : rec.action === "Do not promote" ? "#fef2f2" : "#fffbeb",
+                                                                border: `1px solid ${rec.action === "Promote" ? "#bbf7d0" : rec.action === "Do not promote" ? "#fecaca" : "#fde68a"}`,
+                                                                color: rec.action === "Promote" ? "#166534" : rec.action === "Do not promote" ? "#991b1b" : "#92400e",
+                                                            }}>
+                                                                <div style={{ fontWeight: 700, marginBottom: 2 }}>AI Recommendation: {rec.action}</div>
+                                                                <div>{rec.reason}</div>
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
                                         </div>
                                     )}
                                 </>
@@ -702,10 +753,30 @@ export default function RecapitalizationTracker() {
                                     )}
                                     {publishStep === 3 && (
                                         <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%" }}>
-                                            <button className="rc-btn rc-btn-primary" style={{ width: "100%" }} onClick={() => {
-                                                setPublishStep(0);
-                                                setBulkToast(`\u2713 Published "${detailModalItem.title}" externally.`);
-                                            }}>Done</button>
+                                            {(() => {
+                                                const artifacts = getWorkArtifactsByRequest(detailModalItem.requestId || detailModalItem.intakeId || detailModalItem.id);
+                                                return artifacts.length > 0 ? (
+                                                    <>
+                                                        <button className="rc-btn rc-btn-primary" style={{ width: "100%" }} onClick={() => {
+                                                            promoteToReusableKnowledge(detailModalItem.id, "Promoted", artifacts.map(a => a.id), "Sarah Chen");
+                                                            setPublishStep(0);
+                                                            setRefreshKey(k => k + 1);
+                                                            setBulkToast(`\u2713 Published externally. ${detailModalItem.requestId} promoted to Reusable Knowledge.`);
+                                                        }}>Promote to Reusable Knowledge</button>
+                                                        <button className="rc-btn rc-btn-secondary" style={{ width: "100%" }} onClick={() => {
+                                                            promoteToReusableKnowledge(detailModalItem.id, "Skipped", artifacts.map(a => a.id), "Sarah Chen");
+                                                            setPublishStep(0);
+                                                            setRefreshKey(k => k + 1);
+                                                            setBulkToast(`\u2713 Published externally. ${detailModalItem.requestId} skipped Reusable Knowledge promotion.`);
+                                                        }}>Skip for Now</button>
+                                                    </>
+                                                ) : (
+                                                    <button className="rc-btn rc-btn-primary" style={{ width: "100%" }} onClick={() => {
+                                                        setPublishStep(0);
+                                                        setBulkToast(`\u2713 Published "${detailModalItem.title}" externally.`);
+                                                    }}>Done</button>
+                                                );
+                                            })()}
                                         </div>
                                     )}
                                 </>

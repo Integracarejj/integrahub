@@ -425,6 +425,59 @@ export function updateRequestStatusNotes(id: string, note: string | null): Recap
     return updatePortalRequestById(id, { _statusNotes: note });
 }
 
+export function promoteToReusableKnowledge(
+    id: string,
+    status: "Promoted" | "Skipped",
+    artifactIds: string[],
+    userName: string
+): RecapRequest | undefined {
+    const patch: Partial<RecapRequest> = {
+        _reusableKnowledgeCandidate: true,
+        _reusableKnowledgeStatus: status,
+        _reusableKnowledgeArtifactIds: artifactIds,
+    };
+    let req: RecapRequest | undefined;
+    if (isDemoLoaded()) {
+        req = Demo.updateDemoRequest(id, patch);
+    } else {
+        req = Mock.getRequestById(id);
+        if (req) {
+            Object.assign(req, patch);
+            req.lastUpdated = new Date().toISOString().split("T")[0];
+        } else {
+            req = updatePortalRequestById(id, patch);
+        }
+    }
+    if (req) {
+        const label = status === "Promoted" ? "promoted to" : "skipped";
+        addActivityEntry({
+            type: "Status Change",
+            description: `${req.requestId} ${label} Reusable Knowledge`,
+            userId: userName,
+            userName,
+            requestId: req.id,
+            requestTitle: req.title,
+            transactionId: req.transactionId,
+            transactionName: req.transactionName,
+        });
+    }
+    return req;
+}
+
+/** Determine Reusable Knowledge recommendation based on category */
+export function getReusableKnowledgeRecommendation(category: string): { action: "Promote" | "Do not promote" | "Needs review"; reason: string } {
+    const cat = (category || "").toLowerCase();
+    const promotePatterns = ["hr", "staffing", "regulatory", "licenses", "clinical", "physical plant", "facilities", "legal", "operations", "template", "policies"];
+    const skipPatterns = ["accounts receivable", "ar aging", "debt schedule", "rent roll", "utility expense", "financial statement", "point-in-time"];
+    for (const p of skipPatterns) {
+        if (cat.includes(p)) return { action: "Do not promote", reason: `${category} appears transaction-specific and unlikely to be reusable.` };
+    }
+    for (const p of promotePatterns) {
+        if (cat.includes(p)) return { action: "Promote", reason: `${category} is generally reusable across communities and transactions.` };
+    }
+    return { action: "Needs review", reason: `${category} category requires manual review to determine reusability.` };
+}
+
 export function getMyWork(userName: string): {
     assignedToMe: RecapRequest[];
     assignedToMyTeam: RecapRequest[];
