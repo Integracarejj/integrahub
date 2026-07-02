@@ -819,6 +819,7 @@ function ReviewEngine() {
             {detailItem && (
                 <RequestDetailDrawer
                     item={detailItem}
+                    allRequests={allRequests}
                     onClose={() => setDetailItem(null)}
                     onEdit={(id, patch) => { doEdit(id, patch); }}
                     onChangeReviewState={(id, s) => persistReviewState(id, s)}
@@ -839,8 +840,9 @@ function ReviewEngine() {
     );
 }
 
-function RequestDetailDrawer({ item, onClose, onEdit, onChangeReviewState, reviewState, duplicateType, categories, teams, priorities }: {
+function RequestDetailDrawer({ item, allRequests, onClose, onEdit, onChangeReviewState, reviewState, duplicateType, categories, teams, priorities }: {
     item: RecapRequest;
+    allRequests: RecapRequest[];
     onClose: () => void;
     onEdit: (id: string, patch: Partial<RecapRequest>) => void;
     onChangeReviewState: (id: string, s: ReviewState) => void;
@@ -954,6 +956,38 @@ function RequestDetailDrawer({ item, onClose, onEdit, onChangeReviewState, revie
                             )}
                         </div>
                     </div>
+
+                    {duplicateType !== "None" && (
+                        <div className="rc-drawer-section">
+                            <div className="rc-drawer-section-title" style={{ color: "#d97706", fontWeight: 700 }}>&#9888; Potential Matches</div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 6 }}>
+                                {allRequests.filter(r => r.id !== item.id && hashId(r.id) % 25 === hashId(item.id) % 25).slice(0, 3).map(match => (
+                                    <div key={match.id} style={{ padding: "8px 10px", background: "#f8faff", border: "1px solid #dbeafe", borderRadius: 6, fontSize: 12 }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                                            <strong style={{ fontFamily: '"SF Mono", monospace', fontSize: 11, color: "#1d4ed8" }}>{match.requestId}</strong>
+                                            <span style={{ fontSize: 10, color: "#166534", background: "#f0fdf4", padding: "1px 6px", borderRadius: 4, fontWeight: 600 }}>
+                                                {Math.floor(hashId(match.id) % 10 + 88)}% confidence
+                                            </span>
+                                        </div>
+                                        <div style={{ color: "#1e293b", fontWeight: 500, marginBottom: 2 }}>{match.title}</div>
+                                        <div style={{ color: "#475569", fontSize: 11, marginBottom: 4 }}>{match.description?.slice(0, 100) || "\u2014"}</div>
+                                        <div style={{ display: "flex", gap: 12, fontSize: 10, color: "#64748b" }}>
+                                            <span>Community: {match.communityNames.join(", ") || "\u2014"}</span>
+                                            <span>Priority: {match.priority}</span>
+                                            <span>Due: {match.dueDate || "\u2014"}</span>
+                                        </div>
+                                        <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                                            <button style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#1d4ed8", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600 }} onClick={() => {}}>Keep This</button>
+                                            <button style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#92400e", border: "1px solid #fde68a", cursor: "pointer", fontWeight: 600 }} onClick={() => {}}>Archive This</button>
+                                        </div>
+                                    </div>
+                                ))}
+                                {allRequests.filter(r => r.id !== item.id && hashId(r.id) % 25 === hashId(item.id) % 25).length === 0 && (
+                                    <div style={{ fontSize: 12, color: "#64748b", fontStyle: "italic" }}>No specific match candidates available.</div>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     <div className="rc-drawer-section">
                         <div className="rc-drawer-section-title">Review State</div>

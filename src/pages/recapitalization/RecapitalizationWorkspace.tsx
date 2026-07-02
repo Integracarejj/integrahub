@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { lookupWorkspaceItem, getDocumentsByTransaction, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, saveWorkArtifacts, removeWorkArtifact } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
@@ -67,10 +67,16 @@ export default function RecapitalizationWorkspace() {
 
     const [commentText, setCommentText] = useState("");
 
+    const [statusActionModal, setStatusActionModal] = useState<{ newStatus: RecapRequest["status"]; reason: string } | null>(null);
     const [completionModal, setCompletionModal] = useState<{ note: string; readyForReview: boolean } | null>(null);
     const [workArtifacts, setWorkArtifacts] = useState<WorkArtifact[]>(() => id ? getWorkArtifactsByRequest(id) : []);
     const [artifactBanner, setArtifactBanner] = useState<string | null>(null);
     const [publishExternal, setPublishExternal] = useState<{ step: number; selectedArtifacts: string[] } | null>(null);
+
+    // Re-sync artifacts when navigating to a different workspace item
+    useEffect(() => {
+        if (id) setWorkArtifacts(getWorkArtifactsByRequest(id));
+    }, [id]);
 
     const backFrom = (location.state as any)?.from || "tracker";
     const backLabel = backFrom === "my-work" ? "Back to My Work" : "Back to Work Queue";
@@ -294,6 +300,8 @@ export default function RecapitalizationWorkspace() {
                                             const newStatus = e.target.value as RecapRequest["status"];
                                             if (newStatus === "Complete") {
                                                 setCompletionModal({ note: "", readyForReview: false });
+                                            } else if (newStatus === "Blocked" || newStatus === "Duplicate" || newStatus === "Not Applicable") {
+                                                setStatusActionModal({ newStatus, reason: "" });
                                             } else {
                                                 doStatusChange(newStatus);
                                             }
@@ -693,6 +701,61 @@ export default function RecapitalizationWorkspace() {
                 </div>
             )}
 
+            {statusActionModal && (
+                <div className="rc-modal-overlay" onClick={() => setStatusActionModal(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+                        <div className="rc-modal-header">
+                            <h2>{statusActionModal.newStatus}</h2>
+                            <button className="rc-modal-close" onClick={() => setStatusActionModal(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ fontSize: 12, color: "#334155", marginBottom: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+                                <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Request ID</span> {displayId}</div>
+                                <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Deliverable</span> {displayTitle || item.category || "\u2014"}</div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#991b1b" }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                    {statusActionModal.newStatus === "Blocked" && "This will move the request to DD Operations \u2192 Needs DD Review for review."}
+                                    {statusActionModal.newStatus === "Duplicate" && "This will move the request to DD Operations \u2192 Needs DD Review for duplicate review."}
+                                    {statusActionModal.newStatus === "Not Applicable" && "This will move the request to DD Operations \u2192 Needs DD Review for disposition."}
+                                </div>
+                            </div>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6, display: "block" }}>Reason <span style={{ color: "#dc2626" }}>*</span></label>
+                            <textarea
+                                value={statusActionModal.reason}
+                                onChange={e => setStatusActionModal(prev => prev ? { ...prev, reason: e.target.value } : null)}
+                                placeholder={"Explain why this item is " + statusActionModal.newStatus.toLowerCase() + "..."}
+                                rows={3}
+                                style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
+                            />
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setStatusActionModal(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!statusActionModal.reason.trim()} onClick={() => {
+                                if (!statusActionModal) return;
+                                const reason = statusActionModal.reason.trim();
+                                if (!reason) return;
+                                const reqId = item.id || item.intakeId || "";
+                                updateRequestStatus(reqId, statusActionModal.newStatus);
+                                addActivityEntry({
+                                    type: "Status Change",
+                                    description: `${displayId}: ${statusActionModal.newStatus}. Reason: ${reason}`,
+                                    userId: "current-user",
+                                    userName: "Sarah Chen",
+                                    requestId: item.requestId || item.id,
+                                    requestTitle: displayTitle || item.category || "",
+                                    transactionId: item.transactionId,
+                                    transactionName: item.transactionName || item.transactionId,
+                                });
+                                setWsRefreshKey(k => k + 1);
+                                setBanner(`${displayId} moved to DD Operations \u2192 Needs DD Review.`);
+                                setBannerError(false);
+                                setStatusActionModal(null);
+                            }}>Confirm</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {completionModal && (
                 <div className="rc-modal-overlay" onClick={() => setCompletionModal(null)}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
@@ -872,7 +935,7 @@ export default function RecapitalizationWorkspace() {
                                         </div>
                                         {publishExternal.selectedArtifacts.length > 0 && (
                                             <div style={{ fontSize: 12, color: "#475569" }}>
-                                                Published documents: {publishExternal.selectedArtifacts.join(", ")}
+                                                {publishExternal.selectedArtifacts.length} supporting artifact{publishExternal.selectedArtifacts.length !== 1 ? "s" : ""} published{workArtifacts.some(a => a.isPrototype) ? " (prototype metadata)" : ""}.
                                             </div>
                                         )}
                                     </div>
@@ -893,9 +956,10 @@ export default function RecapitalizationWorkspace() {
                                 <button className="rc-btn rc-btn-primary" onClick={() => {
                                     setPublishExternal(prev => prev ? { ...prev, step: 3 } : null);
                                     updateRequestExternalStatus(item.id || item.intakeId || "", workArtifacts.length === 0);
+                                    const artCount = workArtifacts.length;
                                     addActivityEntry({
                                         type: "Status Change",
-                                        description: `${displayId}: Published externally by Sarah Chen`,
+                                        description: `${displayId}: Published externally by Sarah Chen` + (artCount > 0 ? ` (${artCount} artifact${artCount !== 1 ? "s" : ""})` : ""),
                                         userId: "current-user",
                                         userName: "Sarah Chen",
                                         requestId: item.requestId || item.id,

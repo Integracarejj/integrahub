@@ -13,7 +13,7 @@ export default function RecapitalizationDdOperations() {
     const navigate = useNavigate();
     const [activeUser, setActiveUser] = useState("David Park");
     const [activeView, setActiveView] = useState<ViewTab>("full-work-queue");
-    const [statusConfirm, setStatusConfirm] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
+    const [statusConfirm, setStatusConfirm] = useState<{ req: RecapRequest; newStatus: string; reason?: string } | null>(null);
     const [artifactWarning, setArtifactWarning] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
     const [returnToOwner, setReturnToOwner] = useState<{ req: RecapRequest; reason: string } | null>(null);
     const [successMsg, setSuccessMsg] = useState<{ title: string; body: string } | null>(null);
@@ -121,11 +121,11 @@ export default function RecapitalizationDdOperations() {
         return docs.some(d => d.requestId === req.requestId || d.requestTitle === req.title);
     }
 
-    function handleStatusChange(req: RecapRequest, newStatus: string) {
+    function handleStatusChange(req: RecapRequest, newStatus: string, reason?: string) {
         updateRequestStatus(req.id, newStatus as RecapRequest["status"]);
         addActivityEntry({
             type: "Status Change",
-            description: `${req.requestId}: Status changed to ${newStatus} by ${activeUser}`,
+            description: `${req.requestId}: Status changed to ${newStatus} by ${activeUser}` + (reason ? `. Reason: ${reason}` : ""),
             userId: activeUser,
             userName: activeUser,
             requestId: req.id,
@@ -363,22 +363,46 @@ export default function RecapitalizationDdOperations() {
 
             {statusConfirm && (
                 <div className="rc-modal-overlay" onClick={() => setStatusConfirm(null)}>
-                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
                         <div className="rc-modal-header">
-                            <h2>Change Status</h2>
+                            <h2>{statusConfirm.newStatus}</h2>
                             <button className="rc-modal-close" onClick={() => setStatusConfirm(null)}>&times;</button>
                         </div>
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
-                            <div style={{ fontSize: 14, color: "#1e293b", fontWeight: 500, margin: 0 }}>
-                                Change <strong>{statusConfirm.req.requestId}</strong> &mdash; {statusConfirm.req.title.split(" - ").slice(1).join(" - ").trim() || statusConfirm.req.title} to <strong>{statusConfirm.newStatus}</strong>?
+                            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                <div style={{ fontSize: 14, color: "#1e293b", fontWeight: 500, margin: 0 }}>
+                                    Change <strong>{statusConfirm.req.requestId}</strong> &mdash; {statusConfirm.req.title.split(" - ").slice(1).join(" - ").trim() || statusConfirm.req.title} to <strong>{statusConfirm.newStatus}</strong>?
+                                </div>
+                                {["Blocked", "Duplicate", "Not Applicable"].includes(statusConfirm.newStatus) && (
+                                    <>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#991b1b" }}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                            {statusConfirm.newStatus === "Blocked" && "This will move the request to Needs DD Review for review."}
+                                            {statusConfirm.newStatus === "Duplicate" && "This will move the request to Needs DD Review for duplicate review."}
+                                            {statusConfirm.newStatus === "Not Applicable" && "This will move the request to Needs DD Review for disposition."}
+                                        </div>
+                                        <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                                            Reason <span style={{ color: "#dc2626" }}>*</span>
+                                        </label>
+                                        <textarea
+                                            value={statusConfirm.reason || ""}
+                                            onChange={e => setStatusConfirm(prev => prev ? { ...prev, reason: e.target.value } : null)}
+                                            placeholder={"Explain why this item is " + statusConfirm.newStatus.toLowerCase() + "..."}
+                                            rows={3}
+                                            style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
+                                        />
+                                    </>
+                                )}
                             </div>
                         </div>
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-ghost" onClick={() => setStatusConfirm(null)}>Cancel</button>
-                            <button className="rc-btn rc-btn-primary" onClick={() => {
-                                handleStatusChange(statusConfirm.req, statusConfirm.newStatus);
+                            <button className="rc-btn rc-btn-primary" disabled={["Blocked", "Duplicate", "Not Applicable"].includes(statusConfirm.newStatus) && !(statusConfirm.reason?.trim())} onClick={() => {
+                                const reason = statusConfirm.reason?.trim();
+                                if (["Blocked", "Duplicate", "Not Applicable"].includes(statusConfirm.newStatus) && !reason) return;
+                                handleStatusChange(statusConfirm.req, statusConfirm.newStatus, reason);
                                 setStatusConfirm(null);
-                            }}>Change Status</button>
+                            }}>Confirm</button>
                         </div>
                     </div>
                 </div>

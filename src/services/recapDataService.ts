@@ -609,6 +609,10 @@ export interface WorkArtifact {
     name: string;
     size: number;
     uploadedAt: string;
+    intakeId?: string;
+    uploadedBy?: string;
+    artifactType?: string;
+    isPrototype?: boolean;
 }
 
 export function getWorkArtifactsByRequest(requestId: string): WorkArtifact[] {
