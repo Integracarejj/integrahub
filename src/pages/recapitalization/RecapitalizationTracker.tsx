@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-    getRequests, getTransactions, getTeamMembers, getTeams,
+    getRequests, getTransactions, getTeamMembers, getTeams, getDocuments,
     updateRequestStatus, updateRequestOwner, updateRequestTeam, addActivityEntry,
     updateRequestPriority, updateRequestDueDate, updateRequestExternalStatus, isDemoActive,
     bulkUpdateDemoRequests, getWorkArtifactsByRequest, promoteToReusableKnowledge, getReusableKnowledgeRecommendation,
@@ -55,6 +55,7 @@ export default function RecapitalizationTracker() {
     const [publishSelectedArtifactNames, setPublishSelectedArtifactNames] = useState<string[]>([]);
     const [confirmAction, setConfirmAction] = useState<{ title: string; action: () => void } | null>(null);
     const [statusConfirm, setStatusConfirm] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
+    const [artifactWarning, setArtifactWarning] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
     const [pendingAssign, setPendingAssign] = useState<{ req: RecapRequest; owner: string } | null>(null);
     const [artifactListModal, setArtifactListModal] = useState<{ req: RecapRequest; artifacts: WorkArtifact[] } | null>(null);
 
@@ -351,10 +352,14 @@ export default function RecapitalizationTracker() {
                                 <td onClick={e => e.stopPropagation()}>
                                     <select
                                         value={req.status}
-                                        onChange={e => {
+                                                onChange={e => {
                                             const newStatus = e.target.value;
                                             if (newStatus !== req.status) {
-                                                setStatusConfirm({ req, newStatus });
+                                                if (newStatus === "Complete" && !getDocuments().some(d => d.requestId === req.requestId)) {
+                                                    setArtifactWarning({ req, newStatus });
+                                                } else {
+                                                    setStatusConfirm({ req, newStatus });
+                                                }
                                             }
                                         }}
                                         style={{ fontSize: 11, padding: "2px 18px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 100, cursor: "pointer", border: "1px solid #cbd5e1" }}
@@ -429,6 +434,36 @@ export default function RecapitalizationTracker() {
                                 setBulkToast(v ? `Assigned ${pendingAssign.req.requestId} to ${v}` : `${pendingAssign.req.requestId}: Unassigned`);
                                 setPendingAssign(null);
                             }}>Assign</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {artifactWarning && (
+                <div className="rc-modal-overlay" onClick={() => setArtifactWarning(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="rc-modal-header">
+                            <h2>No Artifact Attached</h2>
+                            <button className="rc-modal-close" onClick={() => setArtifactWarning(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                <div style={{ fontSize: 14, color: "#991b1b", fontWeight: 600 }}>
+                                    No artifact is attached to this request. Marking complete will send it to DD Review without supporting documentation.
+                                </div>
+                                <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
+                                    <strong>{artifactWarning.req.requestId}</strong> &mdash; {artifactWarning.req.title.split(" - ").slice(1).join(" - ").trim() || artifactWarning.req.title}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setArtifactWarning(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" onClick={() => {
+                                const req = artifactWarning.req;
+                                const newStatus = artifactWarning.newStatus;
+                                setArtifactWarning(null);
+                                handleStatusChange(req, newStatus as RecapRequest["status"]);
+                            }}>Mark Complete Anyway</button>
                         </div>
                     </div>
                 </div>

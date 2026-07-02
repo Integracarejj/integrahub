@@ -6,7 +6,7 @@ import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
 const STATUS_OPTIONS = ["Open", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate"];
-const RETURNED_STATUSES = ["Clarification Needed", "Blocked"];
+const RETURNED_STATUSES = ["Clarification Needed", "Blocked", "Duplicate", "Not Applicable"];
 
 type ViewTab = "active-work" | "completed-work" | "my-team" | "returned";
 
@@ -83,7 +83,7 @@ export default function RecapitalizationMyWork() {
 
     const returnedItems = useMemo(() => {
         return assignedToMe.filter(r =>
-            RETURNED_STATUSES.includes(r.status)
+            RETURNED_STATUSES.includes(r.status) || r._needsReassignment
         );
     }, [assignedToMe]);
 
@@ -98,7 +98,7 @@ export default function RecapitalizationMyWork() {
 
     function hasDocuments(req: RecapRequest): boolean {
         const docs = getDocuments();
-        return docs.some(d => d.requestId === req.requestId || d.requestTitle === req.title);
+        return docs.some(d => d.requestId === req.requestId);
     }
 
     function handleStatusChange(req: RecapRequest, newStatus: string, reason?: string) {
@@ -265,15 +265,16 @@ export default function RecapitalizationMyWork() {
                                     );
                                 })()}
                             </td>
-                            <td onClick={e => e.stopPropagation()} style={{ fontSize: 11, textAlign: "center" }}>
+                            <td onClick={e => e.stopPropagation()} style={{ fontSize: 11, textAlign: "center", maxWidth: 160 }}>
                                 {(function() {
                                     const note = req._statusNotes || req._misassignedReason || req._returnReason || null;
                                     return note ? (
-                                        <span onClick={() => setNotePopup({ req, note })} style={{ cursor: "pointer", color: "#92400e" }} title="View note">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                                        <span onClick={() => setNotePopup({ req, note })} style={{ cursor: "pointer", color: "#92400e", display: "inline-flex", alignItems: "center", gap: 3 }} title="View note">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                                            <span style={{ fontSize: 10, fontWeight: 600, color: "#92400e", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 120 }}>{note}</span>
                                         </span>
                                     ) : (
-                                        <span style={{ color: "#d1d5db" }}>&mdash;</span>
+                                        <span style={{ color: "#d1d5db", fontSize: 10 }}>No note</span>
                                     );
                                 })()}
                             </td>

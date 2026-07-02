@@ -648,6 +648,7 @@ export function mapParsedRowToRecapRequest(
     packageName: string
 ): RecapRequest {
     const prefix = fileBaseName.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5) || "PKG";
+    const subHash = submissionId.replace('sub-', '').slice(-4);
     const rawPriority = String(row["Priority"] || "").toLowerCase();
     const priority: RecapRequest["priority"] = rawPriority.includes("high") ? "High" : rawPriority.includes("low") ? "Low" : "Medium";
     const rawDate = row["Due Date"] || "";
@@ -664,7 +665,7 @@ export function mapParsedRowToRecapRequest(
     }
     return {
         id: `${submissionId}-req-${index}`,
-        requestId: `DD-${prefix}-${String(index).padStart(3, "0")}`,
+        requestId: `DD-${prefix}-${subHash}-${String(index).padStart(3, "0")}`,
         intakeId: `INT-${prefix}-${index}`,
         transactionId: `txn-portal-${submissionId}`,
         transactionName: packageName,
@@ -718,6 +719,7 @@ function generatePortalRequests(submissionId: string, packageName: string, fileB
     const statuses: RecapRequest["status"][] = ["Open", "In Progress", "Provided", "Clarification Needed", "Under Review", "Overdue"];
     const now = new Date().toISOString().split("T")[0];
     const prefix = fileBaseName.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5) || "PKG";
+    const subHash = submissionId.replace('sub-', '').slice(-4);
     const requests: RecapRequest[] = [];
     for (let i = 1; i <= count; i++) {
         const cat = categories[(i - 1) % categories.length];
@@ -727,7 +729,7 @@ function generatePortalRequests(submissionId: string, packageName: string, fileB
         const priority = priorities[Math.floor(Math.random() * priorities.length)];
         requests.push({
             id: `${submissionId}-req-${i}`,
-            requestId: `DD-${prefix}-${String(i).padStart(3, "0")}`,
+            requestId: `DD-${prefix}-${subHash}-${String(i).padStart(3, "0")}`,
             intakeId: `INT-${prefix}-${i}`,
             transactionId: `txn-portal-${submissionId}`,
             transactionName: packageName,
