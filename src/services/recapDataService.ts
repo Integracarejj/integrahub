@@ -506,7 +506,7 @@ export function publishSelectedRequests(ids: string[], sourceInfo?: { sourceInta
             localStorage.setItem(PORTAL_REQUESTS_KEY, JSON.stringify(updatedPortalReqs));
             const reqTitles = publishedIds.map(id => {
                 const r = updatedPortalReqs.find(p => p.id === id || p.requestId === id);
-                return r?.requestTitle || r?.title || id;
+                return r?.title || id;
             });
             addActivityEntry({ type: "Status Change", description: `${publishedCount} request${publishedCount !== 1 ? "s" : ""} moved to work queue: ${reqTitles.join(", ")}`, userId: "system", userName: "System", requestId: publishedIds.join(", "), requestTitle: reqTitles.join(", "), transactionId: "", transactionName: "" });
         }
