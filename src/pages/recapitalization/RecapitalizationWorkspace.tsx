@@ -464,7 +464,7 @@ export default function RecapitalizationWorkspace() {
                                         saveWorkArtifacts(id!, updated);
                                         if (files.length > 0) {
                                             setArtifactBanner(`\u2713 ${files.length} work artifact${files.length !== 1 ? "s" : ""} uploaded`);
-                                            addActivityEntry({ requestId: id!, user: "Current User", action: "Uploaded artifact" + (files.length > 1 ? "s" : "") + ": " + files.map(f => f.name).join(", ") });
+                                            addActivityEntry({ type: "Document", description: "Uploaded artifact" + (files.length > 1 ? "s" : "") + ": " + files.map(f => f.name).join(", "), userId: "current-user", userName: "Sarah Chen", requestId: id!, requestTitle: displayTitle || item?.category || "", transactionId: item?.transactionId || "", transactionName: item?.transactionName || item?.transactionId || "" });
                                         }
                                     }}
                                     style={{ border: "2px dashed #d1d5db", borderRadius: 8, padding: "20px 16px", textAlign: "center", cursor: "pointer", background: "#fafbfc", transition: "border-color 0.15s, background 0.15s" }}
@@ -494,7 +494,7 @@ export default function RecapitalizationWorkspace() {
                                             saveWorkArtifacts(id!, updated);
                                             if (files.length > 0) {
                                                 setArtifactBanner(`\u2713 ${files.length} work artifact${files.length !== 1 ? "s" : ""} uploaded`);
-                                                addActivityEntry({ requestId: id!, user: "Current User", action: "Uploaded artifact" + (files.length > 1 ? "s" : "") + ": " + files.map(f => f.name).join(", ") });
+                                                addActivityEntry({ type: "Document", description: "Uploaded artifact" + (files.length > 1 ? "s" : "") + ": " + files.map(f => f.name).join(", "), userId: "current-user", userName: "Sarah Chen", requestId: id!, requestTitle: displayTitle || item?.category || "", transactionId: item?.transactionId || "", transactionName: item?.transactionName || item?.transactionId || "" });
                                             }
                                             e.target.value = "";
                                         }}
