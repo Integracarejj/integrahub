@@ -235,7 +235,7 @@ export function updateRequestStatus(id: string, status: RecapRequest["status"]):
 
 export function updateRequestOwner(id: string, owner: string | null): RecapRequest | undefined {
     if (isDemoLoaded()) {
-        const result = Demo.updateDemoRequest(id, { owner, assignedTo: owner });
+        const result = Demo.updateDemoRequest(id, { owner, assignedTo: owner, _needsReassignment: false, _misassignedReason: null });
         if (result) return result;
         return updatePortalRequestOwner(id, owner);
     }
@@ -504,6 +504,11 @@ export function publishSelectedRequests(ids: string[], sourceInfo?: { sourceInta
         });
         if (portalUpdated) {
             localStorage.setItem(PORTAL_REQUESTS_KEY, JSON.stringify(updatedPortalReqs));
+            const reqTitles = publishedIds.map(id => {
+                const r = updatedPortalReqs.find(p => p.id === id || p.requestId === id);
+                return r?.requestTitle || r?.name || id;
+            });
+            addActivityEntry({ requestId: publishedIds.join(", "), user: "System", action: `${publishedCount} request${publishedCount !== 1 ? "s" : ""} moved to work queue: ${reqTitles.join(", ")}` });
         }
     }
 
@@ -656,7 +661,7 @@ export function updatePortalRequestOwner(reqId: string, owner: string | null): R
     const all = getPortalCreatedRequests();
     const idx = all.findIndex(r => r.id === reqId || r.requestId === reqId || r.intakeId === reqId);
     if (idx === -1) return;
-    all[idx] = { ...all[idx], owner, assignedTo: owner, lastUpdated: new Date().toISOString().split("T")[0] };
+    all[idx] = { ...all[idx], owner, assignedTo: owner, _needsReassignment: false, _misassignedReason: null, lastUpdated: new Date().toISOString().split("T")[0] };
     localStorage.setItem(PORTAL_REQUESTS_KEY, JSON.stringify(all));
     return all[idx];
 }

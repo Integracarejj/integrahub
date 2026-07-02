@@ -677,6 +677,8 @@ export function updateRequestOwner(id: string, owner: string | null): RecapReque
     if (req) {
         req.owner = owner;
         req.assignedTo = owner;
+        req._needsReassignment = false;
+        req._misassignedReason = null;
         req.lastUpdated = new Date().toISOString().split("T")[0];
     }
     return req;
