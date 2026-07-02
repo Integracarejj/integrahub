@@ -7,7 +7,7 @@ import "./Recapitalization.css";
 
 const STATUS_OPTIONS = ["Open", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate"];
 
-type ViewTab = "needs-dd-review" | "ready-to-publish" | "needs-reassignment" | "returned-to-owners" | "published-external" | "activity-feed" | "full-work-queue";
+type ViewTab = "needs-dd-review" | "ready-to-publish" | "needs-reassignment" | "published-external" | "activity-feed" | "full-work-queue";
 
 export default function RecapitalizationDdOperations() {
     const navigate = useNavigate();
@@ -35,7 +35,6 @@ export default function RecapitalizationDdOperations() {
     const kpiNeedsDDReview = useMemo(() => workItems.filter(r => NEEDS_DD_REVIEW_STATUSES.includes(r.status) && !r._returnReason).length, [workItems]);
     const kpiReadyToPublish = useMemo(() => workItems.filter(r => r.status === "Complete" && r._externalStatus !== "Published External").length, [workItems]);
     const kpiNeedsReassignment = useMemo(() => workItems.filter(r => r._needsReassignment || (r._misassignedReason && !r.owner)).length, [workItems]);
-    const kpiReturnedToOwners = useMemo(() => workItems.filter(r => r._returnReason).length, [workItems]);
     const kpiPublishedExternal = useMemo(() => workItems.filter(r => r._externalStatus === "Published External").length, [workItems]);
     const kpiUpdatedToday = useMemo(() => {
         const today = new Date().toISOString().split("T")[0];
@@ -74,16 +73,6 @@ export default function RecapitalizationDdOperations() {
             });
     }, [workItems]);
 
-    const returnedToOwnersItems = useMemo(() => {
-        return workItems
-            .filter(r => r._returnReason)
-            .sort((a, b) => {
-                const aDate = a.lastUpdated || "";
-                const bDate = b.lastUpdated || "";
-                return bDate.localeCompare(aDate);
-            });
-    }, [workItems]);
-
     const publishedExternalItems = useMemo(() => {
         return workItems
             .filter(r => r._externalStatus === "Published External")
@@ -111,12 +100,11 @@ export default function RecapitalizationDdOperations() {
             case "needs-dd-review": return needsDDReview;
             case "ready-to-publish": return readyToPublish;
             case "needs-reassignment": return needsReassignment;
-            case "returned-to-owners": return returnedToOwnersItems;
             case "published-external": return publishedExternalItems;
             case "activity-feed": return [];
             case "full-work-queue": return fullWorkQueue;
         }
-    }, [activeView, needsDDReview, readyToPublish, needsReassignment, returnedToOwnersItems, publishedExternalItems, fullWorkQueue]);
+    }, [activeView, needsDDReview, readyToPublish, needsReassignment, publishedExternalItems, fullWorkQueue]);
 
     function getArtifactKey(req: RecapRequest): string {
         return req.requestId || req.intakeId || req.id;
@@ -153,7 +141,6 @@ export default function RecapitalizationDdOperations() {
         "needs-dd-review": "No items needing DD review.",
         "ready-to-publish": "No items ready to publish.",
         "needs-reassignment": "No items needing reassignment.",
-        "returned-to-owners": "No items returned to owners.",
         "published-external": "No items published externally.",
         "activity-feed": "No recent activity.",
         "full-work-queue": "No items in the work queue.",
@@ -163,7 +150,6 @@ export default function RecapitalizationDdOperations() {
         "needs-dd-review": "Needs DD Review",
         "ready-to-publish": "Ready to Publish",
         "needs-reassignment": "Needs Reassignment",
-        "returned-to-owners": "Returned to Owners",
         "published-external": "Published External",
         "activity-feed": "Activity Feed",
         "full-work-queue": "Full Work Queue",
@@ -173,7 +159,6 @@ export default function RecapitalizationDdOperations() {
         { label: "Needs DD Review", count: kpiNeedsDDReview, tab: "needs-dd-review" as ViewTab, color: "#1d4ed8" },
         { label: "Ready to Publish", count: kpiReadyToPublish, tab: "ready-to-publish" as ViewTab, color: "#047857" },
         { label: "Needs Reassignment", count: kpiNeedsReassignment, tab: "needs-reassignment" as ViewTab, color: "#dc2626" },
-        { label: "Returned to Owners", count: kpiReturnedToOwners, tab: "returned-to-owners" as ViewTab, color: "#7c3aed" },
         { label: "Published External", count: kpiPublishedExternal, tab: "published-external" as ViewTab, color: "#166534" },
         { label: "Updated Today", count: kpiUpdatedToday, tab: "activity-feed" as ViewTab, color: "#4338ca" },
     ];
@@ -238,13 +223,13 @@ export default function RecapitalizationDdOperations() {
                         <th style={{ width: 90, minWidth: 70 }}>Community</th>
                         <th style={{ width: 60, textAlign: "center" }}>Pri</th>
                         <th style={{ width: 105, minWidth: 85 }}>Status</th>
-                        {(activeView === "needs-dd-review" || activeView === "full-work-queue" || activeView === "returned-to-owners") && <th style={{ width: 80, minWidth: 70 }}>Owner</th>}
+                        {(activeView === "needs-dd-review" || activeView === "full-work-queue") && <th style={{ width: 80, minWidth: 70 }}>Owner</th>}
                         <th style={{ width: 75, minWidth: 65 }}>Team</th>
                         <th style={{ width: 85, minWidth: 70 }}>Due</th>
                         <th style={{ width: 80, minWidth: 65 }}>Updated</th>
                         <th style={{ width: 38, textAlign: "center" }}>Art</th>
                         <th style={{ width: 38, textAlign: "center" }}>Notes</th>
-                        <th style={{ width: 140, minWidth: 120 }}>Actions</th>
+                        <th style={{ width: 140, minWidth: 120 }}>{activeView === "full-work-queue" || activeView === "needs-reassignment" ? "Assign" : "Actions"}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -290,11 +275,12 @@ export default function RecapitalizationDdOperations() {
                             </td>
                             <td onClick={e => e.stopPropagation()} style={{ fontSize: 11, textAlign: "center" }}>
                                 {getRequestNote(req) ? (
-                                    <span onClick={() => setNotePopup({ req, note: getRequestNote(req)! })} style={{ cursor: "pointer", color: "#92400e" }} title="View note">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                                    <span onClick={() => setNotePopup({ req, note: getRequestNote(req)! })} style={{ cursor: "pointer", color: "#92400e", display: "inline-flex", alignItems: "center", gap: 3 }} title="Click to view note/reason">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                                        <span style={{ fontSize: 10, fontWeight: 600, color: "#92400e" }}>Note</span>
                                     </span>
                                 ) : (
-                                    <span style={{ color: "#d1d5db" }}>&mdash;</span>
+                                    <span style={{ color: "#d1d5db", fontSize: 10 }}>No note</span>
                                 )}
                             </td>
                             <td onClick={e => e.stopPropagation()} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -326,6 +312,10 @@ export default function RecapitalizationDdOperations() {
                                                     requestTitle: req.title,
                                                     transactionId: req.transactionId,
                                                     transactionName: req.transactionName,
+                                                });
+                                                setSuccessMsg({
+                                                    title: "Reassigned",
+                                                    body: `${req.requestId} \u2014 ${req.title.split(" - ").slice(1).join(" - ").trim() || req.title} reassigned to ${newOwner}.`,
                                                 });
                                                 setRefreshKey(k => k + 1);
                                             }
@@ -376,7 +366,7 @@ export default function RecapitalizationDdOperations() {
             </div>
 
             <div className="rc-view-tabs" style={{ display: "flex", gap: 0, marginBottom: 16, borderBottom: "2px solid #e2e8f0", overflowX: "auto" }}>
-                {(["needs-dd-review", "ready-to-publish", "needs-reassignment", "returned-to-owners", "published-external", "activity-feed", "full-work-queue"] as const).map(view => (
+                {(["needs-dd-review", "ready-to-publish", "needs-reassignment", "published-external", "activity-feed", "full-work-queue"] as const).map(view => (
                     <button key={view} onClick={() => setActiveView(view)}
                         style={{ padding: "8px 16px", fontSize: 13, fontWeight: activeView === view ? 700 : 500, color: activeView === view ? "#1d4ed8" : "#475569", background: "none", border: "none", borderBottom: activeView === view ? "2px solid #1d4ed8" : "2px solid transparent", marginBottom: -2, cursor: "pointer", transition: "all 0.15s", whiteSpace: "nowrap" }}>
                         {tabLabels[view]}

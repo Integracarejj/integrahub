@@ -4,7 +4,7 @@ import {
     getRequests, getTransactions, getTeamMembers, getTeams,
     updateRequestStatus, updateRequestOwner, updateRequestTeam, addActivityEntry,
     updateRequestPriority, updateRequestDueDate, updateRequestExternalStatus, isDemoActive,
-    bulkUpdateDemoRequests, getDocuments, getWorkArtifactsByRequest, promoteToReusableKnowledge, getReusableKnowledgeRecommendation,
+    bulkUpdateDemoRequests, getWorkArtifactsByRequest, promoteToReusableKnowledge, getReusableKnowledgeRecommendation,
 } from "../../services/recapDataService";
 
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
@@ -52,6 +52,7 @@ export default function RecapitalizationTracker() {
     const [routeModalTeam, setRouteModalTeam] = useState("");
     const [detailModalItem, setDetailModalItem] = useState<RecapRequest | null>(null);
     const [publishStep, setPublishStep] = useState(0);
+    const [publishSelectedArtifactNames, setPublishSelectedArtifactNames] = useState<string[]>([]);
     const [confirmAction, setConfirmAction] = useState<{ title: string; action: () => void } | null>(null);
     const [statusConfirm, setStatusConfirm] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
     const [pendingAssign, setPendingAssign] = useState<{ req: RecapRequest; owner: string } | null>(null);
@@ -188,9 +189,8 @@ export default function RecapitalizationTracker() {
         setBulkToast(`${req.requestId}: status changed to ${newStatus}`);
     }
 
-    function hasDocuments(req: RecapRequest): boolean {
-        const docs = getDocuments();
-        return docs.some(d => d.requestId === req.requestId || d.requestTitle === req.title);
+    function getArtifactKey(req: RecapRequest): string {
+        return req.requestId || req.intakeId || req.id;
     }
 
     function clearFilterParam() {
@@ -399,7 +399,7 @@ export default function RecapitalizationTracker() {
                                 </td>
                                 <td>
                                     <div className="rc-cell-actions">
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Publish External" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setPublishStep(1); }} style={{ fontSize: 12, fontWeight: 700, color: "#166534" }}>P</button>
+                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Publish External" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setPublishStep(1); setPublishSelectedArtifactNames(getWorkArtifactsByRequest(getArtifactKey(req)).map(a => a.name)); }} style={{ fontSize: 12, fontWeight: 700, color: "#166534" }}>P</button>
                                     </div>
                                 </td>
                             </tr>
@@ -637,12 +637,36 @@ export default function RecapitalizationTracker() {
                                                     <div style={{ fontSize: 13, color: "#334155" }}>{detailModalItem.communityNames.join(", ") || "\u2014"}</div>
                                                 </div>
                                             </div>
-                                            {!hasDocuments(detailModalItem) && (
-                                                <div style={{ padding: "8px 12px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, fontSize: 12, color: "#92400e", display: "flex", alignItems: "center", gap: 6 }}>
-                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
-                                                    No supporting documents or work artifacts attached to this request. Publishing without artifacts will make only metadata visible externally.
-                                                </div>
-                                            )}
+                                            {(() => {
+                                                const artifacts = getWorkArtifactsByRequest(getArtifactKey(detailModalItem));
+                                                return artifacts.length > 0 ? (
+                                                    <div>
+                                                        <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 4 }}>Work Artifacts ({artifacts.length})</div>
+                                                        {artifacts.map(art => (
+                                                            <label key={art.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 12, color: "#1e293b", cursor: "pointer" }}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={publishSelectedArtifactNames.includes(art.name)}
+                                                                    onChange={e => {
+                                                                        if (e.target.checked) {
+                                                                            setPublishSelectedArtifactNames(prev => [...prev, art.name]);
+                                                                        } else {
+                                                                            setPublishSelectedArtifactNames(prev => prev.filter(n => n !== art.name));
+                                                                        }
+                                                                    }}
+                                                                />
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
+                                                                <span>{art.displayFileName || art.name}</span>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ padding: "8px 12px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, fontSize: 12, color: "#92400e", display: "flex", alignItems: "center", gap: 6 }}>
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                                        No supporting documents or work artifacts attached to this request. Publishing without artifacts will make only metadata visible externally.
+                                                    </div>
+                                                );
+                                            })()}
                                             <div style={{ padding: "8px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b", display: "flex", alignItems: "center", gap: 6 }}>
                                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                                                 You are about to make this request and documents visible to the external broker/buyer portal.
@@ -656,6 +680,9 @@ export default function RecapitalizationTracker() {
                                             <div style={{ padding: "8px 12px", background: "#f8faff", border: "1px solid #dbeafe", borderRadius: 6 }}>
                                                 <div style={{ fontSize: 11, color: "#334155", marginBottom: 4 }}><strong>Request ID:</strong> {detailModalItem.requestId}</div>
                                                 <div style={{ fontSize: 11, color: "#334155", marginBottom: 4 }}><strong>Deliverable:</strong> {detailModalItem.title}</div>
+                                                {publishSelectedArtifactNames.length > 0 && (
+                                                    <div style={{ fontSize: 11, color: "#334155" }}><strong>Documents ({publishSelectedArtifactNames.length}):</strong> {publishSelectedArtifactNames.join(", ")}</div>
+                                                )}
                                             </div>
                                             <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
                                                 Please confirm you want to publish these materials externally.
