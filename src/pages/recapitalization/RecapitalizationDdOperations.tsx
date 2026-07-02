@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { getRequests, getTeamMembers, updateRequestStatus, updateRequestOwner, getDocuments, updateRequestReturnToOwner, getActivity, addActivityEntry } from "../../services/recapDataService";
+import { getRequests, getTeamMembers, updateRequestStatus, updateRequestOwner, getDocuments, updateRequestReturnToOwner, getActivity, addActivityEntry, getWorkArtifactsByRequest, updateRequestStatusNotes } from "../../services/recapDataService";
 import type { RecapRequest } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -17,6 +17,7 @@ export default function RecapitalizationDdOperations() {
     const [artifactWarning, setArtifactWarning] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
     const [returnToOwner, setReturnToOwner] = useState<{ req: RecapRequest; reason: string } | null>(null);
     const [successMsg, setSuccessMsg] = useState<{ title: string; body: string } | null>(null);
+    const [notePopup, setNotePopup] = useState<{ req: RecapRequest; note: string } | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
     const members = getTeamMembers();
     const ddMembers = useMemo(() => members.filter(m => m.team === "DD Management"), [members]);
@@ -116,6 +117,14 @@ export default function RecapitalizationDdOperations() {
         }
     }, [activeView, needsDDReview, readyToPublish, needsReassignment, returnedToOwnersItems, publishedExternalItems, fullWorkQueue]);
 
+    function getArtifactKey(req: RecapRequest): string {
+        return req.requestId || req.intakeId || req.id;
+    }
+
+    function getRequestNote(req: RecapRequest): string | null {
+        return req._statusNotes || req._misassignedReason || req._returnReason || null;
+    }
+
     function hasDocuments(req: RecapRequest): boolean {
         const docs = getDocuments();
         return docs.some(d => d.requestId === req.requestId || d.requestTitle === req.title);
@@ -123,6 +132,9 @@ export default function RecapitalizationDdOperations() {
 
     function handleStatusChange(req: RecapRequest, newStatus: string, reason?: string) {
         updateRequestStatus(req.id, newStatus as RecapRequest["status"]);
+        if (reason) {
+            updateRequestStatusNotes(req.id, reason);
+        }
         addActivityEntry({
             type: "Status Change",
             description: `${req.requestId}: Status changed to ${newStatus} by ${activeUser}` + (reason ? `. Reason: ${reason}` : ""),
@@ -230,6 +242,8 @@ export default function RecapitalizationDdOperations() {
                         <th style={{ minWidth: 80 }}>Team</th>
                         <th style={{ minWidth: 80 }}>Due</th>
                         <th style={{ minWidth: 80 }}>Updated</th>
+                        <th style={{ minWidth: 50 }}>Art</th>
+                        <th style={{ minWidth: 50 }}>Notes</th>
                         <th style={{ minWidth: 160 }}>Actions</th>
                     </tr>
                 </thead>
@@ -265,6 +279,24 @@ export default function RecapitalizationDdOperations() {
                             <td style={{ fontSize: 12 }}>{req.team}</td>
                             <td className="nowrap" style={{ fontSize: 12, color: req.status === "Overdue" ? "#991b1b" : "#475569", fontWeight: req.status === "Overdue" ? 600 : 400 }}>{req.dueDate}</td>
                             <td style={{ fontSize: 12, color: "#475569" }}>{req.lastUpdated}</td>
+                            <td onClick={e => e.stopPropagation()} style={{ fontSize: 11, textAlign: "center", color: getWorkArtifactsByRequest(getArtifactKey(req)).length > 0 ? "#2563eb" : "#d1d5db" }}>
+                                {getWorkArtifactsByRequest(getArtifactKey(req)).length > 0 ? (
+                                    <span title={`${getWorkArtifactsByRequest(getArtifactKey(req)).length} artifact${getWorkArtifactsByRequest(getArtifactKey(req)).length !== 1 ? "s" : ""}`} style={{ cursor: "help" }}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
+                                    </span>
+                                ) : (
+                                    <span style={{ color: "#d1d5db" }}>&mdash;</span>
+                                )}
+                            </td>
+                            <td onClick={e => e.stopPropagation()} style={{ fontSize: 11, textAlign: "center" }}>
+                                {getRequestNote(req) ? (
+                                    <span onClick={() => setNotePopup({ req, note: getRequestNote(req)! })} style={{ cursor: "pointer", color: "#92400e" }} title="View note">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                                    </span>
+                                ) : (
+                                    <span style={{ color: "#d1d5db" }}>&mdash;</span>
+                                )}
+                            </td>
                             <td onClick={e => e.stopPropagation()} style={{ whiteSpace: "nowrap", minWidth: 160 }}>
                                 {activeView === "needs-dd-review" && req.owner && (
                                     <button
@@ -478,6 +510,23 @@ export default function RecapitalizationDdOperations() {
                                 setArtifactWarning(null);
                                 handleStatusChange(req, newStatus);
                             }}>Mark Complete Anyway</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {notePopup && (
+                <div className="rc-modal-overlay" onClick={() => setNotePopup(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+                        <div className="rc-modal-header">
+                            <h2>Note &mdash; {notePopup.req.requestId}</h2>
+                            <button className="rc-modal-close" onClick={() => setNotePopup(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{notePopup.note}</div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-primary" onClick={() => setNotePopup(null)}>Close</button>
                         </div>
                     </div>
                 </div>

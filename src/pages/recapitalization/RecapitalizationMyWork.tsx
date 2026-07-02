@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { getRequests, isDemoActive, getTeamMembers, updateRequestStatus, bulkUpdateDemoRequests, getDocuments, updateRequestNotMine, addActivityEntry } from "../../services/recapDataService";
+import { getRequests, isDemoActive, getTeamMembers, updateRequestStatus, bulkUpdateDemoRequests, getDocuments, updateRequestNotMine, addActivityEntry, updateRequestStatusNotes, getWorkArtifactsByRequest } from "../../services/recapDataService";
 import type { RecapRequest } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -20,6 +20,7 @@ export default function RecapitalizationMyWork() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [activeView, setActiveView] = useState<ViewTab>("active-work");
     const [statusConfirm, setStatusConfirm] = useState<{ req: RecapRequest; newStatus: string; reason?: string } | null>(null);
+    const [notePopup, setNotePopup] = useState<{ req: RecapRequest; note: string } | null>(null);
     const [artifactWarning, setArtifactWarning] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
     const [notMine, setNotMine] = useState<{ req: RecapRequest; reason: string } | null>(null);
     const [confirmAction, setConfirmAction] = useState<{ title: string; action: () => void } | null>(null);
@@ -101,6 +102,9 @@ export default function RecapitalizationMyWork() {
 
     function handleStatusChange(req: RecapRequest, newStatus: string, reason?: string) {
         updateRequestStatus(req.id, newStatus as RecapRequest["status"]);
+        if (reason) {
+            updateRequestStatusNotes(req.id, reason);
+        }
         addActivityEntry({
             type: "Status Change",
             description: `${req.requestId}: Status changed to ${newStatus} by ${activeUser}` + (reason ? `. Reason: ${reason}` : ""),
@@ -203,6 +207,8 @@ export default function RecapitalizationMyWork() {
                         {activeView !== "my-team" && <th style={{ minWidth: 80 }}>Owner</th>}
                         <th style={{ minWidth: 80 }}>Team</th>
                         <th style={{ minWidth: 80 }}>Due</th>
+                        <th style={{ minWidth: 50 }}>Art</th>
+                        <th style={{ minWidth: 50 }}>Notes</th>
                         <th style={{ minWidth: 80 }}>Updated</th>
                         <th style={{ minWidth: 80 }}>Actions</th>
                     </tr>
@@ -244,6 +250,31 @@ export default function RecapitalizationMyWork() {
                             {activeView !== "my-team" && <td style={{ fontSize: 12, color: "#475569" }}>{req.owner || "\u2014"}</td>}
                             <td style={{ fontSize: 12 }}>{req.team}</td>
                             <td className="nowrap" style={{ fontSize: 12, color: req.status === "Overdue" ? "#991b1b" : "#475569", fontWeight: req.status === "Overdue" ? 600 : 400 }}>{req.dueDate}</td>
+                            <td onClick={e => e.stopPropagation()} style={{ fontSize: 11, textAlign: "center" }}>
+                                {(function() {
+                                    const key = req.requestId || req.intakeId || req.id;
+                                    const cnt = getWorkArtifactsByRequest(key).length;
+                                    return cnt > 0 ? (
+                                        <span title={`${cnt} artifact${cnt !== 1 ? "s" : ""}`} style={{ cursor: "help", color: "#2563eb" }}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
+                                        </span>
+                                    ) : (
+                                        <span style={{ color: "#d1d5db" }}>&mdash;</span>
+                                    );
+                                })()}
+                            </td>
+                            <td onClick={e => e.stopPropagation()} style={{ fontSize: 11, textAlign: "center" }}>
+                                {(function() {
+                                    const note = req._statusNotes || req._misassignedReason || req._returnReason || null;
+                                    return note ? (
+                                        <span onClick={() => setNotePopup({ req, note })} style={{ cursor: "pointer", color: "#92400e" }} title="View note">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                                        </span>
+                                    ) : (
+                                        <span style={{ color: "#d1d5db" }}>&mdash;</span>
+                                    );
+                                })()}
+                            </td>
                             <td style={{ fontSize: 12, color: req.lastUpdated ? "#475569" : "#94a3b8" }}>{req.lastUpdated || "\u2014"}</td>
                             <td onClick={e => e.stopPropagation()}>
                                 {(activeView === "active-work" || activeView === "returned") && req.owner === activeUser && req.status !== "Complete" && req._externalStatus !== "Published External" && (
@@ -513,6 +544,23 @@ export default function RecapitalizationMyWork() {
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-secondary" onClick={() => setDetailItem(null)}>Close</button>
                             <button className="rc-btn rc-btn-primary" onClick={() => { setDetailItem(null); openWorkspace(detailItem); }}>Open Workspace</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {notePopup && (
+                <div className="rc-modal-overlay" onClick={() => setNotePopup(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+                        <div className="rc-modal-header">
+                            <h2>Note &mdash; {notePopup.req.requestId}</h2>
+                            <button className="rc-modal-close" onClick={() => setNotePopup(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{notePopup.note}</div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-primary" onClick={() => setNotePopup(null)}>Close</button>
                         </div>
                     </div>
                 </div>

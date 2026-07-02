@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { lookupWorkspaceItem, getDocumentsByTransaction, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, saveWorkArtifacts, removeWorkArtifact } from "../../services/recapDataService";
+import { lookupWorkspaceItem, getDocumentsByTransaction, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -69,18 +69,24 @@ export default function RecapitalizationWorkspace() {
 
     const [statusActionModal, setStatusActionModal] = useState<{ newStatus: RecapRequest["status"]; reason: string } | null>(null);
     const [completionModal, setCompletionModal] = useState<{ note: string; readyForReview: boolean } | null>(null);
-    const [workArtifacts, setWorkArtifacts] = useState<WorkArtifact[]>(() => id ? getWorkArtifactsByRequest(id) : []);
+    const [workArtifacts, setWorkArtifacts] = useState<WorkArtifact[]>([]);
     const [artifactBanner, setArtifactBanner] = useState<string | null>(null);
     const [publishExternal, setPublishExternal] = useState<{ step: number; selectedArtifacts: string[] } | null>(null);
 
-    // Re-sync artifacts when navigating to a different workspace item
+    // Stable storage key for artifact persistence: use requestId > intakeId > route id
+    const artifactStorageKey = useMemo(() => {
+        if (!result) return id || "";
+        const item = (result as any).item;
+        return item?.requestId || item?.intakeId || item?.id || id || "";
+    }, [result, id]);
+
     useEffect(() => {
-        if (id) setWorkArtifacts(getWorkArtifactsByRequest(id));
-    }, [id]);
+        if (artifactStorageKey) setWorkArtifacts(getWorkArtifactsByRequest(artifactStorageKey));
+    }, [artifactStorageKey]);
 
     const backFrom = (location.state as any)?.from || "tracker";
-    const backLabel = backFrom === "my-work" ? "Back to My Work" : "Back to Work Queue";
-    const backPath = backFrom === "my-work" ? "/recapitalization/my-work" : "/recapitalization/tracker";
+    const backLabel = backFrom === "my-work" ? "Back to My Work" : backFrom === "dd-operations" ? "Back to DD Operations" : "Back to Work Queue";
+    const backPath = backFrom === "my-work" ? "/recapitalization/my-work" : backFrom === "dd-operations" ? "/recapitalization/dd-operations" : "/recapitalization/tracker";
 
     if (!result) {
         return (
@@ -456,20 +462,28 @@ export default function RecapitalizationWorkspace() {
                                 </div>
 
                                 {/* Drag-and-drop zone */}
-                                <div
+                                    <div
                                     onDragOver={e => e.preventDefault()}
                                     onDrop={e => {
                                         e.preventDefault();
                                         const files = Array.from(e.dataTransfer.files);
-                                        const newArtifacts = files.map(f => ({
+                                        const idx = workArtifacts.length + 1;
+                                        const newArtifacts = files.map((f, i) => ({
                                             id: "art-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6),
                                             name: f.name,
                                             size: f.size,
                                             uploadedAt: new Date().toISOString().split("T")[0],
+                                            requestId: artifactStorageKey,
+                                            intakeId: item?.intakeId,
+                                            originalFileName: f.name,
+                                            displayFileName: generateDisplayFileName(displayId || id, displayTitle || item?.category || "", idx + i, f.name),
+                                            uploadedBy: "Sarah Chen",
+                                            artifactType: "Work Artifact",
+                                            isPrototype: true,
                                         }));
                                         const updated = [...workArtifacts, ...newArtifacts];
                                         setWorkArtifacts(updated);
-                                        saveWorkArtifacts(id!, updated);
+                                        saveWorkArtifacts(artifactStorageKey, updated);
                                         if (files.length > 0) {
                                             setArtifactBanner(`\u2713 ${files.length} work artifact${files.length !== 1 ? "s" : ""} uploaded`);
                                             addActivityEntry({ type: "Document", description: "Uploaded artifact" + (files.length > 1 ? "s" : "") + ": " + files.map(f => f.name).join(", "), userId: "current-user", userName: "Sarah Chen", requestId: id!, requestTitle: displayTitle || item?.category || "", transactionId: item?.transactionId || "", transactionName: item?.transactionName || item?.transactionId || "" });
@@ -491,15 +505,23 @@ export default function RecapitalizationWorkspace() {
                                         id="artifact-upload"
                                         onChange={e => {
                                             const files = Array.from(e.target.files || []);
-                                            const newArtifacts = files.map(f => ({
+                                            const idx = workArtifacts.length + 1;
+                                            const newArtifacts = files.map((f, i) => ({
                                                 id: "art-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6),
                                                 name: f.name,
                                                 size: f.size,
                                                 uploadedAt: new Date().toISOString().split("T")[0],
+                                                requestId: artifactStorageKey,
+                                                intakeId: item?.intakeId,
+                                                originalFileName: f.name,
+                                                displayFileName: generateDisplayFileName(displayId || id, displayTitle || item?.category || "", idx + i, f.name),
+                                                uploadedBy: "Sarah Chen",
+                                                artifactType: "Work Artifact",
+                                                isPrototype: true,
                                             }));
                                             const updated = [...workArtifacts, ...newArtifacts];
                                             setWorkArtifacts(updated);
-                                            saveWorkArtifacts(id!, updated);
+                                            saveWorkArtifacts(artifactStorageKey, updated);
                                             if (files.length > 0) {
                                                 setArtifactBanner(`\u2713 ${files.length} work artifact${files.length !== 1 ? "s" : ""} uploaded`);
                                                 addActivityEntry({ type: "Document", description: "Uploaded artifact" + (files.length > 1 ? "s" : "") + ": " + files.map(f => f.name).join(", "), userId: "current-user", userName: "Sarah Chen", requestId: id!, requestTitle: displayTitle || item?.category || "", transactionId: item?.transactionId || "", transactionName: item?.transactionName || item?.transactionId || "" });
@@ -527,7 +549,7 @@ export default function RecapitalizationWorkspace() {
                                                 <span style={{ color: "#475569", fontSize: 11 }}>{(art.size / 1024).toFixed(0)} KB</span>
                                                 <span style={{ color: "#475569", fontSize: 11 }}>{art.uploadedAt}</span>
                                                 <button
-                                                    onClick={() => { removeWorkArtifact(id!, art.id); setWorkArtifacts(prev => prev.filter(a => a.id !== art.id)); }}
+                                                    onClick={() => { removeWorkArtifact(artifactStorageKey, art.id); setWorkArtifacts(prev => prev.filter(a => a.id !== art.id)); }}
                                                     style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "2px 4px" }}
                                                     title="Remove artifact"
                                                 >&times;</button>
@@ -734,9 +756,10 @@ export default function RecapitalizationWorkspace() {
                                 if (!statusActionModal) return;
                                 const reason = statusActionModal.reason.trim();
                                 if (!reason) return;
-                                const reqId = item.id || item.intakeId || "";
-                                updateRequestStatus(reqId, statusActionModal.newStatus);
-                                addActivityEntry({
+                                                        const reqId = item.id || item.intakeId || "";
+                                                                updateRequestStatus(reqId, statusActionModal.newStatus);
+                                                                updateRequestStatusNotes(reqId, reason);
+                                                                addActivityEntry({
                                     type: "Status Change",
                                     description: `${displayId}: ${statusActionModal.newStatus}. Reason: ${reason}`,
                                     userId: "current-user",

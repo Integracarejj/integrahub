@@ -977,8 +977,8 @@ function RequestDetailDrawer({ item, allRequests, onClose, onEdit, onChangeRevie
                                             <span>Due: {match.dueDate || "\u2014"}</span>
                                         </div>
                                         <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                                            <button style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#1d4ed8", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600 }} onClick={() => {}}>Keep This</button>
-                                            <button style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#92400e", border: "1px solid #fde68a", cursor: "pointer", fontWeight: 600 }} onClick={() => {}}>Archive This</button>
+                                            <button style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#1d4ed8", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600 }} onClick={() => { onChangeReviewState(match.id, "Move to Work Queue"); }}>Keep This</button>
+                                            <button style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#92400e", border: "1px solid #fde68a", cursor: "pointer", fontWeight: 600 }} onClick={() => { onChangeReviewState(match.id, "Archived"); }}>Archive This</button>
                                         </div>
                                     </div>
                                 ))}

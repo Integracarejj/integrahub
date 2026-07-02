@@ -412,6 +412,19 @@ export function toggleExternalVisibility(id: string): RecapRequest | undefined {
     return Mock.toggleExternalVisibility(id);
 }
 
+export function updateRequestStatusNotes(id: string, note: string | null): RecapRequest | undefined {
+    if (isDemoLoaded()) {
+        return Demo.updateDemoRequest(id, { _statusNotes: note });
+    }
+    const req = Mock.getRequestById(id);
+    if (req) {
+        req._statusNotes = note;
+        req.lastUpdated = new Date().toISOString().split("T")[0];
+        return req;
+    }
+    return updatePortalRequestById(id, { _statusNotes: note });
+}
+
 export function getMyWork(userName: string): {
     assignedToMe: RecapRequest[];
     assignedToMyTeam: RecapRequest[];
@@ -609,10 +622,21 @@ export interface WorkArtifact {
     name: string;
     size: number;
     uploadedAt: string;
+    requestId: string;
     intakeId?: string;
+    generatedId?: string;
+    originalFileName?: string;
+    displayFileName?: string;
     uploadedBy?: string;
     artifactType?: string;
     isPrototype?: boolean;
+}
+
+export function generateDisplayFileName(requestId: string, title: string, artifactIndex: number, originalName: string): string {
+    const ext = originalName.includes(".") ? originalName.split(".").pop() : "bin";
+    const safeTitle = title.replace(/[^a-zA-Z0-9]/g, "_").slice(0, 30);
+    const dateStr = new Date().toISOString().split("T")[0].replace(/-/g, "_");
+    return `${requestId}_${safeTitle}_${artifactIndex}_${dateStr}.${ext}`;
 }
 
 export function getWorkArtifactsByRequest(requestId: string): WorkArtifact[] {

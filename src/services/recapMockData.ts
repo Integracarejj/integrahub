@@ -61,6 +61,7 @@ export interface RecapRequest {
     _returnedBy?: string | null;
     _misassignedReason?: string | null;
     _needsReassignment?: boolean;
+    _statusNotes?: string | null;
 }
 
 export interface RecapIntakeItem {
