@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { getRequests, getTeamMembers, updateRequestStatus, updateRequestOwner, getDocuments, updateRequestReturnToOwner, getActivity, addActivityEntry, getWorkArtifactsByRequest, updateRequestStatusNotes } from "../../services/recapDataService";
-import type { RecapRequest } from "../../services/recapDataService";
+import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
@@ -18,6 +18,7 @@ export default function RecapitalizationDdOperations() {
     const [returnToOwner, setReturnToOwner] = useState<{ req: RecapRequest; reason: string } | null>(null);
     const [successMsg, setSuccessMsg] = useState<{ title: string; body: string } | null>(null);
     const [notePopup, setNotePopup] = useState<{ req: RecapRequest; note: string } | null>(null);
+    const [artifactListModal, setArtifactListModal] = useState<{ req: RecapRequest; artifacts: WorkArtifact[] } | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
     const members = getTeamMembers();
     const ddMembers = useMemo(() => members.filter(m => m.team === "DD Management"), [members]);
@@ -232,19 +233,18 @@ export default function RecapitalizationDdOperations() {
             <table className="rc-table">
                 <thead>
                     <tr>
-                        <th style={{ minWidth: 110 }}>Request ID</th>
-                        <th style={{ minWidth: 200 }}>Deliverable</th>
-                        <th style={{ minWidth: 90 }}>Community</th>
-                        <th style={{ minWidth: 70 }}>Priority</th>
-                        <th style={{ minWidth: 100 }}>Status</th>
-                        <th style={{ minWidth: 100 }}>External Status</th>
-                        <th style={{ minWidth: 80 }}>Owner</th>
-                        <th style={{ minWidth: 80 }}>Team</th>
-                        <th style={{ minWidth: 80 }}>Due</th>
-                        <th style={{ minWidth: 80 }}>Updated</th>
-                        <th style={{ minWidth: 50 }}>Art</th>
-                        <th style={{ minWidth: 50 }}>Notes</th>
-                        <th style={{ minWidth: 160 }}>Actions</th>
+                        <th style={{ width: 110, minWidth: 90 }}>Request ID</th>
+                        <th style={{ minWidth: 140 }}>Deliverable</th>
+                        <th style={{ width: 90, minWidth: 70 }}>Community</th>
+                        <th style={{ width: 60, textAlign: "center" }}>Pri</th>
+                        <th style={{ width: 105, minWidth: 85 }}>Status</th>
+                        {(activeView === "needs-dd-review" || activeView === "full-work-queue" || activeView === "returned-to-owners") && <th style={{ width: 80, minWidth: 70 }}>Owner</th>}
+                        <th style={{ width: 75, minWidth: 65 }}>Team</th>
+                        <th style={{ width: 85, minWidth: 70 }}>Due</th>
+                        <th style={{ width: 80, minWidth: 65 }}>Updated</th>
+                        <th style={{ width: 38, textAlign: "center" }}>Art</th>
+                        <th style={{ width: 38, textAlign: "center" }}>Notes</th>
+                        <th style={{ width: 140, minWidth: 120 }}>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -268,7 +268,7 @@ export default function RecapitalizationDdOperations() {
                                                 }
                                             }
                                         }}
-                                        style={{ fontSize: 10, padding: "2px 18px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 100, cursor: "pointer", border: "1px solid #d1d5db" }}
+                                        style={{ fontSize: 10, padding: "2px 14px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 85, cursor: "pointer", border: "1px solid #d1d5db", width: "100%" }}
                                     >
                                         {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>
@@ -281,7 +281,7 @@ export default function RecapitalizationDdOperations() {
                             <td style={{ fontSize: 12, color: "#475569" }}>{req.lastUpdated}</td>
                             <td onClick={e => e.stopPropagation()} style={{ fontSize: 11, textAlign: "center", color: getWorkArtifactsByRequest(getArtifactKey(req)).length > 0 ? "#2563eb" : "#d1d5db" }}>
                                 {getWorkArtifactsByRequest(getArtifactKey(req)).length > 0 ? (
-                                    <span title={`${getWorkArtifactsByRequest(getArtifactKey(req)).length} artifact${getWorkArtifactsByRequest(getArtifactKey(req)).length !== 1 ? "s" : ""}`} style={{ cursor: "help" }}>
+                                    <span onClick={() => setArtifactListModal({ req, artifacts: getWorkArtifactsByRequest(getArtifactKey(req)) })} style={{ cursor: "pointer" }} title="View artifacts">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
                                     </span>
                                 ) : (
@@ -297,7 +297,7 @@ export default function RecapitalizationDdOperations() {
                                     <span style={{ color: "#d1d5db" }}>&mdash;</span>
                                 )}
                             </td>
-                            <td onClick={e => e.stopPropagation()} style={{ whiteSpace: "nowrap", minWidth: 160 }}>
+                            <td onClick={e => e.stopPropagation()} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                 {activeView === "needs-dd-review" && req.owner && (
                                     <button
                                         onClick={() => setReturnToOwner({ req, reason: "" })}
@@ -527,6 +527,42 @@ export default function RecapitalizationDdOperations() {
                         </div>
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-primary" onClick={() => setNotePopup(null)}>Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {artifactListModal && (
+                <div className="rc-modal-overlay" onClick={() => setArtifactListModal(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+                        <div className="rc-modal-header">
+                            <h2>Artifacts &mdash; {artifactListModal.req.requestId}</h2>
+                            <button className="rc-modal-close" onClick={() => setArtifactListModal(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "12px 20px" }}>
+                            {artifactListModal.artifacts.length === 0 ? (
+                                <div style={{ padding: "12px 0", color: "#475569", fontSize: 13 }}>No artifacts.</div>
+                            ) : (
+                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                    {artifactListModal.artifacts.map(art => (
+                                        <div key={art.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "#f8faff", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12, color: "#1e293b" }}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <span style={{ fontWeight: 500 }}>{art.displayFileName || art.name}</span>
+                                                <div style={{ display: "flex", gap: 8, fontSize: 11, color: "#475569", marginTop: 1 }}>
+                                                    <span>{(art.size / 1024).toFixed(0)} KB</span>
+                                                    <span>{art.uploadedAt}</span>
+                                                    {art.uploadedBy && <span>{art.uploadedBy}</span>}
+                                                    {art.isPrototype && <span style={{ color: "#92400e", background: "#fffbeb", padding: "0 4px", borderRadius: 3, fontSize: 10, fontWeight: 600 }}>PROTOTYPE</span>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-primary" onClick={() => setArtifactListModal(null)}>Close</button>
                         </div>
                     </div>
                 </div>

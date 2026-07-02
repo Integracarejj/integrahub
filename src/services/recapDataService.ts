@@ -630,6 +630,12 @@ export interface WorkArtifact {
     uploadedBy?: string;
     artifactType?: string;
     isPrototype?: boolean;
+    /** Future SharePoint metadata (not yet implemented) */
+    sharePointSiteId?: string;
+    driveId?: string;
+    itemId?: string;
+    webUrl?: string;
+    version?: string;
 }
 
 export function generateDisplayFileName(requestId: string, title: string, artifactIndex: number, originalName: string): string {

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { lookupWorkspaceItem, getDocumentsByTransaction, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes } from "../../services/recapDataService";
+import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -72,6 +72,7 @@ export default function RecapitalizationWorkspace() {
     const [workArtifacts, setWorkArtifacts] = useState<WorkArtifact[]>([]);
     const [artifactBanner, setArtifactBanner] = useState<string | null>(null);
     const [publishExternal, setPublishExternal] = useState<{ step: number; selectedArtifacts: string[] } | null>(null);
+    const [artifactDetail, setArtifactDetail] = useState<WorkArtifact | null>(null);
 
     // Stable storage key for artifact persistence: use requestId > intakeId > route id
     const artifactStorageKey = useMemo(() => {
@@ -115,8 +116,6 @@ export default function RecapitalizationWorkspace() {
     const isDuplicate = displayStatus === "Duplicate";
     const statusColor = STATUS_COLORS[displayStatus] || "#64748b";
 
-    const documents = useMemo(() => getDocumentsByTransaction(item.transactionId), [item.transactionId]);
-
     const completionSummary = useMemo(() => {
         if (result.type === "request") {
             const req = result.item as RecapRequest;
@@ -138,8 +137,7 @@ export default function RecapitalizationWorkspace() {
     }, [item]);
 
     const [sections, setSections] = useState<Record<string, boolean>>({
-        submission: false,
-        documents: false,
+        artifacts: true,
         conversation: true,
         completionSummary: false,
     });
@@ -415,54 +413,38 @@ export default function RecapitalizationWorkspace() {
                     {/* Accordion Sections — with dividers between */}
                     <div>
                         <AccordionSection
-                            icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>}
-                            title="Original Submission"
-                            isOpen={sections.submission}
-                            onToggle={() => toggleSection("submission")}
-                        >
-                            <p style={{ fontSize: 13, color: "#334155", lineHeight: 1.7, margin: 0 }}>{description}</p>
-                            {isBulkUpload && item.fileName && (
-                                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, padding: "10px 12px", background: "#f8faff", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 13, color: "#1e293b" }}>
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
-                                    <span>{item.fileName}</span>
-                                    {item.rowsFound && <span style={{ color: "#475569", fontSize: 12 }}>({item.rowsFound} rows found)</span>}
-                                </div>
-                            )}
-                        </AccordionSection>
-
-                        <div style={{ height: 1, background: "#e2e8f0" }} />
-
-                        <AccordionSection
                             icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>}
-                            title={`Documents (${documents.length})`}
-                            isOpen={sections.documents}
-                            onToggle={() => toggleSection("documents")}
+                            title={`Artifacts (${(isBulkUpload && item.fileName ? 1 : 0) + workArtifacts.length})`}
+                            isOpen={sections.artifacts}
+                            onToggle={() => toggleSection("artifacts")}
                         >
-                            {documents.length === 0 ? (
-                                <div style={{ padding: "12px 0", color: "#475569", fontSize: 13 }}>No documents linked yet</div>
-                            ) : (
-                                <table className="rc-table">
-                                    <thead><tr><th>File Name</th><th>Category</th><th>Related Request</th><th></th></tr></thead>
-                                    <tbody>{documents.map(doc => (
-                                        <tr key={doc.id}>
-                                            <td style={{ fontWeight: 500 }}>{doc.name}</td>
-                                            <td>{doc.category}</td>
-                                            <td style={{ fontSize: 12, color: "#475569" }}>{doc.requestTitle || "\u2014"}</td>
-                                            <td><button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 10, color: "#2563eb" }}>Open in SP</button></td>
-                                        </tr>
-                                    ))}</tbody>
-                                </table>
-                            )}
+                            {/* ── Original Submission ── */}
+                            <div style={{ marginBottom: 16 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
+                                    Original Submission
+                                </div>
+                                <p style={{ fontSize: 13, color: "#334155", lineHeight: 1.7, margin: 0 }}>{description}</p>
+                                {isBulkUpload && item.fileName && (
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, padding: "8px 10px", background: "#f8faff", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12, color: "#1e293b" }}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
+                                        <span style={{ fontWeight: 500 }}>{item.fileName}</span>
+                                        {item.rowsFound && <span style={{ color: "#475569", fontSize: 11 }}>({item.rowsFound} rows found)</span>}
+                                    </div>
+                                )}
+                            </div>
 
-                            {/* Work Artifacts */}
-                            <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #e2e8f0" }}>
-                                <div style={{ fontSize: 12, fontWeight: 600, color: "#0f172a", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+                            <div style={{ height: 1, background: "#e2e8f0", marginBottom: 16 }} />
+
+                            {/* ── Work Artifacts ── */}
+                            <div>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
                                     Work Artifacts ({workArtifacts.length})
                                 </div>
 
                                 {/* Drag-and-drop zone */}
-                                    <div
+                                <div
                                     onDragOver={e => e.preventDefault()}
                                     onDrop={e => {
                                         e.preventDefault();
@@ -496,7 +478,7 @@ export default function RecapitalizationWorkspace() {
                                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 6 }}>
                                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
                                     </svg>
-                                    <div style={{ fontSize: 12, color: "#475569", fontWeight: 500 }}>Drag & drop work artifacts here</div>
+                                    <div style={{ fontSize: 12, color: "#475569", fontWeight: 500 }}>Drag & drop files here</div>
                                     <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>or click to select files (internal only)</div>
                                     <input
                                         type="file"
@@ -529,7 +511,7 @@ export default function RecapitalizationWorkspace() {
                                             e.target.value = "";
                                         }}
                                     />
-                                    </div>
+                                </div>
 
                                 {artifactBanner && (
                                     <div style={{ padding: "6px 10px", marginTop: 6, borderRadius: 6, background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
@@ -543,11 +525,26 @@ export default function RecapitalizationWorkspace() {
                                 {workArtifacts.length > 0 && (
                                     <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
                                         {workArtifacts.map(art => (
-                                            <div key={art.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "#f8faff", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12, color: "#1e293b" }}>
+                                            <div key={art.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", background: "#f8faff", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12, color: "#1e293b" }}>
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
-                                                <span style={{ flex: 1, fontWeight: 500 }}>{art.name}</span>
-                                                <span style={{ color: "#475569", fontSize: 11 }}>{(art.size / 1024).toFixed(0)} KB</span>
-                                                <span style={{ color: "#475569", fontSize: 11 }}>{art.uploadedAt}</span>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <span
+                                                        onClick={() => setArtifactDetail(art)}
+                                                        style={{ fontWeight: 600, color: "#1d4ed8", cursor: "pointer", textDecoration: "none" }}
+                                                        title="View artifact details"
+                                                    >
+                                                        {art.displayFileName || art.name}
+                                                    </span>
+                                                    {art.originalFileName && art.originalFileName !== art.name && art.originalFileName !== art.displayFileName && (
+                                                        <span style={{ color: "#64748b", fontSize: 11, marginLeft: 6 }}>(original: {art.originalFileName})</span>
+                                                    )}
+                                                    <div style={{ display: "flex", gap: 8, marginTop: 1, fontSize: 11, color: "#475569" }}>
+                                                        <span>{(art.size / 1024).toFixed(0)} KB</span>
+                                                        <span>{art.uploadedAt}</span>
+                                                        {art.uploadedBy && <span>{art.uploadedBy}</span>}
+                                                        {art.isPrototype && <span style={{ color: "#92400e", background: "#fffbeb", padding: "0 4px", borderRadius: 3, fontSize: 10, fontWeight: 600 }}>PROTOTYPE</span>}
+                                                    </div>
+                                                </div>
                                                 <button
                                                     onClick={() => { removeWorkArtifact(artifactStorageKey, art.id); setWorkArtifacts(prev => prev.filter(a => a.id !== art.id)); }}
                                                     style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "2px 4px" }}
@@ -563,6 +560,24 @@ export default function RecapitalizationWorkspace() {
                                     Internal artifacts stay internal until published to the external portal.
                                 </div>
                             </div>
+
+                            {/* ── Published Artifacts (if applicable) ── */}
+                            {(item as any)._externalStatus === "Published External" && (
+                                <>
+                                    <div style={{ height: 1, background: "#e2e8f0", margin: "16px 0" }} />
+                                    <div>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: "#166534", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
+                                            Published Artifacts
+                                        </div>
+                                        <div style={{ fontSize: 12, color: "#475569", padding: "8px 0" }}>
+                                            {workArtifacts.length > 0
+                                                ? `${workArtifacts.length} supporting artifact${workArtifacts.length !== 1 ? "s" : ""} published${workArtifacts.some(a => a.isPrototype) ? " (prototype metadata)" : ""}.`
+                                                : "Published with no supporting artifacts."}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </AccordionSection>
 
                         <div style={{ height: 1, background: "#e2e8f0" }} />
@@ -668,16 +683,8 @@ export default function RecapitalizationWorkspace() {
                                         </div>
                                     )}
                                     {completionSummary.supportingArtifacts.length > 0 && (
-                                        <div>
-                                            <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Supporting Artifacts</div>
-                                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                                                {completionSummary.supportingArtifacts.map((name, i) => (
-                                                    <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 4, fontSize: 11, color: "#475569" }}>
-                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
-                                                        {name}
-                                                    </span>
-                                                ))}
-                                            </div>
+                                        <div style={{ fontSize: 12, color: "#475569" }}>
+                                            <span style={{ fontWeight: 600 }}>{completionSummary.supportingArtifacts.length}</span> supporting artifact{completionSummary.supportingArtifacts.length !== 1 ? "s" : ""} (see Artifacts section).
                                         </div>
                                     )}
                                 </div>
@@ -841,6 +848,60 @@ export default function RecapitalizationWorkspace() {
                                 setBannerError(false);
                                 setCompletionModal(null);
                             }}>Submit Completion</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {artifactDetail && (
+                <div className="rc-modal-overlay" onClick={() => setArtifactDetail(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="rc-modal-header">
+                            <h2>Artifact Details</h2>
+                            <button className="rc-modal-close" onClick={() => setArtifactDetail(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 16px" }}>
+                                <div>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>File Name</div>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", wordBreak: "break-all" }}>{artifactDetail.displayFileName || artifactDetail.name}</div>
+                                </div>
+                                {artifactDetail.originalFileName && artifactDetail.originalFileName !== artifactDetail.displayFileName && artifactDetail.originalFileName !== artifactDetail.name && (
+                                    <div>
+                                        <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Original File</div>
+                                        <div style={{ fontSize: 13, color: "#334155", wordBreak: "break-all" }}>{artifactDetail.originalFileName}</div>
+                                    </div>
+                                )}
+                                <div>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Request ID</div>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", fontFamily: '"SF Mono", monospace' }}>{artifactDetail.requestId}</div>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Uploaded By</div>
+                                    <div style={{ fontSize: 13, color: "#334155" }}>{artifactDetail.uploadedBy || "\u2014"}</div>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Uploaded Date</div>
+                                    <div style={{ fontSize: 13, color: "#334155" }}>{artifactDetail.uploadedAt}</div>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>File Size</div>
+                                    <div style={{ fontSize: 13, color: "#334155" }}>{(artifactDetail.size / 1024).toFixed(0)} KB</div>
+                                </div>
+                                {artifactDetail.isPrototype && (
+                                    <div>
+                                        <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Type</div>
+                                        <span style={{ fontSize: 11, fontWeight: 600, color: "#92400e", background: "#fffbeb", padding: "0 6px", borderRadius: 3 }}>PROTOTYPE METADATA</span>
+                                    </div>
+                                )}
+                            </div>
+                            <div style={{ marginTop: 16, padding: "10px 12px", background: "#f8faff", border: "1px solid #dbeafe", borderRadius: 6, fontSize: 12, color: "#1e293b", lineHeight: 1.5 }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 4 }}><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                                <span style={{ marginLeft: 4 }}>Prototype metadata only. SharePoint file open will be available after Graph integration.</span>
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-primary" onClick={() => setArtifactDetail(null)}>Close</button>
                         </div>
                     </div>
                 </div>

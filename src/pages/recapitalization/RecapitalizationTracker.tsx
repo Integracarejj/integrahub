@@ -4,10 +4,10 @@ import {
     getRequests, getTransactions, getTeamMembers, getTeams,
     updateRequestStatus, updateRequestOwner, updateRequestTeam, addActivityEntry,
     updateRequestPriority, updateRequestDueDate, updateRequestExternalStatus, isDemoActive,
-    bulkUpdateDemoRequests, getDocuments,
+    bulkUpdateDemoRequests, getDocuments, getWorkArtifactsByRequest,
 } from "../../services/recapDataService";
 
-import type { RecapRequest } from "../../services/recapDataService";
+import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
@@ -55,6 +55,7 @@ export default function RecapitalizationTracker() {
     const [confirmAction, setConfirmAction] = useState<{ title: string; action: () => void } | null>(null);
     const [statusConfirm, setStatusConfirm] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
     const [pendingAssign, setPendingAssign] = useState<{ req: RecapRequest; owner: string } | null>(null);
+    const [artifactListModal, setArtifactListModal] = useState<{ req: RecapRequest; artifacts: WorkArtifact[] } | null>(null);
 
     const selectAllRef = useRef<HTMLInputElement>(null);
 
@@ -325,6 +326,7 @@ export default function RecapitalizationTracker() {
                             <th style={{ minWidth: 80, whiteSpace: "nowrap" }}>Owner</th>
                             <th style={{ minWidth: 60 }}>Category</th>
                             <th style={{ minWidth: 60, whiteSpace: "nowrap" }}>Due</th>
+                            <th style={{ width: 32, textAlign: "center" }}>Art</th>
                             <th style={{ width: 32 }}></th>
                         </tr>
                     </thead>
@@ -382,6 +384,19 @@ export default function RecapitalizationTracker() {
                                 </td>
                                 <td style={{ fontSize: 12, color: req.category ? "#334155" : "#94a3b8" }}>{req.category || "\u2014"}</td>
                                 <td className="nowrap" style={{ fontSize: 12, color: req.status === "Overdue" ? "#dc2626" : "#334155", fontWeight: req.status === "Overdue" ? 600 : 400 }}>{req.dueDate}</td>
+                                <td onClick={e => e.stopPropagation()} style={{ fontSize: 11, textAlign: "center" }}>
+                                    {(() => {
+                                        const key = req.requestId || req.intakeId || req.id;
+                                        const artifacts = getWorkArtifactsByRequest(key);
+                                        return artifacts.length > 0 ? (
+                                            <span onClick={() => setArtifactListModal({ req, artifacts })} style={{ cursor: "pointer", color: "#2563eb" }} title="View artifacts">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
+                                            </span>
+                                        ) : (
+                                            <span style={{ color: "#d1d5db" }}>&mdash;</span>
+                                        );
+                                    })()}
+                                </td>
                                 <td>
                                     <div className="rc-cell-actions">
                                         <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Publish External" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setPublishStep(1); }} style={{ fontSize: 12, fontWeight: 700, color: "#166534" }}>P</button>
@@ -529,6 +544,42 @@ export default function RecapitalizationTracker() {
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-ghost" onClick={() => setConfirmAction(null)}>Cancel</button>
                             <button className="rc-btn rc-btn-primary" onClick={() => { confirmAction.action(); setConfirmAction(null); }}>Confirm</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {artifactListModal && (
+                <div className="rc-modal-overlay" onClick={() => setArtifactListModal(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+                        <div className="rc-modal-header">
+                            <h2>Artifacts &mdash; {artifactListModal.req.requestId}</h2>
+                            <button className="rc-modal-close" onClick={() => setArtifactListModal(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "12px 20px" }}>
+                            {artifactListModal.artifacts.length === 0 ? (
+                                <div style={{ padding: "12px 0", color: "#475569", fontSize: 13 }}>No artifacts.</div>
+                            ) : (
+                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                    {artifactListModal.artifacts.map(art => (
+                                        <div key={art.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "#f8faff", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12, color: "#1e293b" }}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <span style={{ fontWeight: 500 }}>{art.displayFileName || art.name}</span>
+                                                <div style={{ display: "flex", gap: 8, fontSize: 11, color: "#475569", marginTop: 1 }}>
+                                                    <span>{(art.size / 1024).toFixed(0)} KB</span>
+                                                    <span>{art.uploadedAt}</span>
+                                                    {art.uploadedBy && <span>{art.uploadedBy}</span>}
+                                                    {art.isPrototype && <span style={{ color: "#92400e", background: "#fffbeb", padding: "0 4px", borderRadius: 3, fontSize: 10, fontWeight: 600 }}>PROTOTYPE</span>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-primary" onClick={() => setArtifactListModal(null)}>Close</button>
                         </div>
                     </div>
                 </div>
