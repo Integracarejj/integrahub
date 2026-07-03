@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation } from "../../services/recapDataService";
+import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -138,11 +138,109 @@ export default function RecapitalizationWorkspace() {
 
     const [sections, setSections] = useState<Record<string, boolean>>({
         artifacts: true,
+        workNotes: true,
         conversation: true,
         completionSummary: false,
     });
 
     const toggleSection = (key: string) => setSections(prev => ({ ...prev, [key]: !prev[key] }));
+
+    interface WorkNote {
+        id: string;
+        text: string;
+        author: string | null;
+        timestamp: string | null;
+        action: string | null;
+    }
+
+    const workNotes: WorkNote[] = useMemo(() => {
+        const notes: WorkNote[] = [];
+        const req = item as any;
+        const reqId = req.requestId || req.id || "";
+
+        const allActivities = getActivity(200);
+        const reqActivities = allActivities.filter(
+            a => a.requestId === reqId || a.requestId === req.id
+        );
+
+        for (const act of reqActivities) {
+            let noteText: string | null = null;
+            let action: string | null = null;
+
+            if (act.type === "Status Change" || act.type === "Note" || act.type === "Comment") {
+                const desc = act.description;
+                if (act.type === "Note" || act.type === "Comment") {
+                    noteText = desc;
+                    action = act.type;
+                } else if (desc.includes("Reason:") || desc.includes("Notes:")) {
+                    noteText = desc;
+                    if (desc.toLowerCase().includes("returned to owner")) action = "Returned to Owner";
+                    else if (desc.includes("Not Mine")) action = "Not Mine";
+                    else if (desc.toLowerCase().includes("complete")) action = "Completed";
+                    else if (desc.includes("Blocked")) action = "Blocked";
+                    else if (desc.includes("Duplicate")) action = "Duplicate";
+                    else if (desc.includes("Not Applicable")) action = "Not Applicable";
+                }
+            }
+
+            if (noteText) {
+                notes.push({
+                    id: "act-" + act.id,
+                    text: noteText,
+                    author: act.userName,
+                    timestamp: act.timestamp,
+                    action,
+                });
+            }
+        }
+
+        // Supplement with direct request fields not covered by activity entries
+        if (req._statusNotes && !notes.some(n => n.text.includes(req._statusNotes))) {
+            notes.push({
+                id: "wn-statusnotes",
+                text: req._statusNotes,
+                author: null,
+                timestamp: null,
+                action: "Status Note",
+            });
+        }
+        if (req._completionNotes && !notes.some(n => n.text.includes(req._completionNotes))) {
+            notes.push({
+                id: "wn-completion",
+                text: req._completionNotes,
+                author: req._completedBy || null,
+                timestamp: req._completedAt || null,
+                action: "Completed",
+            });
+        }
+        if (req._returnReason && !notes.some(n => n.text.includes(req._returnReason))) {
+            notes.push({
+                id: "wn-return",
+                text: req._returnReason,
+                author: req._returnedBy || null,
+                timestamp: null,
+                action: "Returned to Owner",
+            });
+        }
+        if (req._misassignedReason && !notes.some(n => n.text.includes(req._misassignedReason))) {
+            notes.push({
+                id: "wn-notmine",
+                text: req._misassignedReason,
+                author: null,
+                timestamp: null,
+                action: "Not Mine",
+            });
+        }
+
+        notes.sort((a, b) => {
+            const aTime = a.timestamp || "";
+            const bTime = b.timestamp || "";
+            if (bTime !== aTime) return bTime.localeCompare(aTime);
+            return 0;
+        });
+
+        return notes;
+    }, [item, wsRefreshKey]);
 
     function doStatusChange(newStatus: RecapRequest["status"]) {
         const reqId = item.id || item.intakeId || "";
@@ -580,14 +678,64 @@ export default function RecapitalizationWorkspace() {
                             )}
                         </AccordionSection>
 
+                        <AccordionSection
+                            icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>}
+                            title={`Work Notes (${workNotes.length})`}
+                            isOpen={sections.workNotes}
+                            onToggle={() => toggleSection("workNotes")}
+                        >
+                            {workNotes.length === 0 ? (
+                                <div style={{ padding: "12px 0", color: "#475569", fontSize: 13 }}>No work notes have been added yet.</div>
+                            ) : (
+                                <div style={{ display: "flex", flexDirection: "column" }}>
+                                    {workNotes.map(n => (
+                                        <div key={n.id} style={{
+                                            padding: "12px 0",
+                                            borderBottom: "1px solid #f1f5f9",
+                                            display: "flex",
+                                            gap: 10,
+                                        }}>
+                                            <span style={{ width: 28, height: 28, borderRadius: "50%", background: "#fef3c7", color: "#92400e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>
+                                                {n.author ? n.author.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() : "WN"}
+                                            </span>
+                                            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+                                                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}>
+                                                    <span style={{ fontWeight: 700, color: "#0f172a", fontSize: 12 }}>{n.author || "System"}</span>
+                                                    {n.action && (
+                                                        <span style={{
+                                                            display: "inline-block", fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 3,
+                                                            background: "#f1f5f9",
+                                                            color: "#475569",
+                                                            lineHeight: "14px",
+                                                        }}>
+                                                            {n.action}
+                                                        </span>
+                                                    )}
+                                                    {n.timestamp && (
+                                                        <span style={{ color: "#475569", marginLeft: "auto", fontSize: 11 }}>
+                                                            {new Date(n.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div style={{ fontSize: 13, color: "#1e293b", lineHeight: 1.5 }}>{n.text}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </AccordionSection>
+
                         <div style={{ height: 1, background: "#e2e8f0" }} />
 
                         <AccordionSection
                             icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>}
-                            title={`Conversation (${localQuestions.length})`}
+                            title={`External Communication (${localQuestions.length})`}
                             isOpen={sections.conversation}
                             onToggle={() => toggleSection("conversation")}
                         >
+                            <div style={{ fontSize: 11, color: "#475569", fontStyle: "italic", marginBottom: 8 }}>
+                                Messages between the internal team and external broker/buyer.
+                            </div>
                             {localQuestions.length === 0 ? (
                                 <div style={{ padding: "12px 0", color: "#475569", fontSize: 13 }}>No conversation entries yet</div>
                             ) : (
@@ -640,7 +788,7 @@ export default function RecapitalizationWorkspace() {
                                 <textarea
                                     value={commentText}
                                     onChange={e => setCommentText(e.target.value)}
-                                    placeholder="Type internal note or add comment..."
+                                    placeholder="Type a message for external broker/buyer..."
                                     rows={2}
                                     style={{ flex: 1, padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", lineHeight: 1.4, outline: "none", minHeight: 36 }}
                                     onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitComment(); } }}
