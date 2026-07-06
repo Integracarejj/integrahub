@@ -333,7 +333,7 @@ export default function RecapitalizationTracker() {
                     </thead>
                     <tbody>
                         {filtered.map(req => (
-                            <tr key={req.id} className="rc-row-clickable" onClick={() => navigate(`/recapitalization/workspace/${req.intakeId}`, { state: { from: "work-queue" } })}>
+                            <tr key={req.id} className="rc-row-clickable" onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "work-queue" } })}>
                                 <td style={{ width: 36 }} onClick={e => e.stopPropagation()}>
                                     <input
                                         type="checkbox"

@@ -190,7 +190,7 @@ export default function RecapitalizationMyWork() {
     );
 
     function openWorkspace(req: RecapRequest) {
-        navigate(`/recapitalization/workspace/${req.intakeId}`, { state: { from: "my-work" } });
+        navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "my-work" } });
     }
 
     function renderTable(items: RecapRequest[], emptyMsg: string, showCheckboxes = false) {

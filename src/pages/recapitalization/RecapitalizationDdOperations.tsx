@@ -179,7 +179,7 @@ export default function RecapitalizationDdOperations() {
     };
 
     function openWorkspace(req: RecapRequest) {
-        navigate(`/recapitalization/workspace/${req.intakeId}`, { state: { from: "dd-operations" } });
+        navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } });
     }
 
     /* ── Activity Feed View ── */

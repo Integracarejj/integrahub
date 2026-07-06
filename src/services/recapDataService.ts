@@ -67,6 +67,8 @@ export function getRequestsByTransaction(transactionId: string): RecapRequest[] 
 
 export function getRequestById(id: string): RecapRequest | undefined {
     if (isDemoLoaded()) return Demo.getDemoRequestById(id);
+    const portalReq = getPortalCreatedRequests().find(r => r.id === id || r.requestId === id || r.intakeId === id);
+    if (portalReq) return portalReq;
     return Mock.getRequestById(id);
 }
 
