@@ -141,7 +141,6 @@ export default function PortalOverview() {
     const [banner, setBanner] = useState<string | null>(null);
 
     /* ── Derived Stats ── */
-    const totalPackages = submissions.length;
     const publishedCount = portalRequests.filter(r => r._publishedExternal || r.externalStatus === "Published External").length;
     const qualityReviewCount = portalRequests.filter(r => r.status === "Quality Review" && !r._publishedExternal && r.externalStatus !== "Published External").length;
     const intakeCount = portalRequests.filter(r => r.status === "Intake Review").length;
@@ -156,20 +155,13 @@ export default function PortalOverview() {
 
     /* ── Refresh / Polling ── */
     const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-    const [refreshTick, setRefreshTick] = useState(0);
     useEffect(() => {
-        const interval = setInterval(() => {
-            setLastUpdated(new Date());
-            setRefreshTick((t) => t + 1);
-        }, 60000);
+        const interval = setInterval(() => setLastUpdated(new Date()), 60000);
         return () => clearInterval(interval);
     }, []);
     useEffect(() => {
         const onVisible = () => {
-            if (document.visibilityState === "visible") {
-                setLastUpdated(new Date());
-                setRefreshTick((t) => t + 1);
-            }
+            if (document.visibilityState === "visible") setLastUpdated(new Date());
         };
         document.addEventListener("visibilitychange", onVisible);
         return () => document.removeEventListener("visibilitychange", onVisible);
