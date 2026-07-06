@@ -3,12 +3,12 @@ import * as Demo from "./recapDemoData";
 import * as Mock from "./recapMockData";
 import type {
     RecapTransaction, RecapRequest, RecapIntakeItem,
-    RecapDocument, RecapActivity, RecapTeamMember, RecapCategory, RecapDeliverable,
+    RecapDocument, RecapActivity, RecapTeamMember, RecapCategory, RecapDeliverable, WorkNoteEntry,
 } from "./recapMockData";
 
 export type {
     RecapTransaction, RecapRequest, RecapIntakeItem,
-    RecapDocument, RecapActivity, RecapTeamMember, RecapCategory, RecapDeliverable,
+    RecapDocument, RecapActivity, RecapTeamMember, RecapCategory, RecapDeliverable, WorkNoteEntry,
 };
 
 export function isRecapDataWiped(): boolean {
@@ -311,12 +311,22 @@ export function updateRequestCompletion(id: string, data: { completedBy: string;
 }
 
 export function updateRequestReturnToOwner(id: string, reason: string, returnedBy: string): RecapRequest | undefined {
+    const wnEntry: WorkNoteEntry = {
+        id: `wn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text: reason,
+        author: returnedBy,
+        timestamp: new Date().toISOString(),
+        action: "Returned to Owner",
+    };
     let req: RecapRequest | undefined;
+    const existing = getRequestById(id);
+    const prevNotes = existing?._workNotes || [];
     if (isDemoLoaded()) {
         req = Demo.updateDemoRequest(id, {
             status: "Clarification Needed",
             _returnReason: reason,
             _returnedBy: returnedBy,
+            _workNotes: [...prevNotes, wnEntry],
         });
     } else {
         req = Mock.getRequestById(id);
@@ -324,12 +334,14 @@ export function updateRequestReturnToOwner(id: string, reason: string, returnedB
             req.status = "Clarification Needed";
             req._returnReason = reason;
             req._returnedBy = returnedBy;
+            req._workNotes = [...prevNotes, wnEntry];
             req.lastUpdated = new Date().toISOString().split("T")[0];
         } else {
             req = updatePortalRequestById(id, {
                 status: "Clarification Needed",
                 _returnReason: reason,
                 _returnedBy: returnedBy,
+                _workNotes: [...prevNotes, wnEntry],
             });
         }
     }
@@ -349,7 +361,16 @@ export function updateRequestReturnToOwner(id: string, reason: string, returnedB
 }
 
 export function updateRequestNotMine(id: string, reason: string, userName: string): RecapRequest | undefined {
+    const wnEntry: WorkNoteEntry = {
+        id: `wn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text: reason,
+        author: userName,
+        timestamp: new Date().toISOString(),
+        action: "Not Mine",
+    };
     let req: RecapRequest | undefined;
+    const existing = getRequestById(id);
+    const prevNotes = existing?._workNotes || [];
     if (isDemoLoaded()) {
         req = Demo.updateDemoRequest(id, {
             status: "Open",
@@ -357,6 +378,7 @@ export function updateRequestNotMine(id: string, reason: string, userName: strin
             assignedTo: null,
             _misassignedReason: reason,
             _needsReassignment: true,
+            _workNotes: [...prevNotes, wnEntry],
         });
     } else {
         req = Mock.getRequestById(id);
@@ -366,6 +388,7 @@ export function updateRequestNotMine(id: string, reason: string, userName: strin
             req.assignedTo = null;
             req._misassignedReason = reason;
             req._needsReassignment = true;
+            req._workNotes = [...prevNotes, wnEntry];
             req.lastUpdated = new Date().toISOString().split("T")[0];
         } else {
             req = updatePortalRequestById(id, {
@@ -374,6 +397,7 @@ export function updateRequestNotMine(id: string, reason: string, userName: strin
                 assignedTo: null,
                 _misassignedReason: reason,
                 _needsReassignment: true,
+                _workNotes: [...prevNotes, wnEntry],
             });
         }
     }
@@ -423,6 +447,89 @@ export function updateRequestStatusNotes(id: string, note: string | null): Recap
         return req;
     }
     return updatePortalRequestById(id, { _statusNotes: note });
+}
+
+/* ── Work Notes ──────────────────────────────────────────── */
+
+export function addWorkNote(id: string, text: string, author: string, action?: string | null): WorkNoteEntry | undefined {
+    const entry: WorkNoteEntry = {
+        id: `wn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text,
+        author,
+        timestamp: new Date().toISOString(),
+        action: action || null,
+    };
+    const req = getRequestById(id);
+    if (!req) return;
+    const notes = [...(req._workNotes || []), entry];
+    if (isDemoLoaded()) {
+        Demo.updateDemoRequest(id, { _workNotes: notes });
+        addActivityEntry({
+            type: "Note",
+            description: text,
+            userId: author,
+            userName: author,
+            requestId: req.id,
+            requestTitle: req.title,
+            transactionId: req.transactionId,
+            transactionName: req.transactionName,
+        });
+        return entry;
+    }
+    const mockReq = Mock.getRequestById(id);
+    if (mockReq) {
+        mockReq._workNotes = notes;
+        mockReq.lastUpdated = new Date().toISOString().split("T")[0];
+    } else {
+        updatePortalRequestById(id, { _workNotes: notes });
+    }
+    addActivityEntry({
+        type: "Note",
+        description: text,
+        userId: author,
+        userName: author,
+        requestId: req.id,
+        requestTitle: req.title,
+        transactionId: req.transactionId,
+        transactionName: req.transactionName,
+    });
+    return entry;
+}
+
+export function editWorkNote(id: string, noteId: string, newText: string): boolean {
+    const req = getRequestById(id);
+    if (!req || !req._workNotes) return false;
+    const notes = req._workNotes.map(n => n.id === noteId ? { ...n, text: newText } : n);
+    if (isDemoLoaded()) {
+        Demo.updateDemoRequest(id, { _workNotes: notes });
+    } else {
+        const mockReq = Mock.getRequestById(id);
+        if (mockReq) {
+            mockReq._workNotes = notes;
+            mockReq.lastUpdated = new Date().toISOString().split("T")[0];
+        } else {
+            updatePortalRequestById(id, { _workNotes: notes });
+        }
+    }
+    return true;
+}
+
+export function deleteWorkNote(id: string, noteId: string): boolean {
+    const req = getRequestById(id);
+    if (!req || !req._workNotes) return false;
+    const notes = req._workNotes.filter(n => n.id !== noteId);
+    if (isDemoLoaded()) {
+        Demo.updateDemoRequest(id, { _workNotes: notes });
+    } else {
+        const mockReq = Mock.getRequestById(id);
+        if (mockReq) {
+            mockReq._workNotes = notes;
+            mockReq.lastUpdated = new Date().toISOString().split("T")[0];
+        } else {
+            updatePortalRequestById(id, { _workNotes: notes });
+        }
+    }
+    return true;
 }
 
 export function promoteToReusableKnowledge(

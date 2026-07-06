@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation } from "../../services/recapDataService";
+import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -57,19 +57,18 @@ export default function RecapitalizationWorkspace() {
     const [banner, setBanner] = useState<string | null>(null);
     const [bannerError, setBannerError] = useState(false);
 
-    const [localQuestions, setLocalQuestions] = useState<WorkspaceQuestion[]>([
-        { id: "q1", from: "Marcus & Associates", question: "Should the Phase I ESA include asbestos testing or just standard environmental assessment?", response: "Standard Phase I only. Asbestos scope to be handled separately if flagged.", status: "Answered", timestamp: "2026-06-24" },
-        { id: "q2", from: "Marcus & Associates", question: "What is the preferred format for financial statements — scanned PDF or native Excel?", response: null, status: "Open", timestamp: "2026-06-27" },
-    ]);
+    const [localQuestions, setLocalQuestions] = useState<WorkspaceQuestion[]>([]);
 
     const [needClarificationOpen, setNeedClarificationOpen] = useState(false);
     const [clarificationText, setClarificationText] = useState("");
 
-    const [commentText, setCommentText] = useState("");
-
     const [statusActionModal, setStatusActionModal] = useState<{ newStatus: RecapRequest["status"]; reason: string } | null>(null);
     const [completionModal, setCompletionModal] = useState<{ note: string; readyForReview: boolean } | null>(null);
     const [workArtifacts, setWorkArtifacts] = useState<WorkArtifact[]>([]);
+    const [wnComposerOpen, setWnComposerOpen] = useState(false);
+    const [wnText, setWnText] = useState("");
+    const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+    const [editingNoteText, setEditingNoteText] = useState("");
     const [artifactBanner, setArtifactBanner] = useState<string | null>(null);
     const [publishExternal, setPublishExternal] = useState<{ step: number; selectedArtifacts: string[] } | null>(null);
     const [artifactDetail, setArtifactDetail] = useState<WorkArtifact | null>(null);
@@ -158,6 +157,20 @@ export default function RecapitalizationWorkspace() {
         const req = item as any;
         const reqId = req.requestId || req.id || "";
 
+        // 1. Start with explicit _workNotes entries (highest fidelity, has author/timestamp)
+        if (req._workNotes) {
+            for (const wn of req._workNotes) {
+                notes.push({
+                    id: wn.id,
+                    text: wn.text,
+                    author: wn.author,
+                    timestamp: wn.timestamp,
+                    action: wn.action || null,
+                });
+            }
+        }
+
+        // 2. Supplement with activity entries not already covered
         const allActivities = getActivity(200);
         const reqActivities = allActivities.filter(
             a => a.requestId === reqId || a.requestId === req.id
@@ -166,6 +179,7 @@ export default function RecapitalizationWorkspace() {
         for (const act of reqActivities) {
             let noteText: string | null = null;
             let action: string | null = null;
+            if (notes.some(n => n.text === act.description || (act.description.includes(n.text) && n.text.length > 10))) continue;
 
             if (act.type === "Status Change" || act.type === "Note" || act.type === "Comment") {
                 const desc = act.description;
@@ -194,42 +208,24 @@ export default function RecapitalizationWorkspace() {
             }
         }
 
-        // Supplement with direct request fields not covered by activity entries
-        if (req._statusNotes && !notes.some(n => n.text.includes(req._statusNotes))) {
-            notes.push({
-                id: "wn-statusnotes",
-                text: req._statusNotes,
-                author: null,
-                timestamp: null,
-                action: "Status Note",
-            });
-        }
-        if (req._completionNotes && !notes.some(n => n.text.includes(req._completionNotes))) {
-            notes.push({
-                id: "wn-completion",
-                text: req._completionNotes,
-                author: req._completedBy || null,
-                timestamp: req._completedAt || null,
-                action: "Completed",
-            });
-        }
-        if (req._returnReason && !notes.some(n => n.text.includes(req._returnReason))) {
-            notes.push({
-                id: "wn-return",
-                text: req._returnReason,
-                author: req._returnedBy || null,
-                timestamp: null,
-                action: "Returned to Owner",
-            });
-        }
-        if (req._misassignedReason && !notes.some(n => n.text.includes(req._misassignedReason))) {
-            notes.push({
-                id: "wn-notmine",
-                text: req._misassignedReason,
-                author: null,
-                timestamp: null,
-                action: "Not Mine",
-            });
+        // 3. Supplement with legacy fields not already covered
+        const legacyChecks: { field: string | null | undefined; id: string; action: string; author: string | null; ts: string | null }[] = [
+            { field: req._statusNotes, id: "wn-statusnotes", action: "Status Note", author: null, ts: null },
+            { field: req._completionNotes, id: "wn-completion", action: "Completed", author: req._completedBy || null, ts: req._completedAt || null },
+            { field: req._returnReason, id: "wn-return", action: "Returned to Owner", author: req._returnedBy || null, ts: null },
+            { field: req._misassignedReason, id: "wn-notmine", action: "Not Mine", author: null, ts: null },
+        ];
+
+        for (const lc of legacyChecks) {
+            if (lc.field && !notes.some(n => n.text.includes(lc.field!))) {
+                notes.push({
+                    id: lc.id,
+                    text: lc.field!,
+                    author: lc.author,
+                    timestamp: lc.ts,
+                    action: lc.action,
+                });
+            }
         }
 
         notes.sort((a, b) => {
@@ -241,6 +237,8 @@ export default function RecapitalizationWorkspace() {
 
         return notes;
     }, [item, wsRefreshKey]);
+
+    const ACTIVE_USER = "Sarah Chen";
 
     function doStatusChange(newStatus: RecapRequest["status"]) {
         const reqId = item.id || item.intakeId || "";
@@ -314,12 +312,6 @@ export default function RecapitalizationWorkspace() {
         addConversationEntry(clarificationText.trim(), "Sarah Chen (Internal)");
         setClarificationText("");
         setNeedClarificationOpen(false);
-    }
-
-    function submitComment() {
-        if (!commentText.trim()) return;
-        addConversationEntry(commentText.trim(), "Sarah Chen (Internal)");
-        setCommentText("");
     }
 
     return (
@@ -684,16 +676,55 @@ export default function RecapitalizationWorkspace() {
                             isOpen={sections.workNotes}
                             onToggle={() => toggleSection("workNotes")}
                         >
+                            {/* Add Work Note composer */}
+                            <div style={{ marginBottom: 12, display: "flex", gap: 8, alignItems: "flex-start" }}>
+                                {wnComposerOpen ? (
+                                    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, padding: "8px 10px", background: "#f8faff", border: "1px solid #dbeafe", borderRadius: 6 }}>
+                                        <textarea
+                                            value={wnText}
+                                            onChange={e => setWnText(e.target.value)}
+                                            placeholder="Type a work note..."
+                                            rows={2}
+                                            style={{ width: "100%", padding: "6px 8px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 4, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none" }}
+                                            autoFocus
+                                        />
+                                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setWnComposerOpen(false); setWnText(""); }}>Cancel</button>
+                                            <button className="rc-btn rc-btn-primary rc-btn-sm" disabled={!wnText.trim()} onClick={() => {
+                                                if (!wnText.trim()) return;
+                                                const reqId = item.id || item.intakeId || "";
+                                                addWorkNote(reqId, wnText.trim(), ACTIVE_USER, "Work Note");
+                                                setWsRefreshKey(k => k + 1);
+                                                setWnText("");
+                                                setWnComposerOpen(false);
+                                            }}>Save</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <button
+                                        className="rc-btn rc-btn-secondary rc-btn-sm"
+                                        onClick={() => setWnComposerOpen(true)}
+                                        style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                                    >
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                                        Add Work Note
+                                    </button>
+                                )}
+                            </div>
+
                             {workNotes.length === 0 ? (
-                                <div style={{ padding: "12px 0", color: "#475569", fontSize: 13 }}>No work notes have been added yet.</div>
+                                <div style={{ padding: "4px 0", color: "#475569", fontSize: 13 }}>No work notes have been added yet.</div>
                             ) : (
                                 <div style={{ display: "flex", flexDirection: "column" }}>
-                                    {workNotes.map(n => (
+                                    {workNotes.map(n => {
+                                        const isAuthor = n.author === ACTIVE_USER;
+                                        return (
                                         <div key={n.id} style={{
                                             padding: "12px 0",
                                             borderBottom: "1px solid #f1f5f9",
                                             display: "flex",
                                             gap: 10,
+                                            alignItems: "flex-start",
                                         }}>
                                             <span style={{ width: 28, height: 28, borderRadius: "50%", background: "#fef3c7", color: "#92400e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>
                                                 {n.author ? n.author.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() : "WN"}
@@ -716,11 +747,59 @@ export default function RecapitalizationWorkspace() {
                                                             {new Date(n.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                                                         </span>
                                                     )}
+                                                    {/* Edit/delete for author only; TODO: add platform admin support */}
+                                                    {isAuthor && (
+                                                        <span style={{ display: "inline-flex", gap: 4, marginLeft: 6 }}>
+                                                            {editingNoteId === n.id ? null : (
+                                                                <button
+                                                                    onClick={() => { setEditingNoteId(n.id); setEditingNoteText(n.text); }}
+                                                                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#64748b", lineHeight: 1 }}
+                                                                    title="Edit note"
+                                                                >
+                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                onClick={() => {
+                                                                    const reqId = item.id || item.intakeId || "";
+                                                                    deleteWorkNote(reqId, n.id);
+                                                                    setWsRefreshKey(k => k + 1);
+                                                                }}
+                                                                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#dc2626", lineHeight: 1 }}
+                                                                title="Delete note"
+                                                            >
+                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                                                            </button>
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <div style={{ fontSize: 13, color: "#1e293b", lineHeight: 1.5 }}>{n.text}</div>
+                                                {editingNoteId === n.id ? (
+                                                    <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "8px", background: "#f8faff", border: "1px solid #dbeafe", borderRadius: 6, marginTop: 4 }}>
+                                                        <textarea
+                                                            value={editingNoteText}
+                                                            onChange={e => setEditingNoteText(e.target.value)}
+                                                            rows={2}
+                                                            style={{ width: "100%", padding: "6px 8px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 4, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none" }}
+                                                            autoFocus
+                                                        />
+                                                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                                                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setEditingNoteId(null)}>Cancel</button>
+                                                            <button className="rc-btn rc-btn-primary rc-btn-sm" disabled={!editingNoteText.trim()} onClick={() => {
+                                                                if (!editingNoteText.trim()) return;
+                                                                const reqId = item.id || item.intakeId || "";
+                                                                editWorkNote(reqId, n.id, editingNoteText.trim());
+                                                                setWsRefreshKey(k => k + 1);
+                                                                setEditingNoteId(null);
+                                                            }}>Save</button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ fontSize: 13, color: "#1e293b", lineHeight: 1.5 }}>{n.text}</div>
+                                                )}
                                             </div>
                                         </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </AccordionSection>
@@ -737,7 +816,7 @@ export default function RecapitalizationWorkspace() {
                                 Messages between the internal team and external broker/buyer.
                             </div>
                             {localQuestions.length === 0 ? (
-                                <div style={{ padding: "12px 0", color: "#475569", fontSize: 13 }}>No conversation entries yet</div>
+                                <div style={{ padding: "12px 0", color: "#475569", fontSize: 13 }}>No external communication has been recorded for this request yet.</div>
                             ) : (
                                 <div style={{ display: "flex", flexDirection: "column" }}>
                                     {localQuestions.map(q => {
@@ -782,25 +861,9 @@ export default function RecapitalizationWorkspace() {
                                 </div>
                             )}
 
-                            {/* Comment Input */}
-                            <div style={{ padding: "12px 0 0", borderTop: "1px solid #e2e8f0", marginTop: 4, display: "flex", gap: 8, alignItems: "flex-start" }}>
-                                <span style={{ width: 28, height: 28, borderRadius: "50%", background: "#dbeafe", color: "#1d4ed8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>SC</span>
-                                <textarea
-                                    value={commentText}
-                                    onChange={e => setCommentText(e.target.value)}
-                                    placeholder="Type a message for external broker/buyer..."
-                                    rows={2}
-                                    style={{ flex: 1, padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", lineHeight: 1.4, outline: "none", minHeight: 36 }}
-                                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitComment(); } }}
-                                />
-                                <button
-                                    onClick={submitComment}
-                                    disabled={!commentText.trim()}
-                                    className="rc-btn rc-btn-primary rc-btn-sm"
-                                    style={{ padding: "7px 14px", alignSelf: "flex-end", whiteSpace: "nowrap" }}
-                                >
-                                    Add Note
-                                </button>
+                            <div style={{ padding: "8px 12px", marginTop: 8, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12, color: "#475569", display: "flex", alignItems: "center", gap: 6 }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                                External messaging will be connected to the external portal in a future phase.
                             </div>
                         </AccordionSection>
 
@@ -911,9 +974,10 @@ export default function RecapitalizationWorkspace() {
                                 if (!statusActionModal) return;
                                 const reason = statusActionModal.reason.trim();
                                 if (!reason) return;
-                                                        const reqId = item.id || item.intakeId || "";
+                                                                const reqId = item.id || item.intakeId || "";
                                                                 updateRequestStatus(reqId, statusActionModal.newStatus);
                                                                 updateRequestStatusNotes(reqId, reason);
+                                                                addWorkNote(reqId, reason, "Sarah Chen", statusActionModal.newStatus);
                                                                 addActivityEntry({
                                     type: "Status Change",
                                     description: `${displayId}: ${statusActionModal.newStatus}. Reason: ${reason}`,
@@ -981,6 +1045,9 @@ export default function RecapitalizationWorkspace() {
                                     completedAt: now,
                                     completionNotes: note,
                                 });
+                                if (note) {
+                                    addWorkNote(reqId, note, "Sarah Chen", "Completed");
+                                }
                                 addActivityEntry({
                                     type: "Status Change",
                                     description: `Marked as Complete. Notes: ${note || "none provided"}`,
