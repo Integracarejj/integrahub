@@ -213,13 +213,19 @@ function mapRecapToPortalTxn(txn: RecapTransaction): PortalTransaction {
 }
 
 function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
-    let portalStatus: string = req.status;
+    let portalStatus: string;
     if (req._externalStatus === "Published External") {
         portalStatus = "Published";
-    } else if (req._externalStatus === "Ready to Publish") {
-        portalStatus = "Available";
+    } else if (req.status === "Duplicate" || req.status === "Not Applicable") {
+        portalStatus = "Closed";
+    } else if (req.status === "Clarification Needed") {
+        portalStatus = "Action Needed";
     } else if (req.status === "Complete") {
-        portalStatus = "Under Review";
+        portalStatus = "Quality Review";
+    } else if (req.status === "Open" || req.status === "In Progress" || req.status === "Blocked") {
+        portalStatus = "In Progress";
+    } else {
+        portalStatus = "Intake Review";
     }
     return {
         id: req.id,

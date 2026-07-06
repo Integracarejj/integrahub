@@ -3,14 +3,12 @@ import { getPortalRequests, getActivePersona, getPortalTransactions } from "../.
 import "./PortalOverview.css";
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-    "Provided": { bg: "#f0fdf4", text: "#166534", border: "#bbf7d0" },
+    Published: { bg: "#f0fdf4", text: "#166534", border: "#bbf7d0" },
     "In Progress": { bg: "#eff6ff", text: "#1e40af", border: "#bfdbfe" },
-    "Clarification Needed": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
-    "Under Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
-    "Open": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
-    "Overdue": { bg: "#fef2f2", text: "#991b1b", border: "#fecaca" },
-    "Published": { bg: "#f0fdf4", text: "#166534", border: "#86efac" },
-    "Available": { bg: "#f0fdf4", text: "#166534", border: "#bbf7d0" },
+    "Intake Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
+    "Quality Review": { bg: "#fffbeb", text: "#92400e", border: "#fde68a" },
+    "Action Needed": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
+    Closed: { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -69,14 +67,12 @@ export default function PortalRequests() {
                 </div>
                 <select className="rc-filter-select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ minWidth: 130 }}>
                     <option value="all">All Statuses</option>
-                    <option value="Open">Open</option>
                     <option value="In Progress">In Progress</option>
-                    <option value="Clarification Needed">Clarification Needed</option>
-                    <option value="Under Review">Under Review</option>
-                    <option value="Provided">Provided</option>
+                    <option value="Intake Review">Intake Review</option>
+                    <option value="Quality Review">Quality Review</option>
+                    <option value="Action Needed">Action Needed</option>
                     <option value="Published">Published</option>
-                    <option value="Available">Available</option>
-                    <option value="Overdue">Overdue</option>
+                    <option value="Closed">Closed</option>
                 </select>
                 <select className="rc-filter-select" value={filterCommunity} onChange={(e) => setFilterCommunity(e.target.value)} style={{ minWidth: 140 }}>
                     <option value="all">All Communities</option>
@@ -85,41 +81,42 @@ export default function PortalRequests() {
             </div>
 
             <div style={{ border: "1px solid var(--is-border, #e2e8f0)", borderRadius: 10, overflow: "hidden", boxShadow: "var(--is-shadow-card, 0 8px 20px rgba(15, 23, 42, 0.08))" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "2fr 1.2fr 1fr 0.9fr 0.8fr 0.9fr 0.7fr", gap: 8, padding: "10px 14px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                    <span>Title</span>
+                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 0.9fr 0.8fr 0.7fr 0.6fr", gap: 8, padding: "10px 14px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                    <span>Request</span>
                     <span>Community</span>
-                    <span>Category</span>
                     <span>Status</span>
-                    <span>Priority</span>
-                    <span>Needed By</span>
+                    <span>Updated</span>
+                    <span>Documents</span>
                     <span></span>
                 </div>
                 {filtered.map((req) => (
-                    <div key={req.id} style={{ display: "grid", gridTemplateColumns: "2fr 1.2fr 1fr 0.9fr 0.8fr 0.9fr 0.7fr", gap: 8, padding: "10px 14px", borderBottom: "1px solid #f1f5f9", fontSize: 13, alignItems: "center" }}>
+                    <div key={req.id} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 0.9fr 0.8fr 0.7fr 0.6fr", gap: 8, padding: "10px 14px", borderBottom: "1px solid #f1f5f9", fontSize: 13, alignItems: "center" }}>
                         <div style={{ display: "flex", flexDirection: "column" }}>
                             <span style={{ fontWeight: 600, color: "var(--is-text-heading, #0f172a)" }}>{req.title}</span>
                             <span style={{ fontSize: 10, color: "#94a3b8" }}>{req.requestId}</span>
-                            {req._publishedWithoutDocuments && (
-                                <span style={{ fontSize: 10, color: "#92400e", fontStyle: "italic", marginTop: 2 }}>
-                                    Published without supporting document
-                                </span>
-                            )}
                         </div>
                         <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.communityNames[0] || "\u2014"}</span>
-                        <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.category}</span>
                         <span><StatusBadge status={req.status} /></span>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: req.priority === "High" ? "#991b1b" : req.priority === "Medium" ? "#92400e" : "#166534" }}>{req.priority}</span>
-                        <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.neededBy}</span>
+                        <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.updatedAt || req.neededBy || "\u2014"}</span>
                         <span>
-                            {req.externalStatus === "Published External" ? (
-                                <span style={{ fontSize: 10, color: "#166534", fontWeight: 600 }}>Published</span>
-                            ) : req.externalStatus === "Ready to Publish" ? (
-                                <span style={{ fontSize: 10, color: "#92400e", fontWeight: 600 }}>Available</span>
-                            ) : persona.role === "Owner / Seller" && req.status !== "Provided" && req.status !== "Under Review" && req.status !== "Published" && req.status !== "Available" ? (
+                            {req._publishedExternal ? (
+                                req._publishedWithoutDocuments ? (
+                                    <span style={{ fontSize: 10, color: "#92400e", fontStyle: "italic" }}>No documents</span>
+                                ) : (
+                                    <span style={{ fontSize: 10, color: "#166534", fontWeight: 600 }}>Available</span>
+                                )
+                            ) : (
+                                <span style={{ fontSize: 10, color: "#94a3b8" }}>{"\u2014"}</span>
+                            )}
+                        </span>
+                        <span>
+                            {req._publishedExternal ? (
+                                <span style={{ fontSize: 10, color: "#166534", fontWeight: 600 }}>View</span>
+                            ) : persona.role === "Owner / Seller" ? (
                                 <button className="rc-btn rc-btn-primary rc-btn-sm" style={{ fontSize: 10 }} onClick={() => window.alert("Upload document mock")}>Upload</button>
-                            ) : persona.role === "Buyer" && req.status !== "Published" && req.status !== "Available" ? (
+                            ) : persona.role === "Buyer" ? (
                                 <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 10 }} onClick={() => window.alert("Request clarification mock")}>Clarify</button>
-                            ) : persona.role === "Broker" && req.status !== "Published" && req.status !== "Available" ? (
+                            ) : persona.role === "Broker" ? (
                                 <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 10 }} onClick={() => window.alert("Route / assign mock")}>Route</button>
                             ) : null}
                         </span>

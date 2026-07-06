@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
     getPortalRequests, getPortalTransactions,
     getActivePersona, submitBrokerUploadPackage, confirmBrokerPackage,
-    getPortalClarifications, getPortalQuestions,
     getPortalSubmissionsList, loadABCDemoPackage,
     parseUploadedXLSX, extractCategoriesFromParsedRows,
     saveParsedRows,
@@ -13,15 +12,12 @@ import type { RecapActivity } from "../../services/recapDataService";
 import "./PortalOverview.css";
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-    Provided: { bg: "#f0fdf4", text: "#166534", border: "#bbf7d0" },
-    "In Progress": { bg: "#eff6ff", text: "#1e40af", border: "#bfdbfe" },
-    "Clarification Needed": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
-    "Under Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
-    Open: { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
-    Overdue: { bg: "#fef2f2", text: "#991b1b", border: "#fecaca" },
-    Answered: { bg: "#f0fdf4", text: "#166534", border: "#bbf7d0" },
     Published: { bg: "#f0fdf4", text: "#166534", border: "#bbf7d0" },
-    Available: { bg: "#eff6ff", text: "#1e40af", border: "#bfdbfe" },
+    "In Progress": { bg: "#eff6ff", text: "#1e40af", border: "#bfdbfe" },
+    "Intake Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
+    "Quality Review": { bg: "#fffbeb", text: "#92400e", border: "#fde68a" },
+    "Action Needed": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
+    Closed: { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -72,15 +68,26 @@ function ActivityIcon({ type }: { type: RecapActivity["type"] }) {
     );
 }
 
-/* ── Activity Feed ── */
+/* ── External-Safe Activity Filter ── */
+
+function isExternalSafeActivity(act: RecapActivity): boolean {
+    if (act.type === "Note" || act.type === "Assignment") return false;
+    const desc = act.description.toLowerCase();
+    if (desc.includes("work note")) return false;
+    if (desc.includes("reusable knowledge") || desc.includes("promote")) return false;
+    if (act.type === "Document" && desc.includes("artifact") && !desc.includes("published")) return false;
+    if (act.type === "Status Change" && !desc.includes("publish") && !desc.includes("external")) return false;
+    return true;
+}
 
 function ActivityFeed({ activities }: { activities: RecapActivity[] }) {
-    if (activities.length === 0) {
-        return <div style={{ padding: 16, fontSize: 13, color: "#64748b", textAlign: "center" }}>No recent activity.</div>;
+    const externalSafe = activities.filter(isExternalSafeActivity);
+    if (externalSafe.length === 0) {
+        return <div style={{ padding: 16, fontSize: 13, color: "#64748b", textAlign: "center" }}>No external activity has been recorded yet.</div>;
     }
     return (
         <div className="po-requests-table">
-            {activities.slice(0, 8).map((act) => (
+            {externalSafe.slice(0, 8).map((act) => (
                 <div key={act.id} className="po-activity-item">
                     <ActivityIcon type={act.type} />
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -100,39 +107,13 @@ function ActivityFeed({ activities }: { activities: RecapActivity[] }) {
 /* ── External Communication Panel ── */
 
 function ExternalCommPanel() {
-    const navigate = useNavigate();
-    const clarifications = getPortalClarifications().filter(c => c.status === "Open");
-    const questions = getPortalQuestions().filter(q => q.status === "Open");
-    const openCount = clarifications.length + questions.length;
-
-    if (openCount === 0) {
-        return (
-            <div style={{ border: "1px dashed #d1d5db", borderRadius: 10, padding: 20, textAlign: "center", background: "#fafbfc" }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 6px" }}>
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-                <div style={{ fontSize: 13, color: "#64748b" }}>No open external communications.</div>
-            </div>
-        );
-    }
-
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>{openCount} open item{openCount !== 1 ? "s" : ""} requiring attention</div>
-            {questions.slice(0, 2).map(q => (
-                <div key={q.id} className="po-ext-card" style={{ border: "1px solid #bfdbfe", background: "#eff6ff" }} onClick={() => navigate("/portal/help")}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "#1e40af", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Question</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b", marginBottom: 2 }}>{q.subject}</div>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>From {q.submittedBy} &middot; {q.submittedAt}</div>
-                </div>
-            ))}
-            {clarifications.slice(0, 2).map(c => (
-                <div key={c.id} className="po-ext-card" style={{ border: "1px solid #fed7aa", background: "#fff7ed" }} onClick={() => navigate("/portal/submit?type=clarification")}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "#9a3412", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Clarification Needed</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b", marginBottom: 2 }}>{c.details.slice(0, 80)}{c.details.length > 80 ? "..." : ""}</div>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>{c.requestId} &middot; {c.submittedAt}</div>
-                </div>
-            ))}
+        <div style={{ border: "1px dashed #d1d5db", borderRadius: 10, padding: 20, textAlign: "center", background: "#fafbfc" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 6px" }}>
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <div style={{ fontSize: 13, color: "#64748b", marginBottom: 6 }}>No external communication has been recorded yet.</div>
+            <div style={{ fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>External messaging will be enabled in a future phase.</div>
         </div>
     );
 }
@@ -158,11 +139,12 @@ export default function PortalOverview() {
     /* ── Derived Stats ── */
     const totalPackages = submissions.length;
     const publishedCount = portalRequests.filter(r => r._publishedExternal || r.externalStatus === "Published External").length;
-    const pendingExternal = portalRequests.filter(r => (r.status === "Under Review" || r.status === "Available") && !r._publishedExternal && r.externalStatus !== "Published External").length;
-    const inProgress = portalRequests.filter(r => r.status === "In Progress" || r.status === "Open" || r.status === "Clarification Needed" || r.status === "Overdue").length;
+    const qualityReviewCount = portalRequests.filter(r => r.status === "Quality Review" && !r._publishedExternal && r.externalStatus !== "Published External").length;
+    const inProgress = portalRequests.filter(r => r.status === "In Progress" || r.status === "Action Needed" || r.status === "Intake Review").length;
+    const visibleRequests = portalRequests.filter(r => r.status !== "Closed");
 
     const hasPublished = publishedCount > 0;
-    const hasInProgress = portalRequests.some(r => r.status !== "Provided" && r.status !== "Published" && r.status !== "Under Review");
+    const hasInProgress = visibleRequests.some(r => r.status !== "Published");
     const hasSubmissions = submissions.length > 0;
     const processStep = hasPublished ? 3 : hasInProgress ? 2 : hasSubmissions ? 1 : 0;
 
@@ -471,15 +453,15 @@ export default function PortalOverview() {
                     <span className="po-stat-label">In Progress</span>
                 </div>
                 <div className="po-stat-card">
-                    <span className="po-stat-value po-stat-value--amber">{pendingExternal}</span>
-                    <span className="po-stat-label">Pending External Review</span>
+                    <span className="po-stat-value po-stat-value--amber">{qualityReviewCount}</span>
+                    <span className="po-stat-label">Quality Review</span>
                 </div>
                 <div className="po-stat-card">
                     <span className="po-stat-value po-stat-value--green">{publishedCount}</span>
                     <span className="po-stat-label">Published</span>
                 </div>
                 <div className="po-stat-card">
-                    <span className="po-stat-value po-stat-value--purple">{portalRequests.length}</span>
+                    <span className="po-stat-value po-stat-value--purple">{visibleRequests.length}</span>
                     <span className="po-stat-label">Total Requests</span>
                 </div>
             </div>
@@ -489,22 +471,21 @@ export default function PortalOverview() {
                 {/* ── Submitted Requests ── */}
                 <div className="po-section">
                     <h2 className="po-section-title">Submitted Requests</h2>
-                    {portalRequests.length === 0 ? (
+                    {visibleRequests.length === 0 ? (
                         <div style={{ border: "1px dashed #d1d5db", borderRadius: 10, padding: 24, textAlign: "center", background: "#fafbfc" }}>
                             <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>No requests submitted yet. Upload a package to get started.</p>
                         </div>
                     ) : (
-                        <div className="po-requests-table">
-                            <div className="po-requests-header">
-                                <span>Title</span><span>Community</span><span>Status</span><span>Priority</span><span>Due Date</span>
+                        <div style={{ border: "1px solid var(--is-border, #93c5fd)", borderRadius: 10, overflow: "hidden", boxShadow: "var(--is-shadow-card, 0 8px 20px rgba(15, 23, 42, 0.08))" }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "2fr 1.2fr 1fr 0.8fr", gap: 8, padding: "10px 14px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                                <span>Request</span><span>Community</span><span>Status</span><span>Updated</span>
                             </div>
-                            {portalRequests.slice(0, 10).map((req) => (
-                                <div key={req.id} className="po-requests-row" onClick={() => navigate("/portal/requests")} style={{ cursor: "pointer" }}>
-                                    <span className="po-requests-title">{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</span>
-                                    <span style={{ fontSize: 12, color: "#64748b" }}>{req.communityNames[0] || "\u2014"}</span>
+                            {visibleRequests.slice(0, 10).map((req) => (
+                                <div key={req.id} style={{ display: "grid", gridTemplateColumns: "2fr 1.2fr 1fr 0.8fr", gap: 8, padding: "10px 14px", borderBottom: "1px solid #f1f5f9", fontSize: 13, alignItems: "center", cursor: "pointer" }} onClick={() => navigate("/portal/requests")}>
+                                    <span style={{ fontWeight: 600, color: "var(--is-text-heading, #0f172a)" }}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</span>
+                                    <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.communityNames[0] || "\u2014"}</span>
                                     <span><StatusBadge status={req.status} /></span>
-                                    <span className={`po-priority po-priority--${req.priority.toLowerCase()}`}>{req.priority}</span>
-                                    <span className="po-needed-by">{req.neededBy || "\u2014"}</span>
+                                    <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.updatedAt || req.neededBy || "\u2014"}</span>
                                 </div>
                             ))}
                         </div>
