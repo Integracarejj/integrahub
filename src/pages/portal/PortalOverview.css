@@ -126,6 +126,14 @@
     color: #6b21a8;
 }
 
+.po-stat-value--indigo {
+    color: #4338ca;
+}
+
+.po-stat-value--red {
+    color: #991b1b;
+}
+
 .po-stat-label {
     font-size: 12px;
     font-weight: 600;

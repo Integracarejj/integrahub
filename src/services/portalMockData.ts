@@ -192,8 +192,6 @@ const MOCK_CLARIFICATIONS: PortalClarification[] = [
 
 /* ── Mapping Helpers ────────────────────────────────────────── */
 
-const ABC_TXN_ID = "txn-abc";
-
 function mapRecapToPortalTxn(txn: RecapTransaction): PortalTransaction {
     return {
         id: txn.id,
@@ -300,7 +298,7 @@ export function getPortalRequests(): PortalRequest[] {
         initDemo();
     }
     const requests = getRequests();
-    return [...MOCK_REQUESTS, ...requests.filter((r) => r.transactionId === ABC_TXN_ID).map(mapRecapToPortalRequest)];
+    return [...MOCK_REQUESTS, ...requests.map(mapRecapToPortalRequest)];
 }
 
 export function getPortalRequestsByTransaction(transactionId: string): PortalRequest[] {
@@ -320,7 +318,7 @@ export function getPortalDocuments(): PortalDocument[] {
         initDemo();
     }
     const documents = getDocuments();
-    return documents.filter((d) => d.transactionId === ABC_TXN_ID).map(mapRecapToPortalDocument).filter((d) => d.externalVisible !== false);
+    return documents.map(mapRecapToPortalDocument).filter((d) => d.externalVisible !== false);
 }
 
 export function getPortalDocumentsByTransaction(transactionId: string): PortalDocument[] {

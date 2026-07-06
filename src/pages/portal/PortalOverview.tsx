@@ -113,7 +113,11 @@ function ExternalCommPanel() {
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
             <div style={{ fontSize: 13, color: "#64748b", marginBottom: 6 }}>No external communication has been recorded yet.</div>
-            <div style={{ fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>External messaging will be enabled in a future phase.</div>
+            <div style={{ fontSize: 11, color: "#94a3b8", fontStyle: "italic", marginBottom: 8 }}>Email notifications will be enabled in a future phase.</div>
+            <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                For urgent requests, contact{" "}
+                <a href="mailto:support@integracare.com" style={{ color: "#6366f1", textDecoration: "underline" }}>support@integracare.com</a>
+            </div>
         </div>
     );
 }
@@ -140,6 +144,8 @@ export default function PortalOverview() {
     const totalPackages = submissions.length;
     const publishedCount = portalRequests.filter(r => r._publishedExternal || r.externalStatus === "Published External").length;
     const qualityReviewCount = portalRequests.filter(r => r.status === "Quality Review" && !r._publishedExternal && r.externalStatus !== "Published External").length;
+    const intakeCount = portalRequests.filter(r => r.status === "Intake Review").length;
+    const actionNeededCount = portalRequests.filter(r => r.status === "Action Needed").length;
     const inProgress = portalRequests.filter(r => r.status === "In Progress" || r.status === "Action Needed" || r.status === "Intake Review").length;
     const visibleRequests = portalRequests.filter(r => r.status !== "Closed");
 
@@ -147,6 +153,27 @@ export default function PortalOverview() {
     const hasInProgress = visibleRequests.some(r => r.status !== "Published");
     const hasSubmissions = submissions.length > 0;
     const processStep = hasPublished ? 3 : hasInProgress ? 2 : hasSubmissions ? 1 : 0;
+
+    /* ── Refresh / Polling ── */
+    const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+    const [refreshTick, setRefreshTick] = useState(0);
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setLastUpdated(new Date());
+            setRefreshTick((t) => t + 1);
+        }, 60000);
+        return () => clearInterval(interval);
+    }, []);
+    useEffect(() => {
+        const onVisible = () => {
+            if (document.visibilityState === "visible") {
+                setLastUpdated(new Date());
+                setRefreshTick((t) => t + 1);
+            }
+        };
+        document.addEventListener("visibilitychange", onVisible);
+        return () => document.removeEventListener("visibilitychange", onVisible);
+    }, []);
 
     /* ── Window-level drag/drop ── */
     useEffect(() => {
@@ -445,9 +472,15 @@ export default function PortalOverview() {
             {/* ── Summary Cards ── */}
             <div className="po-stats-row">
                 <div className="po-stat-card">
-                    <span className="po-stat-value">{totalPackages}</span>
-                    <span className="po-stat-label">Total Packages</span>
+                    <span className="po-stat-value">{visibleRequests.length}</span>
+                    <span className="po-stat-label">Total Requests</span>
                 </div>
+                {intakeCount > 0 && (
+                    <div className="po-stat-card">
+                        <span className="po-stat-value po-stat-value--indigo">{intakeCount}</span>
+                        <span className="po-stat-label">Intake Review</span>
+                    </div>
+                )}
                 <div className="po-stat-card">
                     <span className="po-stat-value po-stat-value--blue">{inProgress}</span>
                     <span className="po-stat-label">In Progress</span>
@@ -460,10 +493,15 @@ export default function PortalOverview() {
                     <span className="po-stat-value po-stat-value--green">{publishedCount}</span>
                     <span className="po-stat-label">Published</span>
                 </div>
-                <div className="po-stat-card">
-                    <span className="po-stat-value po-stat-value--purple">{visibleRequests.length}</span>
-                    <span className="po-stat-label">Total Requests</span>
-                </div>
+                {actionNeededCount > 0 && (
+                    <div className="po-stat-card">
+                        <span className="po-stat-value po-stat-value--red">{actionNeededCount}</span>
+                        <span className="po-stat-label">Action Needed</span>
+                    </div>
+                )}
+            </div>
+            <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "right", marginBottom: 16 }}>
+                Last updated: {lastUpdated.toLocaleTimeString()}
             </div>
 
             {/* ── Bottom Grid: Requests + Activity/Comm ── */}
@@ -484,7 +522,14 @@ export default function PortalOverview() {
                                 <div key={req.id} style={{ display: "grid", gridTemplateColumns: "2fr 1.2fr 1fr 0.8fr", gap: 8, padding: "10px 14px", borderBottom: "1px solid #f1f5f9", fontSize: 13, alignItems: "center", cursor: "pointer" }} onClick={() => navigate("/portal/requests")}>
                                     <span style={{ fontWeight: 600, color: "var(--is-text-heading, #0f172a)" }}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</span>
                                     <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.communityNames[0] || "\u2014"}</span>
-                                    <span><StatusBadge status={req.status} /></span>
+                                    <span>
+                                        <StatusBadge status={req.status} />
+                                        {req._publishedExternal && (
+                                            <span style={{ marginLeft: 4, fontSize: 9, padding: "1px 5px", borderRadius: 3, background: "#dcfce7", color: "#166534", fontWeight: 600, whiteSpace: "nowrap", verticalAlign: "middle" }}>
+                                                Ready to Review
+                                            </span>
+                                        )}
+                                    </span>
                                     <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.updatedAt || req.neededBy || "\u2014"}</span>
                                 </div>
                             ))}

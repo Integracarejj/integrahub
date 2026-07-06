@@ -96,7 +96,14 @@ export default function PortalRequests() {
                             <span style={{ fontSize: 10, color: "#94a3b8" }}>{req.requestId}</span>
                         </div>
                         <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.communityNames[0] || "\u2014"}</span>
-                        <span><StatusBadge status={req.status} /></span>
+                        <span>
+                            <StatusBadge status={req.status} />
+                            {req._publishedExternal && (
+                                <span style={{ marginLeft: 4, fontSize: 9, padding: "1px 5px", borderRadius: 3, background: "#dcfce7", color: "#166534", fontWeight: 600, whiteSpace: "nowrap", verticalAlign: "middle" }}>
+                                    Ready to Review
+                                </span>
+                            )}
+                        </span>
                         <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.updatedAt || req.neededBy || "\u2014"}</span>
                         <span>
                             {req._publishedExternal ? (
