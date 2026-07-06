@@ -1,4 +1,4 @@
-import { isDemoActive, getDemoTransaction, getDemoRequests, getDemoDocuments, initDemo, getDemoEngineSummary, addPortalCreatedIntakeItem, addPortalCreatedRequests, addPortalSubmission, getPortalSubmissions, updatePortalSubmissionStatus, clearAllPortalCreatedData, isRecapDataWiped } from "./recapDataService";
+import { isDemoActive, getDemoTransaction, getDemoRequests, getDemoDocuments, initDemo, getDemoEngineSummary, addPortalCreatedIntakeItem, addPortalCreatedRequests, addPortalSubmission, getPortalSubmissions, updatePortalSubmissionStatus, clearAllPortalCreatedData, isRecapDataWiped, clearRecapWiped } from "./recapDataService";
 import type { RecapRequest, RecapDocument, RecapTransaction, RecapIntakeItem } from "./recapDataService";
 
 const PERSONA_KEY = "integrasource.recap.portalPersona";
@@ -892,7 +892,8 @@ export function confirmBrokerPackage(submissionId?: string): void {
 }
 
 export function loadABCDemoPackage(): void {
-    if (!isRecapDataWiped() && !isDemoActive()) initDemo();
+    clearRecapWiped();
+    initDemo();
 }
 
 export function getPortalSubmissionsList(): PortalPackageSubmission[] {
