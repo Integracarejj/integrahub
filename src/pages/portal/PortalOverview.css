@@ -319,6 +319,45 @@
     line-height: 1.4;
 }
 
+.po-process-bar {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+}
+
+.po-dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 16px;
+}
+
+.po-activity-item {
+    display: flex;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    align-items: flex-start;
+}
+
+.po-activity-item:last-child {
+    border-bottom: none;
+}
+
+.po-activity-item:hover {
+    background: #f8fafc;
+}
+
+.po-ext-card {
+    border-radius: 8px;
+    padding: 12px;
+    cursor: pointer;
+    transition: box-shadow 0.15s;
+}
+
+.po-ext-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
 @media (max-width: 900px) {
     .po-stats-row {
         grid-template-columns: repeat(3, 1fr);
@@ -329,6 +368,10 @@
     }
 
     .po-bottom-row {
+        grid-template-columns: 1fr;
+    }
+
+    .po-dashboard-grid {
         grid-template-columns: 1fr;
     }
 }

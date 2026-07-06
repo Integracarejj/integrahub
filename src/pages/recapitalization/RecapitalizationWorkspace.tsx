@@ -435,7 +435,7 @@ export default function RecapitalizationWorkspace() {
 
                             {/* Assign */}
                             <div>
-                                <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 5 }}>Assign</div>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 5 }}>Owner</div>
                                 <div style={{ position: "relative" }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 32px 7px 10px", fontSize: 13, fontWeight: 500, borderRadius: 6, border: "1px solid #d1d5db", background: "#fff", pointerEvents: "none" }}>
                                         {internalOwner ? (
@@ -456,24 +456,6 @@ export default function RecapitalizationWorkspace() {
                                         style={{ position: "absolute", inset: 0, width: "100%", opacity: 0, cursor: "pointer", fontSize: 13 }}
                                     >
                                         <option value="">Unassigned</option>
-                                        {TEAM_MEMBERS.map(n => <option key={n} value={n}>{n}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-
-                            {/* Active User */}
-                            <div>
-                                <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 5 }}>User</div>
-                                <div style={{ position: "relative" }}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 32px 7px 10px", fontSize: 13, fontWeight: 500, borderRadius: 6, border: "1px solid #d1d5db", background: "#fff", pointerEvents: "none" }}>
-                                        <span style={{ width: 22, height: 22, borderRadius: "50%", background: "#dbeafe", color: "#1d4ed8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{getInitials(currentUser)}</span>
-                                        <span style={{ color: "#0f172a" }}>{currentUser}</span>
-                                    </div>
-                                    <select
-                                        value={currentUser}
-                                        onChange={e => { setCurrentUser(e.target.value); localStorage.setItem(workspaceUserKey, e.target.value); }}
-                                        style={{ position: "absolute", inset: 0, width: "100%", opacity: 0, cursor: "pointer", fontSize: 13 }}
-                                    >
                                         {TEAM_MEMBERS.map(n => <option key={n} value={n}>{n}</option>)}
                                     </select>
                                 </div>
