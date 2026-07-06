@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { getRequests, getTeamMembers, updateRequestStatus, updateRequestOwner, getDocuments, updateRequestReturnToOwner, getActivity, addActivityEntry, getWorkArtifactsByRequest, updateRequestStatusNotes } from "../../services/recapDataService";
+import { getRequests, getTeamMembers, updateRequestStatus, updateRequestOwner, getDocuments, updateRequestReturnToOwner, getActivity, addActivityEntry, getWorkArtifactsByRequest, updateRequestStatusNotes, isDemoActive } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -343,6 +343,12 @@ export default function RecapitalizationDdOperations() {
                     <h1>DD Operations</h1>
                 </div>
                 <div className="rc-header-actions">
+                    {isDemoActive() && (
+                        <span style={{ fontSize: 11, color: "#64748b", display: "inline-flex", alignItems: "center", gap: 4, marginRight: 8 }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                            Testing as: <strong>{activeUser}</strong>
+                        </span>
+                    )}
                     <select className="rc-filter-select" value={activeUser} onChange={e => setActiveUser(e.target.value)}>
                         {ddMembers.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                     </select>

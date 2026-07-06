@@ -209,6 +209,12 @@ export default function RecapitalizationTracker() {
                 <h1>Work Queue</h1>
                 <div className="rc-header-left" style={{ gap: 8 }}>
                     {isDemoActive() && <span className="rc-badge rc-badge-visible" style={{ fontSize: 10 }}>ABC Demo Active</span>}
+                    {isDemoActive() && (
+                        <span style={{ fontSize: 11, color: "#64748b", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                            Testing as: <strong>{currentUser}</strong>
+                        </span>
+                    )}
                 </div>
                 <div className="rc-header-actions">
                     <div className="rc-action-key" style={{ display: "flex", gap: 12, alignItems: "center", marginRight: 8 }}>
@@ -404,7 +410,14 @@ export default function RecapitalizationTracker() {
                                 </td>
                                 <td>
                                     <div className="rc-cell-actions">
-                                        <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Publish External" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setPublishStep(1); setPublishSelectedArtifactNames(getWorkArtifactsByRequest(getArtifactKey(req)).map(a => a.name)); }} style={{ fontSize: 12, fontWeight: 700, color: "#166534" }}>P</button>
+                                        {(req as any)._publishedExternal ? (
+                                            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "#166534", background: "#f0fdf4", padding: "2px 6px", borderRadius: 4, border: "1px solid #bbf7d0", cursor: "default" }}>
+                                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                                                Published
+                                            </span>
+                                        ) : (
+                                            <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Publish External" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setPublishStep(1); setPublishSelectedArtifactNames(getWorkArtifactsByRequest(getArtifactKey(req)).map(a => a.name)); }} style={{ fontSize: 12, fontWeight: 700, color: "#166534" }}>P</button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
@@ -633,7 +646,12 @@ export default function RecapitalizationTracker() {
                             <button className="rc-modal-close" onClick={() => setPublishStep(0)}>&times;</button>
                         </div>
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
-                            {detailModalItem.status !== "Complete" ? (
+                            {(detailModalItem as any)._publishedExternal ? (
+                                <div style={{ padding: "12px 16px", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 6, fontSize: 13, color: "#166534" }}>
+                                    <strong>&#10003; Already published externally.</strong>
+                                    <div style={{ marginTop: 6 }}>This request is already visible on the external portal.</div>
+                                </div>
+                            ) : detailModalItem.status !== "Complete" ? (
                                 <div style={{ padding: "12px 16px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, fontSize: 13, color: "#92400e" }}>
                                     <strong>&#9888; Complete internal work before publishing externally.</strong>
                                     <div style={{ marginTop: 6 }}>Current status: <strong>{detailModalItem.status}</strong></div>
@@ -793,7 +811,9 @@ export default function RecapitalizationTracker() {
                             )}
                         </div>
                         <div className="rc-modal-footer">
-                            {detailModalItem.status !== "Complete" ? (
+                            {(detailModalItem as any)._publishedExternal ? (
+                                <button className="rc-btn rc-btn-primary" onClick={() => setPublishStep(0)}>Close</button>
+                            ) : detailModalItem.status !== "Complete" ? (
                                 <button className="rc-btn rc-btn-primary" onClick={() => setPublishStep(0)}>Close</button>
                             ) : (
                                 <>

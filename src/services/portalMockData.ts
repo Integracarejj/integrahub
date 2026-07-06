@@ -1,4 +1,4 @@
-import { isDemoActive, getDemoTransaction, getDemoRequests, getDemoDocuments, initDemo, getDemoEngineSummary, addPortalCreatedIntakeItem, addPortalCreatedRequests, addPortalSubmission, getPortalSubmissions, updatePortalSubmissionStatus, clearAllPortalCreatedData, isRecapDataWiped, clearRecapWiped } from "./recapDataService";
+import { getTransactions, getRequests, getDocuments, isDemoActive, initDemo, getDemoEngineSummary, addPortalCreatedIntakeItem, addPortalCreatedRequests, addPortalSubmission, getPortalSubmissions, updatePortalSubmissionStatus, clearAllPortalCreatedData, isRecapDataWiped, clearRecapWiped } from "./recapDataService";
 import type { RecapRequest, RecapDocument, RecapTransaction, RecapIntakeItem } from "./recapDataService";
 
 const PERSONA_KEY = "integrasource.recap.portalPersona";
@@ -271,26 +271,14 @@ function mapRecapToPortalDocument(doc: RecapDocument): PortalDocument {
 
 /* ── Data Retrieval ─────────────────────────────────────────── */
 
-function getRecapData(): { txn: RecapTransaction | null; requests: RecapRequest[]; documents: RecapDocument[] } {
-    if (!isRecapDataWiped() && !isDemoActive()) {
-        initDemo();
-    }
-    if (isRecapDataWiped()) {
-        return { txn: null, requests: [], documents: [] };
-    }
-    return {
-        txn: getDemoTransaction(),
-        requests: getDemoRequests(),
-        documents: getDemoDocuments(),
-    };
-}
-
 /* ── Exported Functions ────────────────────────────────────── */
 
 export function getPortalUserContext(): PortalUserContext {
     const persona = getActivePersona();
-    const { txn } = getRecapData();
-    const transactions = txn ? [mapRecapToPortalTxn(txn)] : [];
+    if (!isRecapDataWiped() && !isDemoActive()) {
+        initDemo();
+    }
+    const transactions = getTransactions().map(mapRecapToPortalTxn);
     return {
         displayName: persona.displayName,
         email: persona.email,
@@ -301,12 +289,17 @@ export function getPortalUserContext(): PortalUserContext {
 }
 
 export function getPortalTransactions(): PortalTransaction[] {
-    const { txn } = getRecapData();
-    return txn ? [mapRecapToPortalTxn(txn)] : [];
+    if (!isRecapDataWiped() && !isDemoActive()) {
+        initDemo();
+    }
+    return getTransactions().map(mapRecapToPortalTxn);
 }
 
 export function getPortalRequests(): PortalRequest[] {
-    const { requests } = getRecapData();
+    if (!isRecapDataWiped() && !isDemoActive()) {
+        initDemo();
+    }
+    const requests = getRequests();
     return [...MOCK_REQUESTS, ...requests.filter((r) => r.transactionId === ABC_TXN_ID).map(mapRecapToPortalRequest)];
 }
 
@@ -323,7 +316,10 @@ export function getPortalClarifications(): PortalClarification[] {
 }
 
 export function getPortalDocuments(): PortalDocument[] {
-    const { documents } = getRecapData();
+    if (!isRecapDataWiped() && !isDemoActive()) {
+        initDemo();
+    }
+    const documents = getDocuments();
     return documents.filter((d) => d.transactionId === ABC_TXN_ID).map(mapRecapToPortalDocument).filter((d) => d.externalVisible !== false);
 }
 

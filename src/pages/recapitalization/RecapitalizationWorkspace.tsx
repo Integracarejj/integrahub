@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote } from "../../services/recapDataService";
+import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -348,6 +348,15 @@ export default function RecapitalizationWorkspace() {
                     </button>
                 </div>
 
+                {/* Test identity hint (demo/preview only) */}
+                {isDemoActive() && (
+                    <div style={{ marginBottom: 12, fontSize: 11, color: "#64748b", display: "flex", alignItems: "center", gap: 6 }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                        Testing as: <strong>{currentUser}</strong>
+                        <span style={{ fontStyle: "italic", color: "#94a3b8" }}>(internal preview mode)</span>
+                    </div>
+                )}
+
                 {/* Success Feedback */}
                 {banner && (
                     <div style={{
@@ -470,15 +479,22 @@ export default function RecapitalizationWorkspace() {
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                                     Clarify
                                 </button>
-                                <button
-                                    onClick={() => setPublishExternal({ step: 1, selectedArtifacts: workArtifacts.map(a => a.name) })}
-                                    disabled={displayStatus !== "Complete"}
-                                    title={displayStatus !== "Complete" ? "Publishing requires Complete status" : "Publish this deliverable"}
-                                    style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "7px 10px", fontSize: 12, fontWeight: 600, borderRadius: 6, background: displayStatus === "Complete" ? "#1d4ed8" : "#f1f5f9", color: displayStatus === "Complete" ? "#fff" : "#94a3b8", border: "none", cursor: displayStatus === "Complete" ? "pointer" : "not-allowed" }}
-                                >
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a3 3 0 1 0 3.99 3.98m-9.19-1.17L2 21l2.44-2.44m5.57-5.57L18 5l3 3L13.01 13.01" /></svg>
-                                    Publish External
-                                </button>
+                                {item._publishedExternal ? (
+                                    <span style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "7px 10px", fontSize: 12, fontWeight: 700, borderRadius: 6, background: "#f0fdf4", color: "#166534", border: "1px solid #86efac" }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                                        Published External
+                                    </span>
+                                ) : (
+                                    <button
+                                        onClick={() => setPublishExternal({ step: 1, selectedArtifacts: workArtifacts.map(a => a.name) })}
+                                        disabled={displayStatus !== "Complete"}
+                                        title={displayStatus !== "Complete" ? "Publishing requires Complete status" : "Publish this deliverable"}
+                                        style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "7px 10px", fontSize: 12, fontWeight: 600, borderRadius: 6, background: displayStatus === "Complete" ? "#1d4ed8" : "#f1f5f9", color: displayStatus === "Complete" ? "#fff" : "#94a3b8", border: "none", cursor: displayStatus === "Complete" ? "pointer" : "not-allowed" }}
+                                    >
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a3 3 0 1 0 3.99 3.98m-9.19-1.17L2 21l2.44-2.44m5.57-5.57L18 5l3 3L13.01 13.01" /></svg>
+                                        Publish External
+                                    </button>
+                                )}
                                 <button
                                     onClick={doDuplicate}
                                     disabled={isDuplicate}
