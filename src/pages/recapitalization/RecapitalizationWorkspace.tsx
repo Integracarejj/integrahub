@@ -90,7 +90,7 @@ export default function RecapitalizationWorkspace() {
     const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
     const [editingNoteText, setEditingNoteText] = useState("");
     const workspaceUserKey = "integrasource.recap.workspaceUser";
-    const [currentUser, setCurrentUser] = useState(() => localStorage.getItem(workspaceUserKey) || TEAM_MEMBERS[0]);
+    const [currentUser] = useState(() => localStorage.getItem(workspaceUserKey) || TEAM_MEMBERS[0]);
     const [artifactBanner, setArtifactBanner] = useState<string | null>(null);
     const [publishExternal, setPublishExternal] = useState<{ step: number; selectedArtifacts: string[] } | null>(null);
     const [artifactDetail, setArtifactDetail] = useState<WorkArtifact | null>(null);
