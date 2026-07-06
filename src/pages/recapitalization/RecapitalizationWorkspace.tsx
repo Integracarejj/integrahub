@@ -22,6 +22,25 @@ function getInitials(name: string): string {
     return name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
 }
 
+const BADGE_STYLES: Record<string, { bg: string; fg: string; border: string; label: string }> = {
+    "Blocked": { bg: "#ffe4e6", fg: "#be123c", border: "#fecdd3", label: "text" },
+    "Duplicate": { bg: "#ede9fe", fg: "#6d28d9", border: "#ddd6fe", label: "text" },
+    "Not Applicable": { bg: "#f5f5f4", fg: "#78716c", border: "#e7e5e4", label: "text" },
+    "Not Mine": { bg: "#dbeafe", fg: "#1d4ed8", border: "#bfdbfe", label: "text" },
+    "Returned to Owner": { bg: "#fed7aa", fg: "#c2410c", border: "#fdba74", label: "text" },
+    "Completed": { bg: "#dcfce7", fg: "#16a34a", border: "#bbf7d0", label: "text" },
+    "Work Note": { bg: "#e0f2fe", fg: "#0284c7", border: "#bae6fd", label: "text" },
+    "Note": { bg: "#e0f2fe", fg: "#0284c7", border: "#bae6fd", label: "text" },
+    "DD Review": { bg: "#eef2ff", fg: "#4f46e5", border: "#c7d2fe", label: "text" },
+    "Status Note": { bg: "#f1f5f9", fg: "#475569", border: "#e2e8f0", label: "text" },
+};
+
+function getBadgeStyle(action: string | null) {
+    const key = action || "Status Note";
+    const s = BADGE_STYLES[key] || BADGE_STYLES["DD Review"];
+    return { display: "inline-block" as const, fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: s.bg, color: s.fg, border: `1px solid ${s.border}`, lineHeight: "16px", letterSpacing: "0.02em" };
+}
+
 function statusDot(color: string) {
     return <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />;
 }
@@ -63,12 +82,15 @@ export default function RecapitalizationWorkspace() {
     const [clarificationText, setClarificationText] = useState("");
 
     const [statusActionModal, setStatusActionModal] = useState<{ newStatus: RecapRequest["status"]; reason: string } | null>(null);
+    const [resolutionPrompt, setResolutionPrompt] = useState<{ note: string } | null>(null);
     const [completionModal, setCompletionModal] = useState<{ note: string; readyForReview: boolean } | null>(null);
     const [workArtifacts, setWorkArtifacts] = useState<WorkArtifact[]>([]);
     const [wnComposerOpen, setWnComposerOpen] = useState(false);
     const [wnText, setWnText] = useState("");
     const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
     const [editingNoteText, setEditingNoteText] = useState("");
+    const workspaceUserKey = "integrasource.recap.workspaceUser";
+    const [currentUser, setCurrentUser] = useState(() => localStorage.getItem(workspaceUserKey) || TEAM_MEMBERS[0]);
     const [artifactBanner, setArtifactBanner] = useState<string | null>(null);
     const [publishExternal, setPublishExternal] = useState<{ step: number; selectedArtifacts: string[] } | null>(null);
     const [artifactDetail, setArtifactDetail] = useState<WorkArtifact | null>(null);
@@ -238,7 +260,7 @@ export default function RecapitalizationWorkspace() {
         return notes;
     }, [item, wsRefreshKey]);
 
-    const ACTIVE_USER = "Sarah Chen";
+
 
     function doStatusChange(newStatus: RecapRequest["status"]) {
         const reqId = item.id || item.intakeId || "";
@@ -247,7 +269,7 @@ export default function RecapitalizationWorkspace() {
             type: "Status Change",
             description: `Status changed to ${newStatus}`,
             userId: "current-user",
-            userName: "Sarah Chen",
+            userName: currentUser,
             requestId: item.requestId || item.id,
             requestTitle: displayTitle || item.category || "",
             transactionId: item.transactionId,
@@ -264,9 +286,9 @@ export default function RecapitalizationWorkspace() {
         setInternalOwner(newOwner);
         addActivityEntry({
             type: "Assignment",
-            description: `${displayId}: ${newOwner ? `Assigned to ${newOwner}` : "Unassigned"} by Sarah Chen`,
+            description: `${displayId}: ${newOwner ? `Assigned to ${newOwner}` : "Unassigned"} by ${currentUser}`,
             userId: "current-user",
-            userName: "Sarah Chen",
+            userName: currentUser,
             requestId: item.requestId || item.id,
             requestTitle: displayTitle || item.category || "",
             transactionId: item.transactionId,
@@ -284,7 +306,7 @@ export default function RecapitalizationWorkspace() {
             type: "Status Change",
             description: "Marked as Duplicate",
             userId: "current-user",
-            userName: "Sarah Chen",
+            userName: currentUser,
             requestId: item.requestId || item.id,
             requestTitle: displayTitle || item.category || "",
             transactionId: item.transactionId,
@@ -309,7 +331,7 @@ export default function RecapitalizationWorkspace() {
 
     function submitClarification() {
         if (!clarificationText.trim()) return;
-        addConversationEntry(clarificationText.trim(), "Sarah Chen (Internal)");
+        addConversationEntry(clarificationText.trim(), currentUser + " (Internal)");
         setClarificationText("");
         setNeedClarificationOpen(false);
     }
@@ -396,6 +418,8 @@ export default function RecapitalizationWorkspace() {
                                                 setCompletionModal({ note: "", readyForReview: false });
                                             } else if (newStatus === "Blocked" || newStatus === "Duplicate" || newStatus === "Not Applicable") {
                                                 setStatusActionModal({ newStatus, reason: "" });
+                                            } else if (newStatus === "In Progress" && ["Blocked", "Duplicate", "Not Applicable"].includes(displayStatus)) {
+                                                setResolutionPrompt({ note: "" });
                                             } else {
                                                 doStatusChange(newStatus);
                                             }
@@ -432,6 +456,24 @@ export default function RecapitalizationWorkspace() {
                                         style={{ position: "absolute", inset: 0, width: "100%", opacity: 0, cursor: "pointer", fontSize: 13 }}
                                     >
                                         <option value="">Unassigned</option>
+                                        {TEAM_MEMBERS.map(n => <option key={n} value={n}>{n}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Active User */}
+                            <div>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 5 }}>User</div>
+                                <div style={{ position: "relative" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 32px 7px 10px", fontSize: 13, fontWeight: 500, borderRadius: 6, border: "1px solid #d1d5db", background: "#fff", pointerEvents: "none" }}>
+                                        <span style={{ width: 22, height: 22, borderRadius: "50%", background: "#dbeafe", color: "#1d4ed8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{getInitials(currentUser)}</span>
+                                        <span style={{ color: "#0f172a" }}>{currentUser}</span>
+                                    </div>
+                                    <select
+                                        value={currentUser}
+                                        onChange={e => { setCurrentUser(e.target.value); localStorage.setItem(workspaceUserKey, e.target.value); }}
+                                        style={{ position: "absolute", inset: 0, width: "100%", opacity: 0, cursor: "pointer", fontSize: 13 }}
+                                    >
                                         {TEAM_MEMBERS.map(n => <option key={n} value={n}>{n}</option>)}
                                     </select>
                                 </div>
@@ -549,7 +591,7 @@ export default function RecapitalizationWorkspace() {
                                             intakeId: item?.intakeId,
                                             originalFileName: f.name,
                                             displayFileName: generateDisplayFileName(displayId || id, displayTitle || item?.category || "", idx + i, f.name),
-                                            uploadedBy: "Sarah Chen",
+                                            uploadedBy: currentUser,
                                             artifactType: "Work Artifact",
                                             isPrototype: true,
                                         }));
@@ -558,7 +600,7 @@ export default function RecapitalizationWorkspace() {
                                         saveWorkArtifacts(artifactStorageKey, updated);
                                         if (files.length > 0) {
                                             setArtifactBanner(`\u2713 ${files.length} work artifact${files.length !== 1 ? "s" : ""} uploaded`);
-                                            addActivityEntry({ type: "Document", description: "Uploaded artifact" + (files.length > 1 ? "s" : "") + ": " + files.map(f => f.name).join(", "), userId: "current-user", userName: "Sarah Chen", requestId: id!, requestTitle: displayTitle || item?.category || "", transactionId: item?.transactionId || "", transactionName: item?.transactionName || item?.transactionId || "" });
+                                            addActivityEntry({ type: "Document", description: "Uploaded artifact" + (files.length > 1 ? "s" : "") + ": " + files.map(f => f.name).join(", "), userId: "current-user", userName: currentUser, requestId: id!, requestTitle: displayTitle || item?.category || "", transactionId: item?.transactionId || "", transactionName: item?.transactionName || item?.transactionId || "" });
                                         }
                                     }}
                                     style={{ border: "2px dashed #d1d5db", borderRadius: 8, padding: "20px 16px", textAlign: "center", cursor: "pointer", background: "#fafbfc", transition: "border-color 0.15s, background 0.15s" }}
@@ -587,7 +629,7 @@ export default function RecapitalizationWorkspace() {
                                                 intakeId: item?.intakeId,
                                                 originalFileName: f.name,
                                                 displayFileName: generateDisplayFileName(displayId || id, displayTitle || item?.category || "", idx + i, f.name),
-                                                uploadedBy: "Sarah Chen",
+                                                uploadedBy: currentUser,
                                                 artifactType: "Work Artifact",
                                                 isPrototype: true,
                                             }));
@@ -596,7 +638,7 @@ export default function RecapitalizationWorkspace() {
                                             saveWorkArtifacts(artifactStorageKey, updated);
                                             if (files.length > 0) {
                                                 setArtifactBanner(`\u2713 ${files.length} work artifact${files.length !== 1 ? "s" : ""} uploaded`);
-                                                addActivityEntry({ type: "Document", description: "Uploaded artifact" + (files.length > 1 ? "s" : "") + ": " + files.map(f => f.name).join(", "), userId: "current-user", userName: "Sarah Chen", requestId: id!, requestTitle: displayTitle || item?.category || "", transactionId: item?.transactionId || "", transactionName: item?.transactionName || item?.transactionId || "" });
+                                                addActivityEntry({ type: "Document", description: "Uploaded artifact" + (files.length > 1 ? "s" : "") + ": " + files.map(f => f.name).join(", "), userId: "current-user", userName: currentUser, requestId: id!, requestTitle: displayTitle || item?.category || "", transactionId: item?.transactionId || "", transactionName: item?.transactionName || item?.transactionId || "" });
                                             }
                                             e.target.value = "";
                                         }}
@@ -677,15 +719,15 @@ export default function RecapitalizationWorkspace() {
                             onToggle={() => toggleSection("workNotes")}
                         >
                             {/* Add Work Note composer */}
-                            <div style={{ marginBottom: 12, display: "flex", gap: 8, alignItems: "flex-start" }}>
+                            <div style={{ marginBottom: 16, display: "flex", gap: 8, alignItems: "flex-start" }}>
                                 {wnComposerOpen ? (
-                                    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, padding: "8px 10px", background: "#f8faff", border: "1px solid #dbeafe", borderRadius: 6 }}>
+                                    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, padding: "12px 14px", background: "#f0f7ff", border: "1px solid #93c5fd", borderRadius: 8, boxShadow: "0 2px 6px rgba(37,99,235,0.08)" }}>
                                         <textarea
                                             value={wnText}
                                             onChange={e => setWnText(e.target.value)}
                                             placeholder="Type a work note..."
                                             rows={2}
-                                            style={{ width: "100%", padding: "6px 8px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 4, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none" }}
+                                            style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #cbd5e1", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none" }}
                                             autoFocus
                                         />
                                         <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
@@ -693,7 +735,7 @@ export default function RecapitalizationWorkspace() {
                                             <button className="rc-btn rc-btn-primary rc-btn-sm" disabled={!wnText.trim()} onClick={() => {
                                                 if (!wnText.trim()) return;
                                                 const reqId = item.id || item.intakeId || "";
-                                                addWorkNote(reqId, wnText.trim(), ACTIVE_USER, "Work Note");
+                                                addWorkNote(reqId, wnText.trim(), currentUser, "Work Note");
                                                 setWsRefreshKey(k => k + 1);
                                                 setWnText("");
                                                 setWnComposerOpen(false);
@@ -702,58 +744,62 @@ export default function RecapitalizationWorkspace() {
                                     </div>
                                 ) : (
                                     <button
-                                        className="rc-btn rc-btn-secondary rc-btn-sm"
                                         onClick={() => setWnComposerOpen(true)}
-                                        style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 18px", fontSize: 13, fontWeight: 600, borderRadius: 8, background: "linear-gradient(135deg, #0ea5e9, #2563eb)", color: "#fff", border: "none", cursor: "pointer", boxShadow: "0 2px 8px rgba(37,99,235,0.25)", transition: "all 0.15s ease" }}
+                                        onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 4px 12px rgba(37,99,235,0.35)")}
+                                        onMouseLeave={e => (e.currentTarget.style.boxShadow = "0 2px 8px rgba(37,99,235,0.25)")}
                                     >
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
                                         Add Work Note
                                     </button>
                                 )}
                             </div>
 
                             {workNotes.length === 0 ? (
-                                <div style={{ padding: "4px 0", color: "#475569", fontSize: 13 }}>No work notes have been added yet.</div>
+                                <div style={{ padding: "12px 16px", color: "#475569", fontSize: 13, textAlign: "center", background: "#f8fafc", border: "1px dashed #cbd5e1", borderRadius: 8 }}>No work notes have been added yet.</div>
                             ) : (
-                                <div style={{ display: "flex", flexDirection: "column" }}>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                                     {workNotes.map(n => {
-                                        const isAuthor = n.author === ACTIVE_USER;
+                                        const isAuthor = n.author === currentUser;
+                                        const badgeKey = n.action || "Status Note";
+                                        const badgeRec = BADGE_STYLES[badgeKey] || BADGE_STYLES["DD Review"];
+                                        const badgeStyle = getBadgeStyle(n.action);
                                         return (
                                         <div key={n.id} style={{
-                                            padding: "12px 0",
-                                            borderBottom: "1px solid #f1f5f9",
+                                            padding: "12px 14px",
+                                            background: "#fafbff",
+                                            border: "1px solid #e2e8f0",
+                                            borderRadius: 8,
                                             display: "flex",
                                             gap: 10,
                                             alignItems: "flex-start",
-                                        }}>
-                                            <span style={{ width: 28, height: 28, borderRadius: "50%", background: "#fef3c7", color: "#92400e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>
+                                            transition: "box-shadow 0.15s ease, border-color 0.15s ease",
+                                        }}
+                                            onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 2px 8px rgba(15,23,42,0.06)"; e.currentTarget.style.borderColor = "#cbd5e1"; }}
+                                            onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "#e2e8f0"; }}
+                                        >
+                                            <span style={{ width: 30, height: 30, borderRadius: "50%", background: badgeRec.bg, color: badgeRec.fg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 1, border: `2px solid ${badgeRec.border}` }}>
                                                 {n.author ? n.author.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() : "WN"}
                                             </span>
                                             <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-                                                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}>
+                                                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, flexWrap: "wrap" }}>
                                                     <span style={{ fontWeight: 700, color: "#0f172a", fontSize: 12 }}>{n.author || "System"}</span>
                                                     {n.action && (
-                                                        <span style={{
-                                                            display: "inline-block", fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 3,
-                                                            background: "#f1f5f9",
-                                                            color: "#475569",
-                                                            lineHeight: "14px",
-                                                        }}>
+                                                        <span style={badgeStyle}>
                                                             {n.action}
                                                         </span>
                                                     )}
                                                     {n.timestamp && (
-                                                        <span style={{ color: "#475569", marginLeft: "auto", fontSize: 11 }}>
+                                                        <span style={{ color: "#64748b", marginLeft: "auto", fontSize: 11, whiteSpace: "nowrap" }}>
                                                             {new Date(n.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                                                         </span>
                                                     )}
-                                                    {/* Edit/delete for author only; TODO: add platform admin support */}
                                                     {isAuthor && (
                                                         <span style={{ display: "inline-flex", gap: 4, marginLeft: 6 }}>
                                                             {editingNoteId === n.id ? null : (
                                                                 <button
                                                                     onClick={() => { setEditingNoteId(n.id); setEditingNoteText(n.text); }}
-                                                                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#64748b", lineHeight: 1 }}
+                                                                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#94a3b8", lineHeight: 1 }}
                                                                     title="Edit note"
                                                                 >
                                                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
@@ -765,7 +811,7 @@ export default function RecapitalizationWorkspace() {
                                                                     deleteWorkNote(reqId, n.id);
                                                                     setWsRefreshKey(k => k + 1);
                                                                 }}
-                                                                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#dc2626", lineHeight: 1 }}
+                                                                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#f87171", lineHeight: 1 }}
                                                                 title="Delete note"
                                                             >
                                                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
@@ -774,12 +820,12 @@ export default function RecapitalizationWorkspace() {
                                                     )}
                                                 </div>
                                                 {editingNoteId === n.id ? (
-                                                    <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "8px", background: "#f8faff", border: "1px solid #dbeafe", borderRadius: 6, marginTop: 4 }}>
+                                                    <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "10px 12px", background: "#f0f7ff", border: "1px solid #93c5fd", borderRadius: 8, marginTop: 4 }}>
                                                         <textarea
                                                             value={editingNoteText}
                                                             onChange={e => setEditingNoteText(e.target.value)}
                                                             rows={2}
-                                                            style={{ width: "100%", padding: "6px 8px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 4, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none" }}
+                                                            style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #cbd5e1", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none" }}
                                                             autoFocus
                                                         />
                                                         <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
@@ -794,7 +840,7 @@ export default function RecapitalizationWorkspace() {
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <div style={{ fontSize: 13, color: "#1e293b", lineHeight: 1.5 }}>{n.text}</div>
+                                                    <div style={{ fontSize: 13, color: "#1e293b", lineHeight: 1.6, marginTop: 4 }}>{n.text}</div>
                                                 )}
                                             </div>
                                         </div>
@@ -922,7 +968,7 @@ export default function RecapitalizationWorkspace() {
                             <div style={{ fontSize: 12, color: "#334155", marginBottom: 14, display: "flex", flexDirection: "column", gap: 8 }}>
                                 <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Request ID</span> {displayId}</div>
                                 <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Deliverable</span> {displayTitle || item.category || "\u2014"}</div>
-                                <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Asked by</span> Sarah Chen</div>
+                                <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Asked by</span> {currentUser}</div>
                             </div>
                             <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6, display: "block" }}>Clarification Question</label>
                             <textarea
@@ -977,12 +1023,12 @@ export default function RecapitalizationWorkspace() {
                                                                 const reqId = item.id || item.intakeId || "";
                                                                 updateRequestStatus(reqId, statusActionModal.newStatus);
                                                                 updateRequestStatusNotes(reqId, reason);
-                                                                addWorkNote(reqId, reason, "Sarah Chen", statusActionModal.newStatus);
+                                                                addWorkNote(reqId, reason, currentUser, statusActionModal.newStatus);
                                                                 addActivityEntry({
                                     type: "Status Change",
                                     description: `${displayId}: ${statusActionModal.newStatus}. Reason: ${reason}`,
                                     userId: "current-user",
-                                    userName: "Sarah Chen",
+                                    userName: currentUser,
                                     requestId: item.requestId || item.id,
                                     requestTitle: displayTitle || item.category || "",
                                     transactionId: item.transactionId,
@@ -1041,18 +1087,18 @@ export default function RecapitalizationWorkspace() {
                                 const now = new Date().toISOString().split("T")[0];
                                 const reqId = item.id || item.intakeId || "";
                                 updateRequestCompletion(reqId, {
-                                    completedBy: "Sarah Chen",
+                                    completedBy: currentUser,
                                     completedAt: now,
                                     completionNotes: note,
                                 });
                                 if (note) {
-                                    addWorkNote(reqId, note, "Sarah Chen", "Completed");
+                                    addWorkNote(reqId, note, currentUser, "Completed");
                                 }
                                 addActivityEntry({
                                     type: "Status Change",
                                     description: `Marked as Complete. Notes: ${note || "none provided"}`,
                                     userId: "current-user",
-                                    userName: "Sarah Chen",
+                                    userName: currentUser,
                                     requestId: item.requestId || item.id,
                                     requestTitle: displayTitle || item.category || "",
                                     transactionId: item.transactionId,
@@ -1063,6 +1109,41 @@ export default function RecapitalizationWorkspace() {
                                 setBannerError(false);
                                 setCompletionModal(null);
                             }}>Submit Completion</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {resolutionPrompt && (
+                <div className="rc-modal-overlay" onClick={() => { doStatusChange("In Progress"); setResolutionPrompt(null); }}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+                        <div className="rc-modal-header">
+                            <h2>Add a resolution note?</h2>
+                            <button className="rc-modal-close" onClick={() => { doStatusChange("In Progress"); setResolutionPrompt(null); }}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ fontSize: 12, color: "#475569", marginBottom: 12, lineHeight: 1.5 }}>
+                                The status is being changed from <strong>{displayStatus}</strong> to <strong>In Progress</strong>. Optionally add a resolution note to explain what was resolved.
+                            </div>
+                            <textarea
+                                value={resolutionPrompt.note}
+                                onChange={e => setResolutionPrompt({ note: e.target.value })}
+                                placeholder="What was resolved? (optional)"
+                                rows={3}
+                                style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
+                            />
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => { doStatusChange("In Progress"); setResolutionPrompt(null); }}>Skip</button>
+                            <button className="rc-btn rc-btn-primary" onClick={() => {
+                                const note = resolutionPrompt.note.trim();
+                                const reqId = item.id || item.intakeId || "";
+                                doStatusChange("In Progress");
+                                if (note) {
+                                    addWorkNote(reqId, note, currentUser, "Work Note");
+                                }
+                                setResolutionPrompt(null);
+                            }}>{resolutionPrompt.note.trim() ? "Save & Continue" : "Continue"}</button>
                         </div>
                     </div>
                 </div>
@@ -1307,9 +1388,9 @@ export default function RecapitalizationWorkspace() {
                                     const artCount = workArtifacts.length;
                                     addActivityEntry({
                                         type: "Status Change",
-                                        description: `${displayId}: Published externally by Sarah Chen` + (artCount > 0 ? ` (${artCount} artifact${artCount !== 1 ? "s" : ""})` : ""),
+                                        description: `${displayId}: Published externally by ${currentUser}` + (artCount > 0 ? ` (${artCount} artifact${artCount !== 1 ? "s" : ""})` : ""),
                                         userId: "current-user",
-                                        userName: "Sarah Chen",
+                                        userName: currentUser,
                                         requestId: item.requestId || item.id,
                                         requestTitle: displayTitle || item.category || "",
                                         transactionId: item.transactionId,
@@ -1323,7 +1404,7 @@ export default function RecapitalizationWorkspace() {
                                         <>
                                             <button className="rc-btn rc-btn-primary" style={{ width: "100%" }} onClick={() => {
                                                 const reqId = item.id || item.intakeId || "";
-                                                promoteToReusableKnowledge(reqId, "Promoted", workArtifacts.map(a => a.id), "Sarah Chen");
+                                                promoteToReusableKnowledge(reqId, "Promoted", workArtifacts.map(a => a.id), currentUser);
                                                 setPublishExternal(null);
                                                 setBanner(`\u2713 Published externally. ${displayId} promoted to Reusable Knowledge.`);
                                                 setBannerError(false);
@@ -1331,7 +1412,7 @@ export default function RecapitalizationWorkspace() {
                                             }}>Promote to Reusable Knowledge</button>
                                             <button className="rc-btn rc-btn-secondary" style={{ width: "100%" }} onClick={() => {
                                                 const reqId = item.id || item.intakeId || "";
-                                                promoteToReusableKnowledge(reqId, "Skipped", workArtifacts.map(a => a.id), "Sarah Chen");
+                                                promoteToReusableKnowledge(reqId, "Skipped", workArtifacts.map(a => a.id), currentUser);
                                                 setPublishExternal(null);
                                                 setBanner(`\u2713 Published externally. ${displayId} skipped Reusable Knowledge promotion.`);
                                                 setBannerError(false);
