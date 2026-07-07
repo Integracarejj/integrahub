@@ -85,6 +85,7 @@ export interface PortalRequest {
     /** Internal field: whether this was published externally */
     _publishedExternal?: boolean;
     _publishedWithoutDocuments?: boolean;
+    _publishedExternalNote?: string;
 }
 
 export interface PortalQuestion {
@@ -220,8 +221,10 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
         portalStatus = "Action Needed";
     } else if (req.status === "Complete") {
         portalStatus = "Quality Review";
-    } else if (req.status === "Open" || req.status === "In Progress" || req.status === "Blocked") {
+    } else if (req.status === "In Progress" || req.status === "Blocked") {
         portalStatus = "In Progress";
+    } else if (req.status === "Open") {
+        portalStatus = "Intake Review";
     } else {
         portalStatus = "Intake Review";
     }
@@ -246,6 +249,7 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
         externalStatus: req._externalStatus,
         _publishedExternal: !!req._publishedExternal,
         _publishedWithoutDocuments: req._publishedWithoutDocuments,
+        _publishedExternalNote: req._publishedExternalNote,
     };
 }
 

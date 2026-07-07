@@ -63,6 +63,8 @@ export interface RecapRequest {
     _needsReassignment?: boolean;
     _statusNotes?: string | null;
     _workNotes?: WorkNoteEntry[];
+    _externalMessages?: ExternalMessageEntry[];
+    _publishedExternalNote?: string;
     _reusableKnowledgeCandidate?: boolean;
     _reusableKnowledgeStatus?: "Promoted" | "Skipped" | null;
     _reusableKnowledgeArtifactIds?: string[];
@@ -74,6 +76,13 @@ export interface WorkNoteEntry {
     author: string;
     timestamp: string;
     action?: string | null;
+}
+
+export interface ExternalMessageEntry {
+    id: string;
+    text: string;
+    author: string;
+    timestamp: string;
 }
 
 export interface RecapIntakeItem {

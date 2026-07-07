@@ -42,12 +42,7 @@ interface AnalysisResult {
 
 type UploadState = "idle" | "selected" | "analyzing" | "complete" | "submitted";
 
-const PROCESS_STEPS = [
-    { key: "submission", label: "Submission", desc: "Package uploaded and analyzed" },
-    { key: "intake", label: "Intake", desc: "Under internal review" },
-    { key: "dd-review", label: "DD Review", desc: "Due diligence in progress" },
-    { key: "published", label: "External Publishing", desc: "Published to portal" },
-];
+
 
 /* ── Activity Icon ── */
 
@@ -145,13 +140,24 @@ export default function PortalOverview() {
     const qualityReviewCount = portalRequests.filter(r => r.status === "Quality Review" && !r._publishedExternal && r.externalStatus !== "Published External").length;
     const intakeCount = portalRequests.filter(r => r.status === "Intake Review").length;
     const actionNeededCount = portalRequests.filter(r => r.status === "Action Needed").length;
-    const inProgress = portalRequests.filter(r => r.status === "In Progress" || r.status === "Action Needed" || r.status === "Intake Review").length;
+    const inProgress = portalRequests.filter(r => r.status === "In Progress").length;
     const visibleRequests = portalRequests.filter(r => r.status !== "Closed");
 
-    const hasPublished = publishedCount > 0;
-    const hasInProgress = visibleRequests.some(r => r.status !== "Published");
-    const hasSubmissions = submissions.length > 0;
-    const processStep = hasPublished ? 3 : hasInProgress ? 2 : hasSubmissions ? 1 : 0;
+    const [dashboardSearch, setDashboardSearch] = useState("");
+    const [dashboardFilterStatus, setDashboardFilterStatus] = useState("all");
+    const [dashboardFilterCategory, setDashboardFilterCategory] = useState("all");
+    const dashboardCategories = [...new Set(portalRequests.map(r => r.category))];
+    const dashboardFiltered = visibleRequests.filter(r => {
+        if (dashboardFilterStatus !== "all" && r.status !== dashboardFilterStatus) return false;
+        if (dashboardFilterCategory !== "all" && r.category !== dashboardFilterCategory) return false;
+        if (dashboardSearch) {
+            const q = dashboardSearch.toLowerCase();
+            if (!r.title.toLowerCase().includes(q) && !r.requestId.toLowerCase().includes(q)) return false;
+        }
+        return true;
+    });
+
+
 
     /* ── Refresh / Polling ── */
     const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
@@ -273,6 +279,8 @@ export default function PortalOverview() {
         setBanner("Package submitted successfully!");
     };
 
+    const showUploadFirst = submissions.length === 0 && uploadState === "idle";
+
     return (
         <div className="portal-overview">
             {banner && (
@@ -300,7 +308,48 @@ export default function PortalOverview() {
             </div>
 
             {/* ── Upload Package Card ── */}
-            {uploadState !== "submitted" && (
+            {showUploadFirst && (
+            <>
+                <div style={{ textAlign: "center", padding: "40px 20px", marginBottom: 20 }}>
+                    <h2 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 8 }}>Upload your due diligence request list to begin</h2>
+                    <p style={{ fontSize: 14, color: "#64748b", maxWidth: 500, margin: "0 auto 24px", lineHeight: 1.6 }}>
+                        The process starts when you provide your request list or package. Upload an Excel file (.xlsx, .xls, .csv) with your due diligence requests and we will route them to the IntegraCare team for review.
+                    </p>
+                    <div ref={dropZoneRef} style={{ border: "2px dashed #cbd5e1", borderRadius: 14, padding: 28, textAlign: "center", background: "#fafbfc", maxWidth: 520, margin: "0 auto 28px" }}>
+                        <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleFileSelected} />
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 10px" }}>
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" />
+                            <line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                        <h3 style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", margin: "0 0 4px" }}>Upload Due Diligence Package</h3>
+                        <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 16px" }}>Upload Excel request list (.xlsx, .xls, .csv) containing your due diligence requests.</p>
+                        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                            <button className="rc-btn rc-btn-primary" onClick={handleBrowseClick}>Browse Files</button>
+                            <button className="rc-btn rc-btn-secondary" onClick={handleLoadABCDemo}>Load ABC Gold Standard Demo Package</button>
+                        </div>
+                    </div>
+                    <div style={{ maxWidth: 520, margin: "0 auto" }}>
+                        <h3 style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 12 }}>How it works</h3>
+                        <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
+                            {[
+                                { step: "1", title: "Upload", desc: "Upload your DD request list as an Excel file" },
+                                { step: "2", title: "Review", desc: "IntegraCare reviews and routes your requests" },
+                                { step: "3", title: "Track", desc: "Monitor progress and published results here" },
+                            ].map(s => (
+                                <div key={s.step} style={{ flex: 1, textAlign: "center", padding: "12px 8px", border: "1px solid #e2e8f0", borderRadius: 8, background: "#fff" }}>
+                                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#eef2ff", color: "#4338ca", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 6px", fontSize: 13, fontWeight: 700 }}>{s.step}</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 2 }}>{s.title}</div>
+                                    <div style={{ fontSize: 11, color: "#64748b", lineHeight: 1.4 }}>{s.desc}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </>
+            )}
+
+            {!showUploadFirst && uploadState !== "submitted" && (
                 <div ref={dropZoneRef} style={{
                     border: "2px dashed #cbd5e1", borderRadius: 14, padding: 28, marginBottom: 20,
                     textAlign: "center", background: "#fafbfc",
@@ -385,7 +434,7 @@ export default function PortalOverview() {
             {uploadState === "submitted" && analysis && (
                 <div style={{ marginBottom: 20 }}>
                     <div style={{ border: "1px solid #bbf7d0", borderRadius: 14, padding: 20, background: "#f0fdf4" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <polyline points="20 6 9 17 4 12" />
                             </svg>
@@ -396,102 +445,43 @@ export default function PortalOverview() {
                                 </span>
                             </div>
                         </div>
-                        {(() => {
-                            const steps = [
-                                { label: "Submitted", done: true, desc: "Package received" },
-                                { label: "Internal Review", done: true, desc: "Under review by IntegraCare" },
-                                { label: "Assigned", done: false, desc: "Awaiting internal assignment" },
-                                { label: "Published to Tracker", done: false, desc: "Pending review approval" },
-                                { label: "Complete", done: false, desc: "All requests processed" },
-                            ];
-                            return (
-                                <div style={{ display: "flex", alignItems: "flex-start", gap: 0, marginBottom: 8 }}>
-                                    {steps.map((s, i) => (
-                                        <div key={s.label} style={{ flex: 1, textAlign: "center", position: "relative" }}>
-                                            {i > 0 && <div style={{ position: "absolute", top: 12, left: 0, right: "50%", height: 2, background: s.done ? "#166534" : "#e2e8f0", zIndex: 0 }} />}
-                                            <div style={{ position: "relative", zIndex: 1, width: 24, height: 24, borderRadius: "50%", background: s.done ? "#166534" : "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}>
-                                                {s.done ? (
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                                                ) : (
-                                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#94a3b8" }} />
-                                                )}
-                                            </div>
-                                            <div style={{ marginTop: 6, fontSize: 10, fontWeight: 700, color: s.done ? "#166534" : "#94a3b8" }}>{s.label}</div>
-                                            <div style={{ fontSize: 9, color: "#94a3b8" }}>{s.desc}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            );
-                        })()}
                     </div>
                     <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ marginTop: 12 }}>Upload Another Package</button>
                 </div>
             )}
 
-            {/* ── Process Overview ── */}
-            <div className="po-section">
-                <h2 className="po-section-title">Process Overview</h2>
-                <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "18px 20px", background: "#fff" }}>
-                    <div className="po-process-bar">
-                        {PROCESS_STEPS.map((step, i) => {
-                            const completed = i < processStep;
-                            const active = i === processStep;
-                            const statusColor = completed ? "#6366f1" : active ? "#4f46e5" : "#d1d5db";
-                            const bgColor = completed ? "#6366f1" : active ? "#eef2ff" : "#f1f5f9";
-                            return (
-                                <div key={step.key} style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                                    {i > 0 && (
-                                        <div style={{ position: "absolute", top: 14, left: 0, right: "50%", height: 2, background: completed ? "#6366f1" : active ? "#c7d2fe" : "#e2e8f0", zIndex: 0 }} />
-                                    )}
-                                    <div style={{ position: "relative", zIndex: 1, width: 28, height: 28, borderRadius: "50%", background: bgColor, border: `2px solid ${statusColor}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 6 }}>
-                                        {completed ? (
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                                        ) : active ? (
-                                            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#4f46e5" }} />
-                                        ) : (
-                                            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#94a3b8" }} />
-                                        )}
-                                    </div>
-                                    <div style={{ fontSize: 10, fontWeight: 700, color: completed || active ? "#4338ca" : "#94a3b8", textAlign: "center", lineHeight: 1.3 }}>{step.label}</div>
-                                    <div style={{ fontSize: 9, color: "#94a3b8", textAlign: "center", lineHeight: 1.3, marginTop: 2 }}>{step.desc}</div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            </div>
-
-            {/* ── Summary Cards ── */}
+            {!showUploadFirst && (
+            <>
             <div className="po-stats-row">
-                <div className="po-stat-card">
+                <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => navigate("/portal/requests")}>
                     <span className="po-stat-value">{visibleRequests.length}</span>
                     <span className="po-stat-label">Total Requests</span>
                 </div>
                 {intakeCount > 0 && (
-                    <div className="po-stat-card">
+                    <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => navigate("/portal/requests?status=Intake+Review")}>
                         <span className="po-stat-value po-stat-value--indigo">{intakeCount}</span>
                         <span className="po-stat-label">Intake Review</span>
                     </div>
                 )}
-                <div className="po-stat-card">
+                <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => navigate("/portal/requests?status=In+Progress")}>
                     <span className="po-stat-value po-stat-value--blue">{inProgress}</span>
                     <span className="po-stat-label">In Progress</span>
                 </div>
-                <div className="po-stat-card">
+                <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => navigate("/portal/requests?status=Quality+Review")}>
                     <span className="po-stat-value po-stat-value--amber">{qualityReviewCount}</span>
                     <span className="po-stat-label">Quality Review</span>
                 </div>
-                <div className="po-stat-card" style={publishedCount > 0 ? { borderColor: "#166534", background: "#f0fdf4" } : undefined}>
+                <div className="po-stat-card" style={{ cursor: "pointer", ...(publishedCount > 0 ? { borderColor: "#166534", background: "#f0fdf4" } : {}) }} onClick={() => navigate("/portal/requests?status=Published")}>
                     <span className="po-stat-value po-stat-value--green">{publishedCount}</span>
                     <span className="po-stat-label">{publishedCount > 0 ? "Published / Ready to Review" : "Published"}</span>
                 </div>
                 {actionNeededCount > 0 && (
-                    <div className="po-stat-card">
+                    <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => navigate("/portal/requests?status=Action+Needed")}>
                         <span className="po-stat-value po-stat-value--red">{actionNeededCount}</span>
                         <span className="po-stat-label">Action Needed</span>
-                    </div>
-                )}
             </div>
+            )}
+        </div>
             <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "right", marginBottom: 16 }}>
                 Last updated: {lastUpdated.toLocaleTimeString()}
             </div>
@@ -506,11 +496,31 @@ export default function PortalOverview() {
                             <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>No requests submitted yet. Upload a package to get started.</p>
                         </div>
                     ) : (
-                        <div style={{ border: "1px solid var(--is-border, #93c5fd)", borderRadius: 10, overflow: "hidden", boxShadow: "var(--is-shadow-card, 0 8px 20px rgba(15, 23, 42, 0.08))" }}>
+                        <>
+                            <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 4, border: "1px solid #e2e8f0", borderRadius: 6, padding: "2px 8px", background: "#fff", flex: 1, minWidth: 150 }}>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                                    <input type="text" placeholder="Search..." value={dashboardSearch} onChange={e => setDashboardSearch(e.target.value)} style={{ border: "none", outline: "none", fontSize: 12, flex: 1, padding: "4px 0", background: "transparent" }} />
+                                </div>
+                                <select className="rc-filter-select" value={dashboardFilterStatus} onChange={e => setDashboardFilterStatus(e.target.value)} style={{ minWidth: 110, fontSize: 11 }}>
+                                    <option value="all">All Statuses</option>
+                                    <option value="Intake Review">Intake Review</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Quality Review">Quality Review</option>
+                                    <option value="Published">Published</option>
+                                    <option value="Action Needed">Action Needed</option>
+                                    <option value="Closed">Closed</option>
+                                </select>
+                                <select className="rc-filter-select" value={dashboardFilterCategory} onChange={e => setDashboardFilterCategory(e.target.value)} style={{ minWidth: 110, fontSize: 11 }}>
+                                    <option value="all">All Categories</option>
+                                    {dashboardCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
+                            <div style={{ border: "1px solid var(--is-border, #93c5fd)", borderRadius: 10, overflow: "hidden", boxShadow: "var(--is-shadow-card, 0 8px 20px rgba(15, 23, 42, 0.08))" }}>
                             <div style={{ display: "grid", gridTemplateColumns: "2fr 1.2fr 1fr 0.8fr", gap: 8, padding: "10px 14px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em" }}>
                                 <span>Request</span><span>Community</span><span>Status</span><span>Updated</span>
                             </div>
-                            {visibleRequests.slice(0, 10).map((req) => (
+                            {dashboardFiltered.slice(0, 10).map((req) => (
                                 <div key={req.id} style={{ display: "grid", gridTemplateColumns: "2fr 1.2fr 1fr 0.8fr", gap: 8, padding: "10px 14px", borderBottom: "1px solid #f1f5f9", fontSize: 13, alignItems: "center", cursor: "pointer" }} onClick={() => navigate(`/portal/requests/${req.id}`)}>
                                     <span style={{ fontWeight: 600, color: "var(--is-text-heading, #0f172a)" }}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</span>
                                     <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.communityNames[0] || "\u2014"}</span>
@@ -526,8 +536,9 @@ export default function PortalOverview() {
                                 </div>
                             ))}
                         </div>
+                        </>
                     )}
-                    {visibleRequests.length > 10 && (
+                            {dashboardFiltered.length > 10 && (
                         <div style={{ textAlign: "right", marginTop: 6 }}>
                             <span style={{ fontSize: 12, color: "#6366f1", fontWeight: 600, cursor: "pointer" }} onClick={() => navigate("/portal/requests")}>View all requests &rarr;</span>
                         </div>
@@ -548,7 +559,8 @@ export default function PortalOverview() {
                     </div>
                 </div>
             </div>
-
+            </>
+            )}
 
         </div>
     );

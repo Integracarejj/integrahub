@@ -3,12 +3,12 @@ import * as Demo from "./recapDemoData";
 import * as Mock from "./recapMockData";
 import type {
     RecapTransaction, RecapRequest, RecapIntakeItem,
-    RecapDocument, RecapActivity, RecapTeamMember, RecapCategory, RecapDeliverable, WorkNoteEntry,
+    RecapDocument, RecapActivity, RecapTeamMember, RecapCategory, RecapDeliverable, WorkNoteEntry, ExternalMessageEntry,
 } from "./recapMockData";
 
 export type {
     RecapTransaction, RecapRequest, RecapIntakeItem,
-    RecapDocument, RecapActivity, RecapTeamMember, RecapCategory, RecapDeliverable, WorkNoteEntry,
+    RecapDocument, RecapActivity, RecapTeamMember, RecapCategory, RecapDeliverable, WorkNoteEntry, ExternalMessageEntry,
 };
 
 export function isRecapDataWiped(): boolean {
@@ -418,15 +418,19 @@ export function updateRequestNotMine(id: string, reason: string, userName: strin
     return req;
 }
 
-export function updateRequestExternalStatus(id: string, publishedWithoutDocuments?: boolean): RecapRequest | undefined {
+export function updateRequestExternalStatus(id: string, publishedWithoutDocuments?: boolean, externalNote?: string): RecapRequest | undefined {
+    const patch: Partial<RecapRequest> = { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0], _externalStatus: "Published External", _publishedWithoutDocuments: publishedWithoutDocuments ?? false, _publishedExternalNote: externalNote };
     if (isDemoLoaded()) {
-        const result = Demo.updateDemoRequest(id, { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0], _externalStatus: "Published External", _publishedWithoutDocuments: publishedWithoutDocuments ?? false });
+        const result = Demo.updateDemoRequest(id, patch);
         if (result) return result;
-        return updatePortalRequestById(id, { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0], _externalStatus: "Published External", _publishedWithoutDocuments: publishedWithoutDocuments ?? false });
+        return updatePortalRequestById(id, patch);
     }
     const result = Mock.updateExternalPublishStatus(id, publishedWithoutDocuments);
-    if (result) return result;
-    return updatePortalRequestById(id, { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0], _externalStatus: "Published External", _publishedWithoutDocuments: publishedWithoutDocuments ?? false });
+    if (result) {
+        result._publishedExternalNote = externalNote;
+        return result;
+    }
+    return updatePortalRequestById(id, patch);
 }
 
 export function toggleExternalVisibility(id: string): RecapRequest | undefined {
@@ -532,6 +536,55 @@ export function deleteWorkNote(id: string, noteId: string): boolean {
         }
     }
     return true;
+}
+
+export function addExternalMessage(id: string, text: string, author: string): ExternalMessageEntry | undefined {
+    const entry: ExternalMessageEntry = {
+        id: `em-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text,
+        author,
+        timestamp: new Date().toISOString(),
+    };
+    const req = getRequestById(id);
+    if (!req) return;
+    const messages = [...(req._externalMessages || []), entry];
+    if (isDemoLoaded()) {
+        Demo.updateDemoRequest(id, { _externalMessages: messages });
+        addActivityEntry({
+            type: "Comment",
+            description: `External message: ${text}`,
+            userId: author,
+            userName: author,
+            requestId: req.id,
+            requestTitle: req.title,
+            transactionId: req.transactionId,
+            transactionName: req.transactionName,
+        });
+        return entry;
+    }
+    const mockReq = Mock.getRequestById(id);
+    if (mockReq) {
+        mockReq._externalMessages = messages;
+        mockReq.lastUpdated = new Date().toISOString().split("T")[0];
+    } else {
+        updatePortalRequestById(id, { _externalMessages: messages });
+    }
+    addActivityEntry({
+        type: "Comment",
+        description: `External message: ${text}`,
+        userId: author,
+        userName: author,
+        requestId: req.id,
+        requestTitle: req.title,
+        transactionId: req.transactionId,
+        transactionName: req.transactionName,
+    });
+    return entry;
+}
+
+export function getExternalMessages(id: string): ExternalMessageEntry[] {
+    const req = getRequestById(id);
+    return req?._externalMessages || [];
 }
 
 export function promoteToReusableKnowledge(

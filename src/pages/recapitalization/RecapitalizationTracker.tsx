@@ -53,6 +53,7 @@ export default function RecapitalizationTracker() {
     const [detailModalItem, setDetailModalItem] = useState<RecapRequest | null>(null);
     const [publishStep, setPublishStep] = useState(0);
     const [publishSelectedArtifactNames, setPublishSelectedArtifactNames] = useState<string[]>([]);
+    const [publishExternalNote, setPublishExternalNote] = useState("");
     const [confirmAction, setConfirmAction] = useState<{ title: string; action: () => void } | null>(null);
     const [statusConfirm, setStatusConfirm] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
     const [artifactWarning, setArtifactWarning] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
@@ -416,7 +417,7 @@ export default function RecapitalizationTracker() {
                                                 Published
                                             </span>
                                         ) : (
-                                            <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Publish External" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setPublishStep(1); setPublishSelectedArtifactNames(getWorkArtifactsByRequest(getArtifactKey(req)).map(a => a.name)); }} style={{ fontSize: 12, fontWeight: 700, color: "#166534" }}>P</button>
+                                            <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Publish External" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setPublishStep(1); setPublishSelectedArtifactNames(getWorkArtifactsByRequest(getArtifactKey(req)).map(a => a.name)); setPublishExternalNote(""); }} style={{ fontSize: 12, fontWeight: 700, color: "#166534" }}>P</button>
                                         )}
                                     </div>
                                 </td>
@@ -740,6 +741,16 @@ export default function RecapitalizationTracker() {
                                             <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
                                                 Please confirm you want to publish these materials externally.
                                             </div>
+                                            <div>
+                                                <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 4 }}>Add optional note for external partner</div>
+                                                <textarea
+                                                    value={publishExternalNote}
+                                                    onChange={e => setPublishExternalNote(e.target.value)}
+                                                    placeholder="e.g. Only available communities are included."
+                                                    rows={2}
+                                                    style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #cbd5e1", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none" }}
+                                                />
+                                            </div>
                                         </div>
                                     )}
 
@@ -828,7 +839,7 @@ export default function RecapitalizationTracker() {
                                     )}
                                     {publishStep === 2 && (
                                         <button className="rc-btn rc-btn-primary" onClick={() => {
-                                            updateRequestExternalStatus(detailModalItem.id);
+                                            updateRequestExternalStatus(detailModalItem.id, publishSelectedArtifactNames.length === 0, publishExternalNote || undefined);
                                             setRefreshKey(k => k + 1);
                                             setPublishStep(3);
                                         }}>Confirm Publish External</button>

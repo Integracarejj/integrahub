@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive } from "../../services/recapDataService";
+import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive, addExternalMessage } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -87,12 +87,15 @@ export default function RecapitalizationWorkspace() {
     const [workArtifacts, setWorkArtifacts] = useState<WorkArtifact[]>([]);
     const [wnComposerOpen, setWnComposerOpen] = useState(false);
     const [wnText, setWnText] = useState("");
+    const [extMsgComposerOpen, setExtMsgComposerOpen] = useState(false);
+    const [extMsgText, setExtMsgText] = useState("");
+    const [extMsgConfirm, setExtMsgConfirm] = useState(false);
     const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
     const [editingNoteText, setEditingNoteText] = useState("");
     const workspaceUserKey = "integrasource.recap.workspaceUser";
     const [currentUser] = useState(() => localStorage.getItem(workspaceUserKey) || TEAM_MEMBERS[0]);
     const [artifactBanner, setArtifactBanner] = useState<string | null>(null);
-    const [publishExternal, setPublishExternal] = useState<{ step: number; selectedArtifacts: string[] } | null>(null);
+    const [publishExternal, setPublishExternal] = useState<{ step: number; selectedArtifacts: string[]; note: string } | null>(null);
     const [artifactDetail, setArtifactDetail] = useState<WorkArtifact | null>(null);
 
     // Stable storage key for artifact persistence: use requestId > intakeId > route id
@@ -486,7 +489,7 @@ export default function RecapitalizationWorkspace() {
                                     </span>
                                 ) : (
                                     <button
-                                        onClick={() => setPublishExternal({ step: 1, selectedArtifacts: workArtifacts.map(a => a.name) })}
+                                        onClick={() => setPublishExternal({ step: 1, selectedArtifacts: workArtifacts.map(a => a.name), note: "" })}
                                         disabled={displayStatus !== "Complete"}
                                         title={displayStatus !== "Complete" ? "Publishing requires Complete status" : "Publish this deliverable"}
                                         style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "7px 10px", fontSize: 12, fontWeight: 600, borderRadius: 6, background: displayStatus === "Complete" ? "#1d4ed8" : "#f1f5f9", color: displayStatus === "Complete" ? "#fff" : "#94a3b8", border: "none", cursor: displayStatus === "Complete" ? "pointer" : "not-allowed" }}
@@ -905,9 +908,52 @@ export default function RecapitalizationWorkspace() {
                                 </div>
                             )}
 
-                            <div style={{ padding: "8px 12px", marginTop: 8, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12, color: "#475569", display: "flex", alignItems: "center", gap: 6 }}>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
-                                External messaging will be connected to the external portal in a future phase.
+                            <div style={{ marginTop: 12, display: "flex", gap: 8, alignItems: "flex-start" }}>
+                                {extMsgComposerOpen ? (
+                                    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, padding: "12px 14px", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8 }}>
+                                        {extMsgConfirm ? (
+                                            <div style={{ padding: "8px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b", display: "flex", alignItems: "center", gap: 6 }}>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                                This message will be visible to the external partner. Continue?
+                                            </div>
+                                        ) : null}
+                                        <textarea
+                                            value={extMsgText}
+                                            onChange={e => setExtMsgText(e.target.value)}
+                                            placeholder="Type an external message..."
+                                            rows={2}
+                                            style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #cbd5e1", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none" }}
+                                            autoFocus
+                                        />
+                                        {extMsgConfirm ? (
+                                            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setExtMsgComposerOpen(false); setExtMsgText(""); setExtMsgConfirm(false); }}>Cancel</button>
+                                                <button className="rc-btn rc-btn-primary rc-btn-sm" disabled={!extMsgText.trim()} onClick={() => {
+                                                    if (!extMsgText.trim()) return;
+                                                    const reqId = item.id || item.intakeId || "";
+                                                    addExternalMessage(reqId, extMsgText.trim(), currentUser);
+                                                    setWsRefreshKey(k => k + 1);
+                                                    setExtMsgText("");
+                                                    setExtMsgComposerOpen(false);
+                                                    setExtMsgConfirm(false);
+                                                }}>Confirm & Send</button>
+                                            </div>
+                                        ) : (
+                                            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setExtMsgComposerOpen(false); setExtMsgText(""); }}>Cancel</button>
+                                                <button className="rc-btn rc-btn-primary rc-btn-sm" disabled={!extMsgText.trim()} onClick={() => setExtMsgConfirm(true)}>Continue</button>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => setExtMsgComposerOpen(true)}
+                                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 18px", fontSize: 13, fontWeight: 600, borderRadius: 8, background: "#166534", color: "#fff", border: "none", cursor: "pointer", boxShadow: "0 2px 8px rgba(22,101,52,0.25)" }}
+                                    >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                                        Add External Message
+                                    </button>
+                                )}
                             </div>
                         </AccordionSection>
 
@@ -1298,6 +1344,16 @@ export default function RecapitalizationWorkspace() {
                                     <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
                                         Please confirm you want to publish these materials externally.
                                     </div>
+                                    <div>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 4 }}>Add optional note for external partner</div>
+                                        <textarea
+                                            value={publishExternal.note}
+                                            onChange={e => setPublishExternal(prev => prev ? { ...prev, note: e.target.value } : null)}
+                                            placeholder="e.g. Only available communities are included."
+                                            rows={2}
+                                            style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #cbd5e1", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none" }}
+                                        />
+                                    </div>
                                 </div>
                             )}
 
@@ -1381,8 +1437,9 @@ export default function RecapitalizationWorkspace() {
                             )}
                             {publishExternal.step === 2 && (
                                 <button className="rc-btn rc-btn-primary" onClick={() => {
+                                    const extNote = publishExternal?.note || undefined;
                                     setPublishExternal(prev => prev ? { ...prev, step: 3 } : null);
-                                    updateRequestExternalStatus(item.id || item.intakeId || "", workArtifacts.length === 0);
+                                    updateRequestExternalStatus(item.id || item.intakeId || "", workArtifacts.length === 0, extNote);
                                     const artCount = workArtifacts.length;
                                     addActivityEntry({
                                         type: "Status Change",

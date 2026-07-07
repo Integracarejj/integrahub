@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { getPortalRequests, getActivePersona, getPortalTransactions } from "../../services/portalMockData";
 import "./PortalOverview.css";
 
@@ -23,12 +23,14 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function PortalRequests() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const allRequests = getPortalRequests();
     const persona = getActivePersona();
     const txn = getPortalTransactions()[0];
 
+    const statusFromUrl = searchParams.get("status") || "all";
     const [search, setSearch] = useState("");
-    const [filterStatus, setFilterStatus] = useState("all");
+    const [filterStatus, setFilterStatus] = useState(statusFromUrl);
     const [filterCommunity, setFilterCommunity] = useState("all");
 
     const filtered = useMemo(() => {
@@ -95,7 +97,7 @@ export default function PortalRequests() {
                     <div key={req.id} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 0.9fr 0.8fr 0.7fr 0.6fr", gap: 8, padding: "10px 14px", borderBottom: "1px solid #f1f5f9", fontSize: 13, alignItems: "center", cursor: "pointer" }} onClick={() => navigate(`/portal/requests/${req.id}`)}>
                         <div style={{ display: "flex", flexDirection: "column" }}>
                             <span style={{ fontWeight: 600, color: "var(--is-text-heading, #0f172a)" }}>{req.title}</span>
-                            <span style={{ fontSize: 10, color: "#94a3b8" }}>{req.requestId}</span>
+                            <span style={{ fontSize: 10, color: "#94a3b8" }}>Request ID: {req.requestId}</span>
                         </div>
                         <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.communityNames[0] || "\u2014"}</span>
                         <span>
