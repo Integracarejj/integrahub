@@ -15,6 +15,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
     Published: { bg: "#f0fdf4", text: "#166534", border: "#bbf7d0" },
     "In Progress": { bg: "#eff6ff", text: "#1e40af", border: "#bfdbfe" },
     "Intake Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
+    "Work Queue": { bg: "#fef3c7", text: "#92400e", border: "#fde68a" },
     "Quality Review": { bg: "#fffbeb", text: "#92400e", border: "#fde68a" },
     "Action Needed": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
     Closed: { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
@@ -139,6 +140,7 @@ export default function PortalOverview() {
     const publishedCount = portalRequests.filter(r => r._publishedExternal || r.externalStatus === "Published External").length;
     const qualityReviewCount = portalRequests.filter(r => r.status === "Quality Review" && !r._publishedExternal && r.externalStatus !== "Published External").length;
     const intakeCount = portalRequests.filter(r => r.status === "Intake Review").length;
+    const workQueueCount = portalRequests.filter(r => r.status === "Work Queue").length;
     const actionNeededCount = portalRequests.filter(r => r.status === "Action Needed").length;
     const inProgress = portalRequests.filter(r => r.status === "In Progress").length;
     const visibleRequests = portalRequests.filter(r => r.status !== "Closed");
@@ -195,17 +197,14 @@ export default function PortalOverview() {
         if (fileInputRef.current) fileInputRef.current.value = "";
     }, []);
 
-    const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
             setUploadState("idle");
             setAnalysis(null);
             setBanner(null);
             if (fileInputRef.current) fileInputRef.current.value = "";
-            setSelectedFile(file);
-            setUploadState("selected");
-            setBanner(`File selected: ${file.name}`);
-            setTimeout(() => setBanner(null), 4000);
+            await runFileAnalysis(file);
         }
     };
 
@@ -217,15 +216,12 @@ export default function PortalOverview() {
         const el = dropZoneRef.current;
         if (!el) return;
         const prevent = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
-        const onDrop = (e: DragEvent) => {
+        const onDrop = async (e: DragEvent) => {
             e.preventDefault(); e.stopPropagation();
             const file = e.dataTransfer?.files?.[0];
             if (file) {
                 setUploadState("idle"); setAnalysis(null); setBanner(null);
-                if (fileInputRef.current) fileInputRef.current.value = "";
-                setSelectedFile(file); setUploadState("selected");
-                setBanner(`File selected: ${file.name}`);
-                setTimeout(() => setBanner(null), 4000);
+                await runFileAnalysis(file);
             }
         };
         el.addEventListener("dragenter", prevent);
@@ -240,21 +236,29 @@ export default function PortalOverview() {
         };
     }, []);
 
-    const handleAnalyzePackage = async () => {
-        if (!selectedFile) return;
+    const runFileAnalysis = async (file: File) => {
+        setSelectedFile(file);
         setUploadState("analyzing");
         setBanner(null);
         try {
-            const parsed = await parseUploadedXLSX(selectedFile);
+            const parsed = await parseUploadedXLSX(file);
+            if (parsed.count === 0) {
+                setBanner("We could not identify due diligence request rows in this file. Please check the format or contact support.");
+                setUploadState("idle");
+                setSelectedFile(null);
+                setTimeout(() => setBanner(null), 8000);
+                return;
+            }
             saveParsedRows(parsed.rows);
             const cats = extractCategoriesFromParsedRows(parsed.rows);
-            const result = submitBrokerUploadPackage(selectedFile.name, parsed.count, cats);
+            const result = submitBrokerUploadPackage(file.name, parsed.count, cats);
             setAnalysis(result);
             setUploadState("complete");
         } catch (err) {
             setBanner(`Error parsing file: ${err instanceof Error ? err.message : "Unknown error"}`);
-            setUploadState("selected");
-            setTimeout(() => setBanner(null), 5000);
+            setUploadState("idle");
+            setSelectedFile(null);
+            setTimeout(() => setBanner(null), 8000);
         }
     };
 
@@ -372,23 +376,6 @@ export default function PortalOverview() {
                         </>
                     )}
 
-                    {uploadState === "selected" && (
-                        <>
-                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 10px" }}>
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                <polyline points="14 2 14 8 20 8" />
-                                <line x1="12" y1="18" x2="12" y2="12" />
-                                <line x1="9" y1="15" x2="15" y2="15" />
-                            </svg>
-                            <h3 style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", margin: "0 0 4px" }}>File Selected</h3>
-                            <p style={{ fontSize: 14, color: "#4f46e5", fontWeight: 600, margin: "0 0 14px" }}>{selectedFile!.name}</p>
-                            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-                                <button className="rc-btn rc-btn-primary" onClick={handleAnalyzePackage}>Analyze Package</button>
-                                <button className="rc-btn rc-btn-secondary" onClick={resetUpload}>Start Over</button>
-                            </div>
-                        </>
-                    )}
-
                     {uploadState === "analyzing" && (
                         <div>
                             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 10px" }}>
@@ -453,30 +440,36 @@ export default function PortalOverview() {
             {!showUploadFirst && (
             <>
             <div className="po-stats-row">
-                <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => navigate("/portal/requests")}>
+                <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("all"); setDashboardFilterCategory("all"); setDashboardSearch(""); }}>
                     <span className="po-stat-value">{visibleRequests.length}</span>
                     <span className="po-stat-label">Total Requests</span>
                 </div>
                 {intakeCount > 0 && (
-                    <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => navigate("/portal/requests?status=Intake+Review")}>
+                    <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Intake Review"); setDashboardFilterCategory("all"); }}>
                         <span className="po-stat-value po-stat-value--indigo">{intakeCount}</span>
                         <span className="po-stat-label">Intake Review</span>
                     </div>
                 )}
-                <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => navigate("/portal/requests?status=In+Progress")}>
+                {workQueueCount > 0 && (
+                    <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Work Queue"); setDashboardFilterCategory("all"); }}>
+                        <span className="po-stat-value po-stat-value--amber">{workQueueCount}</span>
+                        <span className="po-stat-label">Work Queue</span>
+                    </div>
+                )}
+                <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("In Progress"); setDashboardFilterCategory("all"); }}>
                     <span className="po-stat-value po-stat-value--blue">{inProgress}</span>
                     <span className="po-stat-label">In Progress</span>
                 </div>
-                <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => navigate("/portal/requests?status=Quality+Review")}>
+                <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Quality Review"); setDashboardFilterCategory("all"); }}>
                     <span className="po-stat-value po-stat-value--amber">{qualityReviewCount}</span>
                     <span className="po-stat-label">Quality Review</span>
                 </div>
-                <div className="po-stat-card" style={{ cursor: "pointer", ...(publishedCount > 0 ? { borderColor: "#166534", background: "#f0fdf4" } : {}) }} onClick={() => navigate("/portal/requests?status=Published")}>
+                <div className="po-stat-card" style={{ cursor: "pointer", ...(publishedCount > 0 ? { borderColor: "#166534", background: "#f0fdf4" } : {}) }} onClick={() => { setDashboardFilterStatus("Published"); setDashboardFilterCategory("all"); }}>
                     <span className="po-stat-value po-stat-value--green">{publishedCount}</span>
                     <span className="po-stat-label">{publishedCount > 0 ? "Published / Ready to Review" : "Published"}</span>
                 </div>
                 {actionNeededCount > 0 && (
-                    <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => navigate("/portal/requests?status=Action+Needed")}>
+                    <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Action Needed"); setDashboardFilterCategory("all"); }}>
                         <span className="po-stat-value po-stat-value--red">{actionNeededCount}</span>
                         <span className="po-stat-label">Action Needed</span>
             </div>
@@ -505,6 +498,7 @@ export default function PortalOverview() {
                                 <select className="rc-filter-select" value={dashboardFilterStatus} onChange={e => setDashboardFilterStatus(e.target.value)} style={{ minWidth: 110, fontSize: 11 }}>
                                     <option value="all">All Statuses</option>
                                     <option value="Intake Review">Intake Review</option>
+                                    <option value="Work Queue">Work Queue</option>
                                     <option value="In Progress">In Progress</option>
                                     <option value="Quality Review">Quality Review</option>
                                     <option value="Published">Published</option>

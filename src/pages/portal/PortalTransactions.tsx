@@ -22,6 +22,7 @@ export default function PortalTransactions() {
             published: txnRequests.filter((r) => r._publishedExternal || r.externalStatus === "Published External").length,
             actionNeeded: txnRequests.filter((r) => r.status === "Action Needed").length,
             intake: txnRequests.filter((r) => r.status === "Intake Review").length,
+            workQueue: txnRequests.filter((r) => r.status === "Work Queue").length,
         };
     });
 
@@ -74,6 +75,12 @@ export default function PortalTransactions() {
                                         <div style={{ textAlign: "center", flex: 1 }}>
                                             <div style={{ fontSize: 18, fontWeight: 700, color: "#4338ca" }}>{c.intake}</div>
                                             <div style={{ fontSize: 10, color: "#64748b" }}>Intake Review</div>
+                                        </div>
+                                    )}
+                                    {c.workQueue > 0 && (
+                                        <div style={{ textAlign: "center", flex: 1 }}>
+                                            <div style={{ fontSize: 18, fontWeight: 700, color: "#92400e" }}>{c.workQueue}</div>
+                                            <div style={{ fontSize: 10, color: "#64748b" }}>Work Queue</div>
                                         </div>
                                     )}
                                     <div style={{ textAlign: "center", flex: 1 }}>

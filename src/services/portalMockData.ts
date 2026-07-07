@@ -215,18 +215,18 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
     let portalStatus: string;
     if (req._externalStatus === "Published External") {
         portalStatus = "Published";
-    } else if (req.status === "Duplicate" || req.status === "Not Applicable") {
-        portalStatus = "Closed";
+    } else if (req.status === "Duplicate") {
+        portalStatus = "Intake Review";
     } else if (req.status === "Clarification Needed") {
         portalStatus = "Action Needed";
     } else if (req.status === "Complete") {
         portalStatus = "Quality Review";
-    } else if (req.status === "In Progress" || req.status === "Blocked") {
+    } else if (req.status === "In Progress") {
         portalStatus = "In Progress";
-    } else if (req.status === "Open") {
-        portalStatus = "Intake Review";
+    } else if (req.status === "Rejected") {
+        portalStatus = "Closed";
     } else {
-        portalStatus = "Intake Review";
+        portalStatus = "Work Queue";
     }
     return {
         id: req.id,
@@ -446,6 +446,28 @@ export interface ParseDiagnostics {
     firstTenSkipped: { rowIndex: number; values: Record<string, string>; reason: string }[];
 }
 
+function isSectionHeader(text: string): boolean {
+    const trimmed = text.trim();
+    if (!trimmed) return false;
+    if (/^[IVXLCDM]+\.?\s*$/i.test(trimmed)) return true;
+    if (/^[A-Z]\s*\.?\s*$/.test(trimmed)) return true;
+    if (/^(SECTION|PART|EXHIBIT|ATTACHMENT|SCHEDULE)\b/i.test(trimmed)) return true;
+    if (trimmed.length < 3) return true;
+    if (/^[A-Z\s]{4,}$/.test(trimmed) && trimmed.length < 30) return true;
+    return false;
+}
+
+function isMeaningfulRequestText(text: string): boolean {
+    const trimmed = text.trim();
+    if (!trimmed) return false;
+    if (trimmed.length < 5) return false;
+    if (isSectionHeader(trimmed)) return false;
+    const lower = trimmed.toLowerCase();
+    if (lower.startsWith("note:") || lower.startsWith("notes:") || lower.startsWith("reference:") || lower.startsWith("source:")) return false;
+    if (/^(instructions|directions|overview|background|introduction|summary|conclusion)/i.test(trimmed)) return false;
+    return true;
+}
+
 export async function parseUploadedXLSX(file: File): Promise<{
     headers: string[];
     rows: Record<string, string>[];
@@ -461,17 +483,15 @@ export async function parseUploadedXLSX(file: File): Promise<{
     const selectedSheet = sheetNames.find(n => n.toLowerCase().includes("dd requests")) || sheetNames[0];
     const sheet = workbook.Sheets[selectedSheet];
 
-    // Get raw sheet info
     const ref = sheet["!ref"];
     const totalPhysicalRows = ref ? XLSX.utils.decode_range(ref).e.r + 1 : 0;
 
-    // Read ALL rows as arrays (header: 1 gives arrays, not objects)
     const jsonRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
     const rawHeaders: string[] = jsonRows.length > 0
         ? jsonRows[0].map((h: any) => (h !== null && h !== undefined ? String(h).trim() : ""))
         : [];
 
-    // Normalize header names by index
+    // Try header-based parsing first
     const headerMap: Record<string, string> = {};
     rawHeaders.forEach((h, i) => {
         const clean = h.trim();
@@ -494,61 +514,171 @@ export async function parseUploadedXLSX(file: File): Promise<{
     const normalizedHeaders: Record<string, string> = {};
     for (const [k, v] of Object.entries(headerMap)) normalizedHeaders[k] = v;
 
-    // Build accepted rows with normalized keys
     const accepted: Record<string, string>[] = [];
     const skipReasons: { rowIndex: number; reason: string; sampleValues: Record<string, string> }[] = [];
 
-    // Data rows start at index 1 (after header row 0)
+    let nonEmptyDataRows = 0;
     for (let i = 1; i < jsonRows.length; i++) {
         const rawRow: any[] | undefined = jsonRows[i];
-        if (!rawRow || rawRow.length === 0) {
-            skipReasons.push({ rowIndex: i, reason: "Empty row (null/undefined)", sampleValues: {} });
-            continue;
+        if (!rawRow) continue;
+        if (rawRow.some((c: any) => c !== null && c !== undefined && String(c).trim().length > 0)) {
+            nonEmptyDataRows++;
         }
-
-        // Build row with normalized keys
-        const row: Record<string, string> = {};
-        let hasAnyValue = false;
-        const numCols = Math.max(rawHeaders.length, rawRow.length);
-        for (let ci = 0; ci < numCols; ci++) {
-            const val = ci < rawRow.length ? rawRow[ci] : undefined;
-            const strVal = val !== null && val !== undefined ? String(val).trim() : "";
-            const key = ci < rawHeaders.length ? headerMap[`col_${ci}`] : undefined;
-            if (key) {
-                row[key] = strVal;
-            } else {
-                const fallbackKey = rawHeaders[ci] || `Column_${ci}`;
-                row[fallbackKey] = strVal;
-            }
-            if (strVal.length > 0) hasAnyValue = true;
-        }
-
-        if (!hasAnyValue) {
-            skipReasons.push({ rowIndex: i, reason: "All cells empty", sampleValues: {} });
-            continue;
-        }
-
-        // Accept row if it has Request Title OR Description OR Notes with content
-        const hasTitle = (row["Request Title"] || "").trim().length > 0;
-        const hasDesc = (row["Description"] || "").trim().length > 0;
-        const hasNotes = (row["Notes"] || "").trim().length > 0;
-
-        if (!hasTitle && !hasDesc && !hasNotes) {
-            const contentCols = Object.entries(row).filter(([_, v]) => v.trim().length > 0).map(([k]) => k);
-            skipReasons.push({
-                rowIndex: i,
-                reason: contentCols.length > 0
-                    ? `Row has data in [${contentCols.join(", ")}] but missing Request Title, Description, AND Notes`
-                    : "No content in Request Title, Description, or Notes columns",
-                sampleValues: row,
-            });
-            continue;
-        }
-
-        accepted.push(row);
     }
 
-    // Build firstTenSkipped for diagnostics
+    const useHeaderParsing = nonEmptyDataRows > 0;
+
+    if (useHeaderParsing) {
+        for (let i = 1; i < jsonRows.length; i++) {
+            const rawRow: any[] | undefined = jsonRows[i];
+            if (!rawRow || rawRow.length === 0) {
+                skipReasons.push({ rowIndex: i, reason: "Empty row (null/undefined)", sampleValues: {} });
+                continue;
+            }
+
+            const row: Record<string, string> = {};
+            let hasAnyValue = false;
+            const numCols = Math.max(rawHeaders.length, rawRow.length);
+            for (let ci = 0; ci < numCols; ci++) {
+                const val = ci < rawRow.length ? rawRow[ci] : undefined;
+                const strVal = val !== null && val !== undefined ? String(val).trim() : "";
+                const key = ci < rawHeaders.length ? headerMap[`col_${ci}`] : undefined;
+                if (key) {
+                    row[key] = strVal;
+                } else {
+                    const fallbackKey = rawHeaders[ci] || `Column_${ci}`;
+                    row[fallbackKey] = strVal;
+                }
+                if (strVal.length > 0) hasAnyValue = true;
+            }
+
+            if (!hasAnyValue) {
+                skipReasons.push({ rowIndex: i, reason: "All cells empty", sampleValues: {} });
+                continue;
+            }
+
+            const hasTitle = (row["Request Title"] || "").trim().length > 0;
+            const hasDesc = (row["Description"] || "").trim().length > 0;
+            const hasNotes = (row["Notes"] || "").trim().length > 0;
+
+            if (!hasTitle && !hasDesc && !hasNotes) {
+                const contentCols = Object.entries(row).filter(([_, v]) => v.trim().length > 0).map(([k]) => k);
+                skipReasons.push({
+                    rowIndex: i,
+                    reason: contentCols.length > 0
+                        ? `Row has data in [${contentCols.join(", ")}] but missing Request Title, Description, AND Notes`
+                        : "No content in Request Title, Description, or Notes columns",
+                    sampleValues: row,
+                });
+                continue;
+            }
+
+            accepted.push(row);
+        }
+    }
+
+    // If header-based parsing yielded few rows, fall back to positional semi-structured parsing
+    const headerAcceptanceRate = nonEmptyDataRows > 0 ? accepted.length / nonEmptyDataRows : 0;
+    if (accepted.length === 0 || headerAcceptanceRate < 0.2) {
+        accepted.length = 0;
+        skipReasons.length = 0;
+
+        let currentCategory = "";
+        const romanNumeral = /^[IVXLCDM]+\.?\s*$/i;
+        const singleLetter = /^[A-Z]\s*\.?\s*$/;
+
+        for (let i = 1; i < jsonRows.length; i++) {
+            const rawRow: any[] | undefined = jsonRows[i];
+            if (!rawRow) {
+                skipReasons.push({ rowIndex: i, reason: "Empty row", sampleValues: {} });
+                continue;
+            }
+
+            const rowValues = rawRow.map((v: any) => v !== null && v !== undefined ? String(v).trim() : "");
+            if (rowValues.every((v: string) => !v)) {
+                skipReasons.push({ rowIndex: i, reason: "All cells empty", sampleValues: {} });
+                continue;
+            }
+
+            const firstCell = rowValues[0] || "";
+            const secondCell = rowValues[1] || "";
+
+            // Detect section header: first cell is a section marker
+            const isRoman = romanNumeral.test(firstCell) || romanNumeral.test(secondCell);
+            const isSingleLetter = singleLetter.test(firstCell);
+            const isAllCapsShort = /^[A-Z\s]{3,40}$/.test(firstCell) && firstCell.length >= 3 && firstCell.length <= 40;
+            if (isRoman || isSingleLetter || isAllCapsShort) {
+                if (firstCell && !isRoman && !isSingleLetter) {
+                    currentCategory = firstCell;
+                }
+                continue;
+            }
+
+            // Check if this is a section/instruction row
+            const firstLower = firstCell.toLowerCase();
+            if (/^(section|part|exhibit|attachment|schedule|instructions|directions|overview|background|introduction|summary|conclusion|notes?|references?)\b/i.test(firstCell)) {
+                if (firstCell && firstLower.startsWith("section") || firstLower.startsWith("part") || firstLower.startsWith("exhibit")) {
+                    currentCategory = firstCell;
+                }
+                continue;
+            }
+
+            // Primary text: prefer column E (index 4) if meaningful, else first non-empty meaningful column
+            let primaryText = "";
+            let responsibleParty = "";
+            let comments = "";
+            let source = "";
+            let status = "";
+
+            if (rowValues[4] && isMeaningfulRequestText(rowValues[4])) {
+                primaryText = rowValues[4];
+            } else {
+                for (let ci = 0; ci < Math.min(rowValues.length, 6); ci++) {
+                    if (ci === 1 || ci === 2) continue;
+                    if (rowValues[ci] && isMeaningfulRequestText(rowValues[ci])) {
+                        primaryText = rowValues[ci];
+                        break;
+                    }
+                }
+            }
+
+            if (!primaryText) {
+                const filledCols = rowValues.map((v: string, idx: number) => v ? `col_${idx}` : "").filter(Boolean);
+                skipReasons.push({
+                    rowIndex: i,
+                    reason: filledCols.length > 0 ? `Row has data in [${filledCols.join(", ")}] but no meaningful request text` : "No meaningful request text detected",
+                    sampleValues: Object.fromEntries(rowValues.map((v: string, idx: number) => [`col_${idx}`, v]).filter(([_, v]) => v)),
+                });
+                continue;
+            }
+
+            responsibleParty = rowValues[5] || "";
+            comments = rowValues[6] || "";
+            source = rowValues[7] || "";
+            status = rowValues[8] || "";
+
+            const row: Record<string, string> = {
+                "Request Title": primaryText,
+                "Description": "",
+                "Notes": comments,
+                "Category": currentCategory,
+                "Owner / Seller": responsibleParty,
+                "Suggested Internal Owner": responsibleParty,
+                "Source / Reference": source,
+                "Status": status,
+            };
+
+            if (rowValues[1] && !romanNumeral.test(rowValues[1]) && !singleLetter.test(rowValues[1]) && rowValues[1].length > 3) {
+                row["Category"] = rowValues[1];
+            }
+            if (rowValues[2] && !romanNumeral.test(rowValues[2]) && !singleLetter.test(rowValues[2]) && rowValues[2].length > 3) {
+                if (!row["Category"]) row["Category"] = rowValues[2];
+            }
+
+            accepted.push(row);
+        }
+    }
+
     const firstTenSkipped: { rowIndex: number; values: Record<string, string>; reason: string }[] = [];
     for (let si = 0; si < Math.min(skipReasons.length, 10); si++) {
         const sr = skipReasons[si];
@@ -570,15 +700,15 @@ export async function parseUploadedXLSX(file: File): Promise<{
         firstTenSkipped,
     };
 
-    // Log diagnostics
     console.log("=== XLSX Parse Diagnostics ===");
     console.log("File:", file.name, `(${(file.size / 1024).toFixed(1)} KB)`);
     console.log("Sheet names:", sheetNames);
     console.log("Selected sheet:", selectedSheet);
-    console.log("Total physical rows (from !ref):", totalPhysicalRows);
-    console.log("Raw JSON rows (including header):", jsonRows.length);
+    console.log("Total physical rows:", totalPhysicalRows);
+    console.log("Non-empty data rows:", nonEmptyDataRows);
     console.log("Header row:", rawHeaders);
     console.log("Normalized headers:", normalizedHeaders);
+    console.log("Parsing mode:", useHeaderParsing ? (headerAcceptanceRate >= 0.2 ? "header-based" : "positional (fallback)") : "positional");
     console.log("Accepted rows:", accepted.length);
     console.log("Skipped rows:", skipReasons.length);
     console.log("First 10 accepted:", accepted.slice(0, 10));
@@ -667,6 +797,8 @@ export function mapParsedRowToRecapRequest(
     if (!title) {
         title = `Request ${index}`;
     }
+    const category = row["Category"] || detectCategoryFromTitle(title, rawDesc) || "Unclassified";
+    const ownerVal = String(row["Suggested Internal Owner"] || row["Owner / Seller"] || "").trim() || null;
     return {
         id: `${submissionId}-req-${index}`,
         requestId: `DD-${prefix}-${subHash}-${String(index).padStart(3, "0")}`,
@@ -676,11 +808,11 @@ export function mapParsedRowToRecapRequest(
         brokerBuyer: "External",
         communityIds: [],
         communityNames: [],
-        category: detectCategoryFromTitle(title, rawDesc) || "Unclassified",
+        category,
         title,
         description: rawDesc,
-        owner: String(row["Suggested Internal Owner"] || "").trim() || null,
-        team: detectTeamFromCategory(detectCategoryFromTitle(title, rawDesc)) || String(row["Suggested Team"] || "").trim() || "",
+        owner: ownerVal,
+        team: detectTeamFromCategory(category) || String(row["Suggested Team"] || "").trim() || "",
         status: "Open",
         priority,
         dueDate,
@@ -689,7 +821,7 @@ export function mapParsedRowToRecapRequest(
         submittedBy: String(row["Broker"] || "External Portal").trim(),
         source: "External",
         createdDate: now,
-        assignedTo: String(row["Suggested Internal Owner"] || "").trim() || null,
+        assignedTo: ownerVal,
         _publishedAt: null,
     };
 }

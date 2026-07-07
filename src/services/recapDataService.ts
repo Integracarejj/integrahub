@@ -550,16 +550,6 @@ export function addExternalMessage(id: string, text: string, author: string): Ex
     const messages = [...(req._externalMessages || []), entry];
     if (isDemoLoaded()) {
         Demo.updateDemoRequest(id, { _externalMessages: messages });
-        addActivityEntry({
-            type: "Comment",
-            description: `External message: ${text}`,
-            userId: author,
-            userName: author,
-            requestId: req.id,
-            requestTitle: req.title,
-            transactionId: req.transactionId,
-            transactionName: req.transactionName,
-        });
         return entry;
     }
     const mockReq = Mock.getRequestById(id);
@@ -569,16 +559,6 @@ export function addExternalMessage(id: string, text: string, author: string): Ex
     } else {
         updatePortalRequestById(id, { _externalMessages: messages });
     }
-    addActivityEntry({
-        type: "Comment",
-        description: `External message: ${text}`,
-        userId: author,
-        userName: author,
-        requestId: req.id,
-        requestTitle: req.title,
-        transactionId: req.transactionId,
-        transactionName: req.transactionName,
-    });
     return entry;
 }
 

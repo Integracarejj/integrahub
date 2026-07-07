@@ -1,12 +1,13 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { getPortalRequests, getPortalDocuments } from "../../services/portalMockData";
-import { getExternalMessages } from "../../services/recapDataService";
+import { getExternalMessages, getWorkArtifactsByRequest } from "../../services/recapDataService";
 import "./PortalOverview.css";
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
     Published: { bg: "#f0fdf4", text: "#166534", border: "#bbf7d0" },
     "In Progress": { bg: "#eff6ff", text: "#1e40af", border: "#bfdbfe" },
     "Intake Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
+    "Work Queue": { bg: "#fef3c7", text: "#92400e", border: "#fde68a" },
     "Quality Review": { bg: "#fffbeb", text: "#92400e", border: "#fde68a" },
     "Action Needed": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
     Closed: { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
@@ -29,6 +30,7 @@ export default function PortalRequestDetail() {
 
     const req = allRequests.find((r) => r.id === id);
     const externalMessages = req ? getExternalMessages(req.id) : [];
+    const publishedArtifacts = req ? getWorkArtifactsByRequest(req.requestId) : [];
 
     if (!req) {
         return (
@@ -121,6 +123,24 @@ export default function PortalRequestDetail() {
                 <div style={{ border: "1px solid #dbeafe", borderRadius: 10, padding: 16, background: "#f8faff", marginBottom: 20 }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6 }}>Publisher's Note</div>
                     <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.5 }}>{req._publishedExternalNote}</div>
+                </div>
+            )}
+
+            {publishedArtifacts.length > 0 && (
+                <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: 20, background: "#fff", marginBottom: 20 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>Supporting Artifacts ({publishedArtifacts.length})</span>
+                    </div>
+                    {publishedArtifacts.map((art) => (
+                        <div key={art.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #f1f5f9" }}>
+                            <div>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{art.name}</span>
+                                {art.size > 0 && <span style={{ fontSize: 11, color: "#64748b", marginLeft: 8 }}>{art.size >= 1048576 ? `${(art.size / 1048576).toFixed(1)} MB` : art.size >= 1024 ? `${(art.size / 1024).toFixed(0)} KB` : `${art.size} B`}</span>}
+                            </div>
+                            <span style={{ fontSize: 11, color: "#64748b", fontStyle: "italic" }}>Available</span>
+                        </div>
+                    ))}
                 </div>
             )}
 

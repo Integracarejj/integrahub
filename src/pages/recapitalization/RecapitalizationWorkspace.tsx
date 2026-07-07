@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive, addExternalMessage } from "../../services/recapDataService";
+import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive, addExternalMessage, getExternalMessages } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -160,6 +160,25 @@ export default function RecapitalizationWorkspace() {
         setInternalOwner(item.suggestedOwner || item.owner || "");
     }, [item]);
 
+    useEffect(() => {
+        const reqId = item.requestId || item.id || "";
+        if (reqId) {
+            const existing = getExternalMessages(reqId);
+            if (existing.length > 0) {
+                setLocalQuestions(
+                    existing.map(msg => ({
+                        id: msg.id,
+                        from: msg.author,
+                        question: msg.text,
+                        response: null,
+                        status: "Answered" as const,
+                        timestamp: msg.timestamp,
+                    }))
+                );
+            }
+        }
+    }, [item, wsRefreshKey]);
+
     const [sections, setSections] = useState<Record<string, boolean>>({
         artifacts: true,
         workNotes: true,
@@ -206,9 +225,9 @@ export default function RecapitalizationWorkspace() {
             let action: string | null = null;
             if (notes.some(n => n.text === act.description || (act.description.includes(n.text) && n.text.length > 10))) continue;
 
-            if (act.type === "Status Change" || act.type === "Note" || act.type === "Comment") {
+            if (act.type === "Status Change" || act.type === "Note") {
                 const desc = act.description;
-                if (act.type === "Note" || act.type === "Comment") {
+                if (act.type === "Note") {
                     noteText = desc;
                     action = act.type;
                 } else if (desc.includes("Reason:") || desc.includes("Notes:")) {
@@ -931,7 +950,17 @@ export default function RecapitalizationWorkspace() {
                                                 <button className="rc-btn rc-btn-primary rc-btn-sm" disabled={!extMsgText.trim()} onClick={() => {
                                                     if (!extMsgText.trim()) return;
                                                     const reqId = item.id || item.intakeId || "";
-                                                    addExternalMessage(reqId, extMsgText.trim(), currentUser);
+                                                    const result = addExternalMessage(reqId, extMsgText.trim(), currentUser);
+                                                    if (result) {
+                                                        setLocalQuestions(prev => [{
+                                                            id: result.id,
+                                                            from: result.author,
+                                                            question: result.text,
+                                                            response: null,
+                                                            status: "Answered" as const,
+                                                            timestamp: result.timestamp,
+                                                        }, ...prev]);
+                                                    }
                                                     setWsRefreshKey(k => k + 1);
                                                     setExtMsgText("");
                                                     setExtMsgComposerOpen(false);

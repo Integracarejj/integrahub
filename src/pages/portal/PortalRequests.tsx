@@ -7,6 +7,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
     Published: { bg: "#f0fdf4", text: "#166534", border: "#bbf7d0" },
     "In Progress": { bg: "#eff6ff", text: "#1e40af", border: "#bfdbfe" },
     "Intake Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
+    "Work Queue": { bg: "#fef3c7", text: "#92400e", border: "#fde68a" },
     "Quality Review": { bg: "#fffbeb", text: "#92400e", border: "#fde68a" },
     "Action Needed": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
     Closed: { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
@@ -73,6 +74,7 @@ export default function PortalRequests() {
                     <option value="all">All Statuses</option>
                     <option value="In Progress">In Progress</option>
                     <option value="Intake Review">Intake Review</option>
+                    <option value="Work Queue">Work Queue</option>
                     <option value="Quality Review">Quality Review</option>
                     <option value="Action Needed">Action Needed</option>
                     <option value="Published">Published</option>
