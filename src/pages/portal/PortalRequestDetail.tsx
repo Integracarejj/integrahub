@@ -65,7 +65,7 @@ export default function PortalRequestDetail() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
                     <div>
                         <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>Category</span>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{req.category}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{req.category || "\u2014"}</span>
                     </div>
                     <div>
                         <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>Community</span>
@@ -84,11 +84,30 @@ export default function PortalRequestDetail() {
                         <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{req.transactionName}</span>
                     </div>
                     <div>
-                        <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>Team</span>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{req.team}</span>
+                        <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>Submitted</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{req.submittedAt || "\u2014"}</span>
                     </div>
                 </div>
             </div>
+
+            {!req._publishedExternal && (
+                <div style={{ border: "1px solid #dbeafe", borderRadius: 10, padding: 16, background: "#f8faff", marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                    </svg>
+                    <span style={{ fontSize: 13, color: "#1e40af", lineHeight: 1.5 }}>
+                        {req.status === "Intake Review" && "This request is in intake review. IntegraCare is reviewing the submission."}
+                        {req.status === "Work Queue" && "This request is in the work queue. It will be assigned to a reviewer soon."}
+                        {req.status === "In Progress" && "This request is actively being reviewed by the IntegraCare team."}
+                        {req.status === "Quality Review" && "This request has been completed internally and is undergoing quality review before publication."}
+                        {req.status === "Action Needed" && "Additional information is needed from you. Please check for open clarifications."}
+                        {req.status === "Closed" && "This request has been closed."}
+                        {!["Intake Review", "Work Queue", "In Progress", "Quality Review", "Action Needed", "Closed"].includes(req.status) && "IntegraCare is processing this request."}
+                    </span>
+                </div>
+            )}
 
             {req._publishedExternal && (
                 <div style={{ border: "1px solid #bbf7d0", borderRadius: 10, padding: 20, background: "#f0fdf4", marginBottom: 20 }}>
@@ -138,7 +157,7 @@ export default function PortalRequestDetail() {
                                 <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{art.name}</span>
                                 {art.size > 0 && <span style={{ fontSize: 11, color: "#64748b", marginLeft: 8 }}>{art.size >= 1048576 ? `${(art.size / 1048576).toFixed(1)} MB` : art.size >= 1024 ? `${(art.size / 1024).toFixed(0)} KB` : `${art.size} B`}</span>}
                             </div>
-                            <span style={{ fontSize: 11, color: "#64748b", fontStyle: "italic" }}>Available</span>
+                            <span style={{ fontSize: 11, color: "#64748b", fontStyle: "italic" }}>Available &mdash; download support coming soon</span>
                         </div>
                     ))}
                 </div>

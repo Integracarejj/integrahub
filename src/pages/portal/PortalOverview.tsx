@@ -68,11 +68,17 @@ function ActivityIcon({ type }: { type: RecapActivity["type"] }) {
 
 function isExternalSafeActivity(act: RecapActivity): boolean {
     if (act.type === "Note" || act.type === "Assignment") return false;
+    if (act.type === "Comment") return false;
     const desc = act.description.toLowerCase();
     if (desc.includes("work note")) return false;
     if (desc.includes("reusable knowledge") || desc.includes("promote")) return false;
+    if (desc.includes("not mine") || desc.includes("returned to owner") || desc.includes("reported as not")) return false;
+    if (desc.includes("marked as duplicate") || desc.includes("moved to dd review")) return false;
     if (act.type === "Document" && desc.includes("artifact") && !desc.includes("published")) return false;
-    if (act.type === "Status Change" && !desc.includes("publish") && !desc.includes("external")) return false;
+    if (act.type === "Status Change") {
+        if (desc.includes("publish") || desc.includes("external") || desc.includes("submitted") || desc.includes("received")) return true;
+        return false;
+    }
     return true;
 }
 
@@ -243,7 +249,7 @@ export default function PortalOverview() {
         try {
             const parsed = await parseUploadedXLSX(file);
             if (parsed.count === 0) {
-                setBanner("We could not identify due diligence request rows in this file. Please check the format or contact support.");
+                setBanner("We couldn't identify any due diligence requests in this spreadsheet. Please verify the file format and try again.");
                 setUploadState("idle");
                 setSelectedFile(null);
                 setTimeout(() => setBanner(null), 8000);
@@ -283,7 +289,10 @@ export default function PortalOverview() {
         setBanner("Package submitted successfully!");
     };
 
-    const showUploadFirst = submissions.length === 0 && uploadState === "idle";
+    // Dashboard shows when there are past submissions or we just submitted
+    const hasSubmitted = submissions.length > 0 || uploadState === "submitted";
+    // Only show upload panel (no dashboard) when first-time user and still in upload flow
+    const showOnlyUpload = submissions.length === 0 && uploadState !== "submitted";
 
     return (
         <div className="portal-overview">
@@ -303,7 +312,7 @@ export default function PortalOverview() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div>
                         <h1 className="po-welcome-title">Due Diligence Dashboard</h1>
-                        <p className="po-welcome-sub">{persona.companyName} &middot; {txn?.name || "ABC Company Portfolio"}</p>
+                        <p className="po-welcome-sub">{persona.companyName}{txn ? ` &middot; ${txn.name}` : ""}</p>
                     </div>
                     <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 4, background: persona.role === "Broker" ? "#eef2ff" : persona.role === "Buyer" ? "#f0fdf4" : "#fff7ed", color: persona.role === "Broker" ? "#4338ca" : persona.role === "Buyer" ? "#166534" : "#92400e", border: "1px solid", borderColor: persona.role === "Broker" ? "#c7d2fe" : persona.role === "Buyer" ? "#bbf7d0" : "#fed7aa" }}>
                         {persona.role}
@@ -311,107 +320,88 @@ export default function PortalOverview() {
                 </div>
             </div>
 
-            {/* ── Upload Package Card ── */}
-            {showUploadFirst && (
-            <>
-                <div style={{ textAlign: "center", padding: "40px 20px", marginBottom: 20 }}>
-                    <h2 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 8 }}>Upload your due diligence request list to begin</h2>
-                    <p style={{ fontSize: 14, color: "#64748b", maxWidth: 500, margin: "0 auto 24px", lineHeight: 1.6 }}>
-                        The process starts when you provide your request list or package. Upload an Excel file (.xlsx, .xls, .csv) with your due diligence requests and we will route them to the IntegraCare team for review.
-                    </p>
-                    <div ref={dropZoneRef} style={{ border: "2px dashed #cbd5e1", borderRadius: 14, padding: 28, textAlign: "center", background: "#fafbfc", maxWidth: 520, margin: "0 auto 28px" }}>
-                        <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleFileSelected} />
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 10px" }}>
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                            <polyline points="17 8 12 3 7 8" />
-                            <line x1="12" y1="3" x2="12" y2="15" />
-                        </svg>
-                        <h3 style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", margin: "0 0 4px" }}>Upload Due Diligence Package</h3>
-                        <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 16px" }}>Upload Excel request list (.xlsx, .xls, .csv) containing your due diligence requests.</p>
-                        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-                            <button className="rc-btn rc-btn-primary" onClick={handleBrowseClick}>Browse Files</button>
-                            <button className="rc-btn rc-btn-secondary" onClick={handleLoadABCDemo}>Load ABC Gold Standard Demo Package</button>
-                        </div>
+            {/* ── Upload Panel (shown before any submission) ── */}
+            {showOnlyUpload && (
+                <div style={{ maxWidth: 560, margin: "0 auto" }}>
+                    <div style={{ textAlign: "center", marginBottom: 28 }}>
+                        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 8 }}>Upload your due diligence request list to begin</h2>
+                        <p style={{ fontSize: 14, color: "#64748b", maxWidth: 500, margin: "0 auto", lineHeight: 1.6 }}>
+                            The process starts when you provide your request list or package. Upload an Excel file (.xlsx, .xls, .csv) with your due diligence requests and we will route them to the IntegraCare team for review.
+                        </p>
                     </div>
-                    <div style={{ maxWidth: 520, margin: "0 auto" }}>
-                        <h3 style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 12 }}>How it works</h3>
-                        <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
-                            {[
-                                { step: "1", title: "Upload", desc: "Upload your DD request list as an Excel file" },
-                                { step: "2", title: "Review", desc: "IntegraCare reviews and routes your requests" },
-                                { step: "3", title: "Track", desc: "Monitor progress and published results here" },
-                            ].map(s => (
-                                <div key={s.step} style={{ flex: 1, textAlign: "center", padding: "12px 8px", border: "1px solid #e2e8f0", borderRadius: 8, background: "#fff" }}>
-                                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#eef2ff", color: "#4338ca", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 6px", fontSize: 13, fontWeight: 700 }}>{s.step}</div>
-                                    <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 2 }}>{s.title}</div>
-                                    <div style={{ fontSize: 11, color: "#64748b", lineHeight: 1.4 }}>{s.desc}</div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </>
-            )}
 
-            {!showUploadFirst && uploadState !== "submitted" && (
-                <div ref={dropZoneRef} style={{
-                    border: "2px dashed #cbd5e1", borderRadius: 14, padding: 28, marginBottom: 20,
-                    textAlign: "center", background: "#fafbfc",
-                }}>
-                    <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleFileSelected} />
+                    <div ref={dropZoneRef} style={{ border: "2px dashed #cbd5e1", borderRadius: 14, padding: 28, textAlign: "center", background: "#fafbfc", marginBottom: 24 }}>
+                        <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleFileSelected} />
+
+                        {uploadState === "idle" && (
+                            <>
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 10px" }}>
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                    <polyline points="17 8 12 3 7 8" />
+                                    <line x1="12" y1="3" x2="12" y2="15" />
+                                </svg>
+                                <h3 style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", margin: "0 0 4px" }}>Upload Due Diligence Package</h3>
+                                <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 16px" }}>Upload Excel request list (.xlsx, .xls, .csv) containing your due diligence requests.</p>
+                                <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                                    <button className="rc-btn rc-btn-primary" onClick={handleBrowseClick}>Browse Files</button>
+                                    <button className="rc-btn rc-btn-secondary" onClick={handleLoadABCDemo}>Load ABC Gold Standard Demo Package</button>
+                                </div>
+                            </>
+                        )}
+
+                        {uploadState === "analyzing" && (
+                            <div>
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 10px" }}>
+                                    <polyline points="23 4 23 10 17 10" />
+                                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                                </svg>
+                                <h3 style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", margin: "0 0 4px" }}>Analyzing package...</h3>
+                                <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>Reading spreadsheet and classifying {selectedFile?.name}...</p>
+                                <div style={{ width: "60%", height: 6, background: "#e2e8f0", borderRadius: 3, margin: "12px auto 0", overflow: "hidden" }}>
+                                    <div style={{ width: "60%", height: "100%", background: "#4f46e5", borderRadius: 3 }} />
+                                </div>
+                            </div>
+                        )}
+
+                        {uploadState === "complete" && analysis && (
+                            <div>
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 10px" }}>
+                                    <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                                <h3 style={{ fontSize: 16, fontWeight: 700, color: "#166534", margin: "0 0 4px" }}>Package Ready</h3>
+                                <p style={{ fontSize: 13, color: "#475569", margin: "0 0 4px" }}>
+                                    {analysis.packageName}{analysis.isABCDemo ? " (Gold Standard Demo)" : ""} &mdash; {analysis.detected} request{analysis.detected !== 1 ? "s" : ""} detected.
+                                </p>
+                                <p style={{ fontSize: 12, color: "#475569", margin: "0 0 16px", fontStyle: "italic" }}>
+                                    IntegraCare will review all request rows internally before publishing approved requests to the tracker.
+                                </p>
+                                <div style={{ textAlign: "center", marginBottom: 14 }}>
+                                    <div style={{ fontSize: 28, fontWeight: 800, color: "#166534" }}>{analysis.detected}</div>
+                                    <div style={{ fontSize: 12, color: "#475569" }}>Requests Detected</div>
+                                </div>
+                                <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                                    <button className="rc-btn rc-btn-primary" onClick={handleSubmitPackage} style={{ padding: "12px 32px", fontSize: 15, fontWeight: 700, borderRadius: 10 }}>Submit Package to IntegraCare</button>
+                                    <button className="rc-btn rc-btn-secondary" onClick={resetUpload}>Start Over</button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
 
                     {uploadState === "idle" && (
-                        <>
-                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 10px" }}>
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                <polyline points="17 8 12 3 7 8" />
-                                <line x1="12" y1="3" x2="12" y2="15" />
-                            </svg>
-                            <h3 style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", margin: "0 0 4px" }}>Upload Due Diligence Package</h3>
-                            <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 16px" }}>Upload Excel request list or ZIP package containing requests and supporting documents.</p>
-                            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-                                <button className="rc-btn rc-btn-primary" onClick={handleBrowseClick}>Browse Files</button>
-                                <button className="rc-btn rc-btn-secondary" onClick={handleLoadABCDemo}>Load ABC Gold Standard Demo Package</button>
-                            </div>
-                        </>
-                    )}
-
-                    {uploadState === "analyzing" && (
-                        <div>
-                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 10px" }}>
-                                <polyline points="23 4 23 10 17 10" />
-                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-                            </svg>
-                            <h3 style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", margin: "0 0 4px" }}>Analyzing package...</h3>
-                            <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>Reading spreadsheet and classifying {selectedFile?.name}...</p>
-                            <div style={{ width: "60%", height: 6, background: "#e2e8f0", borderRadius: 3, margin: "12px auto 0", overflow: "hidden" }}>
-                                <div style={{ width: "60%", height: "100%", background: "#4f46e5", borderRadius: 3 }} />
-                            </div>
-                        </div>
-                    )}
-
-                    {uploadState === "complete" && analysis && (
-                        <div>
-                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 10px" }}>
-                                <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                            <h3 style={{ fontSize: 16, fontWeight: 700, color: "#166534", margin: "0 0 4px" }}>Package Analyzed</h3>
-                            <p style={{ fontSize: 13, color: "#475569", margin: "0 0 14px" }}>
-                                {analysis.packageName}{analysis.isABCDemo ? " (Gold Standard Demo)" : ""} &mdash; {analysis.detected} request rows identified.
-                                {analysis.duplicates > 0 && <> <span style={{ color: "#92400e" }}>{analysis.duplicates} potential duplicate{analysis.duplicates > 1 ? "s" : ""} detected.</span></>}
-                            </p>
-                            <p style={{ fontSize: 12, color: "#475569", margin: "0 0 14px", fontStyle: "italic" }}>
-                                IntegraCare will review all request rows internally before publishing approved requests to the tracker.
-                            </p>
-                            <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap", marginBottom: 14 }}>
-                                <div style={{ textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 700, color: "#1e293b" }}>{analysis.detected}</div><div style={{ fontSize: 11, color: "#64748b" }}>Total Requests</div></div>
-                                {analysis.duplicates > 0 && (
-                                    <div style={{ textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 700, color: "#92400e" }}>{analysis.duplicates}</div><div style={{ fontSize: 11, color: "#64748b" }}>Duplicates</div></div>
-                                )}
-                            </div>
-                            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-                                <button className="rc-btn rc-btn-primary" onClick={handleSubmitPackage}>Submit Package to IntegraCare</button>
-                                <button className="rc-btn rc-btn-secondary" onClick={resetUpload}>Start Over</button>
+                        <div style={{ maxWidth: 520, margin: "0 auto" }}>
+                            <h3 style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 12 }}>How it works</h3>
+                            <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
+                                {[
+                                    { step: "1", title: "Upload", desc: "Upload your DD request list as an Excel file" },
+                                    { step: "2", title: "Review", desc: "IntegraCare reviews and routes your requests" },
+                                    { step: "3", title: "Track", desc: "Monitor progress and published results here" },
+                                ].map(s => (
+                                    <div key={s.step} style={{ flex: 1, textAlign: "center", padding: "12px 8px", border: "1px solid #e2e8f0", borderRadius: 8, background: "#fff" }}>
+                                        <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#eef2ff", color: "#4338ca", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 6px", fontSize: 13, fontWeight: 700 }}>{s.step}</div>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 2 }}>{s.title}</div>
+                                        <div style={{ fontSize: 11, color: "#64748b", lineHeight: 1.4 }}>{s.desc}</div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}
@@ -437,7 +427,35 @@ export default function PortalOverview() {
                 </div>
             )}
 
-            {!showUploadFirst && (
+            {/* ── Compact upload panel when user has submissions but is uploading another ── */}
+            {!showOnlyUpload && uploadState !== "idle" && uploadState !== "submitted" && (
+                <div style={{ border: "2px dashed #cbd5e1", borderRadius: 14, padding: 24, marginBottom: 20, textAlign: "center", background: "#fafbfc" }}>
+                    <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleFileSelected} />
+                    {uploadState === "analyzing" && (
+                        <div>
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 8px" }}>
+                                <polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                            </svg>
+                            <h3 style={{ fontSize: 15, fontWeight: 700, color: "#1e293b", margin: 0 }}>Analyzing {selectedFile?.name}...</h3>
+                        </div>
+                    )}
+                    {uploadState === "complete" && analysis && (
+                        <div>
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 8px" }}>
+                                <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            <h3 style={{ fontSize: 15, fontWeight: 700, color: "#166534", margin: "0 0 4px" }}>Package Ready</h3>
+                            <p style={{ fontSize: 13, color: "#475569", margin: "0 0 10px" }}>{analysis.detected} request{analysis.detected !== 1 ? "s" : ""} detected in {analysis.packageName}</p>
+                            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                                <button className="rc-btn rc-btn-primary" onClick={handleSubmitPackage}>Submit Package to IntegraCare</button>
+                                <button className="rc-btn rc-btn-secondary" onClick={resetUpload}>Start Over</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {hasSubmitted && (
             <>
             <div className="po-stats-row">
                 <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("all"); setDashboardFilterCategory("all"); setDashboardSearch(""); }}>
@@ -486,7 +504,7 @@ export default function PortalOverview() {
                     <h2 className="po-section-title">Submitted Requests</h2>
                     {visibleRequests.length === 0 ? (
                         <div style={{ border: "1px dashed #d1d5db", borderRadius: 10, padding: 24, textAlign: "center", background: "#fafbfc" }}>
-                            <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>No requests submitted yet. Upload a package to get started.</p>
+                            <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>No requests available for this account yet.</p>
                         </div>
                     ) : (
                         <>
