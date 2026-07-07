@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { getPortalRequests, getActivePersona, getPortalTransactions } from "../../services/portalMockData";
 import "./PortalOverview.css";
 
@@ -21,6 +22,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function PortalRequests() {
+    const navigate = useNavigate();
     const allRequests = getPortalRequests();
     const persona = getActivePersona();
     const txn = getPortalTransactions()[0];
@@ -90,7 +92,7 @@ export default function PortalRequests() {
                     <span></span>
                 </div>
                 {filtered.map((req) => (
-                    <div key={req.id} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 0.9fr 0.8fr 0.7fr 0.6fr", gap: 8, padding: "10px 14px", borderBottom: "1px solid #f1f5f9", fontSize: 13, alignItems: "center" }}>
+                    <div key={req.id} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 0.9fr 0.8fr 0.7fr 0.6fr", gap: 8, padding: "10px 14px", borderBottom: "1px solid #f1f5f9", fontSize: 13, alignItems: "center", cursor: "pointer" }} onClick={() => navigate(`/portal/requests/${req.id}`)}>
                         <div style={{ display: "flex", flexDirection: "column" }}>
                             <span style={{ fontWeight: 600, color: "var(--is-text-heading, #0f172a)" }}>{req.title}</span>
                             <span style={{ fontSize: 10, color: "#94a3b8" }}>{req.requestId}</span>
@@ -118,14 +120,14 @@ export default function PortalRequests() {
                         </span>
                         <span>
                             {req._publishedExternal ? (
-                                <span style={{ fontSize: 10, color: "#166534", fontWeight: 600 }}>View</span>
-                            ) : persona.role === "Owner / Seller" ? (
-                                <button className="rc-btn rc-btn-primary rc-btn-sm" style={{ fontSize: 10 }} onClick={() => window.alert("Upload document mock")}>Upload</button>
-                            ) : persona.role === "Buyer" ? (
-                                <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 10 }} onClick={() => window.alert("Request clarification mock")}>Clarify</button>
-                            ) : persona.role === "Broker" ? (
-                                <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 10 }} onClick={() => window.alert("Route / assign mock")}>Route</button>
-                            ) : null}
+                                req._publishedWithoutDocuments ? (
+                                    <span style={{ fontSize: 10, color: "#166534", fontWeight: 600 }}>Review</span>
+                                ) : (
+                                    <span style={{ fontSize: 10, color: "#166534", fontWeight: 600 }}>View Documents</span>
+                                )
+                            ) : (
+                                <span style={{ fontSize: 10, color: "#6366f1", fontWeight: 600 }}>View</span>
+                            )}
                         </span>
                     </div>
                 ))}

@@ -481,9 +481,9 @@ export default function PortalOverview() {
                     <span className="po-stat-value po-stat-value--amber">{qualityReviewCount}</span>
                     <span className="po-stat-label">Quality Review</span>
                 </div>
-                <div className="po-stat-card">
+                <div className="po-stat-card" style={publishedCount > 0 ? { borderColor: "#166534", background: "#f0fdf4" } : undefined}>
                     <span className="po-stat-value po-stat-value--green">{publishedCount}</span>
-                    <span className="po-stat-label">Published</span>
+                    <span className="po-stat-label">{publishedCount > 0 ? "Published / Ready to Review" : "Published"}</span>
                 </div>
                 {actionNeededCount > 0 && (
                     <div className="po-stat-card">
@@ -511,7 +511,7 @@ export default function PortalOverview() {
                                 <span>Request</span><span>Community</span><span>Status</span><span>Updated</span>
                             </div>
                             {visibleRequests.slice(0, 10).map((req) => (
-                                <div key={req.id} style={{ display: "grid", gridTemplateColumns: "2fr 1.2fr 1fr 0.8fr", gap: 8, padding: "10px 14px", borderBottom: "1px solid #f1f5f9", fontSize: 13, alignItems: "center", cursor: "pointer" }} onClick={() => navigate("/portal/requests")}>
+                                <div key={req.id} style={{ display: "grid", gridTemplateColumns: "2fr 1.2fr 1fr 0.8fr", gap: 8, padding: "10px 14px", borderBottom: "1px solid #f1f5f9", fontSize: 13, alignItems: "center", cursor: "pointer" }} onClick={() => navigate(`/portal/requests/${req.id}`)}>
                                     <span style={{ fontWeight: 600, color: "var(--is-text-heading, #0f172a)" }}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</span>
                                     <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.communityNames[0] || "\u2014"}</span>
                                     <span>
@@ -525,6 +525,11 @@ export default function PortalOverview() {
                                     <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.updatedAt || req.neededBy || "\u2014"}</span>
                                 </div>
                             ))}
+                        </div>
+                    )}
+                    {visibleRequests.length > 10 && (
+                        <div style={{ textAlign: "right", marginTop: 6 }}>
+                            <span style={{ fontSize: 12, color: "#6366f1", fontWeight: 600, cursor: "pointer" }} onClick={() => navigate("/portal/requests")}>View all requests &rarr;</span>
                         </div>
                     )}
                 </div>

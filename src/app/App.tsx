@@ -30,6 +30,7 @@ import TopicDetailPage from "../pages/topics/TopicDetailPage";
 import PortalOverview from "../pages/portal/PortalOverview";
 import PortalTransactions from "../pages/portal/PortalTransactions";
 import PortalRequests from "../pages/portal/PortalRequests";
+import PortalRequestDetail from "../pages/portal/PortalRequestDetail";
 import PortalSubmit from "../pages/portal/PortalSubmit";
 import PortalDocuments from "../pages/portal/PortalDocuments";
 import PortalHelp from "../pages/portal/PortalHelp";
@@ -208,6 +209,7 @@ function AuthAwareRouter() {
                 <Route path="/portal" element={<PortalOverview />} />
                 <Route path="/portal/transactions" element={<PortalTransactions />} />
                 <Route path="/portal/requests" element={<PortalRequests />} />
+                <Route path="/portal/requests/:id" element={<PortalRequestDetail />} />
                 <Route path="/portal/submit" element={<PortalSubmit />} />
                 <Route path="/portal/documents" element={<PortalDocuments />} />
                 <Route path="/portal/help" element={<PortalHelp />} />
