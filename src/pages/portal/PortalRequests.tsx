@@ -95,8 +95,8 @@ export default function PortalRequests() {
                 </select>
             </div>
 
-            <div style={{ border: "1px solid var(--is-border, #e2e8f0)", borderRadius: 10, overflow: "hidden", boxShadow: "var(--is-shadow-card, 0 8px 20px rgba(15, 23, 42, 0.08))" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "2fr 0.8fr 0.8fr 0.9fr 0.7fr 0.5fr", gap: 8, padding: "10px 14px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            <div className="po-requests-table">
+                <div className="po-requests-header" style={{ gridTemplateColumns: "2fr 0.8fr 0.8fr 0.9fr 0.7fr 0.5fr" }}>
                     <span>Request</span>
                     <span>Category</span>
                     <span>Community</span>
@@ -105,13 +105,13 @@ export default function PortalRequests() {
                     <span></span>
                 </div>
                 {filtered.map((req) => (
-                    <div key={req.id} style={{ display: "grid", gridTemplateColumns: "2fr 0.8fr 0.8fr 0.9fr 0.7fr 0.5fr", gap: 8, padding: "10px 14px", borderBottom: "1px solid #f1f5f9", fontSize: 13, alignItems: "center", cursor: "pointer" }} onClick={() => navigate(`/portal/requests/${req.id}`)}>
-                        <div style={{ display: "flex", flexDirection: "column" }}>
-                            <span style={{ fontWeight: 600, color: "var(--is-text-heading, #0f172a)" }}>{req.title}</span>
-                            <span style={{ fontSize: 10, color: "#94a3b8" }}>ID: {req.requestId}</span>
+                    <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "2fr 0.8fr 0.8fr 0.9fr 0.7fr 0.5fr", cursor: "pointer" }} onClick={() => navigate(`/portal/requests/${req.id}`)}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                            <span className="po-requests-title">{req.title}</span>
+                            <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500, fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace' }}>{req.requestId}</span>
                         </div>
-                        <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.category || "\u2014"}</span>
-                        <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.communityNames[0] || "\u2014"}</span>
+                        <span className="po-requests-txn">{req.category || "\u2014"}</span>
+                        <span className="po-requests-txn">{req.communityNames[0] || "\u2014"}</span>
                         <span>
                             <StatusBadge status={req.status} />
                             {req._publishedExternal && (
@@ -120,12 +120,12 @@ export default function PortalRequests() {
                                 </span>
                             )}
                         </span>
-                        <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.updatedAt || req.neededBy || "\u2014"}</span>
-                        <span style={{ fontSize: 10, color: "#6366f1", fontWeight: 600 }}>View</span>
+                        <span className="po-requests-txn">{req.updatedAt || req.neededBy || "\u2014"}</span>
+                        <span style={{ fontSize: 12, color: "#6366f1", fontWeight: 600, cursor: "pointer" }}>View &rarr;</span>
                     </div>
                 ))}
                 {filtered.length === 0 && (
-                    <div style={{ padding: "24px", textAlign: "center", fontSize: 13, color: "#64748b" }}>No requests match your filters.</div>
+                    <div style={{ padding: "32px 24px", textAlign: "center", fontSize: 13, color: "#64748b" }}>No requests match your filters.</div>
                 )}
             </div>
             <div style={{ marginTop: 8, fontSize: 12, color: "#64748b" }}>

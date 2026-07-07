@@ -88,12 +88,12 @@ function ActivityFeed({ activities }: { activities: RecapActivity[] }) {
         return <div style={{ padding: 16, fontSize: 13, color: "#64748b", textAlign: "center" }}>No external activity has been recorded yet.</div>;
     }
     return (
-        <div className="po-requests-table">
+        <div className="po-updates-list">
             {externalSafe.slice(0, 8).map((act) => (
                 <div key={act.id} className="po-activity-item">
                     <ActivityIcon type={act.type} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, color: "#1e293b", lineHeight: 1.4 }}>{act.description}</div>
+                        <div className="po-update-text">{act.description}</div>
                         <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
                             {act.userName}
                             {act.requestId && <> &middot; <span style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace' }}>{act.requestId}</span></>}
@@ -409,21 +409,22 @@ export default function PortalOverview() {
             )}
 
             {uploadState === "submitted" && analysis && (
-                <div style={{ marginBottom: 20 }}>
-                    <div style={{ border: "1px solid #bbf7d0", borderRadius: 14, padding: 20, background: "#f0fdf4" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <div style={{ marginBottom: 24 }}>
+                    <div style={{ border: "1px solid #bbf7d0", borderRadius: 16, padding: 28, background: "linear-gradient(135deg, #f0fdf4 0%, #faf5ff 100%)", textAlign: "center" }}>
+                        <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#166534", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                 <polyline points="20 6 9 17 4 12" />
                             </svg>
-                            <div>
-                                <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#166534" }}>Package submitted successfully!</span>
-                                <span style={{ display: "block", fontSize: 12, color: "#475569" }}>
-                                    {analysis.detected} request{analysis.detected !== 1 ? "s" : ""} submitted for review. IntegraCare will review and publish approved requests.
-                                </span>
-                            </div>
                         </div>
+                        <h3 style={{ fontSize: 20, fontWeight: 800, color: "#166534", margin: "0 0 4px", letterSpacing: "-0.01em" }}>Package Submitted</h3>
+                        <p style={{ fontSize: 14, color: "#475569", margin: "0 0 8px", lineHeight: 1.5 }}>
+                            {analysis.detected} request{analysis.detected !== 1 ? "s" : ""} submitted for IntegraCare review.
+                        </p>
+                        <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 18px", lineHeight: 1.5 }}>
+                            IntegraCare will review each request and publish approved items to your dashboard. You will receive a notification when new requests are available.
+                        </p>
+                        <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ padding: "10px 24px" }}>Upload Another Package</button>
                     </div>
-                    <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ marginTop: 12 }}>Upload Another Package</button>
                 </div>
             )}
 
@@ -458,36 +459,36 @@ export default function PortalOverview() {
             {hasSubmitted && (
             <>
             <div className="po-stats-row">
-                <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("all"); setDashboardFilterCategory("all"); setDashboardSearch(""); }}>
+                <div className={`po-stat-card${dashboardFilterStatus === "all" && dashboardFilterCategory === "all" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("all"); setDashboardFilterCategory("all"); setDashboardSearch(""); }}>
                     <span className="po-stat-value">{visibleRequests.length}</span>
                     <span className="po-stat-label">Total Requests</span>
                 </div>
                 {intakeCount > 0 && (
-                    <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Intake Review"); setDashboardFilterCategory("all"); }}>
+                    <div className={`po-stat-card${dashboardFilterStatus === "Intake Review" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Intake Review"); setDashboardFilterCategory("all"); }}>
                         <span className="po-stat-value po-stat-value--indigo">{intakeCount}</span>
                         <span className="po-stat-label">Intake Review</span>
                     </div>
                 )}
                 {workQueueCount > 0 && (
-                    <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Work Queue"); setDashboardFilterCategory("all"); }}>
+                    <div className={`po-stat-card${dashboardFilterStatus === "Work Queue" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Work Queue"); setDashboardFilterCategory("all"); }}>
                         <span className="po-stat-value po-stat-value--amber">{workQueueCount}</span>
                         <span className="po-stat-label">Work Queue</span>
                     </div>
                 )}
-                <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("In Progress"); setDashboardFilterCategory("all"); }}>
+                <div className={`po-stat-card${dashboardFilterStatus === "In Progress" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("In Progress"); setDashboardFilterCategory("all"); }}>
                     <span className="po-stat-value po-stat-value--blue">{inProgress}</span>
                     <span className="po-stat-label">In Progress</span>
                 </div>
-                <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Quality Review"); setDashboardFilterCategory("all"); }}>
+                <div className={`po-stat-card${dashboardFilterStatus === "Quality Review" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Quality Review"); setDashboardFilterCategory("all"); }}>
                     <span className="po-stat-value po-stat-value--amber">{qualityReviewCount}</span>
                     <span className="po-stat-label">Quality Review</span>
                 </div>
-                <div className="po-stat-card" style={{ cursor: "pointer", ...(publishedCount > 0 ? { borderColor: "#166534", background: "#f0fdf4" } : {}) }} onClick={() => { setDashboardFilterStatus("Published"); setDashboardFilterCategory("all"); }}>
+                <div className={`po-stat-card${dashboardFilterStatus === "Published" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Published"); setDashboardFilterCategory("all"); }}>
                     <span className="po-stat-value po-stat-value--green">{publishedCount}</span>
                     <span className="po-stat-label">{publishedCount > 0 ? "Published / Ready to Review" : "Published"}</span>
                 </div>
                 {actionNeededCount > 0 && (
-                    <div className="po-stat-card" style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Action Needed"); setDashboardFilterCategory("all"); }}>
+                    <div className={`po-stat-card${dashboardFilterStatus === "Action Needed" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Action Needed"); setDashboardFilterCategory("all"); }}>
                         <span className="po-stat-value po-stat-value--red">{actionNeededCount}</span>
                         <span className="po-stat-label">Action Needed</span>
             </div>
@@ -528,14 +529,14 @@ export default function PortalOverview() {
                                     {dashboardCategories.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
                             </div>
-                            <div style={{ border: "1px solid var(--is-border, #93c5fd)", borderRadius: 10, overflow: "hidden", boxShadow: "var(--is-shadow-card, 0 8px 20px rgba(15, 23, 42, 0.08))" }}>
-                            <div style={{ display: "grid", gridTemplateColumns: "2fr 1.2fr 1fr 0.8fr", gap: 8, padding: "10px 14px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                            <div className="po-requests-table">
+                            <div className="po-requests-header" style={{ gridTemplateColumns: "2fr 1.2fr 1fr 0.8fr" }}>
                                 <span>Request</span><span>Community</span><span>Status</span><span>Updated</span>
                             </div>
                             {dashboardFiltered.slice(0, 10).map((req) => (
-                                <div key={req.id} style={{ display: "grid", gridTemplateColumns: "2fr 1.2fr 1fr 0.8fr", gap: 8, padding: "10px 14px", borderBottom: "1px solid #f1f5f9", fontSize: 13, alignItems: "center", cursor: "pointer" }} onClick={() => navigate(`/portal/requests/${req.id}`)}>
-                                    <span style={{ fontWeight: 600, color: "var(--is-text-heading, #0f172a)" }}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</span>
-                                    <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.communityNames[0] || "\u2014"}</span>
+                                <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "2fr 1.2fr 1fr 0.8fr", cursor: "pointer" }} onClick={() => navigate(`/portal/requests/${req.id}`)}>
+                                    <span className="po-requests-title">{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</span>
+                                    <span className="po-requests-txn">{req.communityNames[0] || "\u2014"}</span>
                                     <span>
                                         <StatusBadge status={req.status} />
                                         {req._publishedExternal && (
@@ -544,7 +545,7 @@ export default function PortalOverview() {
                                             </span>
                                         )}
                                     </span>
-                                    <span style={{ fontSize: 12, color: "var(--is-text-helper, #334155)" }}>{req.updatedAt || req.neededBy || "\u2014"}</span>
+                                    <span className="po-requests-txn">{req.updatedAt || req.neededBy || "\u2014"}</span>
                                 </div>
                             ))}
                         </div>

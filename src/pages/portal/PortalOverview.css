@@ -9,31 +9,34 @@
 .po-welcome {
     background: linear-gradient(135deg, #eef2ff 0%, #faf5ff 50%, #f0fdf4 100%);
     border: 1px solid #c7d2fe;
-    border-radius: 12px;
-    padding: 24px 28px;
+    border-radius: 14px;
+    padding: 28px 32px;
+    box-shadow: 0 2px 12px rgba(79, 70, 229, 0.06);
 }
 
 .po-welcome-title {
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--is-text-heading, #0f172a);
+    font-size: 26px;
+    font-weight: 800;
+    color: #0f172a;
     margin: 0 0 4px;
+    letter-spacing: -0.02em;
 }
 
 .po-welcome-sub {
     font-size: 14px;
-    color: var(--is-text-helper, #334155);
+    color: #475569;
     margin: 0;
 }
 
 .po-status-badge {
     display: inline-block;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     padding: 3px 10px;
-    border-radius: 4px;
+    border-radius: 6px;
     border: 1px solid;
     white-space: nowrap;
+    letter-spacing: 0.01em;
 }
 
 .po-summary-row {
@@ -43,18 +46,18 @@
 }
 
 .po-txn-card {
-    background: var(--is-card-bg, #ffffff);
-    border: 1px solid var(--is-border, #93c5fd);
-    border-radius: 10px;
-    padding: 18px 20px;
-    box-shadow: var(--is-shadow-card, 0 8px 20px rgba(15, 23, 42, 0.08));
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px 24px;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
     cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .po-txn-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.10);
 }
 
 .po-txn-card-top {
@@ -62,19 +65,19 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
 }
 
 .po-txn-name {
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 700;
-    color: var(--is-text-heading, #0f172a);
+    color: #0f172a;
 }
 
 .po-txn-desc {
     font-size: 13px;
-    color: var(--is-text-helper, #334155);
-    margin: 0 0 10px;
+    color: #475569;
+    margin: 0 0 12px;
     line-height: 1.5;
 }
 
@@ -82,12 +85,12 @@
     display: flex;
     gap: 20px;
     font-size: 12px;
-    color: var(--is-text-helper, #334155);
+    color: #475569;
 }
 
 .po-stats-row {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 10px;
 }
 
@@ -95,19 +98,54 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    background: var(--is-card-bg, #ffffff);
-    border: 1px solid var(--is-border, #93c5fd);
-    border-radius: 10px;
-    padding: 16px 12px;
-    box-shadow: var(--is-shadow-card, 0 8px 20px rgba(15, 23, 42, 0.08));
-    gap: 6px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 18px 12px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    gap: 8px;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+
+.po-stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: #e2e8f0;
+    transition: background 0.2s;
+}
+
+.po-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+    border-color: #cbd5e1;
+}
+
+.po-stat-card:hover::before {
+    background: #6366f1;
+}
+
+.po-stat-card--active {
+    border-color: #6366f1;
+    background: #f8faff;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.10);
+}
+
+.po-stat-card--active::before {
+    background: #6366f1;
 }
 
 .po-stat-value {
-    font-size: 28px;
+    font-size: 30px;
     font-weight: 800;
-    color: var(--is-text-heading, #0f172a);
+    color: #0f172a;
     line-height: 1;
+    letter-spacing: -0.02em;
 }
 
 .po-stat-value--green {
@@ -119,7 +157,7 @@
 }
 
 .po-stat-value--amber {
-    color: #9a3412;
+    color: #92400e;
 }
 
 .po-stat-value--purple {
@@ -137,8 +175,9 @@
 .po-stat-label {
     font-size: 12px;
     font-weight: 600;
-    color: var(--is-text-helper, #334155);
+    color: #475569;
     text-align: center;
+    line-height: 1.3;
 }
 
 .po-action-row {
@@ -151,20 +190,21 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
-    background: var(--is-card-bg, #ffffff);
-    border: 1px solid #c7d2fe;
-    border-radius: 10px;
-    padding: 20px 16px;
+    gap: 8px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 22px 16px;
     cursor: pointer;
-    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+    transition: all 0.2s;
     text-align: center;
     font: inherit;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
 }
 
 .po-action-card:hover {
-    border-color: #6366f1;
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12);
+    border-color: #a5b4fc;
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.10);
     transform: translateY(-2px);
 }
 
@@ -176,21 +216,21 @@
     height: 44px;
     font-size: 20px;
     font-weight: 700;
-    background: #eef2ff;
+    background: linear-gradient(135deg, #eef2ff, #f0fdf4);
     color: #4f46e5;
-    border-radius: 10px;
+    border-radius: 12px;
     flex-shrink: 0;
 }
 
 .po-action-title {
     font-size: 14px;
     font-weight: 700;
-    color: var(--is-text-heading, #0f172a);
+    color: #0f172a;
 }
 
 .po-action-desc {
     font-size: 12px;
-    color: var(--is-text-helper, #334155);
+    color: #64748b;
     line-height: 1.4;
 }
 
@@ -211,26 +251,26 @@
 }
 
 .po-section-title {
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 700;
-    color: var(--is-text-heading, #0f172a);
+    color: #0f172a;
     margin: 0;
+    letter-spacing: -0.01em;
 }
 
 .po-requests-table {
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--is-border, #93c5fd);
-    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
     overflow: hidden;
-    box-shadow: var(--is-shadow-card, 0 8px 20px rgba(15, 23, 42, 0.08));
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
 }
 
 .po-requests-header {
     display: grid;
-    grid-template-columns: 2fr 1.5fr 1fr 0.8fr 0.8fr;
     gap: 8px;
-    padding: 10px 14px;
+    padding: 12px 16px;
     background: #f8fafc;
     border-bottom: 1px solid #e2e8f0;
     font-size: 11px;
@@ -242,12 +282,12 @@
 
 .po-requests-row {
     display: grid;
-    grid-template-columns: 2fr 1.5fr 1fr 0.8fr 0.8fr;
     gap: 8px;
-    padding: 10px 14px;
+    padding: 12px 16px;
     border-bottom: 1px solid #f1f5f9;
     font-size: 13px;
     align-items: center;
+    transition: background 0.15s;
 }
 
 .po-requests-row:last-child {
@@ -260,12 +300,12 @@
 
 .po-requests-title {
     font-weight: 600;
-    color: var(--is-text-heading, #0f172a);
+    color: #0f172a;
 }
 
 .po-requests-txn {
     font-size: 12px;
-    color: var(--is-text-helper, #334155);
+    color: #475569;
 }
 
 .po-priority {
@@ -287,23 +327,23 @@
 
 .po-needed-by {
     font-size: 12px;
-    color: var(--is-text-helper, #334155);
+    color: #475569;
 }
 
 .po-updates-list {
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--is-border-soft, #bfdbfe);
-    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
     overflow: hidden;
-    box-shadow: var(--is-shadow-card, 0 8px 20px rgba(15, 23, 42, 0.08));
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
 }
 
 .po-update-item {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 10px 14px;
+    padding: 12px 16px;
     border-bottom: 1px solid #f1f5f9;
 }
 
@@ -323,7 +363,7 @@
 
 .po-update-text {
     font-size: 13px;
-    color: var(--is-text-body, #111827);
+    color: #1e293b;
     line-height: 1.4;
 }
 
@@ -336,13 +376,13 @@
 .po-dashboard-grid {
     display: grid;
     grid-template-columns: 1fr 320px;
-    gap: 16px;
+    gap: 20px;
 }
 
 .po-activity-item {
     display: flex;
     gap: 10px;
-    padding: 10px 14px;
+    padding: 12px 16px;
     border-bottom: 1px solid #f1f5f9;
     align-items: flex-start;
 }
@@ -363,7 +403,7 @@
 }
 
 .po-ext-card:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 @media (max-width: 900px) {

@@ -225,8 +225,12 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
         portalStatus = "In Progress";
     } else if (req.status === "Rejected") {
         portalStatus = "Closed";
-    } else {
+    } else if (req._publishedAt || req._externalStatus === "Internal Only") {
+        // Published to work queue — has been through intake review
         portalStatus = "Work Queue";
+    } else {
+        // Not yet published — still in intake / pending review
+        portalStatus = "Intake Review";
     }
     return {
         id: req.id,
@@ -404,7 +408,7 @@ export function submitPortalNewRequest(data: {
         transactionName: "ABC Company Portfolio",
         title: data.title,
         category: data.category,
-        status: "Under Review",
+        status: "Intake Review",
         priority: data.priority,
         neededBy: data.neededBy,
         submittedAt: new Date().toISOString().split("T")[0],
