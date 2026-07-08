@@ -11,6 +11,8 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
     "Quality Review": { bg: "#fffbeb", text: "#92400e", border: "#fde68a" },
     "Action Needed": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
     Closed: { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
+    "Closed / Duplicate": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
+    "Closed / Not Applicable": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -59,9 +61,9 @@ export default function PortalRequests() {
                 {persona.role === "Broker" && "All due diligence requests across the transaction. Filter by community or status to find what needs attention."}
             </p>
 
-            <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, border: "1px solid #e2e8f0", borderRadius: 8, padding: "4px 10px", background: "#fff", flex: 1, minWidth: 200 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <div className="po-filter-row">
+                <div className="po-search-box">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="11" cy="11" r="8" />
                         <line x1="21" y1="21" x2="16.65" y2="16.65" />
                     </svg>
@@ -70,10 +72,9 @@ export default function PortalRequests() {
                         placeholder="Search requests..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        style={{ border: "none", outline: "none", fontSize: 13, flex: 1, padding: "4px 0", background: "transparent" }}
                     />
                 </div>
-                <select className="rc-filter-select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ minWidth: 130 }}>
+                <select className="po-filter-select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
                     <option value="all">All Statuses</option>
                     <option value="Intake Review">Intake Review</option>
                     <option value="Work Queue">Work Queue</option>
@@ -84,34 +85,27 @@ export default function PortalRequests() {
                     <option value="Closed">Closed</option>
                 </select>
                 {categories.length > 0 && (
-                    <select className="rc-filter-select" value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} style={{ minWidth: 140 }}>
+                    <select className="po-filter-select" value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
                         <option value="all">All Categories</option>
                         {categories.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                 )}
-                <select className="rc-filter-select" value={filterCommunity} onChange={(e) => setFilterCommunity(e.target.value)} style={{ minWidth: 140 }}>
+                <select className="po-filter-select" value={filterCommunity} onChange={(e) => setFilterCommunity(e.target.value)}>
                     <option value="all">All Communities</option>
                     {communities.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
                 </select>
             </div>
 
             <div className="po-requests-table">
-                <div className="po-requests-header" style={{ gridTemplateColumns: "2fr 0.8fr 0.8fr 0.9fr 0.7fr 0.5fr" }}>
-                    <span>Request</span>
-                    <span>Category</span>
-                    <span>Community</span>
-                    <span>Status</span>
-                    <span>Updated</span>
-                    <span></span>
+                <div className="po-requests-header" style={{ gridTemplateColumns: "0.6fr 1.8fr 1fr 0.9fr 0.7fr 0.7fr" }}>
+                    <span>ID</span><span>Request</span><span>Status</span><span>Category</span><span>Community</span><span>Updated</span>
                 </div>
                 {filtered.map((req) => (
-                    <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "2fr 0.8fr 0.8fr 0.9fr 0.7fr 0.5fr", cursor: "pointer" }} onClick={() => navigate(`/portal/requests/${req.id}`)}>
+                    <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.6fr 1.8fr 1fr 0.9fr 0.7fr 0.7fr" }} onClick={() => navigate(`/portal/requests/${req.id}`)}>
+                        <span className="po-requests-id">{req.requestId}</span>
                         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                             <span className="po-requests-title">{req.title}</span>
-                            <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500, fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace' }}>{req.requestId}</span>
                         </div>
-                        <span className="po-requests-txn">{req.category || "\u2014"}</span>
-                        <span className="po-requests-txn">{req.communityNames[0] || "\u2014"}</span>
                         <span>
                             <StatusBadge status={req.status} />
                             {req._publishedExternal && (
@@ -120,8 +114,9 @@ export default function PortalRequests() {
                                 </span>
                             )}
                         </span>
+                        <span className="po-requests-txn">{req.category || "\u2014"}</span>
+                        <span className="po-requests-txn">{req.communityNames[0] || "\u2014"}</span>
                         <span className="po-requests-txn">{req.updatedAt || req.neededBy || "\u2014"}</span>
-                        <span style={{ fontSize: 12, color: "#6366f1", fontWeight: 600, cursor: "pointer" }}>View &rarr;</span>
                     </div>
                 ))}
                 {filtered.length === 0 && (

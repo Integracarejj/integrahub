@@ -228,9 +228,12 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
     // Complete but not yet published externally
     } else if (req.status === "Complete") {
         portalStatus = "Quality Review";
-    // Duplicate → still in intake view
+    // Duplicate → Closed / Duplicate
     } else if (req.status === "Duplicate") {
-        portalStatus = "Intake Review";
+        portalStatus = "Closed / Duplicate";
+    // Not Applicable → Closed / Not Applicable
+    } else if (req.status === "Not Applicable") {
+        portalStatus = "Closed / Not Applicable";
     // Rejected → Closed
     } else if (req.status === "Rejected") {
         portalStatus = "Closed";

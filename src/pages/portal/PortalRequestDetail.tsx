@@ -11,6 +11,8 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
     "Quality Review": { bg: "#fffbeb", text: "#92400e", border: "#fde68a" },
     "Action Needed": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
     Closed: { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
+    "Closed / Duplicate": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
+    "Closed / Not Applicable": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -22,15 +24,15 @@ function StatusBadge({ status }: { status: string }) {
     );
 }
 
-const STATUS_PROGRESS: Record<string, { step: number; label: string; icon: string; color: string }> = {
-    "Intake Review": { step: 1, label: "Intake Review", icon: "\uD83D\uDD0D", color: "#6b21a8" },
-    "Work Queue": { step: 2, label: "Work Queue", icon: "\uD83D\uDCCB", color: "#92400e" },
-    "In Progress": { step: 3, label: "In Progress", icon: "\u2699\uFE0F", color: "#1e40af" },
-    "Quality Review": { step: 4, label: "Quality Review", icon: "\u2705", color: "#92400e" },
-    Published: { step: 5, label: "Published", icon: "\uD83D\uDCE2", color: "#166534" },
+const STATUS_PROGRESS: Record<string, { step: number; label: string }> = {
+    "Intake Review": { step: 1, label: "Intake Review" },
+    "Work Queue": { step: 2, label: "Work Queue" },
+    "In Progress": { step: 3, label: "In Progress" },
+    "Quality Review": { step: 4, label: "Quality Review" },
+    Published: { step: 5, label: "Published" },
 };
 
-const PROGRESS_STEPS = [
+const TRACKER_STEPS = [
     { step: 1, label: "Intake Review" },
     { step: 2, label: "Work Queue" },
     { step: 3, label: "In Progress" },
@@ -38,72 +40,63 @@ const PROGRESS_STEPS = [
     { step: 5, label: "Published" },
 ];
 
-function ProgressBar({ status }: { status: string }) {
+function StatusTracker({ status }: { status: string }) {
     const current = STATUS_PROGRESS[status];
     if (!current) return null;
+
     return (
         <div style={{ marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                {PROGRESS_STEPS.map((s) => {
-                    const isActive = s.step <= current.step;
-                    const isCurrent = s.step === current.step;
+            <div className="po-tracker">
+                {TRACKER_STEPS.map((s) => {
+                    const isDone = s.step < current.step;
+                    const isActive = s.step === current.step;
+                    const dotClass = isDone ? "po-tracker-dot--done" : isActive ? "po-tracker-dot--active" : "";
+                    const labelClass = isActive ? "po-tracker-label--active" : "";
                     return (
-                        <div key={s.step} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                            <div style={{
-                                width: "100%", height: 4, borderRadius: 2,
-                                background: isActive ? (isCurrent ? current.color : "#a5b4fc") : "#e2e8f0",
-                                transition: "background 0.3s",
-                            }} />
-                            <span style={{
-                                fontSize: 10, fontWeight: isCurrent ? 700 : 500,
-                                color: isActive ? "#0f172a" : "#94a3b8",
-                                whiteSpace: "nowrap",
-                            }}>
-                                {s.label}
-                            </span>
+                        <div key={s.step} className="po-tracker-step">
+                            {s.step < TRACKER_STEPS.length && (
+                                <div className={`po-tracker-line${isDone ? " po-tracker-line--done" : ""}`} />
+                            )}
+                            <div className={`po-tracker-dot ${dotClass}`}>
+                                {isDone ? "\u2713" : isActive ? "\u25CF" : s.step}
+                            </div>
+                            <span className={`po-tracker-label ${labelClass}`}>{s.label}</span>
                         </div>
                     );
                 })}
             </div>
-            <div style={{ marginTop: 16, padding: "14px 18px", background: "#f8fafc", borderRadius: 10, border: `1px solid ${current.color}20` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: current.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
-                        {current.icon}
-                    </div>
-                    <div>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", display: "block", marginBottom: 2 }}>Current Status: {status}</span>
-                        <span style={{ fontSize: 13, color: "#475569", lineHeight: 1.5, display: "block" }}>
-                            {status === "Intake Review" && "Your submission is being reviewed by the IntegraCare team to validate the request details. No action is needed from you at this time."}
-                            {status === "Work Queue" && "This request has been accepted and is queued for assignment to a reviewer. You will be notified when work begins."}
-                            {status === "In Progress" && "This request is actively being worked on by the IntegraCare team. Check back for updates."}
-                            {status === "Quality Review" && "The work is complete and is undergoing a final quality review before publication."}
-                            {status === "Published" && "The documents and artifacts for this request are now available for your review."}
-                            {status === "Action Needed" && "Additional information is needed from your side. Please check for open clarifications and respond promptly."}
-                            {status === "Closed" && "This request has been closed. Contact the DD team if you have questions."}
-                            {!["Intake Review", "Work Queue", "In Progress", "Quality Review", "Action Needed", "Closed", "Published"].includes(status) && "IntegraCare is processing this request."}
-                        </span>
-                        {status === "Intake Review" && (
-                            <span style={{ fontSize: 12, color: "#6b21a8", fontWeight: 600, marginTop: 4, display: "inline-block" }}>
-                                What happens next: IntegraCare will review the submission and route requests to the appropriate teams.
-                            </span>
-                        )}
-                        {status === "Work Queue" && (
-                            <span style={{ fontSize: 12, color: "#92400e", fontWeight: 600, marginTop: 4, display: "inline-block" }}>
-                                What happens next: A reviewer will be assigned to process this request.
-                            </span>
-                        )}
-                        {status === "In Progress" && (
-                            <span style={{ fontSize: 12, color: "#1e40af", fontWeight: 600, marginTop: 4, display: "inline-block" }}>
-                                What happens next: The reviewer is gathering and analyzing the requested information.
-                            </span>
-                        )}
-                        {status === "Quality Review" && (
-                            <span style={{ fontSize: 12, color: "#92400e", fontWeight: 600, marginTop: 4, display: "inline-block" }}>
-                                What happens next: A senior reviewer will confirm completeness before publication.
-                            </span>
-                        )}
-                    </div>
-                </div>
+            <div style={{ marginTop: 16, padding: "14px 18px", background: "#f8fafc", borderRadius: 10, border: `1px solid ${STATUS_COLORS[status]?.border || "#e2e8f0"}` }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", display: "block", marginBottom: 4 }}>Current Status: {status}</span>
+                <span style={{ fontSize: 13, color: "#475569", lineHeight: 1.5, display: "block" }}>
+                    {status === "Intake Review" && "Your submission is being reviewed by the IntegraCare team to validate the request details. No action is needed from you at this time."}
+                    {status === "Work Queue" && "This request has been accepted and is queued for assignment to a reviewer. You will be notified when work begins."}
+                    {status === "In Progress" && "This request is actively being worked on by the IntegraCare team. Check back for updates."}
+                    {status === "Quality Review" && "The work is complete and is undergoing a final quality review before publication."}
+                    {status === "Published" && "The documents and artifacts for this request are now available for your review."}
+                    {status === "Action Needed" && "Additional information is needed from your side. Please check for open clarifications and respond promptly."}
+                    {status === "Closed" && "This request has been closed. Contact the DD team if you have questions."}
+                    {!["Intake Review", "Work Queue", "In Progress", "Quality Review", "Action Needed", "Closed", "Published"].includes(status) && "IntegraCare is processing this request."}
+                </span>
+                {status === "Intake Review" && (
+                    <span style={{ fontSize: 12, color: "#6b21a8", fontWeight: 600, marginTop: 4, display: "inline-block" }}>
+                        What happens next: IntegraCare will review the submission and route requests to the appropriate teams.
+                    </span>
+                )}
+                {status === "Work Queue" && (
+                    <span style={{ fontSize: 12, color: "#92400e", fontWeight: 600, marginTop: 4, display: "inline-block" }}>
+                        What happens next: A reviewer will be assigned to process this request.
+                    </span>
+                )}
+                {status === "In Progress" && (
+                    <span style={{ fontSize: 12, color: "#1e40af", fontWeight: 600, marginTop: 4, display: "inline-block" }}>
+                        What happens next: The reviewer is gathering and analyzing the requested information.
+                    </span>
+                )}
+                {status === "Quality Review" && (
+                    <span style={{ fontSize: 12, color: "#92400e", fontWeight: 600, marginTop: 4, display: "inline-block" }}>
+                        What happens next: A senior reviewer will confirm completeness before publication.
+                    </span>
+                )}
             </div>
         </div>
     );
@@ -133,79 +126,74 @@ export default function PortalRequestDetail() {
 
     const relatedDocs = allDocs.filter((d) => d.relatedRequestId === req.requestId || d.transactionId === req.transactionId);
     const publishedDocs = relatedDocs.filter((d) => d.externalVisible !== false);
-
     const statusColor = (STATUS_COLORS[req.status] || STATUS_COLORS["Closed"]);
 
     return (
         <div className="portal-overview" style={{ maxWidth: 740 }}>
-            <div style={{ marginBottom: 20, display: "flex", alignItems: "center", gap: 12 }}>
-                <button className="rc-btn rc-btn-secondary" onClick={() => navigate(-1)} style={{ fontSize: 12, padding: "4px 12px", border: "1px solid #e2e8f0", background: "#fff" }}>
+            {/* ── Top Back Bar ── */}
+            <div style={{ marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <button className="rc-btn rc-btn-secondary" onClick={() => navigate(-1)} style={{ fontSize: 12, padding: "6px 14px", border: "1px solid #e2e8f0", background: "#fff", borderRadius: 8, fontWeight: 600 }}>
                     &larr; Back
                 </button>
+                <span className="po-requests-id" style={{ fontSize: 11, background: "#f1f5f9", padding: "4px 10px", borderRadius: 6 }}>{req.requestId}</span>
             </div>
 
             {/* ── Hero / Summary Card ── */}
-            <div style={{
-                border: `1px solid ${statusColor.border}`,
-                borderRadius: 16,
-                padding: 28,
-                background: "#fff",
-                marginBottom: 20,
-                boxShadow: "0 4px 20px rgba(15, 23, 42, 0.08)",
-                position: "relative",
-                overflow: "hidden",
-            }}>
+            <div className="po-detail-summary" style={{ marginBottom: 20 }}>
                 <div style={{
                     position: "absolute", top: 0, left: 0, right: 0, height: 4,
                     background: `linear-gradient(90deg, ${statusColor.text}, ${statusColor.border})`,
                 }} />
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <h1 className="po-welcome-title" style={{ fontSize: 22, marginBottom: 4 }}>{req.title}</h1>
+                        <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", margin: "0 0 4px", letterSpacing: "-0.02em" }}>{req.title}</h1>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 6 }}>
-                            <span className="po-requests-id" style={{ fontSize: 11, background: "#f1f5f9", padding: "2px 8px", borderRadius: 4 }}>ID: {req.requestId}</span>
                             <span style={{ fontSize: 12, color: "#64748b" }}>{req.transactionName}</span>
-                            <span style={{ fontSize: 12, color: "#94a3b8" }}>&middot;</span>
-                            <span style={{ fontSize: 12, color: "#64748b" }}>{req.communityNames[0] || "\u2014"}</span>
+                            {req.communityNames[0] && (
+                                <>
+                                    <span style={{ fontSize: 12, color: "#94a3b8" }}>&middot;</span>
+                                    <span style={{ fontSize: 12, color: "#64748b" }}>{req.communityNames[0]}</span>
+                                </>
+                            )}
                         </div>
                     </div>
                     <StatusBadge status={req.status} />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 0 }}>
-                    <div style={{ padding: "10px 14px", background: "#f8fafc", borderRadius: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                    <div style={{ padding: "10px 14px", background: "#fff", borderRadius: 8, border: "1px solid #f1f5f9" }}>
                         <span style={{ fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em", display: "block", marginBottom: 2 }}>Category</span>
                         <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{req.category || "\u2014"}</span>
                     </div>
-                    <div style={{ padding: "10px 14px", background: "#f8fafc", borderRadius: 8 }}>
+                    <div style={{ padding: "10px 14px", background: "#fff", borderRadius: 8, border: "1px solid #f1f5f9" }}>
                         <span style={{ fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em", display: "block", marginBottom: 2 }}>Priority</span>
                         <span style={{ fontSize: 13, fontWeight: 600, color: req.priority === "High" ? "#991b1b" : req.priority === "Low" ? "#166534" : "#92400e" }}>{req.priority || "\u2014"}</span>
                     </div>
-                    <div style={{ padding: "10px 14px", background: "#f8fafc", borderRadius: 8 }}>
+                    <div style={{ padding: "10px 14px", background: "#fff", borderRadius: 8, border: "1px solid #f1f5f9" }}>
                         <span style={{ fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em", display: "block", marginBottom: 2 }}>Submitted</span>
                         <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{req.submittedAt || "\u2014"}</span>
                     </div>
-                    <div style={{ padding: "10px 14px", background: "#f8fafc", borderRadius: 8 }}>
+                    <div style={{ padding: "10px 14px", background: "#fff", borderRadius: 8, border: "1px solid #f1f5f9" }}>
                         <span style={{ fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em", display: "block", marginBottom: 2 }}>Last Updated</span>
                         <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{req.updatedAt || req.neededBy || "\u2014"}</span>
                     </div>
-                    <div style={{ padding: "10px 14px", background: "#f8fafc", borderRadius: 8 }}>
+                    <div style={{ padding: "10px 14px", background: "#fff", borderRadius: 8, border: "1px solid #f1f5f9" }}>
                         <span style={{ fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em", display: "block", marginBottom: 2 }}>Transaction</span>
                         <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{req.transactionName}</span>
                     </div>
-                    <div style={{ padding: "10px 14px", background: "#f8fafc", borderRadius: 8 }}>
+                    <div style={{ padding: "10px 14px", background: "#fff", borderRadius: 8, border: "1px solid #f1f5f9" }}>
                         <span style={{ fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em", display: "block", marginBottom: 2 }}>Community</span>
                         <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{req.communityNames[0] || "\u2014"}</span>
                     </div>
                 </div>
             </div>
 
-            {/* ── Progress / Status Explanation ── */}
-            {STATUS_PROGRESS[req.status] && <ProgressBar status={req.status} />}
+            {/* ── Status Tracker ── */}
+            {STATUS_PROGRESS[req.status] && <StatusTracker status={req.status} />}
 
             {/* ── Supporting Artifacts ── */}
             {publishedArtifacts.length > 0 && (
-                <div style={{ border: "1px solid #e2e8f0", borderRadius: 14, padding: 20, background: "#fff", marginBottom: 20, boxShadow: "0 2px 12px rgba(15, 23, 42, 0.06)" }}>
+                <div className="po-detail-card" style={{ marginBottom: 20 }}>
                     <h3 style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", margin: "0 0 14px", display: "flex", alignItems: "center", gap: 8 }}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
                         Supporting Artifacts
@@ -223,7 +211,7 @@ export default function PortalRequestDetail() {
                                         {art.size > 0 && <span style={{ fontSize: 11, color: "#64748b", marginLeft: 6, fontWeight: 500 }}>{art.size >= 1048576 ? `${(art.size / 1048576).toFixed(1)} MB` : art.size >= 1024 ? `${(art.size / 1024).toFixed(0)} KB` : `${art.size} B`}</span>}
                                     </div>
                                 </div>
-                                <span style={{ fontSize: 11, color: "#64748b", fontStyle: "italic" }}>Available &mdash; download support coming soon</span>
+                                <span style={{ fontSize: 11, color: "#64748b", fontStyle: "italic" }}>Available</span>
                             </div>
                         ))}
                     </div>
@@ -278,7 +266,7 @@ export default function PortalRequestDetail() {
             )}
 
             {/* ── External Communication ── */}
-            <div style={{ border: "1px solid #e2e8f0", borderRadius: 14, padding: 20, background: "#fff", marginBottom: 20, boxShadow: "0 2px 12px rgba(15, 23, 42, 0.06)" }}>
+            <div className="po-detail-card" style={{ marginBottom: 20 }}>
                 <h3 style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", margin: "0 0 14px", display: "flex", alignItems: "center", gap: 8 }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
