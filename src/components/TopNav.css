@@ -81,16 +81,10 @@
     cursor: pointer;
 }
 
-.logo-integra {
-    color: #1f2937;
-}
-
-.logo-source {
-    color: #475569;
-}
-
-.brand:hover .logo-source {
-    color: #64748b;
+.brand-logo {
+    height: 28px;
+    width: auto;
+    display: block;
 }
 
 .top-nav-right {

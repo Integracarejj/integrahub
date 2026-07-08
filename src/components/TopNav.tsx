@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import logo from "../assets/logo.png";
 import "./TopNav.css";
 
 const DEV_USERS = [
@@ -42,8 +43,7 @@ export default function TopNav({ onToggleSidebar }: TopNavProps) {
                         <span className="hamburger-icon" />
                     </button>
                     <Link to="/" className="brand">
-                        <span className="logo-integra">Integra</span>
-                        <span className="logo-source">Source</span>
+                        <img src={logo} alt="IntegraSource" className="brand-logo" />
                     </Link>
                 </div>
 

@@ -107,12 +107,10 @@
     gap: 6px;
 }
 
-.portal-brand-integra {
-    color: #1f2937;
-}
-
-.portal-brand-source {
-    color: #475569;
+.portal-brand-logo {
+    height: 22px;
+    width: auto;
+    display: block;
 }
 
 .portal-brand-sep {
@@ -127,9 +125,7 @@
     font-size: 13px;
 }
 
-.portal-brand:hover .portal-brand-source {
-    color: #64748b;
-}
+
 
 .portal-topnav-right {
     display: flex;

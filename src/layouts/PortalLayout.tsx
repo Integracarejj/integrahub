@@ -4,6 +4,7 @@ import { useCurrentUser } from "../hooks/useCurrentUser";
 import PortalNav from "../components/PortalNav";
 import { getActivePersona, getPersonas, setActivePersona } from "../services/portalMockData";
 import type { ExternalDemoPersona } from "../services/portalMockData";
+import logo from "../assets/logo.png";
 import "./PortalLayout.css";
 
 export default function PortalLayout() {
@@ -42,8 +43,7 @@ export default function PortalLayout() {
                             <span className="portal-hamburger-icon" />
                         </button>
                         <Link to="/portal" className="portal-brand">
-                            <span className="portal-brand-integra">Integra</span>
-                            <span className="portal-brand-source">Source</span>
+                            <img src={logo} alt="IntegraSource" className="portal-brand-logo" />
                             <span className="portal-brand-sep">|</span>
                             <span className="portal-brand-portal">Recapitalization Portal</span>
                         </Link>
