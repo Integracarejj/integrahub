@@ -63,7 +63,7 @@ export default function PortalRequests() {
 
             <div className="po-filter-row">
                 <div className="po-search-box">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="11" cy="11" r="8" />
                         <line x1="21" y1="21" x2="16.65" y2="16.65" />
                     </svg>
@@ -109,7 +109,7 @@ export default function PortalRequests() {
                         <span>
                             <StatusBadge status={req.status} />
                             {req._publishedExternal && (
-                                <span style={{ marginLeft: 4, fontSize: 9, padding: "1px 5px", borderRadius: 3, background: "#dcfce7", color: "#166534", fontWeight: 600, whiteSpace: "nowrap", verticalAlign: "middle" }}>
+                                <span style={{ marginLeft: 4, fontSize: 10, padding: "2px 6px", borderRadius: 4, background: "#dcfce7", color: "#166534", fontWeight: 600, whiteSpace: "nowrap", verticalAlign: "middle" }}>
                                     Ready to Review
                                 </span>
                             )}
@@ -120,10 +120,10 @@ export default function PortalRequests() {
                     </div>
                 ))}
                 {filtered.length === 0 && (
-                    <div style={{ padding: "32px 24px", textAlign: "center", fontSize: 13, color: "#64748b" }}>No requests match your filters.</div>
+                    <div style={{ padding: "36px 24px", textAlign: "center", fontSize: 15, color: "#334155" }}>No requests match your filters.</div>
                 )}
             </div>
-            <div style={{ marginTop: 8, fontSize: 12, color: "#64748b" }}>
+            <div style={{ marginTop: 8, fontSize: 13, color: "#475569" }}>
                 Showing {filtered.length} of {allRequests.length} requests
             </div>
         </div>

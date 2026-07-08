@@ -39,7 +39,7 @@ export default function PortalTransactions() {
 
             {transactions.length === 0 ? (
                 <div className="po-empty-state">
-                    <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>No transactions available for your account.</p>
+                    <p style={{ fontSize: 16, color: "#334155", margin: 0 }}>No transactions available for your account.</p>
                 </div>
             ) : (
                 transactions.map((txn) => {
@@ -48,8 +48,8 @@ export default function PortalTransactions() {
                         <div key={txn.id} className="po-txn-summary" style={{ marginBottom: 16 }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
                                 <div>
-                                    <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>{txn.name}</div>
-                                    <p style={{ fontSize: 13, color: "#475569", margin: 0 }}>{txn.description}</p>
+                                    <div style={{ fontSize: 22, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>{txn.name}</div>
+                                    <p style={{ fontSize: 14, color: "#334155", margin: 0 }}>{txn.description}</p>
                                 </div>
                                 <span className="po-status-badge" style={{
                                     background: txn.status === "Active" ? "#f0fdf4" : txn.status === "Pending" ? "#fff7ed" : "#eff6ff",
@@ -60,26 +60,26 @@ export default function PortalTransactions() {
                                 </span>
                             </div>
 
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
-                                <div><span style={{ fontSize: 11, color: "#64748b", display: "block" }}>Owner / Seller</span><span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{txn.sellerName}</span></div>
-                                <div><span style={{ fontSize: 11, color: "#64748b", display: "block" }}>Buyer</span><span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{txn.buyerName}</span></div>
-                                <div><span style={{ fontSize: 11, color: "#64748b", display: "block" }}>Broker</span><span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{txn.brokerName}</span></div>
-                                <div><span style={{ fontSize: 11, color: "#64748b", display: "block" }}>Target Close</span><span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{txn.targetClose}</span></div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+                                <div><span style={{ fontSize: 12, color: "#475569", display: "block", fontWeight: 600 }}>Owner / Seller</span><span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>{txn.sellerName}</span></div>
+                                <div><span style={{ fontSize: 12, color: "#475569", display: "block", fontWeight: 600 }}>Buyer</span><span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>{txn.buyerName}</span></div>
+                                <div><span style={{ fontSize: 12, color: "#475569", display: "block", fontWeight: 600 }}>Broker</span><span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>{txn.brokerName}</span></div>
+                                <div><span style={{ fontSize: 12, color: "#475569", display: "block", fontWeight: 600 }}>Target Close</span><span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>{txn.targetClose}</span></div>
                             </div>
 
                             {txn.communities.length > 0 && (
-                                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 16 }}>
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
                                     {txn.communities.map((c) => (
-                                        <span key={c.id} style={{ fontSize: 10, padding: "2px 8px", background: "#eef2ff", color: "#4338ca", borderRadius: 4, fontWeight: 600 }}>{c.name}</span>
+                                        <span key={c.id} style={{ fontSize: 12, padding: "3px 10px", background: "#eef2ff", color: "#4338ca", borderRadius: 6, fontWeight: 600 }}>{c.name}</span>
                                     ))}
                                 </div>
                             )}
 
-                            <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 16, marginBottom: 16 }}>
-                                <span style={{ fontSize: 12, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", display: "block", marginBottom: 12 }}>Request Summary</span>
+                            <div style={{ borderTop: "1px solid #e0e7ff", paddingTop: 16, marginBottom: 16 }}>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em", display: "block", marginBottom: 12 }}>Request Summary</span>
                                 <div className="po-txn-summary-grid">
                                     <div className="po-txn-stat">
-                                        <div className="po-txn-stat-value" style={{ color: "#1e293b" }}>{c.total}</div>
+                                        <div className="po-txn-stat-value" style={{ color: "#0f172a" }}>{c.total}</div>
                                         <div className="po-txn-stat-label">Total</div>
                                     </div>
                                     <div className="po-txn-stat">
@@ -119,7 +119,7 @@ export default function PortalTransactions() {
                                 <button
                                     className="rc-btn rc-btn-primary"
                                     onClick={() => navigate("/portal/requests")}
-                                    style={{ padding: "10px 28px", fontSize: 13, fontWeight: 700, borderRadius: 8 }}
+                                    style={{ padding: "12px 32px", fontSize: 14, fontWeight: 700, borderRadius: 10 }}
                                 >
                                     View Requests
                                 </button>

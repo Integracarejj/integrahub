@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Outlet, Link } from "react-router-dom";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import PortalNav from "../components/PortalNav";
-import { getActivePersona, getPersonas, setActivePersona } from "../services/portalMockData";
+import { getActivePersona, getPersonas, setActivePersona, clearPortalSubmissions } from "../services/portalMockData";
 import type { ExternalDemoPersona } from "../services/portalMockData";
 import logo from "../assets/logo.png";
 import "./PortalLayout.css";
@@ -44,8 +44,7 @@ export default function PortalLayout() {
                         </button>
                         <Link to="/portal" className="portal-brand">
                             <img src={logo} alt="IntegraSource" className="portal-brand-logo" />
-                            <span className="portal-brand-sep">|</span>
-                            <span className="portal-brand-portal">Recapitalization Portal</span>
+                            <span className="portal-brand-title">Due Diligence Dashboard</span>
                         </Link>
                     </div>
                     <div className="portal-topnav-right" style={{ gap: 12 }}>
@@ -116,7 +115,23 @@ export default function PortalLayout() {
                                                 <span style={{ fontSize: 11, fontWeight: 700, color: "#4f46e5" }}>Active</span>
                                             )}
                                         </div>
-                                    ))}
+                                    )                                    )}
+                                </div>
+                                <div style={{ borderTop: "1px solid #e0e7ff", padding: "8px 14px" }}>
+                                    <button
+                                        onClick={() => {
+                                            clearPortalSubmissions();
+                                            localStorage.removeItem("integrasource.recap.activityFeed");
+                                            window.location.reload();
+                                        }}
+                                        style={{
+                                            width: "100%", padding: "6px 12px", fontSize: 12, fontWeight: 600,
+                                            color: "#991b1b", background: "none", border: "1px solid #fecaca",
+                                            borderRadius: 6, cursor: "pointer", textAlign: "center",
+                                        }}
+                                    >
+                                        Clear Demo Data
+                                    </button>
                                 </div>
                             </>
                         )}

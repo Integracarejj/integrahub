@@ -28,14 +28,15 @@
     top: 0;
     z-index: 100;
     background-color: #ffffff;
-    border-bottom: 1px solid #e3e6eb;
+    border-bottom: 1px solid #e0e7ff;
 }
 
 .portal-topnav-inner {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 32px;
+    padding: 4px 32px;
+    height: 64px;
 }
 
 .portal-topnav-left {
@@ -55,7 +56,7 @@
 }
 
 .portal-sidebar-toggle:hover {
-    background: #f3f4f6;
+    background: #eef2ff;
 }
 
 .portal-hamburger-icon {
@@ -93,7 +94,7 @@
     }
 
     .portal-topnav-inner {
-        padding: 10px 16px;
+        padding: 4px 16px;
     }
 }
 
@@ -104,28 +105,23 @@
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 12px;
 }
 
 .portal-brand-logo {
-    height: 22px;
-    width: auto;
+    width: 164px;
+    height: 44px;
+    object-fit: contain;
     display: block;
+    padding: 6px 8px;
 }
 
-.portal-brand-sep {
-    color: #cbd5e1;
-    font-weight: 300;
-    margin: 0 2px;
+.portal-brand-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+    white-space: nowrap;
 }
-
-.portal-brand-portal {
-    color: #4f46e5;
-    font-weight: 500;
-    font-size: 13px;
-}
-
-
 
 .portal-topnav-right {
     display: flex;
@@ -159,7 +155,7 @@
 
 .portal-content {
     flex: 1;
-    padding: 24px 32px;
+    padding: 28px 36px;
     overflow-x: clip;
 }
 
