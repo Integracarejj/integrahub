@@ -29,7 +29,7 @@ export default function PortalHelp() {
                         <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#eef2ff", color: "#4338ca", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>MB</div>
                         <div>
                             <span style={{ fontSize: 14, fontWeight: 700, color: "#1e293b", display: "block" }}>Broker</span>
-                            <span style={{ fontSize: 11, color: "#64748b" }}>ABCto123 Associates &middot; broker@mail.com</span>
+                            <span style={{ fontSize: 11, color: "#475569" }}>ABCto123 Associates &middot; broker@mail.com</span>
                         </div>
                     </div>
                     <p style={{ fontSize: 13, color: "#334155", margin: 0, lineHeight: 1.6 }}>
@@ -42,7 +42,7 @@ export default function PortalHelp() {
                         <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#fff7ed", color: "#92400e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>AC</div>
                         <div>
                             <span style={{ fontSize: 14, fontWeight: 700, color: "#1e293b", display: "block" }}>Owner / Seller</span>
-                            <span style={{ fontSize: 11, color: "#64748b" }}>ABC Company &middot; abc@mail.com</span>
+                            <span style={{ fontSize: 11, color: "#475569" }}>ABC Company &middot; abc@mail.com</span>
                         </div>
                     </div>
                     <p style={{ fontSize: 13, color: "#334155", margin: 0, lineHeight: 1.6 }}>
@@ -55,7 +55,7 @@ export default function PortalHelp() {
                         <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#f0fdf4", color: "#166534", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>JR</div>
                         <div>
                             <span style={{ fontSize: 14, fontWeight: 700, color: "#1e293b", display: "block" }}>Buyer</span>
-                            <span style={{ fontSize: 11, color: "#64748b" }}>123 Corporation &middot; 123@mail.com</span>
+                            <span style={{ fontSize: 11, color: "#475569" }}>123 Corporation &middot; 123@mail.com</span>
                         </div>
                     </div>
                     <p style={{ fontSize: 13, color: "#334155", margin: 0, lineHeight: 1.6 }}>

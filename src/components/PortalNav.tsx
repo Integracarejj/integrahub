@@ -41,9 +41,9 @@ function ActivityIcon({ type }: { type: RecapActivity["type"] }) {
         "Status Change": { icon: "\u25C6", color: "#3b82f6", bg: "#eff6ff" },
         Submission: { icon: "\uD83D\uDCE4", color: "#10b981", bg: "#f0fdf4" },
         Document: { icon: "\uD83D\uDCC4", color: "#f59e0b", bg: "#fffbeb" },
-        Comment: { icon: "\uD83D\uDCAC", color: "#64748b", bg: "#f8fafc" },
+        Comment: { icon: "\uD83D\uDCAC", color: "#475569", bg: "#f8fafc" },
     };
-    const meta = icons[type] || { icon: "\u25C6", color: "#94a3b8", bg: "#f8fafc" };
+    const meta = icons[type] || { icon: "\u25C6", color: "#64748b", bg: "#f8fafc" };
     return (
         <span style={{ width: 22, height: 22, borderRadius: "50%", background: meta.bg, color: meta.color, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, flexShrink: 0 }}>
             {meta.icon}

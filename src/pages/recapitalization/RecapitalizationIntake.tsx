@@ -971,7 +971,7 @@ function RequestDetailDrawer({ item, allRequests, onClose, onEdit, onChangeRevie
                                         </div>
                                         <div style={{ color: "#1e293b", fontWeight: 500, marginBottom: 2 }}>{match.title}</div>
                                         <div style={{ color: "#475569", fontSize: 11, marginBottom: 4 }}>{match.description?.slice(0, 100) || "\u2014"}</div>
-                                        <div style={{ display: "flex", gap: 12, fontSize: 10, color: "#64748b" }}>
+                                        <div style={{ display: "flex", gap: 12, fontSize: 10, color: "#475569" }}>
                                             <span>Community: {match.communityNames.join(", ") || "\u2014"}</span>
                                             <span>Priority: {match.priority}</span>
                                             <span>Due: {match.dueDate || "\u2014"}</span>
@@ -983,7 +983,7 @@ function RequestDetailDrawer({ item, allRequests, onClose, onEdit, onChangeRevie
                                     </div>
                                 ))}
                                 {allRequests.filter(r => r.id !== item.id && hashId(r.id) % 25 === hashId(item.id) % 25).length === 0 && (
-                                    <div style={{ fontSize: 12, color: "#64748b", fontStyle: "italic" }}>No specific match candidates available.</div>
+                                    <div style={{ fontSize: 12, color: "#475569", fontStyle: "italic" }}>No specific match candidates available.</div>
                                 )}
                             </div>
                         </div>

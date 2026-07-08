@@ -344,7 +344,7 @@ export default function RecapitalizationDdOperations() {
                 </div>
                 <div className="rc-header-actions">
                     {isDemoActive() && (
-                        <span style={{ fontSize: 11, color: "#64748b", display: "inline-flex", alignItems: "center", gap: 4, marginRight: 8 }}>
+                        <span style={{ fontSize: 11, color: "#475569", display: "inline-flex", alignItems: "center", gap: 4, marginRight: 8 }}>
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
                             Testing as: <strong>{activeUser}</strong>
                         </span>

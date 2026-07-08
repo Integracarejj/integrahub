@@ -141,7 +141,7 @@
 .ps-optional {
     font-weight: 400;
     font-size: 12px;
-    color: #64748b;
+    color: #475569;
 }
 
 .ps-input,
@@ -202,7 +202,7 @@
     border-radius: 6px;
     background: #f9fafb;
     font-size: 13px;
-    color: #64748b;
+    color: #475569;
 }
 
 .ps-community-selector {
@@ -273,7 +273,7 @@
 
 .ps-community-hint {
     font-size: 12px;
-    color: #64748b;
+    color: #475569;
 }
 
 .ps-sidebar-panel {
@@ -332,7 +332,7 @@
 
 .ps-panel-item-meta {
     font-size: 11px;
-    color: #64748b;
+    color: #475569;
 }
 
 .ps-badge {

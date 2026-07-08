@@ -97,7 +97,7 @@ export default function RecapitalizationReports() {
                     <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: "var(--is-text-heading, #0f172a)", marginBottom: 4 }}>
                         Reports Dashboard {wiped ? "(No Data)" : demo ? "(Live)" : "(Preview)"}
                     </span>
-                    <span style={{ display: "block", fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+                    <span style={{ display: "block", fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
                         {wiped
                             ? "All test data has been wiped. Reporting data will generate once new intake packages are imported and published."
                             : demo

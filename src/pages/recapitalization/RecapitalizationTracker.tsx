@@ -211,7 +211,7 @@ export default function RecapitalizationTracker() {
                 <div className="rc-header-left" style={{ gap: 8 }}>
                     {isDemoActive() && <span className="rc-badge rc-badge-visible" style={{ fontSize: 10 }}>ABC Demo Active</span>}
                     {isDemoActive() && (
-                        <span style={{ fontSize: 11, color: "#64748b", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ fontSize: 11, color: "#475569", display: "inline-flex", alignItems: "center", gap: 4 }}>
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
                             Testing as: <strong>{currentUser}</strong>
                         </span>
@@ -394,7 +394,7 @@ export default function RecapitalizationTracker() {
                                         {members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                                     </select>
                                 </td>
-                                <td style={{ fontSize: 12, color: req.category ? "#334155" : "#94a3b8" }}>{req.category || "\u2014"}</td>
+                                <td style={{ fontSize: 12, color: req.category ? "#334155" : "#64748b" }}>{req.category || "\u2014"}</td>
                                 <td className="nowrap" style={{ fontSize: 12, color: req.status === "Overdue" ? "#dc2626" : "#334155", fontWeight: req.status === "Overdue" ? 600 : 400 }}>{req.dueDate}</td>
                                 <td onClick={e => e.stopPropagation()} style={{ fontSize: 11, textAlign: "center" }}>
                                     {(() => {

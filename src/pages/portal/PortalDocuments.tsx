@@ -40,7 +40,7 @@ export default function PortalDocuments() {
                     <button className={`rc-toggle-btn${groupBy === "category" ? " rc-toggle-active" : ""}`} onClick={() => setGroupBy("category")}>Category</button>
                     <button className={`rc-toggle-btn${groupBy === "community" ? " rc-toggle-active" : ""}`} onClick={() => setGroupBy("community")}>Community</button>
                 </div>
-                <span style={{ fontSize: 12, color: "#64748b" }}>{documents.length} documents</span>
+                <span style={{ fontSize: 12, color: "#475569" }}>{documents.length} documents</span>
             </div>
 
             {groups.map(([key, docs]) => (
@@ -52,7 +52,7 @@ export default function PortalDocuments() {
                             <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#1d4ed8", display: "inline-block" }} />
                         )}
                         {key}
-                        <span style={{ fontSize: 11, fontWeight: 400, color: "#94a3b8" }}>({docs.length})</span>
+                        <span style={{ fontSize: 11, fontWeight: 400, color: "#64748b" }}>({docs.length})</span>
                     </h3>
                     <div style={{ border: "1px solid var(--is-border, #e2e8f0)", borderRadius: 10, overflow: "hidden", boxShadow: "var(--is-shadow-card, 0 8px 20px rgba(15, 23, 42, 0.08))" }}>
                         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 0.8fr 0.7fr", gap: 8, padding: "8px 14px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em" }}>
@@ -69,13 +69,13 @@ export default function PortalDocuments() {
                             }}>
                                 <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
                                     <span style={{ fontWeight: 600, color: "var(--is-text-heading, #0f172a)" }}>{doc.name}</span>
-                                    <span style={{ fontSize: 10, color: "#94a3b8" }}>{doc.size}</span>
+                                    <span style={{ fontSize: 10, color: "#64748b" }}>{doc.size}</span>
                                 </div>
                                 <span style={{ color: "#475569" }}>
                                     {groupBy === "category" ? (doc.communityNames[0] || "\u2014") : doc.category}
                                 </span>
-                                <span style={{ fontSize: 11, color: "#64748b" }}>{doc.relatedRequestTitle || "\u2014"}</span>
-                                <span style={{ color: "#64748b" }}>{doc.uploadedAt}</span>
+                                <span style={{ fontSize: 11, color: "#475569" }}>{doc.relatedRequestTitle || "\u2014"}</span>
+                                <span style={{ color: "#475569" }}>{doc.uploadedAt}</span>
                                 <span>
                                     {persona.role === "Buyer" && (
                                         <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 10 }} onClick={() => window.alert("Download mock")}>Download</button>
@@ -94,7 +94,7 @@ export default function PortalDocuments() {
             ))}
 
             {documents.length === 0 && (
-                <div style={{ padding: 24, textAlign: "center", fontSize: 13, color: "#64748b", border: "1px solid #e2e8f0", borderRadius: 10 }}>
+                <div style={{ padding: 24, textAlign: "center", fontSize: 13, color: "#475569", border: "1px solid #e2e8f0", borderRadius: 10 }}>
                     No documents are currently available for your transactions.
                 </div>
             )}

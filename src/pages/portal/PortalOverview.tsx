@@ -490,7 +490,7 @@ export default function PortalOverview() {
                         <>
                             <div className="po-filter-row">
                                 <div className="po-search-box">
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
                                     <input type="text" placeholder="Search..." value={dashboardSearch} onChange={e => setDashboardSearch(e.target.value)} />
                                 </div>
                                 <select className="po-filter-select" value={dashboardFilterStatus} onChange={e => setDashboardFilterStatus(e.target.value)}>

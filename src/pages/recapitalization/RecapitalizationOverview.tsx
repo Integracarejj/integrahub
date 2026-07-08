@@ -90,7 +90,7 @@ export default function RecapitalizationOverview() {
                                 onClick={() => navigate("/recapitalization/transactions")}>
                                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                                     <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{txn.name}</span>
-                                    <span style={{ fontSize: 11, color: "#64748b" }}>{txn.sellerName} &middot; Close: {txn.targetClose}</span>
+                                    <span style={{ fontSize: 11, color: "#475569" }}>{txn.sellerName} &middot; Close: {txn.targetClose}</span>
                                 </div>
                                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                     <span style={{ fontSize: 11, color: "#475569" }}>{txn.communities.length} communities</span>
@@ -138,7 +138,7 @@ export default function RecapitalizationOverview() {
                                 <div style={{ flex: 1, height: 8, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
                                     <div style={{ height: "100%", width: `${Math.min(100, (w.activeLoad / 6) * 100)}%`, background: w.activeLoad > 4 ? "#991b1b" : w.activeLoad > 2 ? "#1d4ed8" : "#166534", borderRadius: 4, transition: "width 0.3s" }} />
                                 </div>
-                                <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b", minWidth: 40, textAlign: "right" }}>{w.activeLoad} items</span>
+                                <span style={{ fontSize: 12, fontWeight: 600, color: "#475569", minWidth: 40, textAlign: "right" }}>{w.activeLoad} items</span>
                             </div>
                         ))}
                     </div>
@@ -160,7 +160,7 @@ export default function RecapitalizationOverview() {
                                         <span className={`rc-badge rc-badge-${req.status === "Overdue" ? "overdue" : req.status.toLowerCase().replace(/\s+/g, "-")}`}>
                                             {req.status}
                                         </span>
-                                        <span style={{ fontSize: 11, color: "#64748b" }}>{req.requestId}</span>
+                                        <span style={{ fontSize: 11, color: "#475569" }}>{req.requestId}</span>
                                     </div>
                                     <span className="rc-truncate" style={{ fontSize: 13, color: "#1e293b" }}>{req.title}</span>
                                 </div>

@@ -116,7 +116,7 @@ export default function RecapitalizationSettings() {
                     <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: "var(--is-text-heading, #0f172a)", marginBottom: 4 }}>
                         Configuration is mock-only for Phase 1
                     </span>
-                    <span style={{ display: "block", fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+                    <span style={{ display: "block", fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
                         Settings pages and configuration values shown here are placeholder previews. Actual configuration will use database-backed storage once the tracker schema is deployed.
                     </span>
                 </div>
@@ -130,7 +130,7 @@ export default function RecapitalizationSettings() {
                     </span>
                 </div>
                 <div className="rc-card-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    <p style={{ fontSize: 12, color: "#64748b", margin: 0, lineHeight: 1.5 }}>
+                    <p style={{ fontSize: 12, color: "#475569", margin: 0, lineHeight: 1.5 }}>
                         {wiped
                             ? "All recap test data has been wiped. Navigate to Intake Queue and import a package to start fresh."
                             : "Seeded demo and mock data is currently active across Intake, Work Queue, My Work, and DD Operations."

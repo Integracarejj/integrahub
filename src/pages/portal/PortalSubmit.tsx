@@ -438,7 +438,7 @@ function BrokerUploadForm() {
                             <line x1="12" y1="3" x2="12" y2="15" />
                         </svg>
                         <h3 style={{ fontSize: 15, fontWeight: 700, color: "#1e293b", margin: "0 0 4px" }}>Upload DD Package</h3>
-                        <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 12px" }}>Drop your file here or click to browse</p>
+                        <p style={{ fontSize: 12, color: "#475569", margin: "0 0 12px" }}>Drop your file here or click to browse</p>
                         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                             <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={handleBrowseClick}>Browse Files</button>
                             <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={handleLoadABCDemo}>Load ABC Gold Standard Demo Package</button>
@@ -470,7 +470,7 @@ function BrokerUploadForm() {
                             <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
                         </svg>
                         <h3 style={{ fontSize: 15, fontWeight: 700, color: "#1e293b", margin: "0 0 4px" }}>Analyzing package...</h3>
-                        <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>Reading spreadsheet and classifying {selectedFile?.name}...</p>
+                        <p style={{ fontSize: 12, color: "#475569", margin: 0 }}>Reading spreadsheet and classifying {selectedFile?.name}...</p>
                     </div>
                 )}
 
@@ -480,14 +480,14 @@ function BrokerUploadForm() {
                             <polyline points="20 6 9 17 4 12" />
                         </svg>
                         <h3 style={{ fontSize: 15, fontWeight: 700, color: "#166534", margin: "0 0 8px" }}>Package Analyzed</h3>
-                        <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 10px" }}>
+                        <p style={{ fontSize: 12, color: "#475569", margin: "0 0 10px" }}>
                             {analysis.packageName}{analysis.isABCDemo ? " (Gold Standard Demo)" : ""} &mdash; {analysis.detected} request rows identified.
                         </p>
                         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginBottom: 10 }}>
-                            <div style={{ textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, color: "#1e293b" }}>{analysis.detected}</div><div style={{ fontSize: 11, color: "#64748b" }}>Requests</div></div>
-                            <div style={{ textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, color: "#1d4ed8" }}>{analysis.needsReview}</div><div style={{ fontSize: 11, color: "#64748b" }}>Review</div></div>
-                            <div style={{ textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, color: "#92400e" }}>{analysis.duplicates}</div><div style={{ fontSize: 11, color: "#64748b" }}>Duplicates</div></div>
-                            <div style={{ textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, color: "#92400e" }}>{analysis.followUp}</div><div style={{ fontSize: 11, color: "#64748b" }}>Follow-Up</div></div>
+                            <div style={{ textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, color: "#1e293b" }}>{analysis.detected}</div><div style={{ fontSize: 11, color: "#475569" }}>Requests</div></div>
+                            <div style={{ textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, color: "#1d4ed8" }}>{analysis.needsReview}</div><div style={{ fontSize: 11, color: "#475569" }}>Review</div></div>
+                            <div style={{ textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, color: "#92400e" }}>{analysis.duplicates}</div><div style={{ fontSize: 11, color: "#475569" }}>Duplicates</div></div>
+                            <div style={{ textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, color: "#92400e" }}>{analysis.followUp}</div><div style={{ fontSize: 11, color: "#475569" }}>Follow-Up</div></div>
                         </div>
                         <div style={{ display: "flex", gap: 4, justifyContent: "center", flexWrap: "wrap", marginBottom: 10 }}>
                             {analysis.categories.map((cat) => (
@@ -512,7 +512,7 @@ function BrokerUploadForm() {
                         {submissions.slice().reverse().map((sub) => (
                             <div key={sub.id} className="po-requests-row">
                                 <span style={{ fontSize: 13, fontWeight: 600 }}>{sub.packageName}</span>
-                                <span style={{ fontSize: 12, color: "#64748b" }}>{sub.fileName}</span>
+                                <span style={{ fontSize: 12, color: "#475569" }}>{sub.fileName}</span>
                                 <span style={{ fontSize: 12, color: "#475569" }}>{new Date(sub.submittedAt).toLocaleDateString()}</span>
                                 <span style={{ fontSize: 12, color: "#475569" }}>{sub.requestCount}</span>
                                 <span style={{ fontSize: 12, color: sub.status === "Submitted" ? "#166534" : "#92400e", fontWeight: 600 }}>{sub.status}</span>

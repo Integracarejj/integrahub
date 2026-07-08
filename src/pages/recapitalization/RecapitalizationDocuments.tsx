@@ -60,7 +60,7 @@ export default function RecapitalizationDocuments() {
                     <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: "var(--is-text-heading, #0f172a)", marginBottom: 4 }}>
                         Files will live in SharePoint
                     </span>
-                    <span style={{ display: "block", fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+                    <span style={{ display: "block", fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
                         IntegraSource will show a SharePoint-backed document browser once Graph permissions are ready.
                         This mock browser shows the planned layout. Documents shown below are preview data only.
                     </span>
@@ -74,7 +74,7 @@ export default function RecapitalizationDocuments() {
                         {transactions.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
                     <div className="rc-search-box" style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ color: "#64748b", fontSize: 14 }}>&#8981;</span>
+                        <span style={{ color: "#475569", fontSize: 14 }}>&#8981;</span>
                         <input placeholder="Search documents..." />
                     </div>
                     <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Open in SharePoint" style={{ fontSize: 16 }} onClick={() => toast("Open in SharePoint — coming next sprint")}>&#128279;</button>
@@ -83,11 +83,11 @@ export default function RecapitalizationDocuments() {
                 <div className="rc-mock-browser-body">
                     <div className="rc-mock-browser-tree">
                         <div className={`rc-mock-tree-item ${selectedCategory === "All" ? "rc-mock-tree-active" : ""}`} onClick={() => setSelectedCategory("All")}>
-                            &#128193; All Files <span style={{ color: "#94a3b8", marginLeft: 4, fontSize: 11 }}>({documents.length})</span>
+                            &#128193; All Files <span style={{ color: "#64748b", marginLeft: 4, fontSize: 11 }}>({documents.length})</span>
                         </div>
                         {categories.filter(c => c !== "All").map(cat => (
                             <div key={cat} className={`rc-mock-tree-item ${selectedCategory === cat ? "rc-mock-tree-active" : ""}`} onClick={() => setSelectedCategory(cat)}>
-                                &#128193; {cat} <span style={{ color: "#94a3b8", marginLeft: 4, fontSize: 11 }}>({categoryCounts[cat] || 0})</span>
+                                &#128193; {cat} <span style={{ color: "#64748b", marginLeft: 4, fontSize: 11 }}>({categoryCounts[cat] || 0})</span>
                             </div>
                         ))}
                     </div>
@@ -111,8 +111,8 @@ export default function RecapitalizationDocuments() {
                                         <td className="rc-truncate">{doc.transactionName}</td>
                                         <td>{doc.category}</td>
                                         <td className="rc-truncate">{doc.communityNames.join(", ") || "All"}</td>
-                                        <td style={{ fontSize: 12, color: "#64748b" }}>{doc.size}</td>
-                                        <td style={{ fontSize: 12, color: "#64748b" }}>{doc.uploadedAt}</td>
+                                        <td style={{ fontSize: 12, color: "#475569" }}>{doc.size}</td>
+                                        <td style={{ fontSize: 12, color: "#475569" }}>{doc.uploadedAt}</td>
                                         <td>
                                             <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ fontSize: 12 }} onClick={() => toast("Open in SharePoint — coming next sprint")}>Open in SP</button>
                                         </td>

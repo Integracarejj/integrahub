@@ -372,10 +372,10 @@ export default function RecapitalizationWorkspace() {
 
                 {/* Test identity hint (demo/preview only) */}
                 {isDemoActive() && (
-                    <div style={{ marginBottom: 12, fontSize: 11, color: "#64748b", display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ marginBottom: 12, fontSize: 11, color: "#475569", display: "flex", alignItems: "center", gap: 6 }}>
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
                         Testing as: <strong>{currentUser}</strong>
-                        <span style={{ fontStyle: "italic", color: "#94a3b8" }}>(internal preview mode)</span>
+                        <span style={{ fontStyle: "italic", color: "#64748b" }}>(internal preview mode)</span>
                     </div>
                 )}
 
@@ -688,7 +688,7 @@ export default function RecapitalizationWorkspace() {
                                                         {art.displayFileName || art.name}
                                                     </span>
                                                     {art.originalFileName && art.originalFileName !== art.name && art.originalFileName !== art.displayFileName && (
-                                                        <span style={{ color: "#64748b", fontSize: 11, marginLeft: 6 }}>(original: {art.originalFileName})</span>
+                                                        <span style={{ color: "#475569", fontSize: 11, marginLeft: 6 }}>(original: {art.originalFileName})</span>
                                                     )}
                                                     <div style={{ display: "flex", gap: 8, marginTop: 1, fontSize: 11, color: "#475569" }}>
                                                         <span>{(art.size / 1024).toFixed(0)} KB</span>
@@ -699,7 +699,7 @@ export default function RecapitalizationWorkspace() {
                                                 </div>
                                                 <button
                                                     onClick={() => { removeWorkArtifact(artifactStorageKey, art.id); setWorkArtifacts(prev => prev.filter(a => a.id !== art.id)); }}
-                                                    style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "2px 4px" }}
+                                                    style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "2px 4px" }}
                                                     title="Remove artifact"
                                                 >&times;</button>
                                             </div>
@@ -810,7 +810,7 @@ export default function RecapitalizationWorkspace() {
                                                         </span>
                                                     )}
                                                     {n.timestamp && (
-                                                        <span style={{ color: "#64748b", marginLeft: "auto", fontSize: 11, whiteSpace: "nowrap" }}>
+                                                        <span style={{ color: "#475569", marginLeft: "auto", fontSize: 11, whiteSpace: "nowrap" }}>
                                                             {new Date(n.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                                                         </span>
                                                     )}
@@ -819,7 +819,7 @@ export default function RecapitalizationWorkspace() {
                                                             {editingNoteId === n.id ? null : (
                                                                 <button
                                                                     onClick={() => { setEditingNoteId(n.id); setEditingNoteText(n.text); }}
-                                                                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#94a3b8", lineHeight: 1 }}
+                                                                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#64748b", lineHeight: 1 }}
                                                                     title="Edit note"
                                                                 >
                                                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
@@ -1547,7 +1547,7 @@ function AccordionSection({ icon, title, isOpen, onToggle, children }: { icon: R
             >
                 {icon}
                 <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "#0f172a" }}>{title}</span>
-                <span style={{ color: "#94a3b8", display: "flex" }}>
+                <span style={{ color: "#64748b", display: "flex" }}>
                     {isOpen ? <ChevronDown /> : <ChevronRight />}
                 </span>
             </div>
