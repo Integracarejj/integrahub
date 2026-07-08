@@ -15,9 +15,9 @@
     display: flex;
     gap: 8px;
     margin-bottom: 20px;
-    background: #f8fafc;
+    background: #f1f5f9;
     border: 1px solid #e2e8f0;
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 6px;
     overflow-x: auto;
 }
@@ -46,10 +46,10 @@
     color: #1e293b;
 }
 
-.ps-segmented-btn--active {
+.ps-segmented-btn-active {
     background: #ffffff;
-    color: #1d4ed8;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    color: #4f46e5;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .ps-segmented-icon {
@@ -58,14 +58,15 @@
 }
 
 .ps-success-banner {
-    padding: 12px 16px;
-    background: #f0fdf4;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #f0fdf4 0%, #faf5ff 100%);
     border: 1px solid #bbf7d0;
-    border-radius: 8px;
+    border-radius: 12px;
     color: #166534;
     font-size: 14px;
     font-weight: 600;
     margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(22, 101, 52, 0.06);
 }
 
 .ps-main {

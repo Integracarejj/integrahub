@@ -74,11 +74,18 @@ function isExternalSafeActivity(act: RecapActivity): boolean {
     if (desc.includes("reusable knowledge") || desc.includes("promote")) return false;
     if (desc.includes("not mine") || desc.includes("returned to owner") || desc.includes("reported as not")) return false;
     if (desc.includes("marked as duplicate") || desc.includes("moved to dd review")) return false;
-    if (act.type === "Document" && desc.includes("artifact") && !desc.includes("published")) return false;
+    if (desc.includes("dd ops") || desc.includes("dd operations")) return false;
+    if (desc.includes("work queue mechanics")) return false;
+    if (desc.includes("internal status")) return false;
+    if (desc.includes("demo user") || desc.includes("system user")) return false;
+    if (desc.includes("owner") && (desc.includes("returned") || desc.includes("reassign") || desc.includes("unassign"))) return false;
+    if (act.type === "Document" && desc.includes("artifact") && !desc.includes("published") && !desc.includes("ready")) return false;
     if (act.type === "Status Change") {
-        if (desc.includes("publish") || desc.includes("external") || desc.includes("submitted") || desc.includes("received")) return true;
+        if (desc.includes("publish") || desc.includes("external") || desc.includes("submitted") || desc.includes("received") || desc.includes("package")) return true;
+        if (desc.includes("request received") || desc.includes("artifacts are ready")) return true;
         return false;
     }
+    if (act.type === "Submission") return true;
     return true;
 }
 
@@ -110,8 +117,8 @@ function ActivityFeed({ activities }: { activities: RecapActivity[] }) {
 
 function ExternalCommPanel() {
     return (
-        <div style={{ border: "1px dashed #d1d5db", borderRadius: 10, padding: 20, textAlign: "center", background: "#fafbfc" }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 6px" }}>
+        <div className="po-empty-state">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 8px" }}>
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
             <div style={{ fontSize: 13, color: "#64748b", marginBottom: 6 }}>No external communication has been recorded yet.</div>
@@ -330,7 +337,7 @@ export default function PortalOverview() {
                         </p>
                     </div>
 
-                    <div ref={dropZoneRef} style={{ border: "2px dashed #cbd5e1", borderRadius: 14, padding: 28, textAlign: "center", background: "#fafbfc", marginBottom: 24 }}>
+                    <div ref={dropZoneRef} className="po-upload-zone" style={{ marginBottom: 24 }}>
                         <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleFileSelected} />
 
                         {uploadState === "idle" && (
@@ -373,7 +380,7 @@ export default function PortalOverview() {
                                     {analysis.packageName}{analysis.isABCDemo ? " (Gold Standard Demo)" : ""} &mdash; {analysis.detected} request{analysis.detected !== 1 ? "s" : ""} detected.
                                 </p>
                                 <p style={{ fontSize: 12, color: "#475569", margin: "0 0 16px", fontStyle: "italic" }}>
-                                    IntegraCare will review all request rows internally before publishing approved requests to the tracker.
+                                    IntegraCare will review all request rows internally before publishing approved requests to the dashboard.
                                 </p>
                                 <div style={{ textAlign: "center", marginBottom: 14 }}>
                                     <div style={{ fontSize: 28, fontWeight: 800, color: "#166534" }}>{analysis.detected}</div>
@@ -410,7 +417,7 @@ export default function PortalOverview() {
 
             {uploadState === "submitted" && analysis && (
                 <div style={{ marginBottom: 24 }}>
-                    <div style={{ border: "1px solid #bbf7d0", borderRadius: 16, padding: 28, background: "linear-gradient(135deg, #f0fdf4 0%, #faf5ff 100%)", textAlign: "center" }}>
+                    <div className="po-submitted-banner">
                         <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#166534", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
                             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                 <polyline points="20 6 9 17 4 12" />
@@ -423,14 +430,14 @@ export default function PortalOverview() {
                         <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 18px", lineHeight: 1.5 }}>
                             IntegraCare will review each request and publish approved items to your dashboard. You will receive a notification when new requests are available.
                         </p>
-                        <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ padding: "10px 24px" }}>Upload Another Package</button>
+                        <button className="rc-btn rc-btn-primary" onClick={resetUpload} style={{ padding: "12px 28px", fontSize: 14, fontWeight: 700 }}>Upload Another Package</button>
                     </div>
                 </div>
             )}
 
             {/* ── Compact upload panel when user has submissions but is uploading another ── */}
             {!showOnlyUpload && uploadState !== "idle" && uploadState !== "submitted" && (
-                <div style={{ border: "2px dashed #cbd5e1", borderRadius: 14, padding: 24, marginBottom: 20, textAlign: "center", background: "#fafbfc" }}>
+                <div className="po-compact-upload">
                     <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleFileSelected} />
                     {uploadState === "analyzing" && (
                         <div>
@@ -483,7 +490,7 @@ export default function PortalOverview() {
                     <span className="po-stat-value po-stat-value--amber">{qualityReviewCount}</span>
                     <span className="po-stat-label">Quality Review</span>
                 </div>
-                <div className={`po-stat-card${dashboardFilterStatus === "Published" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Published"); setDashboardFilterCategory("all"); }}>
+                <div className={`po-stat-card${dashboardFilterStatus === "Published" ? " po-stat-card--active" : ""}${publishedCount > 0 ? " po-stat-card--highlight" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Published"); setDashboardFilterCategory("all"); }}>
                     <span className="po-stat-value po-stat-value--green">{publishedCount}</span>
                     <span className="po-stat-label">{publishedCount > 0 ? "Published / Ready to Review" : "Published"}</span>
                 </div>
@@ -504,7 +511,7 @@ export default function PortalOverview() {
                 <div className="po-section">
                     <h2 className="po-section-title">Submitted Requests</h2>
                     {visibleRequests.length === 0 ? (
-                        <div style={{ border: "1px dashed #d1d5db", borderRadius: 10, padding: 24, textAlign: "center", background: "#fafbfc" }}>
+                        <div className="po-empty-state">
                             <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>No requests available for this account yet.</p>
                         </div>
                     ) : (
@@ -530,12 +537,15 @@ export default function PortalOverview() {
                                 </select>
                             </div>
                             <div className="po-requests-table">
-                            <div className="po-requests-header" style={{ gridTemplateColumns: "2fr 1.2fr 1fr 0.8fr" }}>
-                                <span>Request</span><span>Community</span><span>Status</span><span>Updated</span>
+                            <div className="po-requests-header" style={{ gridTemplateColumns: "1.8fr 1.2fr 1fr 0.9fr 0.7fr" }}>
+                                <span>Request</span><span>Community</span><span>Status</span><span>Updated</span><span>ID</span>
                             </div>
                             {dashboardFiltered.slice(0, 10).map((req) => (
-                                <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "2fr 1.2fr 1fr 0.8fr", cursor: "pointer" }} onClick={() => navigate(`/portal/requests/${req.id}`)}>
-                                    <span className="po-requests-title">{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</span>
+                                <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "1.8fr 1.2fr 1fr 0.9fr 0.7fr", cursor: "pointer" }} onClick={() => navigate(`/portal/requests/${req.id}`)}>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                        <span className="po-requests-title">{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</span>
+                                        <span className="po-requests-category" style={{ alignSelf: "flex-start" }}>{req.category}</span>
+                                    </div>
                                     <span className="po-requests-txn">{req.communityNames[0] || "\u2014"}</span>
                                     <span>
                                         <StatusBadge status={req.status} />
@@ -546,6 +556,7 @@ export default function PortalOverview() {
                                         )}
                                     </span>
                                     <span className="po-requests-txn">{req.updatedAt || req.neededBy || "\u2014"}</span>
+                                    <span className="po-requests-id">{req.requestId}</span>
                                 </div>
                             ))}
                         </div>

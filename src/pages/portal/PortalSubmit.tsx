@@ -429,7 +429,7 @@ function BrokerUploadForm() {
                 onChange={handleFileSelected}
             />
 
-            <div ref={dropZoneRef} style={{ border: "2px dashed #cbd5e1", borderRadius: 14, padding: "32px 20px", textAlign: "center", background: "#fafbfc" }}>
+            <div ref={dropZoneRef} className="po-upload-zone">
                 {uploadState === "idle" && (
                     <>
                         <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 8px" }}>

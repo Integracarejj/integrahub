@@ -1,4 +1,4 @@
-import { getTransactions, getRequests, getDocuments, isDemoActive, initDemo, getDemoEngineSummary, addPortalCreatedIntakeItem, addPortalCreatedRequests, addPortalSubmission, getPortalSubmissions, updatePortalSubmissionStatus, clearAllPortalCreatedData, isRecapDataWiped, clearRecapWiped } from "./recapDataService";
+import { getTransactions, getRequests, getDocuments, isDemoActive, initDemo, getDemoEngineSummary, addPortalCreatedIntakeItem, addPortalCreatedRequests, addPortalSubmission, getPortalSubmissions, updatePortalSubmissionStatus, clearAllPortalCreatedData, isRecapDataWiped, clearRecapWiped, addActivityEntry } from "./recapDataService";
 import type { RecapRequest, RecapDocument, RecapTransaction, RecapIntakeItem } from "./recapDataService";
 
 const PERSONA_KEY = "integrasource.recap.portalPersona";
@@ -213,23 +213,29 @@ function mapRecapToPortalTxn(txn: RecapTransaction): PortalTransaction {
 
 function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
     let portalStatus: string;
-    if (req._externalStatus === "Published External") {
+    // Published externally → Published / Ready to Review
+    if (req._publishedExternal || req._externalStatus === "Published External") {
         portalStatus = "Published";
-    } else if (req.status === "Duplicate") {
-        portalStatus = "Intake Review";
+    // Clarification requested → Action Needed
     } else if (req.status === "Clarification Needed") {
         portalStatus = "Action Needed";
-    } else if (req.status === "Complete") {
-        portalStatus = "Quality Review";
+    // Internal In Progress → External In Progress
     } else if (req.status === "In Progress") {
         portalStatus = "In Progress";
+    // Published out of intake into work queue / open / assigned
+    } else if (req._publishedAt) {
+        portalStatus = "Work Queue";
+    // Complete but not yet published externally
+    } else if (req.status === "Complete") {
+        portalStatus = "Quality Review";
+    // Duplicate → still in intake view
+    } else if (req.status === "Duplicate") {
+        portalStatus = "Intake Review";
+    // Rejected → Closed
     } else if (req.status === "Rejected") {
         portalStatus = "Closed";
-    } else if (req._publishedAt || req._externalStatus === "Internal Only") {
-        // Published to work queue — has been through intake review
-        portalStatus = "Work Queue";
+    // Still in intake / under review / not yet published
     } else {
-        // Not yet published — still in intake / pending review
         portalStatus = "Intake Review";
     }
     return {
@@ -1004,6 +1010,16 @@ export function confirmBrokerPackage(submissionId?: string): void {
     if (sub.isABCDemo) {
         if (!isRecapDataWiped() && !isDemoActive()) initDemo();
         updatePortalSubmissionStatus(submissionId, "Submitted");
+        addActivityEntry({
+            type: "Submission",
+            description: `Package submitted successfully: ${sub.packageName} (${sub.requestCount} requests)`,
+            userId: "portal",
+            userName: "Portal User",
+            requestId: null,
+            requestTitle: null,
+            transactionId: sub.isABCDemo ? "txn-abc" : `txn-portal-${submissionId}`,
+            transactionName: sub.packageName,
+        });
         return;
     }
 
@@ -1023,6 +1039,16 @@ export function confirmBrokerPackage(submissionId?: string): void {
 
     addPortalCreatedIntakeItem(intakeItem);
     updatePortalSubmissionStatus(submissionId, "Submitted");
+    addActivityEntry({
+        type: "Submission",
+        description: `Package submitted successfully: ${sub.packageName} (${reviewItems.length} requests)`,
+        userId: "portal",
+        userName: "Portal User",
+        requestId: null,
+        requestTitle: null,
+        transactionId: `txn-portal-${submissionId}`,
+        transactionName: sub.packageName,
+    });
 }
 
 export function loadABCDemoPackage(): void {
