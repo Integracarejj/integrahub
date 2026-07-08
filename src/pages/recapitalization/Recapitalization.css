@@ -195,6 +195,9 @@
 .rc-badge-not-applicable { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
 .rc-badge-duplicate { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
 .rc-badge-rejected { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+.rc-badge-waiting-partner-review { background: #eff6ff; color: #1e40af; border-color: #bfdbfe; }
+.rc-badge-completed { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+.rc-badge-needs-rework { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
 
 .rc-badge-high { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
 .rc-badge-medium { background: #fffbeb; color: #92400e; border-color: #fde68a; }

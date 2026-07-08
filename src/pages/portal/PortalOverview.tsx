@@ -11,6 +11,9 @@ import "./PortalOverview.css";
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
     Published: { bg: "#f0fdf4", text: "#166534", border: "#bbf7d0" },
+    "Waiting Review": { bg: "#eff6ff", text: "#1e40af", border: "#bfdbfe" },
+    Approved: { bg: "#f0fdf4", text: "#166534", border: "#bbf7d0" },
+    "Rework Required": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
     "In Progress": { bg: "#eff6ff", text: "#1e40af", border: "#bfdbfe" },
     "Intake Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
     "Work Queue": { bg: "#fef3c7", text: "#92400e", border: "#fde68a" },
@@ -26,7 +29,9 @@ const STAT_HELPERS: Record<string, string> = {
     "Work Queue": "Queued for processing",
     "In Progress": "Actively being worked on",
     "Quality Review": "Final review in progress",
-    Published: "Ready to review",
+    "Waiting Review": "Awaiting partner decision",
+    Approved: "Completed and approved",
+    "Rework Required": "Returned for rework",
     "Action Needed": "Requires your attention",
     "Total Requests": "All active requests",
 };
@@ -78,7 +83,10 @@ export default function PortalOverview() {
     const [banner, setBanner] = useState<string | null>(null);
 
     /* ── Derived Stats ── */
-    const publishedCount = portalRequests.filter(r => r._publishedExternal || r.externalStatus === "Published External").length;
+    const waitingReviewCount = portalRequests.filter(r => r.status === "Waiting Review" && (r._publishedExternal || r.externalStatus === "Published External")).length;
+    const approvedCount = portalRequests.filter(r => r.status === "Approved" && (r._publishedExternal || r.externalStatus === "Published External")).length;
+    const reworkRequiredCount = portalRequests.filter(r => r.status === "Rework Required" && (r._publishedExternal || r.externalStatus === "Published External")).length;
+    const publishedCount = portalRequests.filter(r => (r._publishedExternal || r.externalStatus === "Published External") && r.status !== "Waiting Review" && r.status !== "Approved" && r.status !== "Rework Required").length;
     const qualityReviewCount = portalRequests.filter(r => r.status === "Quality Review" && !r._publishedExternal && r.externalStatus !== "Published External").length;
     const intakeCount = portalRequests.filter(r => r.status === "Intake Review").length;
     const workQueueCount = portalRequests.filter(r => r.status === "Work Queue").length;
@@ -410,11 +418,34 @@ export default function PortalOverview() {
                     <span className="po-stat-label">Quality Review</span>
                     <span className="po-stat-helper">{STAT_HELPERS["Quality Review"]}</span>
                 </div>
-                <div className={`po-stat-card${dashboardFilterStatus === "Published" ? " po-stat-card--active" : ""}${publishedCount > 0 ? " po-stat-card--highlight" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Published"); setDashboardFilterCategory("all"); }}>
-                    <span className="po-stat-value po-stat-value--green">{publishedCount}</span>
-                    <span className="po-stat-label">{publishedCount > 0 ? "Published / Ready to Review" : "Published"}</span>
-                    <span className="po-stat-helper">{STAT_HELPERS["Published"]}</span>
-                </div>
+                {waitingReviewCount > 0 && (
+                    <div className={`po-stat-card${dashboardFilterStatus === "Waiting Review" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Waiting Review"); setDashboardFilterCategory("all"); }}>
+                        <span className="po-stat-value po-stat-value--green">{waitingReviewCount}</span>
+                        <span className="po-stat-label">Waiting Review</span>
+                        <span className="po-stat-helper">{STAT_HELPERS["Waiting Review"]}</span>
+                    </div>
+                )}
+                {approvedCount > 0 && (
+                    <div className={`po-stat-card${dashboardFilterStatus === "Approved" ? " po-stat-card--active" : ""} po-stat-card--highlight`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Approved"); setDashboardFilterCategory("all"); }}>
+                        <span className="po-stat-value po-stat-value--green">{approvedCount}</span>
+                        <span className="po-stat-label">Approved</span>
+                        <span className="po-stat-helper">{STAT_HELPERS["Approved"]}</span>
+                    </div>
+                )}
+                {reworkRequiredCount > 0 && (
+                    <div className={`po-stat-card${dashboardFilterStatus === "Rework Required" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Rework Required"); setDashboardFilterCategory("all"); }}>
+                        <span className="po-stat-value po-stat-value--amber">{reworkRequiredCount}</span>
+                        <span className="po-stat-label">Rework Required</span>
+                        <span className="po-stat-helper">{STAT_HELPERS["Rework Required"]}</span>
+                    </div>
+                )}
+                {publishedCount > 0 && (
+                    <div className={`po-stat-card${dashboardFilterStatus === "Published" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Published"); setDashboardFilterCategory("all"); }}>
+                        <span className="po-stat-value po-stat-value--green">{publishedCount}</span>
+                        <span className="po-stat-label">Published</span>
+                        <span className="po-stat-helper">Awaiting partner action</span>
+                    </div>
+                )}
                 {actionNeededCount > 0 && (
                     <div className={`po-stat-card${dashboardFilterStatus === "Action Needed" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Action Needed"); setDashboardFilterCategory("all"); }}>
                         <span className="po-stat-value po-stat-value--red">{actionNeededCount}</span>
@@ -469,6 +500,9 @@ export default function PortalOverview() {
                                     <option value="In Progress">In Progress</option>
                                     <option value="Quality Review">Quality Review</option>
                                     <option value="Published">Published</option>
+                                    <option value="Waiting Review">Waiting Review</option>
+                                    <option value="Approved">Approved</option>
+                                    <option value="Rework Required">Rework Required</option>
                                     <option value="Action Needed">Action Needed</option>
                                     <option value="Closed">Closed</option>
                                 </select>

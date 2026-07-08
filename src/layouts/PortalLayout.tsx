@@ -56,7 +56,7 @@ export default function PortalLayout() {
                             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0 }}>
                                 <span className="portal-user-name" style={{ fontSize: 13 }}>{currentPersona.displayName}</span>
                                 <span className="portal-user-role" style={{ fontSize: 10 }}>{currentPersona.role} &middot; {currentPersona.companyName}</span>
-                                <span style={{ fontSize: 9, color: "#94a3b8" }}>{currentPersona.email}</span>
+                                <span style={{ fontSize: 9, color: "#475569" }}>{currentPersona.email}</span>
                             </div>
                             <div style={{
                                 width: 36, height: 36, borderRadius: "50%",
@@ -81,7 +81,7 @@ export default function PortalLayout() {
                                     boxShadow: "0 8px 24px rgba(0,0,0,0.12)", minWidth: 280,
                                     overflow: "hidden", marginTop: 4,
                                 }}>
-                                    <div style={{ padding: "10px 14px", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "1px solid #f1f5f9" }}>
+                                    <div style={{ padding: "10px 14px", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "1px solid #f1f5f9" }}>
                                         Switch Persona
                                     </div>
                                     {allPersonas.map((p) => (
@@ -108,8 +108,8 @@ export default function PortalLayout() {
                                             </div>
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{p.displayName}</div>
-                                                <div style={{ fontSize: 11, color: "#64748b" }}>{p.role} &middot; {p.companyName}</div>
-                                                <div style={{ fontSize: 10, color: "#94a3b8" }}>{p.email}</div>
+                                                <div style={{ fontSize: 11, color: "#475569" }}>{p.role} &middot; {p.companyName}</div>
+                                                <div style={{ fontSize: 10, color: "#475569" }}>{p.email}</div>
                                             </div>
                                             {p.id === currentPersona.id && (
                                                 <span style={{ fontSize: 11, fontWeight: 700, color: "#4f46e5" }}>Active</span>

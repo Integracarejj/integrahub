@@ -419,7 +419,7 @@ export function updateRequestNotMine(id: string, reason: string, userName: strin
 }
 
 export function updateRequestExternalStatus(id: string, publishedWithoutDocuments?: boolean, externalNote?: string): RecapRequest | undefined {
-    const patch: Partial<RecapRequest> = { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0], _externalStatus: "Published External", _publishedWithoutDocuments: publishedWithoutDocuments ?? false, _publishedExternalNote: externalNote };
+    const patch: Partial<RecapRequest> = { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0], _externalStatus: "Published External", _publishedWithoutDocuments: publishedWithoutDocuments ?? false, _publishedExternalNote: externalNote, status: "Waiting Partner Review" as RecapRequest["status"] };
     if (isDemoLoaded()) {
         const result = Demo.updateDemoRequest(id, patch);
         if (result) return result;
@@ -431,6 +431,63 @@ export function updateRequestExternalStatus(id: string, publishedWithoutDocument
         return result;
     }
     return updatePortalRequestById(id, patch);
+}
+
+export function partnerApproveRequest(id: string, comment?: string): RecapRequest | undefined {
+    const patch: Partial<RecapRequest> = {
+        status: "Completed" as RecapRequest["status"],
+        _completedBy: "External Partner",
+        _completedAt: new Date().toISOString().split("T")[0],
+        _completionNotes: comment || null,
+    };
+    const desc = `Approved by partner.${comment ? ` Comment: ${comment}` : ""}`;
+    if (isDemoLoaded()) {
+        const result = Demo.updateDemoRequest(id, patch);
+        if (result) {
+            addActivityEntry({ type: "Status Change", description: `${result.requestId}: ${desc}`, userId: "portal", userName: "External Partner", requestId: result.id, requestTitle: result.title, transactionId: result.transactionId, transactionName: result.transactionName });
+            return result;
+        }
+        const pr = updatePortalRequestById(id, patch);
+        if (pr) addActivityEntry({ type: "Status Change", description: `${pr.requestId}: ${desc}`, userId: "portal", userName: "External Partner", requestId: pr.id, requestTitle: pr.title, transactionId: pr.transactionId, transactionName: pr.transactionName });
+        return pr;
+    }
+    const mockReq = Mock.getRequestById(id);
+    if (mockReq) {
+        Object.assign(mockReq, patch);
+        addActivityEntry({ type: "Status Change", description: `${mockReq.requestId}: ${desc}`, userId: "portal", userName: "External Partner", requestId: mockReq.id, requestTitle: mockReq.title, transactionId: mockReq.transactionId, transactionName: mockReq.transactionName });
+        return mockReq;
+    }
+    const pr = updatePortalRequestById(id, patch);
+    if (pr) addActivityEntry({ type: "Status Change", description: `${pr.requestId}: ${desc}`, userId: "portal", userName: "External Partner", requestId: pr.id, requestTitle: pr.title, transactionId: pr.transactionId, transactionName: pr.transactionName });
+    return pr;
+}
+
+export function partnerReworkRequest(id: string, reason: string): RecapRequest | undefined {
+    const patch: Partial<RecapRequest> = {
+        status: "Needs Rework" as RecapRequest["status"],
+        _returnReason: reason,
+        _returnedBy: "External Partner",
+    };
+    const desc = `Rework requested by partner. Reason: ${reason}`;
+    if (isDemoLoaded()) {
+        const result = Demo.updateDemoRequest(id, patch);
+        if (result) {
+            addActivityEntry({ type: "Status Change", description: `${result.requestId}: ${desc}`, userId: "portal", userName: "External Partner", requestId: result.id, requestTitle: result.title, transactionId: result.transactionId, transactionName: result.transactionName });
+            return result;
+        }
+        const pr = updatePortalRequestById(id, patch);
+        if (pr) addActivityEntry({ type: "Status Change", description: `${pr.requestId}: ${desc}`, userId: "portal", userName: "External Partner", requestId: pr.id, requestTitle: pr.title, transactionId: pr.transactionId, transactionName: pr.transactionName });
+        return pr;
+    }
+    const mockReq = Mock.getRequestById(id);
+    if (mockReq) {
+        Object.assign(mockReq, patch);
+        addActivityEntry({ type: "Status Change", description: `${mockReq.requestId}: ${desc}`, userId: "portal", userName: "External Partner", requestId: mockReq.id, requestTitle: mockReq.title, transactionId: mockReq.transactionId, transactionName: mockReq.transactionName });
+        return mockReq;
+    }
+    const pr = updatePortalRequestById(id, patch);
+    if (pr) addActivityEntry({ type: "Status Change", description: `${pr.requestId}: ${desc}`, userId: "portal", userName: "External Partner", requestId: pr.id, requestTitle: pr.title, transactionId: pr.transactionId, transactionName: pr.transactionName });
+    return pr;
 }
 
 export function toggleExternalVisibility(id: string): RecapRequest | undefined {

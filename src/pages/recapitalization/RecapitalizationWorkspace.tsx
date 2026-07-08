@@ -501,7 +501,7 @@ export default function RecapitalizationWorkspace() {
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                                     Clarify
                                 </button>
-                                {item._publishedExternal ? (
+                                {item._publishedExternal && displayStatus !== "Needs Rework" ? (
                                     <span style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "7px 10px", fontSize: 12, fontWeight: 700, borderRadius: 6, background: "#f0fdf4", color: "#166534", border: "1px solid #86efac" }}>
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
                                         Published External
@@ -509,12 +509,12 @@ export default function RecapitalizationWorkspace() {
                                 ) : (
                                     <button
                                         onClick={() => setPublishExternal({ step: 1, selectedArtifacts: workArtifacts.map(a => a.name), note: "" })}
-                                        disabled={displayStatus !== "Complete"}
-                                        title={displayStatus !== "Complete" ? "Publishing requires Complete status" : "Publish this deliverable"}
-                                        style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "7px 10px", fontSize: 12, fontWeight: 600, borderRadius: 6, background: displayStatus === "Complete" ? "#1d4ed8" : "#f1f5f9", color: displayStatus === "Complete" ? "#fff" : "#94a3b8", border: "none", cursor: displayStatus === "Complete" ? "pointer" : "not-allowed" }}
+                                        disabled={displayStatus !== "Complete" && displayStatus !== "Needs Rework"}
+                                        title={displayStatus !== "Complete" && displayStatus !== "Needs Rework" ? "Publishing requires Complete or Needs Rework status" : "Publish this deliverable"}
+                                        style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "7px 10px", fontSize: 12, fontWeight: 600, borderRadius: 6, background: displayStatus === "Complete" || displayStatus === "Needs Rework" ? "#1d4ed8" : "#f1f5f9", color: displayStatus === "Complete" || displayStatus === "Needs Rework" ? "#fff" : "#94a3b8", border: "none", cursor: displayStatus === "Complete" || displayStatus === "Needs Rework" ? "pointer" : "not-allowed" }}
                                     >
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a3 3 0 1 0 3.99 3.98m-9.19-1.17L2 21l2.44-2.44m5.57-5.57L18 5l3 3L13.01 13.01" /></svg>
-                                        Publish External
+                                        {displayStatus === "Needs Rework" ? "Re-Publish External" : "Publish External"}
                                     </button>
                                 )}
                                 <button

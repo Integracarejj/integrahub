@@ -29,6 +29,7 @@ function isExternalSafeNavActivity(act: RecapActivity): boolean {
     if (act.type === "Status Change") {
         if (desc.includes("publish") || desc.includes("external") || desc.includes("submitted") || desc.includes("received") || desc.includes("package")) return true;
         if (desc.includes("request received") || desc.includes("artifacts are ready")) return true;
+        if (desc.includes("approved") || desc.includes("rework") || desc.includes("partner")) return true;
         return false;
     }
     if (act.type === "Submission") return true;
@@ -64,7 +65,6 @@ export default function PortalNav({ open, onClose }: PortalNavProps) {
     return (
         <aside className={`portal-sidebar ${open ? "portal-sidebar--open" : ""}`}>
             <div className="portal-sidebar-header">
-                <span className="portal-sidebar-badge">Portal</span>
             </div>
             <nav className="portal-nav">
                 {PORTAL_NAV_ITEMS.map(item => (

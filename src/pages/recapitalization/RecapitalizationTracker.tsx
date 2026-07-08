@@ -411,13 +411,13 @@ export default function RecapitalizationTracker() {
                                 </td>
                                 <td>
                                     <div className="rc-cell-actions">
-                                        {(req as any)._publishedExternal ? (
+                                        {(req as any)._publishedExternal && req.status !== "Needs Rework" ? (
                                             <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "#166534", background: "#f0fdf4", padding: "2px 6px", borderRadius: 4, border: "1px solid #bbf7d0", cursor: "default" }}>
                                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
                                                 Published
                                             </span>
                                         ) : (
-                                            <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Publish External" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setPublishStep(1); setPublishSelectedArtifactNames(getWorkArtifactsByRequest(getArtifactKey(req)).map(a => a.name)); setPublishExternalNote(""); }} style={{ fontSize: 12, fontWeight: 700, color: "#166534" }}>P</button>
+                                            <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Publish External" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setPublishStep(1); setPublishSelectedArtifactNames(getWorkArtifactsByRequest(getArtifactKey(req)).map(a => a.name)); setPublishExternalNote(""); }} style={{ fontSize: 12, fontWeight: 700, color: "#166534" }}>{req.status === "Needs Rework" ? "RP" : "P"}</button>
                                         )}
                                     </div>
                                 </td>

@@ -55,7 +55,7 @@ export default function RecapitalizationMyWork() {
         return assignedToMe.filter(r =>
             r.status !== "Complete" &&
             r._externalStatus !== "Ready to Publish" &&
-            r._externalStatus !== "Published External" &&
+            (r._externalStatus !== "Published External" || r.status === "Needs Rework") &&
             !RETURNED_STATUSES.includes(r.status) &&
             !r._needsReassignment
         );
@@ -65,7 +65,7 @@ export default function RecapitalizationMyWork() {
         return assignedToMe.filter(r =>
             r.status === "Complete" ||
             r._externalStatus === "Ready to Publish" ||
-            r._externalStatus === "Published External"
+            (r._externalStatus === "Published External" && r.status !== "Needs Rework")
         );
     }, [assignedToMe]);
 

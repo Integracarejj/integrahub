@@ -86,6 +86,12 @@ export interface PortalRequest {
     _publishedExternal?: boolean;
     _publishedWithoutDocuments?: boolean;
     _publishedExternalNote?: string;
+    /** Partner review fields */
+    _completedBy?: string | null;
+    _completedAt?: string | null;
+    _completionNotes?: string | null;
+    _returnedBy?: string | null;
+    _returnReason?: string | null;
 }
 
 export interface PortalQuestion {
@@ -213,9 +219,15 @@ function mapRecapToPortalTxn(txn: RecapTransaction): PortalTransaction {
 
 function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
     let portalStatus: string;
-    // Published externally → Published / Ready to Review
+    // Published externally → check partner review status
     if (req._publishedExternal || req._externalStatus === "Published External") {
-        portalStatus = "Published";
+        if (req.status === "Completed") {
+            portalStatus = "Approved";
+        } else if (req.status === "Needs Rework") {
+            portalStatus = "Rework Required";
+        } else {
+            portalStatus = "Waiting Review";
+        }
     // Clarification requested → Action Needed
     } else if (req.status === "Clarification Needed") {
         portalStatus = "Action Needed";
@@ -263,6 +275,11 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
         _publishedExternal: !!req._publishedExternal,
         _publishedWithoutDocuments: req._publishedWithoutDocuments,
         _publishedExternalNote: req._publishedExternalNote,
+        _completedBy: req._completedBy,
+        _completedAt: req._completedAt,
+        _completionNotes: req._completionNotes,
+        _returnedBy: req._returnedBy,
+        _returnReason: req._returnReason,
     };
 }
 
@@ -1072,3 +1089,6 @@ export function clearPortalSubmissions(): void {
     // Also clear in-memory portal-created requests for this session
     MOCK_REQUESTS.length = 0;
 }
+
+// Re-export partner lifecycle functions so UI components import from a single module
+export { partnerApproveRequest, partnerReworkRequest } from "./recapDataService";

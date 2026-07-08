@@ -5,6 +5,9 @@ import "./PortalOverview.css";
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
     Published: { bg: "#f0fdf4", text: "#166534", border: "#bbf7d0" },
+    "Waiting Review": { bg: "#eff6ff", text: "#1e40af", border: "#bfdbfe" },
+    Approved: { bg: "#f0fdf4", text: "#166534", border: "#bbf7d0" },
+    "Rework Required": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
     "In Progress": { bg: "#eff6ff", text: "#1e40af", border: "#bfdbfe" },
     "Intake Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
     "Work Queue": { bg: "#fef3c7", text: "#92400e", border: "#fde68a" },
@@ -81,6 +84,9 @@ export default function PortalRequests() {
                     <option value="In Progress">In Progress</option>
                     <option value="Quality Review">Quality Review</option>
                     <option value="Published">Published</option>
+                    <option value="Waiting Review">Waiting Review</option>
+                    <option value="Approved">Approved</option>
+                    <option value="Rework Required">Rework Required</option>
                     <option value="Action Needed">Action Needed</option>
                     <option value="Closed">Closed</option>
                 </select>
@@ -108,11 +114,6 @@ export default function PortalRequests() {
                         </div>
                         <span>
                             <StatusBadge status={req.status} />
-                            {req._publishedExternal && (
-                                <span style={{ marginLeft: 4, fontSize: 10, padding: "2px 6px", borderRadius: 4, background: "#dcfce7", color: "#166534", fontWeight: 600, whiteSpace: "nowrap", verticalAlign: "middle" }}>
-                                    Ready to Review
-                                </span>
-                            )}
                         </span>
                         <span className="po-requests-txn">{req.category || "\u2014"}</span>
                         <span className="po-requests-txn">{req.communityNames[0] || "\u2014"}</span>

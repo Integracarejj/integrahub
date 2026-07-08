@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getPortalRequests, getPortalDocuments } from "../../services/portalMockData";
+import { getPortalRequests, partnerApproveRequest, partnerReworkRequest } from "../../services/portalMockData";
 import { getExternalMessages, getWorkArtifactsByRequest } from "../../services/recapDataService";
 import "./PortalOverview.css";
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
     Published: { bg: "#f0fdf4", text: "#166534", border: "#bbf7d0" },
+    "Waiting Review": { bg: "#eff6ff", text: "#1e40af", border: "#bfdbfe" },
+    Approved: { bg: "#f0fdf4", text: "#166534", border: "#bbf7d0" },
+    "Rework Required": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
     "In Progress": { bg: "#eff6ff", text: "#1e40af", border: "#bfdbfe" },
     "Intake Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
     "Work Queue": { bg: "#fef3c7", text: "#92400e", border: "#fde68a" },
@@ -31,6 +34,9 @@ const STATUS_PROGRESS: Record<string, { step: number; label: string }> = {
     "In Progress": { step: 3, label: "In Progress" },
     "Quality Review": { step: 4, label: "Quality Review" },
     Published: { step: 5, label: "Published" },
+    "Waiting Review": { step: 6, label: "Waiting Review" },
+    Approved: { step: 7, label: "Approved" },
+    "Rework Required": { step: 7, label: "Rework Required" },
 };
 
 const TRACKER_STEPS = [
@@ -39,12 +45,13 @@ const TRACKER_STEPS = [
     { step: 3, label: "In Progress" },
     { step: 4, label: "Quality Review" },
     { step: 5, label: "Published" },
+    { step: 6, label: "Partner Review" },
 ];
 
 function StatusTracker({ status }: { status: string }) {
     const current = STATUS_PROGRESS[status];
     if (!current) return null;
-    const isPublished = status === "Published";
+    const isPartnerStatus = status === "Waiting Review" || status === "Approved" || status === "Rework Required";
     return (
         <div style={{ marginBottom: 20 }}>
             <div className="po-tracker">
@@ -68,43 +75,128 @@ function StatusTracker({ status }: { status: string }) {
             </div>
             <div style={{
                 marginTop: 16, padding: "16px 20px",
-                background: isPublished ? "linear-gradient(135deg, #f0fdf4, #faf5ff)" : "#f0f4ff",
+                background: isPartnerStatus ? "linear-gradient(135deg, #f0fdf4, #faf5ff)" : "#f0f4ff",
                 borderRadius: 12,
                 border: `1px solid ${STATUS_COLORS[status]?.border || "#c7d2fe"}`,
             }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", display: "block", marginBottom: 6 }}>
-                    {isPublished ? "Ready to Review" : `Current Status: ${status}`}
+                    {status === "Waiting Review" ? "Awaiting Your Review" : `Current Status: ${status}`}
                 </div>
                 <div style={{ fontSize: 14, color: "#334155", lineHeight: 1.5, display: "block" }}>
                     {status === "Intake Review" && "Your submission is being reviewed by the IntegraCare team to validate the request details. No action is needed from you at this time."}
                     {status === "Work Queue" && "This request has been accepted and is queued for assignment to a reviewer. You will be notified when work begins."}
                     {status === "In Progress" && "This request is actively being worked on by the IntegraCare team. Check back for updates."}
                     {status === "Quality Review" && "The work is complete and is undergoing a final quality review before publication."}
-                    {status === "Published" && "The artifacts for this request are available below. Download support will be enabled after SharePoint integration."}
+                    {status === "Published" && "The artifacts for this request are available. The team will be notified when you complete your review."}
+                    {status === "Waiting Review" && "Due diligence artifacts are ready for your review. Please review the supporting materials and approve or request rework."}
+                    {status === "Approved" && "You have approved this request. The IntegraCare team has been notified of your decision."}
+                    {status === "Rework Required" && "You have requested rework on this request. The IntegraCare team will address your feedback."}
                     {status === "Action Needed" && "Additional information is needed from your side. Please check for open clarifications and respond promptly."}
                     {status === "Closed" && "This request has been closed. Contact the DD team if you have questions."}
-                    {!["Intake Review", "Work Queue", "In Progress", "Quality Review", "Action Needed", "Closed", "Published"].includes(status) && "IntegraCare is processing this request."}
+                    {!["Intake Review", "Work Queue", "In Progress", "Quality Review", "Action Needed", "Closed", "Published", "Waiting Review", "Approved", "Rework Required"].includes(status) && "IntegraCare is processing this request."}
                 </div>
-                {!isPublished && status === "Intake Review" && (
-                    <div style={{ fontSize: 13, color: "#6b21a8", fontWeight: 600, marginTop: 6 }}>
-                        What happens next: IntegraCare will review the submission and route requests to the appropriate teams.
+            </div>
+        </div>
+    );
+}
+
+/* ── Partner Review Modal ── */
+function PartnerReviewModal({
+    mode,
+    onClose,
+    onConfirm,
+}: {
+    mode: "approve" | "rework";
+    onClose: () => void;
+    onConfirm: (comment?: string) => void;
+}) {
+    const [comment, setComment] = useState("");
+
+    return (
+        <div style={{ position: "fixed", inset: 0, zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(15, 23, 42, 0.4)", backdropFilter: "blur(2px)" }}>
+            <div style={{
+                background: "#fff", borderRadius: 20, maxWidth: 480, width: "90%",
+                boxShadow: "0 20px 60px rgba(0,0,0,0.2)", overflow: "hidden",
+                border: `2px solid ${mode === "approve" ? "#bbf7d0" : "#fed7aa"}`,
+            }}>
+                <div style={{ padding: "28px 28px 16px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                        <div style={{
+                            width: 40, height: 40, borderRadius: "50%",
+                            background: mode === "approve" ? "#f0fdf4" : "#fff7ed",
+                            color: mode === "approve" ? "#166534" : "#9a3412",
+                            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18,
+                        }}>
+                            {mode === "approve" ? "\u2713" : "\u21BA"}
+                        </div>
+                        <div>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a" }}>
+                                {mode === "approve" ? "Approve This Request" : "Request Rework"}
+                            </div>
+                            <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>
+                                {mode === "approve"
+                                    ? "Confirm the artifacts meet your requirements."
+                                    : "Provide feedback on what needs to change."}
+                            </div>
+                        </div>
                     </div>
-                )}
-                {!isPublished && status === "Work Queue" && (
-                    <div style={{ fontSize: 13, color: "#92400e", fontWeight: 600, marginTop: 6 }}>
-                        What happens next: A reviewer will be assigned to process this request.
-                    </div>
-                )}
-                {!isPublished && status === "In Progress" && (
-                    <div style={{ fontSize: 13, color: "#1e40af", fontWeight: 600, marginTop: 6 }}>
-                        What happens next: The reviewer is gathering and analyzing the requested information.
-                    </div>
-                )}
-                {!isPublished && status === "Quality Review" && (
-                    <div style={{ fontSize: 13, color: "#92400e", fontWeight: 600, marginTop: 6 }}>
-                        What happens next: A senior reviewer will confirm completeness before publication.
-                    </div>
-                )}
+                    {mode === "rework" && (
+                        <div style={{ marginTop: 16 }}>
+                            <label style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", display: "block", marginBottom: 6 }}>
+                                Reason for rework <span style={{ color: "#991b1b" }}>*</span>
+                            </label>
+                            <textarea
+                                value={comment}
+                                onChange={e => setComment(e.target.value)}
+                                placeholder="Describe what changes are needed..."
+                                rows={4}
+                                style={{
+                                    width: "100%", padding: "12px 14px", fontSize: 14,
+                                    border: "1px solid #c7d2fe", borderRadius: 10,
+                                    outline: "none", resize: "vertical",
+                                    fontFamily: "inherit", boxSizing: "border-box",
+                                }}
+                            />
+                        </div>
+                    )}
+                    {mode === "approve" && (
+                        <div style={{ marginTop: 16 }}>
+                            <label style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", display: "block", marginBottom: 6 }}>
+                                Comment (optional)
+                            </label>
+                            <textarea
+                                value={comment}
+                                onChange={e => setComment(e.target.value)}
+                                placeholder="Add any additional comments..."
+                                rows={3}
+                                style={{
+                                    width: "100%", padding: "12px 14px", fontSize: 14,
+                                    border: "1px solid #c7d2fe", borderRadius: 10,
+                                    outline: "none", resize: "vertical",
+                                    fontFamily: "inherit", boxSizing: "border-box",
+                                }}
+                            />
+                        </div>
+                    )}
+                </div>
+                <div style={{ padding: "16px 28px 24px", display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                    <button className="rc-btn rc-btn-secondary" onClick={onClose} style={{ padding: "10px 20px", fontSize: 13, fontWeight: 600, borderRadius: 10, background: "#fff", border: "1px solid #c7d2fe" }}>
+                        Cancel
+                    </button>
+                    <button
+                        className="rc-btn rc-btn-primary"
+                        onClick={() => onConfirm(comment || undefined)}
+                        disabled={mode === "rework" && !comment.trim()}
+                        style={{
+                            padding: "10px 24px", fontSize: 13, fontWeight: 700, borderRadius: 10,
+                            background: mode === "approve" ? "#166534" : "#ea580c",
+                            border: "none", color: "#fff", cursor: "pointer",
+                            opacity: mode === "rework" && !comment.trim() ? 0.5 : 1,
+                        }}
+                    >
+                        {mode === "approve" ? "Confirm Approval" : "Submit Rework Request"}
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -114,11 +206,33 @@ export default function PortalRequestDetail() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const allRequests = getPortalRequests();
-    const allDocs = getPortalDocuments();
 
     const req = allRequests.find((r) => r.id === id);
     const externalMessages = req ? getExternalMessages(req.id) : [];
     const publishedArtifacts = req ? getWorkArtifactsByRequest(req.requestId) : [];
+
+    const [showScrollMore, setShowScrollMore] = useState(true);
+    const [modalMode, setModalMode] = useState<"approve" | "rework" | null>(null);
+
+    const handleApprove = (comment?: string) => {
+        if (!req) return;
+        partnerApproveRequest(req.id, comment);
+        setModalMode(null);
+    };
+
+    const handleRework = (reason?: string) => {
+        if (!req) return;
+        if (reason) partnerReworkRequest(req.id, reason);
+        setModalMode(null);
+    };
+
+    useEffect(() => {
+        const handleScroll = () => {
+            if (window.scrollY > 150) setShowScrollMore(false);
+        };
+        window.addEventListener("scroll", handleScroll, { passive: true });
+        return () => window.removeEventListener("scroll", handleScroll);
+    }, []);
 
     if (!req) {
         return (
@@ -132,18 +246,7 @@ export default function PortalRequestDetail() {
         );
     }
 
-    const relatedDocs = allDocs.filter((d) => d.relatedRequestId === req.requestId || d.transactionId === req.transactionId);
-    const publishedDocs = relatedDocs.filter((d) => d.externalVisible !== false);
     const statusColor = (STATUS_COLORS[req.status] || STATUS_COLORS["Closed"]);
-
-    const [showScrollMore, setShowScrollMore] = useState(true);
-    useEffect(() => {
-        const handleScroll = () => {
-            if (window.scrollY > 150) setShowScrollMore(false);
-        };
-        window.addEventListener("scroll", handleScroll, { passive: true });
-        return () => window.removeEventListener("scroll", handleScroll);
-    }, []);
 
     return (
         <div className="portal-overview">
@@ -168,7 +271,7 @@ export default function PortalRequestDetail() {
                             <span style={{ fontSize: 13, color: "#475569" }}>{req.transactionName}</span>
                             {req.communityNames[0] && (
                                 <>
-                                    <span style={{ fontSize: 13, color: "#94a3b8" }}>&middot;</span>
+                                    <span style={{ fontSize: 13, color: "#475569" }}>&middot;</span>
                                     <span style={{ fontSize: 13, color: "#475569" }}>{req.communityNames[0]}</span>
                                 </>
                             )}
@@ -219,9 +322,6 @@ export default function PortalRequestDetail() {
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
                                 Supporting Artifacts
                                 <span style={{ fontSize: 12, fontWeight: 600, color: "#4338ca", background: "#eef2ff", padding: "2px 10px", borderRadius: 10 }}>{publishedArtifacts.length}</span>
-                                {req._publishedExternal && (
-                                    <span style={{ fontSize: 11, fontWeight: 700, color: "#166534", background: "#f0fdf4", padding: "2px 10px", borderRadius: 6 }}>Ready to Review</span>
-                                )}
                             </h3>
                             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                                 {publishedArtifacts.map((art) => (
@@ -257,42 +357,111 @@ export default function PortalRequestDetail() {
 
                 {/* ── Right Column ── */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                    {/* ── Published Documents Panel ── */}
-                    {req._publishedExternal && (
-                        <div style={{ border: "1px solid #bbf7d0", borderRadius: 16, padding: 20, background: "linear-gradient(135deg, #f0fdf4 0%, #faf5ff 100%)" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                                <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#166534", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <polyline points="20 6 9 17 4 12" />
-                                    </svg>
-                                </div>
-                                <span style={{ fontSize: 16, fontWeight: 800, color: "#166534" }}>Ready to Review</span>
+                    {/* ── Approve / Rework Action Buttons ── */}
+                    {req.status === "Waiting Review" && req._publishedExternal && (
+                        <div style={{ border: "2px solid #bbf7d0", borderRadius: 16, padding: 24, background: "linear-gradient(135deg, #f0fdf4 0%, #faf5ff 100%)" }}>
+                            <div style={{ fontSize: 16, fontWeight: 800, color: "#166534", marginBottom: 8, textAlign: "center" }}>
+                                Review Completed?
                             </div>
-                            {publishedDocs.length > 0 ? (
+                            <div style={{ fontSize: 14, color: "#334155", marginBottom: 20, textAlign: "center", lineHeight: 1.5 }}>
+                                Once you have reviewed all artifacts, choose an action below.
+                            </div>
+                            <div style={{ display: "flex", gap: 12 }}>
+                                <button
+                                    onClick={() => setModalMode("approve")}
+                                    style={{
+                                        flex: 1, padding: "14px 16px", fontSize: 15, fontWeight: 700, borderRadius: 12,
+                                        border: "2px solid #166534", background: "#f0fdf4", color: "#166534",
+                                        cursor: "pointer", transition: "all 0.15s",
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = "#166534"; e.currentTarget.style.color = "#fff"; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = "#f0fdf4"; e.currentTarget.style.color = "#166534"; }}
+                                >
+                                    Approve
+                                </button>
+                                <button
+                                    onClick={() => setModalMode("rework")}
+                                    style={{
+                                        flex: 1, padding: "14px 16px", fontSize: 15, fontWeight: 700, borderRadius: 12,
+                                        border: "2px solid #ea580c", background: "#fff7ed", color: "#9a3412",
+                                        cursor: "pointer", transition: "all 0.15s",
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = "#ea580c"; e.currentTarget.style.color = "#fff"; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = "#fff7ed"; e.currentTarget.style.color = "#9a3412"; }}
+                                >
+                                    Request Rework
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── Approved Panel ── */}
+                    {req.status === "Approved" && req._publishedExternal && (
+                        <div style={{ border: "2px solid #bbf7d0", borderRadius: 16, padding: 24, background: "linear-gradient(135deg, #f0fdf4 0%, #faf5ff 100%)" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                                <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#166534", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
+                                    {"\u2713"}
+                                </div>
                                 <div>
-                                    <span style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", display: "block", marginBottom: 10 }}>Documents ({publishedDocs.length})</span>
-                                    {publishedDocs.slice(0, 20).map((doc) => (
-                                        <div key={doc.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #dcfce7" }}>
-                                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                                    <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" />
-                                                </svg>
-                                                <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>{doc.name}</span>
-                                                <span style={{ fontSize: 12, color: "#475569" }}>{doc.category}</span>
-                                            </div>
-                                            <span style={{ fontSize: 12, color: "#475569", fontStyle: "italic" }}>Available</span>
-                                        </div>
-                                    ))}
+                                    <div style={{ fontSize: 18, fontWeight: 800, color: "#166534" }}>Approved</div>
+                                    <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Request approved by partner</div>
                                 </div>
-                            ) : req._publishedWithoutDocuments ? (
-                                <div style={{ padding: 12, background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 8 }}>
-                                    <span style={{ fontSize: 13, color: "#9a3412" }}>No documents available for this request.</span>
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                {req._completedBy && (
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "8px 0", borderBottom: "1px solid #dcfce7" }}>
+                                        <span style={{ color: "#475569", fontWeight: 600 }}>Approved by</span>
+                                        <span style={{ color: "#0f172a", fontWeight: 600 }}>{req._completedBy}</span>
+                                    </div>
+                                )}
+                                {req._completedAt && (
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "8px 0", borderBottom: "1px solid #dcfce7" }}>
+                                        <span style={{ color: "#475569", fontWeight: 600 }}>Approved on</span>
+                                        <span style={{ color: "#0f172a", fontWeight: 600 }}>{req._completedAt}</span>
+                                    </div>
+                                )}
+                                {req._completionNotes && (
+                                    <div style={{ fontSize: 13, padding: "8px 0" }}>
+                                        <span style={{ color: "#475569", fontWeight: 600, display: "block", marginBottom: 4 }}>Comment</span>
+                                        <span style={{ color: "#334155", fontStyle: "italic" }}>{req._completionNotes}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── Rework Required Panel ── */}
+                    {req.status === "Rework Required" && req._publishedExternal && (
+                        <div style={{ border: "2px solid #fed7aa", borderRadius: 16, padding: 24, background: "linear-gradient(135deg, #fff7ed 0%, #fffbeb 100%)" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                                <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#ea580c", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
+                                    {"\u21BA"}
                                 </div>
-                            ) : (
-                                <div style={{ padding: 12, background: "#fff", border: "1px solid #c7d2fe", borderRadius: 8 }}>
-                                    <span style={{ fontSize: 13, color: "#475569", fontStyle: "italic" }}>Documents are being prepared for review.</span>
+                                <div>
+                                    <div style={{ fontSize: 18, fontWeight: 800, color: "#9a3412" }}>Rework Required</div>
+                                    <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Partner requested changes</div>
                                 </div>
-                            )}
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                {req._returnedBy && (
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "8px 0", borderBottom: "1px solid #fed7aa" }}>
+                                        <span style={{ color: "#475569", fontWeight: 600 }}>Requested by</span>
+                                        <span style={{ color: "#0f172a", fontWeight: 600 }}>{req._returnedBy}</span>
+                                    </div>
+                                )}
+                                {req._completedAt && (
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "8px 0", borderBottom: "1px solid #fed7aa" }}>
+                                        <span style={{ color: "#475569", fontWeight: 600 }}>Requested on</span>
+                                        <span style={{ color: "#0f172a", fontWeight: 600 }}>{req._completedAt}</span>
+                                    </div>
+                                )}
+                                {req._returnReason && (
+                                    <div style={{ fontSize: 13, padding: "8px 0" }}>
+                                        <span style={{ color: "#475569", fontWeight: 600, display: "block", marginBottom: 4 }}>Reason</span>
+                                        <span style={{ color: "#9a3412", fontWeight: 600 }}>{req._returnReason}</span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 
@@ -334,16 +503,27 @@ export default function PortalRequestDetail() {
                                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                                 </svg>
                                 <div style={{ fontSize: 14, color: "#334155", marginBottom: 6 }}>No external communication has been recorded yet.</div>
-                                <div style={{ fontSize: 12, color: "#64748b", fontStyle: "italic" }}>Email notifications will be enabled in a future phase.</div>
+                                <div style={{ fontSize: 12, color: "#475569", fontStyle: "italic" }}>Email notifications will be enabled in a future phase.</div>
                             </div>
                         )}
-                        <div style={{ marginTop: 14, fontSize: 12, color: "#64748b" }}>
+                        <div style={{ marginTop: 14, fontSize: 12, color: "#475569" }}>
                             For urgent requests, contact{" "}
                             <a href="mailto:support@integracare.com" style={{ color: "#4338ca", textDecoration: "underline" }}>support@integracare.com</a>
                         </div>
                     </div>
                 </div>
             </div>
+
+            {modalMode && (
+                <PartnerReviewModal
+                    mode={modalMode}
+                    onClose={() => setModalMode(null)}
+                    onConfirm={(comment) => {
+                        if (modalMode === "approve") handleApprove(comment);
+                        else handleRework(comment);
+                    }}
+                />
+            )}
         </div>
     );
 }
