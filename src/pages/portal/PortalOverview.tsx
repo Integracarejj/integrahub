@@ -504,7 +504,6 @@ export default function PortalOverview() {
                                     <option value="Approved">Approved</option>
                                     <option value="Rework Required">Rework Required</option>
                                     <option value="Action Needed">Action Needed</option>
-                                    <option value="Closed">Closed</option>
                                 </select>
                                 <select className="po-filter-select" value={dashboardFilterCategory} onChange={e => setDashboardFilterCategory(e.target.value)}>
                                     <option value="all">All Categories</option>

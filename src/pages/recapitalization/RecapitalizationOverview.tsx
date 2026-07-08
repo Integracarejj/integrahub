@@ -15,8 +15,8 @@ export default function RecapitalizationOverview() {
     const recentActivity = getActivity(6);
     const workload = getTeamWorkload();
     const needingAttention = trackerRequests
-        .filter(r => r.status === "Overdue" || (r.status !== "Provided" && r.status !== "Under Review" && r.dueDate && new Date(r.dueDate) < new Date()))
-        .slice(0, 4);
+        .filter(r => r.status === "Overdue" || r._partnerDecision || (r.status !== "Provided" && r.status !== "Under Review" && r.dueDate && new Date(r.dueDate) < new Date()))
+        .slice(0, 6);
 
     const totalRequests = trackerRequests.length;
     const provided = trackerRequests.filter(r => r.status === "Provided").length;
@@ -156,10 +156,15 @@ export default function RecapitalizationOverview() {
                             <div key={req.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 18px", borderBottom: "1px solid #f1f5f9", cursor: "pointer" }}
                                 onClick={() => navigate("/recapitalization/tracker")}>
                                 <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                                         <span className={`rc-badge rc-badge-${req.status === "Overdue" ? "overdue" : req.status.toLowerCase().replace(/\s+/g, "-")}`}>
                                             {req.status}
                                         </span>
+                                        {req._partnerDecision && (
+                                            <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 4, background: req._partnerDecision === "Approved" ? "#f0fdf4" : "#fff7ed", color: req._partnerDecision === "Approved" ? "#166534" : "#9a3412", border: `1px solid ${req._partnerDecision === "Approved" ? "#bbf7d0" : "#fed7aa"}` }}>
+                                                {req._partnerDecision === "Approved" ? "Partner Approved" : "Rework Required"}
+                                            </span>
+                                        )}
                                         <span style={{ fontSize: 11, color: "#475569" }}>{req.requestId}</span>
                                     </div>
                                     <span className="rc-truncate" style={{ fontSize: 13, color: "#1e293b" }}>{req.title}</span>

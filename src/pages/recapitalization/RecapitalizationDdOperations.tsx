@@ -19,6 +19,8 @@ export default function RecapitalizationDdOperations() {
     const [successMsg, setSuccessMsg] = useState<{ title: string; body: string } | null>(null);
     const [notePopup, setNotePopup] = useState<{ req: RecapRequest; note: string } | null>(null);
     const [artifactListModal, setArtifactListModal] = useState<{ req: RecapRequest; artifacts: WorkArtifact[] } | null>(null);
+    const [archiveConfirm, setArchiveConfirm] = useState<{ req: RecapRequest } | null>(null);
+    const [resolveModal, setResolveModal] = useState<{ req: RecapRequest; note: string } | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
     const members = getTeamMembers();
     const ddMembers = useMemo(() => members.filter(m => m.team === "DD Management"), [members]);
@@ -36,6 +38,7 @@ export default function RecapitalizationDdOperations() {
     const kpiReadyToPublish = useMemo(() => workItems.filter(r => r.status === "Complete" && r._externalStatus !== "Published External").length, [workItems]);
     const kpiNeedsReassignment = useMemo(() => workItems.filter(r => r._needsReassignment || (r._misassignedReason && !r.owner)).length, [workItems]);
     const kpiPublishedExternal = useMemo(() => workItems.filter(r => r._externalStatus === "Published External").length, [workItems]);
+    const kpiPartnerActionRequired = useMemo(() => workItems.filter(r => r._externalStatus === "Published External" && r._partnerDecision).length, [workItems]);
     const kpiUpdatedToday = useMemo(() => {
         const today = new Date().toISOString().split("T")[0];
         return workItems.filter(r => r.lastUpdated === today).length;
@@ -160,6 +163,7 @@ export default function RecapitalizationDdOperations() {
         { label: "Ready to Publish", count: kpiReadyToPublish, tab: "ready-to-publish" as ViewTab, color: "#047857" },
         { label: "Needs Reassignment", count: kpiNeedsReassignment, tab: "needs-reassignment" as ViewTab, color: "#dc2626" },
         { label: "Published External", count: kpiPublishedExternal, tab: "published-external" as ViewTab, color: "#166534" },
+        { label: "Partner Action", count: kpiPartnerActionRequired, tab: "published-external" as ViewTab, color: "#7c3aed" },
         { label: "Updated Today", count: kpiUpdatedToday, tab: "activity-feed" as ViewTab, color: "#4338ca" },
     ];
 
@@ -168,9 +172,20 @@ export default function RecapitalizationDdOperations() {
     );
 
     const ExternalStatus = ({ req }: { req: RecapRequest }) => {
+        const pill = req._partnerDecision ? (
+            req._partnerDecision === "Approved" ? (
+                <span style={{ color: "#166534", fontWeight: 600, fontSize: 10, background: "#f0fdf4", padding: "1px 6px", borderRadius: 4, border: "1px solid #bbf7d0", marginLeft: 4 }}>
+                    &#10003; Approved
+                </span>
+            ) : (
+                <span style={{ color: "#9a3412", fontWeight: 600, fontSize: 10, background: "#fff7ed", padding: "1px 6px", borderRadius: 4, border: "1px solid #fed7aa", marginLeft: 4 }}>
+                    &#9888; Rework Required
+                </span>
+            )
+        ) : null;
         switch (req._externalStatus) {
             case "Published External":
-                return <span style={{ color: "#166534", fontWeight: 600, fontSize: 11, background: "#f0fdf4", padding: "1px 6px", borderRadius: 4 }}>Published External</span>;
+                return <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}><span style={{ color: "#166534", fontWeight: 600, fontSize: 11, background: "#f0fdf4", padding: "1px 6px", borderRadius: 4 }}>Published External</span>{pill}</span>;
             case "Ready to Publish":
                 return <span style={{ color: "#92400e", fontWeight: 600, fontSize: 11, background: "#fffbeb", padding: "1px 6px", borderRadius: 4 }}>Ready to Publish</span>;
             default:
@@ -325,6 +340,24 @@ export default function RecapitalizationDdOperations() {
                                         <option value="">Assign...</option>
                                         {members.filter(m => m.team !== "DD Management").map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                                     </select>
+                                )}
+                                {(req.status === "Not Applicable" || req.status === "Duplicate") && (
+                                    <button
+                                        onClick={() => setArchiveConfirm({ req })}
+                                        style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#f0f4ff", color: "#4f46e5", border: "1px solid #c7d2fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                        title="Archive this item"
+                                    >
+                                        Archive
+                                    </button>
+                                )}
+                                {req.status === "Blocked" && (
+                                    <button
+                                        onClick={() => setResolveModal({ req, note: "" })}
+                                        style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                        title="Resolve blocker"
+                                    >
+                                        Resolve
+                                    </button>
                                 )}
                             </td>
                         </tr>
@@ -559,6 +592,108 @@ export default function RecapitalizationDdOperations() {
                         </div>
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-primary" onClick={() => setArtifactListModal(null)}>Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {archiveConfirm && (
+                <div className="rc-modal-overlay" onClick={() => setArchiveConfirm(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+                        <div className="rc-modal-header">
+                            <h2>Archive Item</h2>
+                            <button className="rc-modal-close" onClick={() => setArchiveConfirm(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                <div style={{ fontSize: 14, color: "#1e293b", fontWeight: 500 }}>
+                                    Archive <strong>{archiveConfirm.req.requestId}</strong> &mdash; {archiveConfirm.req.title.split(" - ").slice(1).join(" - ").trim() || archiveConfirm.req.title}?
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#f0f4ff", border: "1px solid #c7d2fe", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#4338ca" }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg>
+                                    This will archive the item. It will no longer appear in active views.
+                                </div>
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setArchiveConfirm(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" onClick={() => {
+                                updateRequestStatus(archiveConfirm.req.id, archiveConfirm.req.status);
+                                addActivityEntry({
+                                    type: "Status Change",
+                                    description: `${archiveConfirm.req.requestId}: Archived by ${activeUser}`,
+                                    userId: activeUser,
+                                    userName: activeUser,
+                                    requestId: archiveConfirm.req.id,
+                                    requestTitle: archiveConfirm.req.title,
+                                    transactionId: archiveConfirm.req.transactionId,
+                                    transactionName: archiveConfirm.req.transactionName,
+                                });
+                                setSuccessMsg({
+                                    title: "Archived",
+                                    body: `${archiveConfirm.req.requestId} has been archived.`,
+                                });
+                                setArchiveConfirm(null);
+                                setRefreshKey(k => k + 1);
+                            }}>Archive</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {resolveModal && (
+                <div className="rc-modal-overlay" onClick={() => setResolveModal(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+                        <div className="rc-modal-header">
+                            <h2>Resolve Blocker</h2>
+                            <button className="rc-modal-close" onClick={() => setResolveModal(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                <div style={{ fontSize: 14, color: "#1e293b", fontWeight: 500 }}>
+                                    Resolve blocker for <strong>{resolveModal.req.requestId}</strong> &mdash; {resolveModal.req.title.split(" - ").slice(1).join(" - ").trim() || resolveModal.req.title}
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#991b1b" }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                                    This will move the item to "In Progress" status.
+                                </div>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                                    Resolution Note
+                                </label>
+                                <textarea
+                                    value={resolveModal.note}
+                                    onChange={e => setResolveModal(prev => prev ? { ...prev, note: e.target.value } : null)}
+                                    placeholder="Describe how the blocker was resolved..."
+                                    rows={3}
+                                    style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
+                                />
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setResolveModal(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" onClick={() => {
+                                const note = resolveModal.note.trim();
+                                updateRequestStatus(resolveModal.req.id, "In Progress" as RecapRequest["status"]);
+                                if (note) {
+                                    updateRequestStatusNotes(resolveModal.req.id, note);
+                                }
+                                addActivityEntry({
+                                    type: "Status Change",
+                                    description: `${resolveModal.req.requestId}: Blocker resolved by ${activeUser}.${note ? ` Note: ${note}` : ""}`,
+                                    userId: activeUser,
+                                    userName: activeUser,
+                                    requestId: resolveModal.req.id,
+                                    requestTitle: resolveModal.req.title,
+                                    transactionId: resolveModal.req.transactionId,
+                                    transactionName: resolveModal.req.transactionName,
+                                });
+                                setSuccessMsg({
+                                    title: "Blocker Resolved",
+                                    body: `${resolveModal.req.requestId} has been moved to In Progress.`,
+                                });
+                                setResolveModal(null);
+                                setRefreshKey(k => k + 1);
+                            }}>Resolve</button>
                         </div>
                     </div>
                 </div>

@@ -434,11 +434,15 @@ export function updateRequestExternalStatus(id: string, publishedWithoutDocument
 }
 
 export function partnerApproveRequest(id: string, comment?: string): RecapRequest | undefined {
+    const now = new Date().toISOString();
     const patch: Partial<RecapRequest> = {
         status: "Completed" as RecapRequest["status"],
         _completedBy: "External Partner",
-        _completedAt: new Date().toISOString().split("T")[0],
+        _completedAt: now.split("T")[0],
         _completionNotes: comment || null,
+        _partnerDecision: "Approved",
+        _partnerNote: comment || null,
+        _partnerActionAt: now,
     };
     const desc = `Approved by partner.${comment ? ` Comment: ${comment}` : ""}`;
     if (isDemoLoaded()) {
@@ -463,10 +467,14 @@ export function partnerApproveRequest(id: string, comment?: string): RecapReques
 }
 
 export function partnerReworkRequest(id: string, reason: string): RecapRequest | undefined {
+    const now = new Date().toISOString();
     const patch: Partial<RecapRequest> = {
         status: "Needs Rework" as RecapRequest["status"],
         _returnReason: reason,
         _returnedBy: "External Partner",
+        _partnerDecision: "Rework Required",
+        _partnerNote: reason,
+        _partnerActionAt: now,
     };
     const desc = `Rework requested by partner. Reason: ${reason}`;
     if (isDemoLoaded()) {

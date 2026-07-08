@@ -14,7 +14,7 @@ const STATUS_COLORS: Record<string, string> = {
     "In Progress": "#f59e0b",
     "Blocked": "#dc2626",
     "Complete": "#22c55e",
-    "Not Applicable": "#94a3b8",
+    "Not Applicable": "#7c3aed",
     "Duplicate": "#dc2626",
 };
 
@@ -559,6 +559,41 @@ export default function RecapitalizationWorkspace() {
                             <strong>External</strong>: Published documents &amp; clarifications are visible on portal
                         </span>
                     </div>
+
+                    {/* Partner Decision Banner */}
+                    {(item as any)._partnerDecision && (
+                        <div style={{
+                            margin: "0 32px", padding: "12px 16px", borderRadius: 8,
+                            background: (item as any)._partnerDecision === "Approved" ? "#f0fdf4" : "#fff7ed",
+                            border: `1px solid ${(item as any)._partnerDecision === "Approved" ? "#bbf7d0" : "#fed7aa"}`,
+                            display: "flex", alignItems: "flex-start", gap: 10,
+                        }}>
+                            {(item as any)._partnerDecision === "Approved" ? (
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                                    <polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                                </svg>
+                            ) : (
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a3412" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                                </svg>
+                            )}
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: (item as any)._partnerDecision === "Approved" ? "#166534" : "#9a3412" }}>
+                                    {(item as any)._partnerDecision === "Approved" ? "Partner Approved" : "Rework Required by Partner"}
+                                </div>
+                                {(item as any)._partnerNote && (
+                                    <div style={{ fontSize: 12, color: (item as any)._partnerDecision === "Approved" ? "#334155" : "#78350f", marginTop: 3, lineHeight: 1.5 }}>
+                                        {(item as any)._partnerNote}
+                                    </div>
+                                )}
+                                {(item as any)._partnerActionAt && (
+                                    <div style={{ fontSize: 11, color: "#475569", marginTop: 4 }}>
+                                        {new Date((item as any)._partnerActionAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     <div style={{ height: 1, background: "#e2e8f0" }} />
 
