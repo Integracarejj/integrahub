@@ -1,20 +1,13 @@
 .portal-overview {
-    max-width: 1120px;
+    max-width: min(96%, 1440px);
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 16px;
+    width: 100%;
 }
 
 /* ── Welcome Header ── */
-.po-welcome {
-    background: linear-gradient(135deg, #eef2ff 0%, #faf5ff 50%, #f0fdf4 100%);
-    border: 1px solid #c7d2fe;
-    border-radius: 16px;
-    padding: 28px 32px;
-    box-shadow: 0 4px 20px rgba(79, 70, 229, 0.08);
-}
-
 .po-welcome-title {
     font-size: 24px;
     font-weight: 800;
@@ -186,72 +179,11 @@
     margin-top: 2px;
 }
 
-/* ── Action Row ── */
-.po-action-row {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-}
-
-.po-action-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 22px 16px;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-align: center;
-    font: inherit;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
-}
-
-.po-action-card:hover {
-    border-color: #a5b4fc;
-    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.10);
-    transform: translateY(-2px);
-}
-
-.po-action-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    font-size: 20px;
-    font-weight: 700;
-    background: linear-gradient(135deg, #eef2ff, #f0fdf4);
-    color: #4f46e5;
-    border-radius: 12px;
-    flex-shrink: 0;
-}
-
-.po-action-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: #0f172a;
-}
-
-.po-action-desc {
-    font-size: 12px;
-    color: #64748b;
-    line-height: 1.4;
-}
-
 /* ── Bottom Grid Layout ── */
 .po-dashboard-grid {
     display: grid;
     grid-template-columns: 1fr;
     gap: 20px;
-}
-
-.po-bottom-panels {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
 }
 
 /* ── Section ── */
@@ -708,12 +640,7 @@
     .po-stats-row {
         grid-template-columns: repeat(3, 1fr);
     }
-    .po-action-row {
-        grid-template-columns: 1fr;
-    }
-    .po-bottom-panels {
-        grid-template-columns: 1fr;
-    }
+
 }
 
 @media (max-width: 600px) {
