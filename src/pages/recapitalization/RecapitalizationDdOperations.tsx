@@ -7,7 +7,7 @@ import "./Recapitalization.css";
 
 const STATUS_OPTIONS = ["Open", "Assigned", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate", "Waiting Partner Review", "Needs Rework", "Completed"];
 
-type ViewTab = "needs-dd-review" | "ready-to-publish" | "needs-reassignment" | "partner-action" | "published-external" | "activity-feed" | "full-work-queue";
+type ViewTab = "needs-dd-review" | "ready-to-publish" | "partner-action" | "exceptions" | "published-external" | "activity-feed" | "full-work-queue";
 
 export default function RecapitalizationDdOperations() {
     const navigate = useNavigate();
@@ -22,6 +22,7 @@ export default function RecapitalizationDdOperations() {
     const [archiveConfirm, setArchiveConfirm] = useState<{ req: RecapRequest } | null>(null);
     const [resolveModal, setResolveModal] = useState<{ req: RecapRequest; note: string } | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
+    const [returnToTeam, setReturnToTeam] = useState<{ req: RecapRequest; reason: string } | null>(null);
     const members = getTeamMembers();
     const ddMembers = useMemo(() => members.filter(m => m.team === "DD Management"), [members]);
 
@@ -33,10 +34,10 @@ export default function RecapitalizationDdOperations() {
     }, [allRequests]);
 
     /* ── KPIs ── */
-    const NEEDS_DD_REVIEW_STATUSES = ["Blocked", "Duplicate", "Not Applicable", "Clarification Needed"];
-    const kpiNeedsDDReview = useMemo(() => workItems.filter(r => NEEDS_DD_REVIEW_STATUSES.includes(r.status) && !r._returnReason).length, [workItems]);
+    const NEEDS_DD_REVIEW_STATUSES = ["Blocked", "Clarification Needed"];
+    const kpiNeedsDDReview = useMemo(() => workItems.filter(r => (NEEDS_DD_REVIEW_STATUSES.includes(r.status) || r._needsReassignment || r._misassignedReason) && !r._returnReason).length, [workItems]);
     const kpiReadyToPublish = useMemo(() => workItems.filter(r => r.status === "Complete" && r._externalStatus !== "Published External").length, [workItems]);
-    const kpiNeedsReassignment = useMemo(() => workItems.filter(r => r._needsReassignment || (r._misassignedReason && !r.owner)).length, [workItems]);
+    const kpiExceptions = useMemo(() => workItems.filter(r => r.status === "Duplicate" || r.status === "Not Applicable").length, [workItems]);
     const kpiPublishedExternal = useMemo(() => workItems.filter(r => r._externalStatus === "Published External").length, [workItems]);
     const kpiPartnerActionRequired = useMemo(() => workItems.filter(r => r._externalStatus === "Published External" && r._partnerDecision).length, [workItems]);
     const kpiUpdatedToday = useMemo(() => {
@@ -46,7 +47,7 @@ export default function RecapitalizationDdOperations() {
 
     const needsDDReview = useMemo(() => {
         return workItems
-            .filter(r => NEEDS_DD_REVIEW_STATUSES.includes(r.status) && !r._returnReason)
+            .filter(r => (NEEDS_DD_REVIEW_STATUSES.includes(r.status) || r._needsReassignment || r._misassignedReason) && !r._returnReason)
             .sort((a, b) => {
                 const aDue = a.dueDate || "9999-99-99";
                 const bDue = b.dueDate || "9999-99-99";
@@ -66,9 +67,9 @@ export default function RecapitalizationDdOperations() {
             });
     }, [workItems]);
 
-    const needsReassignment = useMemo(() => {
+    const exceptionsItems = useMemo(() => {
         return workItems
-            .filter(r => r._needsReassignment || (r._misassignedReason && !r.owner))
+            .filter(r => r.status === "Duplicate" || r.status === "Not Applicable")
             .sort((a, b) => {
                 const aDate = a.lastUpdated || "";
                 const bDate = b.lastUpdated || "";
@@ -112,13 +113,13 @@ export default function RecapitalizationDdOperations() {
         switch (activeView) {
             case "needs-dd-review": return needsDDReview;
             case "ready-to-publish": return readyToPublish;
-            case "needs-reassignment": return needsReassignment;
             case "partner-action": return partnerActionItems;
+            case "exceptions": return exceptionsItems;
             case "published-external": return publishedExternalItems;
             case "activity-feed": return [];
             case "full-work-queue": return fullWorkQueue;
         }
-    }, [activeView, needsDDReview, readyToPublish, needsReassignment, partnerActionItems, publishedExternalItems, fullWorkQueue]);
+    }, [activeView, needsDDReview, readyToPublish, partnerActionItems, exceptionsItems, publishedExternalItems, fullWorkQueue]);
 
     function getArtifactKey(req: RecapRequest): string {
         return req.requestId || req.intakeId || req.id;
@@ -154,8 +155,8 @@ export default function RecapitalizationDdOperations() {
     const emptyMessages: Record<ViewTab, string> = {
         "needs-dd-review": "No items needing DD review.",
         "ready-to-publish": "No items ready to publish.",
-        "needs-reassignment": "No items needing reassignment.",
         "partner-action": "No partner actions required.",
+        "exceptions": "No exception items.",
         "published-external": "No items published externally.",
         "activity-feed": "No recent activity.",
         "full-work-queue": "No items in the work queue.",
@@ -164,8 +165,8 @@ export default function RecapitalizationDdOperations() {
     const tabLabels: Record<ViewTab, string> = {
         "needs-dd-review": "Needs DD Review",
         "ready-to-publish": "Ready to Publish",
-        "needs-reassignment": "Needs Reassignment",
-        "partner-action": "Partner Action Required",
+        "partner-action": "Partner Action",
+        "exceptions": "Exceptions",
         "published-external": "Published External",
         "activity-feed": "Activity Feed",
         "full-work-queue": "Full Work Queue",
@@ -174,9 +175,9 @@ export default function RecapitalizationDdOperations() {
     const kpiCards = [
         { label: "Needs DD Review", count: kpiNeedsDDReview, tab: "needs-dd-review" as ViewTab, color: "#1d4ed8" },
         { label: "Ready to Publish", count: kpiReadyToPublish, tab: "ready-to-publish" as ViewTab, color: "#047857" },
-        { label: "Needs Reassignment", count: kpiNeedsReassignment, tab: "needs-reassignment" as ViewTab, color: "#dc2626" },
+        { label: "Exceptions", count: kpiExceptions, tab: "exceptions" as ViewTab, color: "#7c3aed" },
         { label: "Published External", count: kpiPublishedExternal, tab: "published-external" as ViewTab, color: "#166534" },
-        { label: "PARTNER ACTION REQUIRED", count: kpiPartnerActionRequired, tab: "partner-action" as ViewTab, color: kpiPartnerActionRequired > 0 && partnerActionItems.some(r => r._partnerDecision === "Rework Required") ? "#ea580c" : "#16a34a" },
+        { label: "Partner Action", count: kpiPartnerActionRequired, tab: "partner-action" as ViewTab, color: kpiPartnerActionRequired > 0 && partnerActionItems.some(r => r._partnerDecision === "Rework Required") ? "#ea580c" : "#16a34a" },
         { label: "Updated Today", count: kpiUpdatedToday, tab: "activity-feed" as ViewTab, color: "#4338ca" },
     ];
 
@@ -284,6 +285,83 @@ export default function RecapitalizationDdOperations() {
         );
     }
 
+    function renderExceptionsTable(items: RecapRequest[]) {
+        if (items.length === 0) return <div className="rc-empty-state" style={{ padding: 20 }}>No exception items.</div>;
+        return (
+            <div style={{ overflowX: "auto", maxHeight: "calc(100vh - 310px)", overflowY: "auto" }}>
+            <table className="rc-table">
+                <thead>
+                    <tr>
+                        <th style={{ width: 110, minWidth: 90 }}>Request ID</th>
+                        <th style={{ minWidth: 140 }}>Deliverable</th>
+                        <th style={{ width: 90, minWidth: 70 }}>Community</th>
+                        <th style={{ width: 60, textAlign: "center" }}>Pri</th>
+                        <th style={{ width: 125, minWidth: 100 }}>Status</th>
+                        <th style={{ minWidth: 180 }}>Reason</th>
+                        <th style={{ width: 85, minWidth: 70 }}>Updated</th>
+                        <th style={{ width: 80, minWidth: 65 }}>Owner</th>
+                        <th style={{ width: 170, minWidth: 140 }}>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {items.map(req => (
+                        <tr key={req.id} className="rc-row-clickable" onClick={() => openWorkspace(req)}>
+                            <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#475569", fontWeight: 600 }}>{req.requestId}</td>
+                            <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 240 }}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</td>
+                            <td style={{ fontSize: 12, color: "#475569" }}>{req.communityNames[0] || "\u2014"}</td>
+                            <td><PriorityBadge priority={req.priority} /></td>
+                            <td>
+                                <span className={`rc-badge ${req.status === "Duplicate" ? "rc-badge-duplicate" : "rc-badge-not-applicable"}`} style={{ fontSize: 11 }}>
+                                    {req.status}
+                                </span>
+                            </td>
+                            <td onClick={e => e.stopPropagation()} style={{ maxWidth: 260, fontSize: 12, color: "#475569" }}>
+                                {getRequestNote(req) ? (
+                                    <span onClick={() => setNotePopup({ req, note: getRequestNote(req)! })} style={{ cursor: "pointer", color: "#92400e", display: "inline-flex", alignItems: "center", gap: 4 }} title="Click to view reason">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                                        <span style={{ fontSize: 10, fontWeight: 600, color: "#92400e", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 140 }}>{getRequestNote(req)}</span>
+                                    </span>
+                                ) : (
+                                    <span style={{ color: "#94a3b8", fontStyle: "italic", fontSize: 11 }}>No reason provided</span>
+                                )}
+                            </td>
+                            <td style={{ fontSize: 12, color: "#475569" }}>{req.lastUpdated}</td>
+                            <td style={{ fontSize: 12, color: "#475569" }} onClick={e => e.stopPropagation()}>{req.owner || "\u2014"}</td>
+                            <td onClick={e => e.stopPropagation()} style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+                                {req.status === "Duplicate" && (
+                                    <button
+                                        onClick={() => setArchiveConfirm({ req })}
+                                        style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#ede9fe", color: "#6d28d9", border: "1px solid #ddd6fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                        title="Archive duplicate item"
+                                    >
+                                        Archive Duplicate
+                                    </button>
+                                )}
+                                {req.status === "Not Applicable" && (
+                                    <button
+                                        onClick={() => setArchiveConfirm({ req })}
+                                        style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#f0f4ff", color: "#4f46e5", border: "1px solid #c7d2fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                        title="Archive this item as Not Applicable"
+                                    >
+                                        Archive as Not Applicable
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => setReturnToTeam({ req, reason: "" })}
+                                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#475569", border: "1px solid #d1d5db", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                    title="Return this item to the work queue for reassignment"
+                                >
+                                    Return to Team
+                                </button>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+            </div>
+        );
+    }
+
     function openWorkspace(req: RecapRequest) {
         navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } });
     }
@@ -335,7 +413,7 @@ export default function RecapitalizationDdOperations() {
                         <th style={{ width: 80, minWidth: 65 }}>Updated</th>
                         <th style={{ width: 38, textAlign: "center" }}>Art</th>
                         <th style={{ width: 38, textAlign: "center" }}>Notes</th>
-                        <th style={{ width: 140, minWidth: 120 }}>{activeView === "full-work-queue" || activeView === "needs-reassignment" ? "Assign" : "Actions"}</th>
+                        <th style={{ width: 140, minWidth: 120 }}>{activeView === "full-work-queue" || activeView === "needs-dd-review" ? "Assign" : "Actions"}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -390,7 +468,7 @@ export default function RecapitalizationDdOperations() {
                                 )}
                             </td>
                             <td onClick={e => e.stopPropagation()} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                {activeView === "needs-dd-review" && req.owner && (
+                                {activeView === "needs-dd-review" && req.owner && !req._needsReassignment && !req._misassignedReason && (
                                     <button
                                         onClick={() => setReturnToOwner({ req, reason: "" })}
                                         style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#92400e", border: "1px solid #fde68a", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
@@ -399,7 +477,7 @@ export default function RecapitalizationDdOperations() {
                                         Return to Owner
                                     </button>
                                 )}
-                                {(activeView === "needs-reassignment" || activeView === "full-work-queue") && (!req.owner || req._needsReassignment) && (
+                                {((activeView === "needs-dd-review" && (!req.owner || req._needsReassignment || req._misassignedReason)) || (activeView === "full-work-queue" && !req.owner)) && (
                                     <select
                                         value=""
                                         onChange={e => {
@@ -431,24 +509,6 @@ export default function RecapitalizationDdOperations() {
                                         <option value="">Assign...</option>
                                         {members.filter(m => m.team !== "DD Management").map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                                     </select>
-                                )}
-                                {req.status === "Not Applicable" && (
-                                    <button
-                                        onClick={() => setArchiveConfirm({ req })}
-                                        style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#f0f4ff", color: "#4f46e5", border: "1px solid #c7d2fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                        title="Archive this item as Not Applicable"
-                                    >
-                                        Archive as Not Applicable
-                                    </button>
-                                )}
-                                {req.status === "Duplicate" && (
-                                    <button
-                                        onClick={() => setArchiveConfirm({ req })}
-                                        style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#ede9fe", color: "#6d28d9", border: "1px solid #ddd6fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                        title="Archive duplicate item"
-                                    >
-                                        Archive Duplicate
-                                    </button>
                                 )}
                                 {req.status === "Blocked" && (
                                     <button
@@ -509,7 +569,7 @@ export default function RecapitalizationDdOperations() {
             </div>
 
             <div className="rc-view-tabs" style={{ display: "flex", gap: 0, marginBottom: 16, borderBottom: "2px solid #e2e8f0", overflowX: "auto" }}>
-                {(["needs-dd-review", "ready-to-publish", "needs-reassignment", "partner-action", "published-external", "activity-feed", "full-work-queue"] as const).map(view => (
+                {(["needs-dd-review", "ready-to-publish", "partner-action", "exceptions", "published-external", "activity-feed", "full-work-queue"] as const).map(view => (
                     <button key={view} onClick={() => setActiveView(view)}
                         style={{ padding: "8px 16px", fontSize: 13, fontWeight: activeView === view ? 700 : 500, color: activeView === view ? "#1d4ed8" : "#475569", background: "none", border: "none", borderBottom: activeView === view ? "2px solid #1d4ed8" : "2px solid transparent", marginBottom: -2, cursor: "pointer", transition: "all 0.15s", whiteSpace: "nowrap" }}>
                         {tabLabels[view]}
@@ -522,7 +582,7 @@ export default function RecapitalizationDdOperations() {
                     <h2>{tabLabels[activeView]} {activeView !== "activity-feed" ? `(${activeItems.length})` : ""}</h2>
                 </div>
                 <div className="rc-card-body" style={{ padding: 0 }}>
-                    {activeView === "activity-feed" ? renderActivityFeed() : activeView === "partner-action" ? renderPartnerActionTable(activeItems) : renderTable(activeItems, emptyMessages[activeView])}
+                    {activeView === "activity-feed" ? renderActivityFeed() : activeView === "partner-action" ? renderPartnerActionTable(activeItems) : activeView === "exceptions" ? renderExceptionsTable(activeItems) : renderTable(activeItems, emptyMessages[activeView])}
                 </div>
             </div>
 
@@ -798,6 +858,63 @@ export default function RecapitalizationDdOperations() {
                                 setResolveModal(null);
                                 setRefreshKey(k => k + 1);
                             }}>Resolve</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {returnToTeam && (
+                <div className="rc-modal-overlay" onClick={() => setReturnToTeam(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="rc-modal-header">
+                            <h2>Return to Team</h2>
+                            <button className="rc-modal-close" onClick={() => setReturnToTeam(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                <div style={{ fontSize: 14, color: "#1e293b", fontWeight: 500, margin: 0 }}>
+                                    Return <strong>{returnToTeam.req.requestId}</strong> &mdash; {returnToTeam.req.title.split(" - ").slice(1).join(" - ").trim() || returnToTeam.req.title} to the work queue?
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#f0f4ff", border: "1px solid #c7d2fe", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#4338ca" }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                                    This will set the status to "Open" and return the item to the Needs DD Review queue for reassignment.
+                                </div>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                                    Reason <span style={{ color: "#dc2626" }}>*</span>
+                                </label>
+                                <textarea
+                                    value={returnToTeam.reason}
+                                    onChange={e => setReturnToTeam(prev => prev ? { ...prev, reason: e.target.value } : null)}
+                                    placeholder="Explain why this item should be returned to the team..."
+                                    rows={3}
+                                    style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
+                                />
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setReturnToTeam(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!returnToTeam.reason.trim()} onClick={() => {
+                                const reason = returnToTeam.reason.trim();
+                                if (!reason) return;
+                                updateRequestStatus(returnToTeam.req.id, "Open" as RecapRequest["status"]);
+                                updateRequestStatusNotes(returnToTeam.req.id, `Returned to team: ${reason}`);
+                                addActivityEntry({
+                                    type: "Status Change",
+                                    description: `${returnToTeam.req.requestId}: Returned to team by ${activeUser}. Reason: ${reason}`,
+                                    userId: activeUser,
+                                    userName: activeUser,
+                                    requestId: returnToTeam.req.id,
+                                    requestTitle: returnToTeam.req.title,
+                                    transactionId: returnToTeam.req.transactionId,
+                                    transactionName: returnToTeam.req.transactionName,
+                                });
+                                setSuccessMsg({
+                                    title: "Returned to Team",
+                                    body: `${returnToTeam.req.requestId} has been returned to the work queue.`,
+                                });
+                                setReturnToTeam(null);
+                                setRefreshKey(k => k + 1);
+                            }}>Return to Team</button>
                         </div>
                     </div>
                 </div>

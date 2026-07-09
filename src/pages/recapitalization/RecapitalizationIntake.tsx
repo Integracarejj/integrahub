@@ -1537,7 +1537,7 @@ function IntakeQueue() {
 
             <div className="iq-stats-row">
                 <div
-                    className={`iq-stat-card iq-stat-blue ${activeCardFilter === "External New Request" ? "iq-stat-filtered" : ""}`}
+                    className={`rc-stat-card${activeCardFilter === "External New Request" ? " rc-stat-card--active" : ""} iq-stat-blue`}
                     onClick={() => handleCardFilter("newRequests")}
                 >
                     <div className="iq-stat-icon">
@@ -1547,11 +1547,11 @@ function IntakeQueue() {
                             <line x1="9" y1="21" x2="9" y2="9" />
                         </svg>
                     </div>
-                    <span className="iq-stat-count">{stats.newRequests}</span>
-                    <span className="iq-stat-label">New DD Requests</span>
+                    <span className="rc-stat-value">{stats.newRequests}</span>
+                    <span className="rc-stat-label">New DD Requests</span>
                 </div>
                 <div
-                    className={`iq-stat-card iq-stat-green ${activeCardFilter === "External Question" ? "iq-stat-filtered" : ""}`}
+                    className={`rc-stat-card${activeCardFilter === "External Question" ? " rc-stat-card--active" : ""} iq-stat-green`}
                     onClick={() => handleCardFilter("questions")}
                 >
                     <div className="iq-stat-icon">
@@ -1561,11 +1561,11 @@ function IntakeQueue() {
                             <line x1="12" y1="17" x2="12.01" y2="17" />
                         </svg>
                     </div>
-                    <span className="iq-stat-count">{stats.questions}</span>
-                    <span className="iq-stat-label">Questions</span>
+                    <span className="rc-stat-value">{stats.questions}</span>
+                    <span className="rc-stat-label">Questions</span>
                 </div>
                 <div
-                    className={`iq-stat-card iq-stat-amber ${activeCardFilter === "External Clarification" ? "iq-stat-filtered" : ""}`}
+                    className={`rc-stat-card${activeCardFilter === "External Clarification" ? " rc-stat-card--active" : ""} iq-stat-amber`}
                     onClick={() => handleCardFilter("clarifications")}
                 >
                     <div className="iq-stat-icon">
@@ -1575,11 +1575,11 @@ function IntakeQueue() {
                             <line x1="12" y1="17" x2="12.01" y2="17" />
                         </svg>
                     </div>
-                    <span className="iq-stat-count">{stats.clarifications}</span>
-                    <span className="iq-stat-label">Clarifications</span>
+                    <span className="rc-stat-value">{stats.clarifications}</span>
+                    <span className="rc-stat-label">Clarifications</span>
                 </div>
                 <div
-                    className={`iq-stat-card iq-stat-gray ${activeCardFilter === "Access Request" ? "iq-stat-filtered" : ""}`}
+                    className={`rc-stat-card${activeCardFilter === "Access Request" ? " rc-stat-card--active" : ""} iq-stat-gray`}
                     onClick={() => handleCardFilter("accessRequests")}
                 >
                     <div className="iq-stat-icon">
@@ -1588,11 +1588,11 @@ function IntakeQueue() {
                             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                         </svg>
                     </div>
-                    <span className="iq-stat-count">{stats.accessRequests}</span>
-                    <span className="iq-stat-label">Access Requests</span>
+                    <span className="rc-stat-value">{stats.accessRequests}</span>
+                    <span className="rc-stat-label">Access Requests</span>
                 </div>
                 <div
-                    className={`iq-stat-card iq-stat-indigo ${activeCardFilter === "Broker Upload" ? "iq-stat-filtered" : ""}`}
+                    className={`rc-stat-card${activeCardFilter === "Broker Upload" ? " rc-stat-card--active" : ""} iq-stat-indigo`}
                     onClick={() => handleCardFilter("brokerUploads")}
                 >
                     <div className="iq-stat-icon">
@@ -1603,11 +1603,11 @@ function IntakeQueue() {
                             <path d="M12 12v6" />
                         </svg>
                     </div>
-                    <span className="iq-stat-count">{stats.brokerUploads}</span>
-                    <span className="iq-stat-label">Broker Uploads Ready</span>
+                    <span className="rc-stat-value">{stats.brokerUploads}</span>
+                    <span className="rc-stat-label">Broker Uploads Ready</span>
                 </div>
                 <div
-                    className={`iq-stat-card iq-stat-rose ${activeCardFilter === "__needs_assignment__" ? "iq-stat-filtered" : ""}`}
+                    className={`rc-stat-card${activeCardFilter === "__needs_assignment__" ? " rc-stat-card--active" : ""} iq-stat-rose`}
                     onClick={() => handleCardFilter("needsAssignment")}
                 >
                     <div className="iq-stat-icon">
@@ -1618,8 +1618,8 @@ function IntakeQueue() {
                             <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                         </svg>
                     </div>
-                    <span className="iq-stat-count">{stats.needsAssignment}</span>
-                    <span className="iq-stat-label">Needs Assignment</span>
+                    <span className="rc-stat-value">{stats.needsAssignment}</span>
+                    <span className="rc-stat-label">Needs Assignment</span>
                 </div>
             </div>
 

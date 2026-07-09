@@ -1026,13 +1026,7 @@
 .iq-stat-card {
     cursor: pointer;
 }
-.iq-stat-card.iq-stat-filtered {
-    box-shadow: 0 0 0 2px #1d4ed8, 0 4px 12px rgba(29,78,216,0.12);
-    transform: translateY(-1px);
-}
-.iq-stat-card.iq-stat-filtered .iq-stat-count {
-    color: #1d4ed8;
-}
+
 
 .rc-clear-filter {
     font-size: 11px;
@@ -1134,22 +1128,7 @@
     gap: 12px;
 }
 
-.iq-stat-card {
-    background: #fff;
-    border: 1px solid var(--iq-card-border);
-    border-radius: 12px;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
-    transition: box-shadow 0.15s, transform 0.15s;
-    cursor: default;
-}
-.iq-stat-card:hover {
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
-    transform: translateY(-1px);
-}
+
 
 .iq-stat-icon {
     width: 32px;
@@ -1166,6 +1145,7 @@
 .iq-stat-amber .iq-stat-icon { background: #fffbeb; }
 .iq-stat-light .iq-stat-icon { background: #f0f4ff; }
 .iq-stat-indigo .iq-stat-icon { background: #eef2ff; }
+.iq-stat-gray .iq-stat-icon { background: #f8fafc; }
 .iq-stat-rose .iq-stat-icon { background: #fff1f2; }
 
 .iq-stat-count {
