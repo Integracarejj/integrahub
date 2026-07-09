@@ -1,8 +1,8 @@
 .sidebar {
     width: 220px;
     min-width: 220px;
-    background-color: #f8fafc;
-    border-right: 1px solid #e2e8f0;
+    background-color: #ffffff;
+    border-right: 1px solid #e0e7ff;
     padding: 0;
     overflow-y: auto;
     position: sticky;

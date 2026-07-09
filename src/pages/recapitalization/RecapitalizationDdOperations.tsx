@@ -5,9 +5,9 @@ import type { RecapRequest, WorkArtifact } from "../../services/recapDataService
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
-const STATUS_OPTIONS = ["Open", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate"];
+const STATUS_OPTIONS = ["Open", "Assigned", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate", "Waiting Partner Review", "Needs Rework", "Completed"];
 
-type ViewTab = "needs-dd-review" | "ready-to-publish" | "needs-reassignment" | "published-external" | "activity-feed" | "full-work-queue";
+type ViewTab = "needs-dd-review" | "ready-to-publish" | "needs-reassignment" | "partner-action" | "published-external" | "activity-feed" | "full-work-queue";
 
 export default function RecapitalizationDdOperations() {
     const navigate = useNavigate();
@@ -78,7 +78,17 @@ export default function RecapitalizationDdOperations() {
 
     const publishedExternalItems = useMemo(() => {
         return workItems
-            .filter(r => r._externalStatus === "Published External")
+            .filter(r => r._externalStatus === "Published External" && !r._partnerDecision)
+            .sort((a, b) => {
+                const aDate = a.lastUpdated || "";
+                const bDate = b.lastUpdated || "";
+                return bDate.localeCompare(aDate);
+            });
+    }, [workItems]);
+
+    const partnerActionItems = useMemo(() => {
+        return workItems
+            .filter(r => r._externalStatus === "Published External" && r._partnerDecision)
             .sort((a, b) => {
                 const aDate = a.lastUpdated || "";
                 const bDate = b.lastUpdated || "";
@@ -103,11 +113,12 @@ export default function RecapitalizationDdOperations() {
             case "needs-dd-review": return needsDDReview;
             case "ready-to-publish": return readyToPublish;
             case "needs-reassignment": return needsReassignment;
+            case "partner-action": return partnerActionItems;
             case "published-external": return publishedExternalItems;
             case "activity-feed": return [];
             case "full-work-queue": return fullWorkQueue;
         }
-    }, [activeView, needsDDReview, readyToPublish, needsReassignment, publishedExternalItems, fullWorkQueue]);
+    }, [activeView, needsDDReview, readyToPublish, needsReassignment, partnerActionItems, publishedExternalItems, fullWorkQueue]);
 
     function getArtifactKey(req: RecapRequest): string {
         return req.requestId || req.intakeId || req.id;
@@ -144,6 +155,7 @@ export default function RecapitalizationDdOperations() {
         "needs-dd-review": "No items needing DD review.",
         "ready-to-publish": "No items ready to publish.",
         "needs-reassignment": "No items needing reassignment.",
+        "partner-action": "No partner actions required.",
         "published-external": "No items published externally.",
         "activity-feed": "No recent activity.",
         "full-work-queue": "No items in the work queue.",
@@ -153,6 +165,7 @@ export default function RecapitalizationDdOperations() {
         "needs-dd-review": "Needs DD Review",
         "ready-to-publish": "Ready to Publish",
         "needs-reassignment": "Needs Reassignment",
+        "partner-action": "Partner Action Required",
         "published-external": "Published External",
         "activity-feed": "Activity Feed",
         "full-work-queue": "Full Work Queue",
@@ -163,7 +176,7 @@ export default function RecapitalizationDdOperations() {
         { label: "Ready to Publish", count: kpiReadyToPublish, tab: "ready-to-publish" as ViewTab, color: "#047857" },
         { label: "Needs Reassignment", count: kpiNeedsReassignment, tab: "needs-reassignment" as ViewTab, color: "#dc2626" },
         { label: "Published External", count: kpiPublishedExternal, tab: "published-external" as ViewTab, color: "#166534" },
-        { label: "Partner Action", count: kpiPartnerActionRequired, tab: "published-external" as ViewTab, color: "#7c3aed" },
+        { label: "PARTNER ACTION REQUIRED", count: kpiPartnerActionRequired, tab: "partner-action" as ViewTab, color: kpiPartnerActionRequired > 0 && partnerActionItems.some(r => r._partnerDecision === "Rework Required") ? "#ea580c" : "#16a34a" },
         { label: "Updated Today", count: kpiUpdatedToday, tab: "activity-feed" as ViewTab, color: "#4338ca" },
     ];
 
@@ -175,11 +188,11 @@ export default function RecapitalizationDdOperations() {
         const pill = req._partnerDecision ? (
             req._partnerDecision === "Approved" ? (
                 <span style={{ color: "#166534", fontWeight: 600, fontSize: 10, background: "#f0fdf4", padding: "1px 6px", borderRadius: 4, border: "1px solid #bbf7d0", marginLeft: 4 }}>
-                    &#10003; Approved
+                    &#10003; Partner Approved
                 </span>
             ) : (
                 <span style={{ color: "#9a3412", fontWeight: 600, fontSize: 10, background: "#fff7ed", padding: "1px 6px", borderRadius: 4, border: "1px solid #fed7aa", marginLeft: 4 }}>
-                    &#9888; Rework Required
+                    &#9888; Rework Requested
                 </span>
             )
         ) : null;
@@ -192,6 +205,84 @@ export default function RecapitalizationDdOperations() {
                 return <span style={{ color: "#475569", fontSize: 11 }}>Internal Only</span>;
         }
     };
+
+    function renderPartnerActionTable(items: RecapRequest[]) {
+        if (items.length === 0) return <div className="rc-empty-state" style={{ padding: 20 }}>No partner actions required.</div>;
+        return (
+            <div style={{ overflowX: "auto", maxHeight: "calc(100vh - 310px)", overflowY: "auto" }}>
+            <table className="rc-table">
+                <thead>
+                    <tr>
+                        <th style={{ width: 110, minWidth: 90 }}>Request ID</th>
+                        <th style={{ minWidth: 140 }}>Deliverable</th>
+                        <th style={{ width: 90, minWidth: 70 }}>Community</th>
+                        <th style={{ width: 105, minWidth: 85 }}>Internal Status</th>
+                        <th style={{ width: 130, minWidth: 110 }}>Partner Decision</th>
+                        <th style={{ minWidth: 180 }}>Partner Note / Comment</th>
+                        <th style={{ width: 85, minWidth: 70 }}>Updated</th>
+                        <th style={{ width: 80, minWidth: 65 }}>Owner</th>
+                        <th style={{ width: 120, minWidth: 100 }}>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {items.map(req => (
+                        <tr key={req.id} className="rc-row-clickable" onClick={() => openWorkspace(req)}>
+                            <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#475569", fontWeight: 600 }}>{req.requestId}</td>
+                            <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 240 }}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</td>
+                            <td style={{ fontSize: 12, color: "#475569" }}>{req.communityNames[0] || "\u2014"}</td>
+                            <td>
+                                <span className={`rc-badge rc-badge-${req.status.toLowerCase().replace(/\s+/g, "-")}`} style={{ fontSize: 11 }}>
+                                    {req.status}
+                                </span>
+                            </td>
+                            <td>
+                                {req._partnerDecision === "Approved" ? (
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#166534", fontWeight: 600, fontSize: 11, background: "#f0fdf4", padding: "3px 8px", borderRadius: 6, border: "1px solid #bbf7d0" }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                        Partner Approved
+                                    </span>
+                                ) : (
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#9a3412", fontWeight: 600, fontSize: 11, background: "#fff7ed", padding: "3px 8px", borderRadius: 6, border: "1px solid #fed7aa" }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                        Rework Requested
+                                    </span>
+                                )}
+                            </td>
+                            <td style={{ maxWidth: 260, minWidth: 180 }}>
+                                {req._partnerNote ? (
+                                    <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.5, background: "#f8faff", padding: "6px 10px", borderRadius: 6, border: "1px solid #dbeafe", whiteSpace: "pre-wrap" }}>
+                                        {req._partnerNote}
+                                    </div>
+                                ) : (
+                                    <span style={{ color: "#94a3b8", fontStyle: "italic", fontSize: 11 }}>No note</span>
+                                )}
+                            </td>
+                            <td style={{ fontSize: 12, color: "#475569" }}>{req.lastUpdated}</td>
+                            <td style={{ fontSize: 12, color: "#475569" }} onClick={e => e.stopPropagation()}>{req.owner || "\u2014"}</td>
+                            <td onClick={e => e.stopPropagation()}>
+                                {req._partnerDecision === "Approved" ? (
+                                    <button
+                                        onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })}
+                                        style={{ fontSize: 11, padding: "4px 12px", borderRadius: 6, background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                    >
+                                        Open Approval
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })}
+                                        style={{ fontSize: 11, padding: "4px 12px", borderRadius: 6, background: "#fff7ed", color: "#9a3412", border: "1px solid #fed7aa", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                    >
+                                        Open Rework
+                                    </button>
+                                )}
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+            </div>
+        );
+    }
 
     function openWorkspace(req: RecapRequest) {
         navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } });
@@ -341,13 +432,22 @@ export default function RecapitalizationDdOperations() {
                                         {members.filter(m => m.team !== "DD Management").map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                                     </select>
                                 )}
-                                {(req.status === "Not Applicable" || req.status === "Duplicate") && (
+                                {req.status === "Not Applicable" && (
                                     <button
                                         onClick={() => setArchiveConfirm({ req })}
                                         style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#f0f4ff", color: "#4f46e5", border: "1px solid #c7d2fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                        title="Archive this item"
+                                        title="Archive this item as Not Applicable"
                                     >
-                                        Archive
+                                        Archive as Not Applicable
+                                    </button>
+                                )}
+                                {req.status === "Duplicate" && (
+                                    <button
+                                        onClick={() => setArchiveConfirm({ req })}
+                                        style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#ede9fe", color: "#6d28d9", border: "1px solid #ddd6fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                        title="Archive duplicate item"
+                                    >
+                                        Archive Duplicate
                                     </button>
                                 )}
                                 {req.status === "Blocked" && (
@@ -356,7 +456,7 @@ export default function RecapitalizationDdOperations() {
                                         style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
                                         title="Resolve blocker"
                                     >
-                                        Resolve
+                                        Resolve Blocker
                                     </button>
                                 )}
                             </td>
@@ -390,22 +490,26 @@ export default function RecapitalizationDdOperations() {
 
             {/* KPI Cards */}
             <div className="rc-stats-row">
-                {kpiCards.map(kpi => (
-                    <div
-                        key={kpi.label}
-                        className="rc-stat-card"
-                        style={{ borderLeft: `3px solid ${kpi.color}`, cursor: "pointer" }}
-                        onClick={() => setActiveView(kpi.tab)}
-                        title={`View ${kpi.label}`}
-                    >
-                        <span className="rc-stat-value">{kpi.count}</span>
-                        <span className="rc-stat-label">{kpi.label}</span>
-                    </div>
-                ))}
+                {kpiCards.map(kpi => {
+                    const extraClass = kpi.tab === "partner-action" && kpi.count > 0
+                        ? (partnerActionItems.some(r => r._partnerDecision === "Rework Required") ? " rc-stat-card--amber" : " rc-stat-card--green")
+                        : "";
+                    return (
+                        <div
+                            key={kpi.label}
+                            className={`rc-stat-card${activeView === kpi.tab ? " rc-stat-card--active" : ""}${extraClass}`}
+                            onClick={() => setActiveView(kpi.tab)}
+                            title={`View ${kpi.label}`}
+                        >
+                            <span className="rc-stat-value">{kpi.count}</span>
+                            <span className="rc-stat-label">{kpi.label}</span>
+                        </div>
+                    );
+                })}
             </div>
 
             <div className="rc-view-tabs" style={{ display: "flex", gap: 0, marginBottom: 16, borderBottom: "2px solid #e2e8f0", overflowX: "auto" }}>
-                {(["needs-dd-review", "ready-to-publish", "needs-reassignment", "published-external", "activity-feed", "full-work-queue"] as const).map(view => (
+                {(["needs-dd-review", "ready-to-publish", "needs-reassignment", "partner-action", "published-external", "activity-feed", "full-work-queue"] as const).map(view => (
                     <button key={view} onClick={() => setActiveView(view)}
                         style={{ padding: "8px 16px", fontSize: 13, fontWeight: activeView === view ? 700 : 500, color: activeView === view ? "#1d4ed8" : "#475569", background: "none", border: "none", borderBottom: activeView === view ? "2px solid #1d4ed8" : "2px solid transparent", marginBottom: -2, cursor: "pointer", transition: "all 0.15s", whiteSpace: "nowrap" }}>
                         {tabLabels[view]}
@@ -418,7 +522,7 @@ export default function RecapitalizationDdOperations() {
                     <h2>{tabLabels[activeView]} {activeView !== "activity-feed" ? `(${activeItems.length})` : ""}</h2>
                 </div>
                 <div className="rc-card-body" style={{ padding: 0 }}>
-                    {activeView === "activity-feed" ? renderActivityFeed() : renderTable(activeItems, emptyMessages[activeView])}
+                    {activeView === "activity-feed" ? renderActivityFeed() : activeView === "partner-action" ? renderPartnerActionTable(activeItems) : renderTable(activeItems, emptyMessages[activeView])}
                 </div>
             </div>
 
@@ -601,17 +705,17 @@ export default function RecapitalizationDdOperations() {
                 <div className="rc-modal-overlay" onClick={() => setArchiveConfirm(null)}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
                         <div className="rc-modal-header">
-                            <h2>Archive Item</h2>
+                            <h2>{archiveConfirm.req.status === "Not Applicable" ? "Archive as Not Applicable" : "Archive Duplicate"}</h2>
                             <button className="rc-modal-close" onClick={() => setArchiveConfirm(null)}>&times;</button>
                         </div>
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
                             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                                 <div style={{ fontSize: 14, color: "#1e293b", fontWeight: 500 }}>
-                                    Archive <strong>{archiveConfirm.req.requestId}</strong> &mdash; {archiveConfirm.req.title.split(" - ").slice(1).join(" - ").trim() || archiveConfirm.req.title}?
+                                    {archiveConfirm.req.status === "Not Applicable" ? "Archive as Not Applicable" : "Archive Duplicate"} for <strong>{archiveConfirm.req.requestId}</strong> &mdash; {archiveConfirm.req.title.split(" - ").slice(1).join(" - ").trim() || archiveConfirm.req.title}?
                                 </div>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#f0f4ff", border: "1px solid #c7d2fe", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#4338ca" }}>
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg>
-                                    This will archive the item. It will no longer appear in active views.
+                                    {archiveConfirm.req.status === "Not Applicable" ? "This will mark the item as Not Applicable and remove it from active work queues." : "This will mark the item as Duplicate and remove it from active work queues."}
                                 </div>
                             </div>
                         </div>
@@ -621,7 +725,7 @@ export default function RecapitalizationDdOperations() {
                                 updateRequestStatus(archiveConfirm.req.id, archiveConfirm.req.status);
                                 addActivityEntry({
                                     type: "Status Change",
-                                    description: `${archiveConfirm.req.requestId}: Archived by ${activeUser}`,
+                                    description: `${archiveConfirm.req.requestId}: ${archiveConfirm.req.status === "Not Applicable" ? "Archived as Not Applicable" : "Archived as Duplicate"} by ${activeUser}`,
                                     userId: activeUser,
                                     userName: activeUser,
                                     requestId: archiveConfirm.req.id,
@@ -631,11 +735,11 @@ export default function RecapitalizationDdOperations() {
                                 });
                                 setSuccessMsg({
                                     title: "Archived",
-                                    body: `${archiveConfirm.req.requestId} has been archived.`,
+                                    body: `${archiveConfirm.req.requestId} has been archived as ${archiveConfirm.req.status === "Not Applicable" ? "Not Applicable" : "Duplicate"}.`,
                                 });
                                 setArchiveConfirm(null);
                                 setRefreshKey(k => k + 1);
-                            }}>Archive</button>
+                            }}>{archiveConfirm.req.status === "Not Applicable" ? "Archive as Not Applicable" : "Archive Duplicate"}</button>
                         </div>
                     </div>
                 </div>

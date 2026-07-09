@@ -95,9 +95,9 @@
 
 .rc-card {
     background: var(--is-card-bg, #ffffff);
-    border: 1px solid var(--is-border, #93c5fd);
-    border-radius: 10px;
-    box-shadow: var(--is-shadow-card, 0 8px 20px rgba(15, 23, 42, 0.08));
+    border: 1px solid #e0e7ff;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(79,70,229,0.04);
 }
 
 .rc-card-header {
@@ -119,31 +119,85 @@
 }
 
 .rc-stat-card {
-    background: var(--is-card-bg, #ffffff);
-    border: 1px solid var(--is-border, #93c5fd);
-    border-radius: 10px;
-    padding: 16px 18px;
-    box-shadow: var(--is-shadow-card, 0 8px 20px rgba(15, 23, 42, 0.08));
+    background: #ffffff;
+    border: 1px solid #e0e7ff;
+    border-radius: 16px;
+    padding: 20px 16px;
+    box-shadow: 0 4px 20px rgba(79, 70, 229, 0.06);
     display: flex;
     flex-direction: column;
     gap: 4px;
-    transition: box-shadow 0.15s, border-color 0.15s;
+    transition: all 0.25s ease;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.rc-stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: #c7d2fe;
+    transition: background 0.25s ease;
 }
 
 .rc-stat-card:hover {
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+    transform: translateY(-4px);
+    box-shadow: 0 16px 36px rgba(79, 70, 229, 0.12);
+    border-color: #818cf8;
 }
 
-.rc-stat-active {
-    border-color: #4f46e5;
-    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
+.rc-stat-card:hover::before {
+    background: #6366f1;
+}
+
+.rc-stat-card--active {
+    border-color: #6366f1;
+    background: #f5f7ff;
+    box-shadow: 0 6px 24px rgba(99, 102, 241, 0.15);
+}
+
+.rc-stat-card--active::before {
+    background: #6366f1;
+}
+
+.rc-stat-card--amber::before {
+    background: #fb923c;
+}
+.rc-stat-card--amber:hover::before {
+    background: #ea580c;
+}
+.rc-stat-card--amber.rc-stat-card--active {
+    border-color: #ea580c;
+    box-shadow: 0 6px 24px rgba(234, 88, 12, 0.15);
+}
+.rc-stat-card--amber.rc-stat-card--active::before {
+    background: #ea580c;
+}
+
+.rc-stat-card--green::before {
+    background: #4ade80;
+}
+.rc-stat-card--green:hover::before {
+    background: #22c55e;
+}
+.rc-stat-card--green.rc-stat-card--active {
+    border-color: #22c55e;
+    box-shadow: 0 6px 24px rgba(34, 197, 94, 0.15);
+}
+.rc-stat-card--green.rc-stat-card--active::before {
+    background: #22c55e;
 }
 
 .rc-stat-value {
-    font-size: 28px;
-    font-weight: 700;
+    font-size: 30px;
+    font-weight: 800;
     color: var(--is-text-heading, #0f172a);
-    line-height: 1.1;
+    line-height: 1;
+    letter-spacing: -0.02em;
 }
 
 .rc-stat-label {
@@ -195,6 +249,7 @@
 .rc-badge-not-applicable { background: #f0f4ff; color: #475569; border-color: #dbeafe; }
 .rc-badge-duplicate { background: #f0f4ff; color: #475569; border-color: #dbeafe; }
 .rc-badge-rejected { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+.rc-badge-assigned { background: #eef2ff; color: #4338ca; border-color: #c7d2fe; }
 .rc-badge-waiting-partner-review { background: #eff6ff; color: #1e40af; border-color: #bfdbfe; }
 .rc-badge-completed { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
 .rc-badge-needs-rework { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
@@ -228,8 +283,8 @@
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
-    border: 1px solid #dbeafe;
-    border-radius: 6px;
+    border: 1px solid #c7d2fe;
+    border-radius: 8px;
     background: #fff;
     min-width: 200px;
 }
@@ -248,8 +303,8 @@
 .rc-filter-select {
     padding: 6px 10px;
     font-size: 12px;
-    border: 1px solid #dbeafe;
-    border-radius: 6px;
+    border: 1px solid #c7d2fe;
+    border-radius: 8px;
     background: #fff;
     color: #1e293b;
     cursor: pointer;
@@ -279,12 +334,13 @@
     padding: 10px 12px;
     font-size: 11px;
     font-weight: 700;
-    color: #475569;
+    color: #334155;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    background: #f8faff;
-    border-bottom: 1px solid #dbeafe;
+    background: #f0f4ff;
+    border-bottom: 1px solid #c7d2fe;
     white-space: nowrap;
+    box-shadow: 0 1px 0 rgba(79,70,229,0.04);
 }
 
 .rc-table td.nowrap {
@@ -299,7 +355,7 @@
 }
 
 .rc-table tr:hover td {
-    background: #f8faff;
+    background: #f0f4ff;
 }
 
 .rc-table tr.rc-row-clickable {
@@ -316,6 +372,9 @@
     text-align: center;
     color: #475569;
     font-size: 14px;
+    border: 1px dashed #c7d2fe;
+    border-radius: 12px;
+    background: #ffffff;
 }
 
 .rc-divider {
@@ -362,11 +421,11 @@
     display: grid;
     gap: 8px;
     padding: 10px 14px;
-    background: #f8faff;
+    background: #f0f4ff;
     border-bottom: 1px solid #dbeafe;
     font-size: 11px;
     font-weight: 700;
-    color: #475569;
+    color: #334155;
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
@@ -381,7 +440,7 @@
 }
 
 .rc-grid-row:hover {
-    background: #f8faff;
+    background: #f0f4ff;
 }
 
 .rc-drawer-overlay {
@@ -680,7 +739,7 @@
     align-items: center;
     gap: 8px;
     padding: 10px 14px;
-    background: #f8faff;
+    background: #ffffff;
     border-bottom: 1px solid #dbeafe;
 }
 
@@ -750,9 +809,11 @@
 .rc-subnav {
     display: flex;
     gap: 2px;
-    background: #f0f4ff;
+    background: #fff;
+    border: 1px solid #e0e7ff;
     border-radius: 10px;
     padding: 4px;
+    box-shadow: 0 2px 8px rgba(79,70,229,0.04);
     overflow-x: auto;
 }
 
@@ -769,16 +830,17 @@
     transition: background 0.12s, color 0.12s, box-shadow 0.12s;
 }
 .rc-subnav-btn:hover {
-    color: #1e293b;
-    background: rgba(255,255,255,0.4);
+    color: #475569;
+    background: #f0f4ff;
 }
 .rc-subnav-active {
-    background: #fff;
+    background: #f0f4ff;
     color: #1d4ed8;
-    box-shadow: 0 1px 3px rgba(15,23,42,0.06);
+    font-weight: 700;
+    box-shadow: none;
 }
 .rc-subnav-active:hover {
-    background: #fff;
+    background: #f0f4ff;
     color: #1d4ed8;
 }
 
@@ -830,7 +892,7 @@
     align-items: center;
     gap: 8px;
     padding: 8px 16px;
-    background: #f8faff;
+    background: #ffffff;
     border-bottom: 1px solid #dbeafe;
     font-size: 12px;
     color: #475569;
@@ -877,7 +939,7 @@
 }
 
 .rc-note-item {
-    background: #f8faff;
+    background: #ffffff;
     border: 1px solid #dbeafe;
     border-radius: 8px;
     padding: 10px 12px;
@@ -932,7 +994,8 @@
 
 .rc-toggle-group {
     display: flex;
-    background: #f0f4ff;
+    background: #fff;
+    border: 1px solid #e0e7ff;
     border-radius: 6px;
     padding: 2px;
 }
@@ -950,9 +1013,9 @@
     transition: background 0.12s, color 0.12s;
 }
 .rc-toggle-btn.rc-toggle-active {
-    background: #fff;
+    background: #f0f4ff;
     color: #1d4ed8;
-    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+    box-shadow: none;
 }
 .rc-toggle-btn:hover:not(.rc-toggle-active) {
     color: #1e293b;
@@ -1101,7 +1164,7 @@
 .iq-stat-blue .iq-stat-icon { background: #eff6ff; }
 .iq-stat-green .iq-stat-icon { background: #f0fdf4; }
 .iq-stat-amber .iq-stat-icon { background: #fffbeb; }
-.iq-stat-gray .iq-stat-icon { background: #f0f4ff; }
+.iq-stat-light .iq-stat-icon { background: #f0f4ff; }
 .iq-stat-indigo .iq-stat-icon { background: #eef2ff; }
 .iq-stat-rose .iq-stat-icon { background: #fff1f2; }
 
@@ -1296,13 +1359,13 @@
     border-bottom: 1px solid #dbeafe;
     cursor: pointer;
     transition: background 0.12s;
-    background: #f8faff;
+    background: #ffffff;
 }
 .iq-broker-card:nth-child(even) {
-    background: #f4f7ff;
+    background: #fafbff;
 }
 .iq-broker-card:hover {
-    background: #eef2ff;
+    background: #f0f4ff;
 }
 .iq-broker-card:last-child {
     border-bottom: none;
@@ -1894,7 +1957,8 @@
 .rc-tab-bar {
     display: flex;
     gap: 2px;
-    background: #f0f4ff;
+    background: #fff;
+    border: 1px solid #e0e7ff;
     border-radius: 8px;
     padding: 3px;
 }
@@ -1911,9 +1975,10 @@
     white-space: nowrap;
 }
 .rc-tab.rc-tab-active {
-    background: #fff;
+    background: #f0f4ff;
     color: #1d4ed8;
-    box-shadow: 0 1px 3px rgba(15,23,42,0.06);
+    font-weight: 700;
+    box-shadow: none;
 }
 .rc-tab:hover:not(.rc-tab-active) { color: #1e293b; }
 
@@ -1966,7 +2031,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 16px 20px;
-    border-bottom: 1px solid #dbeafe;
+    border-bottom: 1px solid #e0e7ff;
 }
 
 .rc-modal-header h2 {

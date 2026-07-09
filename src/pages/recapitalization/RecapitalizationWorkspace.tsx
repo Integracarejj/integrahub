@@ -5,7 +5,7 @@ import type { RecapRequest, WorkArtifact } from "../../services/recapDataService
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
-const STATUS_OPTIONS: RecapRequest["status"][] = ["Open", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate"];
+const STATUS_OPTIONS: RecapRequest["status"][] = ["Open", "Assigned", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate", "Waiting Partner Review", "Needs Rework", "Completed"];
 
 const TEAM_MEMBERS = ["Sarah Chen", "James Wright", "Lisa Park", "Tom Davies", "Mike O'Brien", "Anna Patel", "David Park", "Carlos Rivera", "Demo User (Test)"];
 
@@ -359,7 +359,7 @@ export default function RecapitalizationWorkspace() {
     }
 
     return (
-        <div style={{ background: "#f8fbff", minHeight: "100vh", paddingBottom: 40 }}>
+        <div style={{ background: "#ffffff", minHeight: "100vh", paddingBottom: 40 }}>
             <RecapSubNav />
             <div className="rc-page" style={{ maxWidth: 1100, gap: 0 }}>
                 {/* Breadcrumb */}
@@ -394,7 +394,7 @@ export default function RecapitalizationWorkspace() {
                 )}
 
                 {/* Main Content Card */}
-                <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(15,23,42,0.04)", overflow: "hidden" }}>
+                <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e0e7ff", boxShadow: "0 4px 20px rgba(79,70,229,0.06)", overflow: "hidden" }}>
                     {/* Hero Section */}
                     <div style={{ padding: "28px 32px", display: "flex", gap: 28, flexWrap: "wrap" }}>
                         {/* Left: ID + Title */}
@@ -549,7 +549,7 @@ export default function RecapitalizationWorkspace() {
                     <div style={{ height: 1, background: "#e2e8f0" }} />
 
                     {/* Visibility Key */}
-                    <div style={{ padding: "10px 32px", display: "flex", gap: 16, flexWrap: "wrap", fontSize: 11, color: "#475569", background: "#f8faff", borderBottom: "1px solid #e2e8f0" }}>
+                    <div style={{ padding: "10px 32px", display: "flex", gap: 16, flexWrap: "wrap", fontSize: 11, color: "#475569", background: "#fafbff", borderBottom: "1px solid #e2e8f0" }}>
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
                             <strong>Internal</strong>: Notes &amp; artifacts are internal-only until published
@@ -563,31 +563,39 @@ export default function RecapitalizationWorkspace() {
                     {/* Partner Decision Banner */}
                     {(item as any)._partnerDecision && (
                         <div style={{
-                            margin: "0 32px", padding: "12px 16px", borderRadius: 8,
+                            margin: "0 32px", padding: "14px 18px", borderRadius: 10,
                             background: (item as any)._partnerDecision === "Approved" ? "#f0fdf4" : "#fff7ed",
-                            border: `1px solid ${(item as any)._partnerDecision === "Approved" ? "#bbf7d0" : "#fed7aa"}`,
-                            display: "flex", alignItems: "flex-start", gap: 10,
+                            border: `1px solid ${(item as any)._partnerDecision === "Approved" ? "#86efac" : "#fdba74"}`,
+                            display: "flex", alignItems: "flex-start", gap: 12,
+                            boxShadow: (item as any)._partnerDecision === "Approved"
+                                ? "0 2px 8px rgba(22, 101, 52, 0.08)"
+                                : "0 2px 8px rgba(154, 52, 18, 0.08)",
                         }}>
                             {(item as any)._partnerDecision === "Approved" ? (
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
-                                    <polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-                                </svg>
+                                <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#166534", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                </div>
                             ) : (
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a3412" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
-                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-                                </svg>
+                                <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#ea580c", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                                    </svg>
+                                </div>
                             )}
                             <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 13, fontWeight: 700, color: (item as any)._partnerDecision === "Approved" ? "#166534" : "#9a3412" }}>
-                                    {(item as any)._partnerDecision === "Approved" ? "Partner Approved" : "Rework Required by Partner"}
+                                <div style={{ fontSize: 14, fontWeight: 700, color: (item as any)._partnerDecision === "Approved" ? "#166534" : "#9a3412" }}>
+                                    {(item as any)._partnerDecision === "Approved" ? "Partner Approved This Request" : "Partner Requested Rework"}
                                 </div>
                                 {(item as any)._partnerNote && (
-                                    <div style={{ fontSize: 12, color: (item as any)._partnerDecision === "Approved" ? "#334155" : "#78350f", marginTop: 3, lineHeight: 1.5 }}>
+                                    <div style={{ fontSize: 13, color: (item as any)._partnerDecision === "Approved" ? "#334155" : "#78350f", marginTop: 4, lineHeight: 1.6, padding: "8px 10px", background: "rgba(255,255,255,0.6)", borderRadius: 6, border: `1px solid ${(item as any)._partnerDecision === "Approved" ? "#bbf7d0" : "#fed7aa"}`, whiteSpace: "pre-wrap" }}>
                                         {(item as any)._partnerNote}
                                     </div>
                                 )}
                                 {(item as any)._partnerActionAt && (
-                                    <div style={{ fontSize: 11, color: "#475569", marginTop: 4 }}>
+                                    <div style={{ fontSize: 11, color: "#475569", marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
                                         {new Date((item as any)._partnerActionAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                                     </div>
                                 )}
@@ -658,9 +666,9 @@ export default function RecapitalizationWorkspace() {
                                             addActivityEntry({ type: "Document", description: "Uploaded artifact" + (files.length > 1 ? "s" : "") + ": " + files.map(f => f.name).join(", "), userId: "current-user", userName: currentUser, requestId: id!, requestTitle: displayTitle || item?.category || "", transactionId: item?.transactionId || "", transactionName: item?.transactionName || item?.transactionId || "" });
                                         }
                                     }}
-                                    style={{ border: "2px dashed #d1d5db", borderRadius: 8, padding: "20px 16px", textAlign: "center", cursor: "pointer", background: "#fafbfc", transition: "border-color 0.15s, background 0.15s" }}
-                                    onDragEnter={e => { (e.target as HTMLElement).style.borderColor = "#2563eb"; (e.target as HTMLElement).style.background = "#eff6ff"; }}
-                                    onDragLeave={e => { (e.target as HTMLElement).style.borderColor = "#d1d5db"; (e.target as HTMLElement).style.background = "#fafbfc"; }}
+                                    style={{ border: "2px dashed #c7d2fe", borderRadius: 10, padding: "20px 16px", textAlign: "center", cursor: "pointer", background: "#f5f7ff", transition: "border-color 0.2s, background 0.2s" }}
+                                    onDragEnter={e => { (e.target as HTMLElement).style.borderColor = "#6366f1"; (e.target as HTMLElement).style.background = "#eef2ff"; }}
+                                    onDragLeave={e => { (e.target as HTMLElement).style.borderColor = "#c7d2fe"; (e.target as HTMLElement).style.background = "#f5f7ff"; }}
                                 >
                                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 6 }}>
                                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />

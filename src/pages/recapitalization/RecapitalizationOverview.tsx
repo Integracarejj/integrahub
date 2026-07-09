@@ -45,33 +45,33 @@ export default function RecapitalizationOverview() {
             </div>
 
             <div className="rc-stats-row">
-                <div className="rc-stat-card" style={{ borderLeft: "3px solid #1d4ed8" }}>
+                <div className="rc-stat-card" onClick={() => navigate("/recapitalization/tracker")}>
                     <span className="rc-stat-value">{totalRequests}</span>
                     <span className="rc-stat-label">Total Requests</span>
                 </div>
-                <div className="rc-stat-card" style={{ borderLeft: "3px solid #166534" }}>
+                <div className="rc-stat-card" onClick={() => navigate("/recapitalization/tracker")}>
                     <span className="rc-stat-value">{provided}</span>
                     <span className="rc-stat-label">Provided</span>
                     <span className="rc-stat-desc">{Math.round(provided / totalRequests * 100)}% completion rate</span>
                 </div>
-                <div className="rc-stat-card" style={{ borderLeft: "3px solid #1e40af" }}>
+                <div className="rc-stat-card" onClick={() => navigate("/recapitalization/tracker")}>
                     <span className="rc-stat-value">{inProgress}</span>
                     <span className="rc-stat-label">In Progress</span>
                 </div>
-                <div className="rc-stat-card" style={{ borderLeft: "3px solid #92400e" }}>
+                <div className="rc-stat-card" onClick={() => navigate("/recapitalization/tracker")}>
                     <span className="rc-stat-value">{clarificationNeeded}</span>
                     <span className="rc-stat-label">Clarification Needed</span>
                 </div>
-                <div className="rc-stat-card" style={{ borderLeft: "3px solid #991b1b" }}>
+                <div className="rc-stat-card" onClick={() => navigate("/recapitalization/tracker")}>
                     <span className="rc-stat-value">{overdue}</span>
                     <span className="rc-stat-label">Overdue</span>
                 </div>
-                <div className="rc-stat-card" style={{ borderLeft: "3px solid #4338ca" }}>
+                <div className="rc-stat-card" onClick={() => navigate("/recapitalization/intake")}>
                     <span className="rc-stat-value">{newExternal}</span>
                     <span className="rc-stat-label">New External</span>
                     <span className="rc-stat-desc">Awaiting review</span>
                 </div>
-                <div className="rc-stat-card" style={{ borderLeft: "3px solid #7c3aed" }}>
+                <div className="rc-stat-card" onClick={() => navigate("/recapitalization/intake")}>
                     <span className="rc-stat-value">{intakeItemCount}</span>
                     <span className="rc-stat-label">Intake Items</span>
                     <span className="rc-stat-desc">Awaiting processing</span>
@@ -154,20 +154,23 @@ export default function RecapitalizationOverview() {
                         )}
                         {needingAttention.map(req => (
                             <div key={req.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 18px", borderBottom: "1px solid #f1f5f9", cursor: "pointer" }}
-                                onClick={() => navigate("/recapitalization/tracker")}>
+                                onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "overview" } })}>
                                 <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                                         <span className={`rc-badge rc-badge-${req.status === "Overdue" ? "overdue" : req.status.toLowerCase().replace(/\s+/g, "-")}`}>
                                             {req.status}
                                         </span>
                                         {req._partnerDecision && (
-                                            <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 4, background: req._partnerDecision === "Approved" ? "#f0fdf4" : "#fff7ed", color: req._partnerDecision === "Approved" ? "#166534" : "#9a3412", border: `1px solid ${req._partnerDecision === "Approved" ? "#bbf7d0" : "#fed7aa"}` }}>
-                                                {req._partnerDecision === "Approved" ? "Partner Approved" : "Rework Required"}
+                                            <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: req._partnerDecision === "Approved" ? "#f0fdf4" : "#fff7ed", color: req._partnerDecision === "Approved" ? "#166534" : "#9a3412", border: `1px solid ${req._partnerDecision === "Approved" ? "#bbf7d0" : "#fed7aa"}` }}>
+                                                {req._partnerDecision === "Approved" ? "&#10003; Partner Approved" : "&#9888; Rework Required"}
                                             </span>
                                         )}
                                         <span style={{ fontSize: 11, color: "#475569" }}>{req.requestId}</span>
                                     </div>
                                     <span className="rc-truncate" style={{ fontSize: 13, color: "#1e293b" }}>{req.title}</span>
+                                    {req._partnerNote && (
+                                        <span style={{ fontSize: 11, color: "#475569", marginTop: 2, fontStyle: "italic" }}>{req._partnerDecision === "Approved" ? "Partner approved" : "Partner requested rework"} on this request</span>
+                                    )}
                                 </div>
                                 <span className="rc-text-muted" style={{ flexShrink: 0, marginLeft: 8 }}>{req.owner || "Unassigned"}</span>
                             </div>

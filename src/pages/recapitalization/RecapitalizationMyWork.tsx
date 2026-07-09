@@ -5,7 +5,7 @@ import type { RecapRequest, WorkArtifact } from "../../services/recapDataService
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
-const STATUS_OPTIONS = ["Open", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate"];
+const STATUS_OPTIONS = ["Open", "Assigned", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate", "Waiting Partner Review", "Needs Rework", "Completed"];
 const RETURNED_STATUSES = ["Clarification Needed", "Blocked", "Duplicate", "Not Applicable"];
 
 type ViewTab = "active-work" | "completed-work" | "my-team" | "returned";
