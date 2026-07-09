@@ -229,25 +229,8 @@ export default function RecapitalizationMyWork() {
                             <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 200 }}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</td>
                             <td style={{ fontSize: 12, color: "#475569" }}>{req.communityNames[0] || "\u2014"}</td>
                             <td><PriorityBadge priority={req.priority} /></td>
-                            <td onClick={e => e.stopPropagation()}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                    <select
-                                        value={req.status}
-                                        onChange={e => {
-                                            const newStatus = e.target.value;
-                                            if (newStatus !== req.status) {
-                                                if (newStatus === "Complete" && !hasDocuments(req)) {
-                                                    setArtifactWarning({ req, newStatus });
-                                                } else {
-                                                    setStatusConfirm({ req, newStatus });
-                                                }
-                                            }
-                                        }}
-                                        style={{ fontSize: 10, padding: "2px 14px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 85, cursor: "pointer", border: "1px solid #d1d5db", width: "100%" }}
-                                    >
-                                        {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                                    </select>
-                                </div>
+                            <td>
+                                <StatusBadge status={req.status} />
                             </td>
                             {activeView !== "my-team" && <td style={{ fontSize: 12, color: "#475569" }}>{req.owner || "\u2014"}</td>}
                             <td style={{ fontSize: 12 }}>{req.team}</td>
@@ -279,15 +262,98 @@ export default function RecapitalizationMyWork() {
                                 })()}
                             </td>
                             <td style={{ fontSize: 12, color: req.lastUpdated ? "#475569" : "#64748b" }}>{req.lastUpdated || "\u2014"}</td>
-                            <td onClick={e => e.stopPropagation()} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                {(activeView === "active-work" || activeView === "returned") && req.owner === activeUser && req.status !== "Complete" && req._externalStatus !== "Published External" && (
-                                    <button
-                                        onClick={() => setNotMine({ req, reason: "" })}
-                                        style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#dc2626", border: "1px solid #fecaca", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                        title="Report this item was not assigned to you"
-                                    >
-                                        Not Mine
-                                    </button>
+                            <td onClick={e => e.stopPropagation()} style={{ whiteSpace: "nowrap", minWidth: 90 }}>
+                                {activeView === "active-work" && req.owner === activeUser && req.status !== "Complete" && req._externalStatus !== "Published External" && (
+                                    <div style={{ display: "flex", gap: 3, flexWrap: "wrap", alignItems: "center" }}>
+                                        {(req.status === "Open" || req.status === "Assigned") && (
+                                            <button
+                                                onClick={() => handleStatusChange(req, "In Progress")}
+                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#1d4ed8", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                                title="Start working on this item"
+                                            >
+                                                Start Work
+                                            </button>
+                                        )}
+                                        {req.status === "In Progress" && (
+                                            <>
+                                                <button
+                                                    onClick={() => setStatusConfirm({ req, newStatus: "Blocked" })}
+                                                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                                    title="Block this work item"
+                                                >
+                                                    Block Work
+                                                </button>
+                                                <button
+                                                    onClick={() => setStatusConfirm({ req, newStatus: "Clarification Needed" })}
+                                                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fffbeb", color: "#92400e", border: "1px solid #fde68a", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                                    title="Request clarification"
+                                                >
+                                                    Need Clarification
+                                                </button>
+                                                <button
+                                                    onClick={() => setStatusConfirm({ req, newStatus: "Duplicate" })}
+                                                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#ede9fe", color: "#6d28d9", border: "1px solid #ddd6fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                                    title="Mark as duplicate (recommendation)"
+                                                >
+                                                    Mark Duplicate
+                                                </button>
+                                                <button
+                                                    onClick={() => setStatusConfirm({ req, newStatus: "Not Applicable" })}
+                                                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#f0f4ff", color: "#4f46e5", border: "1px solid #c7d2fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                                    title="Mark as not applicable (recommendation)"
+                                                >
+                                                    Mark Not Applicable
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        if (!hasDocuments(req)) {
+                                                            setArtifactWarning({ req, newStatus: "Complete" });
+                                                        } else {
+                                                            setStatusConfirm({ req, newStatus: "Complete" });
+                                                        }
+                                                    }}
+                                                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#166534", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                                    title="Complete this work item"
+                                                >
+                                                    Complete Work
+                                                </button>
+                                            </>
+                                        )}
+                                        {req.status === "Blocked" && (
+                                            <button
+                                                onClick={() => handleStatusChange(req, "In Progress")}
+                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#1d4ed8", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                                title="Resolve block and continue working"
+                                            >
+                                                Resolve
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => setNotMine({ req, reason: "" })}
+                                            style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: "#fff", color: "#dc2626", border: "1px solid #fecaca", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                            title="Report this item was not assigned to you"
+                                        >
+                                            Not Mine
+                                        </button>
+                                    </div>
+                                )}
+                                {activeView === "returned" && req.owner === activeUser && (
+                                    <div style={{ display: "flex", gap: 3, flexWrap: "wrap", alignItems: "center" }}>
+                                        <button
+                                            onClick={() => handleStatusChange(req, "In Progress")}
+                                            style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#1d4ed8", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                            title="Reopen and continue working"
+                                        >
+                                            {req.status === "Clarification Needed" ? "Respond" : "Reopen"}
+                                        </button>
+                                        <button
+                                            onClick={() => setNotMine({ req, reason: "" })}
+                                            style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: "#fff", color: "#dc2626", border: "1px solid #fecaca", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                            title="Report this item was not assigned to you"
+                                        >
+                                            Not Mine
+                                        </button>
+                                    </div>
                                 )}
                             </td>
                         </tr>
@@ -379,8 +445,8 @@ export default function RecapitalizationMyWork() {
                                         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#991b1b" }}>
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                                             {statusConfirm.newStatus === "Blocked" && "This will move the request to DD Operations \u2192 Needs DD Review for review."}
-                                            {statusConfirm.newStatus === "Duplicate" && "This will move the request to DD Operations \u2192 Needs DD Review for duplicate review."}
-                                            {statusConfirm.newStatus === "Not Applicable" && "This will move the request to DD Operations \u2192 Needs DD Review for disposition."}
+                                            {statusConfirm.newStatus === "Duplicate" && "This will flag the item as a Duplicate recommendation and move it to DD Operations \u2192 Exceptions for review and external partner decision."}
+                                            {statusConfirm.newStatus === "Not Applicable" && "This will flag the item as Not Applicable recommendation and move it to DD Operations \u2192 Exceptions for review and external partner decision."}
                                         </div>
                                         <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
                                             Reason <span style={{ color: "#dc2626" }}>*</span>
@@ -402,10 +468,15 @@ export default function RecapitalizationMyWork() {
                                 const reason = statusConfirm.reason?.trim();
                                 if (["Blocked", "Duplicate", "Not Applicable"].includes(statusConfirm.newStatus) && !reason) return;
                                 handleStatusChange(statusConfirm.req, statusConfirm.newStatus, reason);
-                                if (["Blocked", "Duplicate", "Not Applicable"].includes(statusConfirm.newStatus)) {
+                                if (statusConfirm.newStatus === "Blocked") {
                                     setSuccessMsg({
                                         title: "Status Updated",
                                         body: `${statusConfirm.req.requestId} moved to DD Operations \u2192 Needs DD Review.`,
+                                    });
+                                } else if (statusConfirm.newStatus === "Duplicate" || statusConfirm.newStatus === "Not Applicable") {
+                                    setSuccessMsg({
+                                        title: "Recommendation Submitted",
+                                        body: `${statusConfirm.req.requestId} sent to DD Operations \u2192 Exceptions as a ${statusConfirm.newStatus} recommendation.`,
                                     });
                                 }
                                 setStatusConfirm(null);

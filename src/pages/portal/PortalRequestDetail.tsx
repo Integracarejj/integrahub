@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getPortalRequests, partnerApproveRequest, partnerReworkRequest } from "../../services/portalMockData";
+import { getPortalRequests, partnerApproveRequest, partnerReworkRequest, partnerExceptionDecision } from "../../services/portalMockData";
 import { getExternalMessages, getWorkArtifactsByRequest } from "../../services/recapDataService";
 import "./PortalOverview.css";
 
@@ -17,6 +17,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
     Closed: { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
     "Closed / Duplicate": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
     "Closed / Not Applicable": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
+    "Exception Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -35,6 +36,7 @@ const STATUS_PROGRESS: Record<string, { step: number; label: string }> = {
     "Quality Review": { step: 4, label: "Quality Review" },
     Published: { step: 5, label: "Published" },
     "Waiting Review": { step: 6, label: "Waiting Review" },
+    "Exception Review": { step: 6, label: "Exception Review" },
     Approved: { step: 7, label: "Approved" },
     "Rework Required": { step: 7, label: "Rework Required" },
 };
@@ -51,7 +53,7 @@ const TRACKER_STEPS = [
 function StatusTracker({ status }: { status: string }) {
     const current = STATUS_PROGRESS[status];
     if (!current) return null;
-    const isPartnerStatus = status === "Waiting Review" || status === "Approved" || status === "Rework Required";
+    const isPartnerStatus = status === "Waiting Review" || status === "Approved" || status === "Rework Required" || status === "Exception Review";
     return (
         <div style={{ marginBottom: 20 }}>
             <div className="po-tracker">
@@ -89,11 +91,14 @@ function StatusTracker({ status }: { status: string }) {
                     {status === "Quality Review" && "The work is complete and is undergoing a final quality review before publication."}
                     {status === "Published" && "The artifacts for this request are available. The team will be notified when you complete your review."}
                     {status === "Waiting Review" && "Due diligence artifacts are ready for your review. Please review the supporting materials and approve or request rework."}
+                    {status === "Exception Review" && "The IntegraCare team has identified this request as potentially duplicate or not applicable. Please review the recommendation below and make a decision."}
                     {status === "Approved" && "You have approved this request. The IntegraCare team has been notified of your decision."}
                     {status === "Rework Required" && "You have requested rework on this request. The IntegraCare team will address your feedback."}
                     {status === "Action Needed" && "Additional information is needed from your side. Please check for open clarifications and respond promptly."}
                     {status === "Closed" && "This request has been closed. Contact the DD team if you have questions."}
-                    {!["Intake Review", "Work Queue", "In Progress", "Quality Review", "Action Needed", "Closed", "Published", "Waiting Review", "Approved", "Rework Required"].includes(status) && "IntegraCare is processing this request."}
+                    {status === "Closed / Duplicate" && "This request was found to be a duplicate and has been closed after partner confirmation."}
+                    {status === "Closed / Not Applicable" && "This request was found to be not applicable and has been removed after partner confirmation."}
+                    {!["Intake Review", "Work Queue", "In Progress", "Quality Review", "Action Needed", "Closed", "Closed / Duplicate", "Closed / Not Applicable", "Published", "Waiting Review", "Approved", "Rework Required", "Exception Review"].includes(status) && "IntegraCare is processing this request."}
                 </div>
             </div>
         </div>
@@ -202,6 +207,109 @@ function PartnerReviewModal({
     );
 }
 
+/* ── Exception Decision Modal ── */
+function ExceptionDecisionModal({
+    recommendation,
+    onClose,
+    onConfirm,
+}: {
+    recommendation: "Duplicate" | "Not Applicable";
+    onClose: () => void;
+    onConfirm: (decision: "Approve Merge" | "Keep Separate" | "Approve Removal" | "Keep Request", note?: string) => void;
+}) {
+    const [note, setNote] = useState("");
+    const isDuplicate = recommendation === "Duplicate";
+
+    const approveLabel = isDuplicate ? "Approve Merge" : "Approve Removal";
+    const keepLabel = isDuplicate ? "Keep Separate" : "Keep Request";
+    const approveDesc = isDuplicate
+        ? "Agree that this request is a duplicate. It will be merged and closed."
+        : "Agree that this request is not applicable. It will be removed and closed.";
+    const keepDesc = isDuplicate
+        ? "Disagree — this request is not a duplicate. It will remain active."
+        : "Disagree — this request is applicable. It will remain active.";
+
+    return (
+        <div style={{ position: "fixed", inset: 0, zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(15, 23, 42, 0.4)", backdropFilter: "blur(2px)" }}>
+            <div style={{
+                background: "#fff", borderRadius: 20, maxWidth: 480, width: "90%",
+                boxShadow: "0 20px 60px rgba(0,0,0,0.2)", overflow: "hidden",
+                border: "2px solid #ddd6fe",
+            }}>
+                <div style={{ padding: "28px 28px 16px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                        <div style={{
+                            width: 40, height: 40, borderRadius: "50%",
+                            background: "#faf5ff", color: "#6b21a8",
+                            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18,
+                        }}>
+                            {"\u26A0"}
+                        </div>
+                        <div>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a" }}>
+                                {isDuplicate ? "Duplicate Recommendation" : "Not Applicable Recommendation"}
+                            </div>
+                            <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>
+                                The IntegraCare team has flagged this request as {recommendation.toLowerCase()}. Review the details below.
+                            </div>
+                        </div>
+                    </div>
+                    <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+                        <button
+                            onClick={() => onConfirm(isDuplicate ? "Approve Merge" : "Approve Removal")}
+                            style={{
+                                width: "100%", padding: "14px 16px", fontSize: 14, fontWeight: 700, borderRadius: 12,
+                                border: "2px solid #6b21a8", background: "#faf5ff", color: "#6b21a8",
+                                cursor: "pointer", transition: "all 0.15s", textAlign: "left",
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background = "#6b21a8"; e.currentTarget.style.color = "#fff"; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = "#faf5ff"; e.currentTarget.style.color = "#6b21a8"; }}
+                        >
+                            <span style={{ fontSize: 16, fontWeight: 800 }}>{approveLabel}</span>
+                            <span style={{ display: "block", fontSize: 12, fontWeight: 500, marginTop: 2, opacity: 0.8 }}>{approveDesc}</span>
+                        </button>
+                        <button
+                            onClick={() => onConfirm(isDuplicate ? "Keep Separate" : "Keep Request")}
+                            style={{
+                                width: "100%", padding: "14px 16px", fontSize: 14, fontWeight: 700, borderRadius: 12,
+                                border: "2px solid #c7d2fe", background: "#fff", color: "#4338ca",
+                                cursor: "pointer", transition: "all 0.15s", textAlign: "left",
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background = "#eef2ff"; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = "#fff"; }}
+                        >
+                            <span style={{ fontSize: 16, fontWeight: 800 }}>{keepLabel}</span>
+                            <span style={{ display: "block", fontSize: 12, fontWeight: 500, marginTop: 2, opacity: 0.8 }}>{keepDesc}</span>
+                        </button>
+                    </div>
+                    <div style={{ marginTop: 16 }}>
+                        <label style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", display: "block", marginBottom: 6 }}>
+                            Note (optional)
+                        </label>
+                        <textarea
+                            value={note}
+                            onChange={e => setNote(e.target.value)}
+                            placeholder="Add any additional context for your decision..."
+                            rows={3}
+                            style={{
+                                width: "100%", padding: "12px 14px", fontSize: 14,
+                                border: "1px solid #c7d2fe", borderRadius: 10,
+                                outline: "none", resize: "vertical",
+                                fontFamily: "inherit", boxSizing: "border-box",
+                            }}
+                        />
+                    </div>
+                </div>
+                <div style={{ padding: "16px 28px 24px", display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                    <button className="rc-btn rc-btn-secondary" onClick={onClose} style={{ padding: "10px 20px", fontSize: 13, fontWeight: 600, borderRadius: 10, background: "#fff", border: "1px solid #c7d2fe" }}>
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function PortalRequestDetail() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
@@ -213,6 +321,7 @@ export default function PortalRequestDetail() {
 
     const [showScrollMore, setShowScrollMore] = useState(true);
     const [modalMode, setModalMode] = useState<"approve" | "rework" | null>(null);
+    const [exceptionModal, setExceptionModal] = useState<"Duplicate" | "Not Applicable" | null>(null);
 
     const handleApprove = (comment?: string) => {
         if (!req) return;
@@ -224,6 +333,12 @@ export default function PortalRequestDetail() {
         if (!req) return;
         if (reason) partnerReworkRequest(req.id, reason);
         setModalMode(null);
+    };
+
+    const handleExceptionDecision = (decision: "Approve Merge" | "Keep Separate" | "Approve Removal" | "Keep Request", note?: string) => {
+        if (!req) return;
+        partnerExceptionDecision(req.id, decision, note);
+        setExceptionModal(null);
     };
 
     useEffect(() => {
@@ -465,6 +580,121 @@ export default function PortalRequestDetail() {
                         </div>
                     )}
 
+                    {/* ── Exception Review Action Buttons ── */}
+                    {req.status === "Exception Review" && req._exceptionRecommendation && (
+                        <div style={{ border: "2px solid #ddd6fe", borderRadius: 16, padding: 24, background: "linear-gradient(135deg, #faf5ff 0%, #f0fdf4 100%)" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                                <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#6b21a8", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
+                                    {"\u26A0"}
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 18, fontWeight: 800, color: "#6b21a8" }}>
+                                        {req._exceptionRecommendation === "Duplicate" ? "Duplicate Recommendation" : "Not Applicable Recommendation"}
+                                    </div>
+                                    <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>
+                                        The IntegraCare team has recommended this request be closed as {req._exceptionRecommendation.toLowerCase()}.
+                                        {req._exceptionSentAt && <> Submitted on {req._exceptionSentAt}.</>}
+                                    </div>
+                                </div>
+                            </div>
+                            <div style={{ fontSize: 14, color: "#334155", marginBottom: 20, textAlign: "center", lineHeight: 1.5 }}>
+                                Please review the recommendation and make a final decision.
+                            </div>
+                            <div style={{ display: "flex", gap: 12 }}>
+                                <button
+                                    onClick={() => setExceptionModal(req._exceptionRecommendation!)}
+                                    style={{
+                                        flex: 1, padding: "14px 16px", fontSize: 15, fontWeight: 700, borderRadius: 12,
+                                        border: "2px solid #6b21a8", background: "#faf5ff", color: "#6b21a8",
+                                        cursor: "pointer", transition: "all 0.15s",
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = "#6b21a8"; e.currentTarget.style.color = "#fff"; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = "#faf5ff"; e.currentTarget.style.color = "#6b21a8"; }}
+                                >
+                                    Review Recommendation
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── Exception Decision: Approved Removal / Approved Merge ── */}
+                    {req._exceptionDecision === "Approve Removal" || req._exceptionDecision === "Approve Merge" ? (
+                        <div style={{ border: "2px solid #bbf7d0", borderRadius: 16, padding: 24, background: "linear-gradient(135deg, #f0fdf4 0%, #faf5ff 100%)" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                                <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#166534", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
+                                    {"\u2713"}
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 18, fontWeight: 800, color: "#166534" }}>
+                                        {req._exceptionDecision === "Approve Removal" ? "Removal Approved" : "Merge Approved"}
+                                    </div>
+                                    <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>
+                                        You approved the {req._exceptionRecommendation?.toLowerCase() ?? ""} recommendation. This request will be closed.
+                                    </div>
+                                </div>
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                {req._exceptionSentAt && (
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "8px 0", borderBottom: "1px solid #dcfce7" }}>
+                                        <span style={{ color: "#475569", fontWeight: 600 }}>Recommended on</span>
+                                        <span style={{ color: "#0f172a", fontWeight: 600 }}>{req._exceptionSentAt}</span>
+                                    </div>
+                                )}
+                                {req._exceptionDecisionAt && (
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "8px 0", borderBottom: "1px solid #dcfce7" }}>
+                                        <span style={{ color: "#475569", fontWeight: 600 }}>Decision on</span>
+                                        <span style={{ color: "#0f172a", fontWeight: 600 }}>{req._exceptionDecisionAt}</span>
+                                    </div>
+                                )}
+                                {req._exceptionDecisionNote && (
+                                    <div style={{ fontSize: 13, padding: "8px 0" }}>
+                                        <span style={{ color: "#475569", fontWeight: 600, display: "block", marginBottom: 4 }}>Note</span>
+                                        <span style={{ color: "#334155", fontStyle: "italic" }}>{req._exceptionDecisionNote}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {/* ── Exception Decision: Keep Separate / Keep Request ── */}
+                    {req._exceptionDecision === "Keep Separate" || req._exceptionDecision === "Keep Request" ? (
+                        <div style={{ border: "2px solid #fed7aa", borderRadius: 16, padding: 24, background: "linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%)" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                                <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#d97706", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
+                                    {"\u21BA"}
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 18, fontWeight: 800, color: "#92400e" }}>
+                                        {req._exceptionDecision === "Keep Separate" ? "Kept Separate" : "Kept Active"}
+                                    </div>
+                                    <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>
+                                        You disagreed with the {req._exceptionRecommendation?.toLowerCase() ?? ""} recommendation. This request will remain active.
+                                    </div>
+                                </div>
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                {req._exceptionSentAt && (
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "8px 0", borderBottom: "1px solid #fde68a" }}>
+                                        <span style={{ color: "#475569", fontWeight: 600 }}>Recommended on</span>
+                                        <span style={{ color: "#0f172a", fontWeight: 600 }}>{req._exceptionSentAt}</span>
+                                    </div>
+                                )}
+                                {req._exceptionDecisionAt && (
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "8px 0", borderBottom: "1px solid #fde68a" }}>
+                                        <span style={{ color: "#475569", fontWeight: 600 }}>Decision on</span>
+                                        <span style={{ color: "#0f172a", fontWeight: 600 }}>{req._exceptionDecisionAt}</span>
+                                    </div>
+                                )}
+                                {req._exceptionDecisionNote && (
+                                    <div style={{ fontSize: 13, padding: "8px 0" }}>
+                                        <span style={{ color: "#475569", fontWeight: 600, display: "block", marginBottom: 4 }}>Note</span>
+                                        <span style={{ color: "#92400e", fontStyle: "italic" }}>{req._exceptionDecisionNote}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ) : null}
+
                     {/* ── Publisher's Note ── */}
                     {req._publishedExternalNote && (
                         <div style={{ border: "1px solid #c7d2fe", borderRadius: 16, padding: 20, background: "#f5f7ff" }}>
@@ -522,6 +752,14 @@ export default function PortalRequestDetail() {
                         if (modalMode === "approve") handleApprove(comment);
                         else handleRework(comment);
                     }}
+                />
+            )}
+
+            {exceptionModal && (
+                <ExceptionDecisionModal
+                    recommendation={exceptionModal}
+                    onClose={() => setExceptionModal(null)}
+                    onConfirm={(decision, note) => handleExceptionDecision(decision, note)}
                 />
             )}
         </div>

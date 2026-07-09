@@ -5,8 +5,6 @@ import type { RecapRequest, WorkArtifact } from "../../services/recapDataService
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
-const STATUS_OPTIONS: RecapRequest["status"][] = ["Open", "Assigned", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate", "Waiting Partner Review", "Needs Rework", "Completed"];
-
 const TEAM_MEMBERS = ["Sarah Chen", "James Wright", "Lisa Park", "Tom Davies", "Mike O'Brien", "Anna Patel", "David Park", "Carlos Rivera", "Demo User (Test)"];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -321,24 +319,6 @@ export default function RecapitalizationWorkspace() {
         setBannerError(false);
     }
 
-    function doDuplicate() {
-        const reqId = item.id || item.intakeId || "";
-        updateRequestStatus(reqId, "Duplicate");
-        addActivityEntry({
-            type: "Status Change",
-            description: "Marked as Duplicate",
-            userId: "current-user",
-            userName: currentUser,
-            requestId: item.requestId || item.id,
-            requestTitle: displayTitle || item.category || "",
-            transactionId: item.transactionId,
-            transactionName: item.transactionName || item.transactionId,
-        });
-        setWsRefreshKey(k => k + 1);
-        setBanner("\u2713 Marked as Duplicate");
-        setBannerError(false);
-    }
-
     function addConversationEntry(text: string, from: string) {
         const entry: WorkspaceQuestion = {
             id: "q-" + Date.now(),
@@ -436,31 +416,73 @@ export default function RecapitalizationWorkspace() {
                             {/* Status */}
                             <div>
                                 <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 5 }}>Status</div>
-                                <div style={{ position: "relative" }}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 32px 7px 10px", fontSize: 13, fontWeight: 600, borderRadius: 6, border: "1px solid #d1d5db", background: "#fff", color: "#0f172a", pointerEvents: "none" }}>
-                                        {statusDot(statusColor)}
-                                        <span>{displayStatus}</span>
-                                    </div>
-                                    <select
-                                        value={displayStatus}
-                                        onChange={e => {
-                                            const newStatus = e.target.value as RecapRequest["status"];
-                                            if (newStatus === "Complete") {
-                                                setCompletionModal({ note: "", readyForReview: false });
-                                            } else if (newStatus === "Blocked" || newStatus === "Duplicate" || newStatus === "Not Applicable") {
-                                                setStatusActionModal({ newStatus, reason: "" });
-                                            } else if (newStatus === "In Progress" && ["Blocked", "Duplicate", "Not Applicable"].includes(displayStatus)) {
-                                                setResolutionPrompt({ note: "" });
-                                            } else {
-                                                doStatusChange(newStatus);
-                                            }
-                                        }}
-                                        style={{ position: "absolute", inset: 0, width: "100%", opacity: 0, cursor: "pointer", fontSize: 13 }}
-                                    >
-                                        {STATUS_OPTIONS.map(s => (
-                                            <option key={s} value={s}>{s}</option>
-                                        ))}
-                                    </select>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 10px", fontSize: 13, fontWeight: 600, borderRadius: 6, border: "1px solid #d1d5db", background: "#fff", color: "#0f172a", marginBottom: 6 }}>
+                                    {statusDot(statusColor)}
+                                    <span>{displayStatus}</span>
+                                </div>
+                                <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+                                    {["Open", "Assigned", "In Progress"].includes(displayStatus) && (
+                                        <>
+                                            <button
+                                                onClick={() => setStatusActionModal({ newStatus: "Blocked", reason: "" })}
+                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", cursor: "pointer", fontWeight: 600 }}
+                                            >
+                                                Block Work
+                                            </button>
+                                            <button
+                                                onClick={() => setNeedClarificationOpen(true)}
+                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fffbeb", color: "#92400e", border: "1px solid #fde68a", cursor: "pointer", fontWeight: 600 }}
+                                            >
+                                                Need Clarification
+                                            </button>
+                                            <button
+                                                onClick={() => setStatusActionModal({ newStatus: "Duplicate", reason: "" })}
+                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#ede9fe", color: "#6d28d9", border: "1px solid #ddd6fe", cursor: "pointer", fontWeight: 600 }}
+                                                title="Recommend as duplicate (sent to DD Ops Exceptions)"
+                                            >
+                                                Mark Duplicate
+                                            </button>
+                                            <button
+                                                onClick={() => setStatusActionModal({ newStatus: "Not Applicable", reason: "" })}
+                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#f0f4ff", color: "#4f46e5", border: "1px solid #c7d2fe", cursor: "pointer", fontWeight: 600 }}
+                                                title="Recommend as not applicable (sent to DD Ops Exceptions)"
+                                            >
+                                                Mark Not Applicable
+                                            </button>
+                                            {displayStatus === "In Progress" && (
+                                                <button
+                                                    onClick={() => setCompletionModal({ note: "", readyForReview: false })}
+                                                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#166534", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600 }}
+                                                >
+                                                    Complete Work
+                                                </button>
+                                            )}
+                                        </>
+                                    )}
+                                    {displayStatus === "Blocked" && (
+                                        <button
+                                            onClick={() => setResolutionPrompt({ note: "" })}
+                                            style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#1d4ed8", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600 }}
+                                        >
+                                            Resolve
+                                        </button>
+                                    )}
+                                    {displayStatus === "Clarification Needed" && (
+                                        <button
+                                            onClick={() => { doStatusChange("In Progress"); }}
+                                            style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#1d4ed8", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600 }}
+                                        >
+                                            Respond
+                                        </button>
+                                    )}
+                                    {["Duplicate", "Not Applicable"].includes(displayStatus) && (
+                                        <button
+                                            onClick={() => setResolutionPrompt({ note: "" })}
+                                            style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#1d4ed8", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600 }}
+                                        >
+                                            Reopen
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
@@ -517,14 +539,15 @@ export default function RecapitalizationWorkspace() {
                                         {displayStatus === "Needs Rework" ? "Re-Publish External" : "Publish External"}
                                     </button>
                                 )}
-                                <button
-                                    onClick={doDuplicate}
-                                    disabled={isDuplicate}
-                                    style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "7px 10px", fontSize: 12, fontWeight: 600, borderRadius: 6, background: isDuplicate ? "#f1f5f9" : "#fff", color: isDuplicate ? "#94a3b8" : "#dc2626", border: `1px solid ${isDuplicate ? "#e2e8f0" : "#dc2626"}`, cursor: isDuplicate ? "not-allowed" : "pointer" }}
-                                >
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
-                                    {isDuplicate ? "Duplicated" : "Duplicate"}
-                                </button>
+                                {displayStatus === "Open" && (
+                                    <button
+                                        onClick={() => { doStatusChange("In Progress"); }}
+                                        style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "7px 10px", fontSize: 12, fontWeight: 600, borderRadius: 6, background: "#1d4ed8", color: "#fff", border: "none", cursor: "pointer" }}
+                                    >
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+                                        Start Work
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -597,6 +620,61 @@ export default function RecapitalizationWorkspace() {
                                     <div style={{ fontSize: 11, color: "#475569", marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
                                         {new Date((item as any)._partnerActionAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Exception Recommendation Banner */}
+                    {["Duplicate", "Not Applicable"].includes(displayStatus) && (item as any)._exceptionRecommendation && !(item as any)._exceptionDecision && (
+                        <div style={{ margin: "0 32px", padding: "14px 18px", borderRadius: 10, background: "#faf5ff", border: "1px solid #ddd6fe", display: "flex", alignItems: "flex-start", gap: 12, boxShadow: "0 2px 8px rgba(109,40,217,0.08)" }}>
+                            <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#7c3aed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: "#6d28d9" }}>
+                                    Exception Recommendation Pending External Review
+                                </div>
+                                <div style={{ fontSize: 13, color: "#334155", marginTop: 4, lineHeight: 1.6 }}>
+                                    This item was marked as <strong>{displayStatus}</strong> and is awaiting external partner review. The partner will decide whether to approve removal/merge or keep the item active.
+                                </div>
+                                {(item as any)._exceptionSentAt && (
+                                    <div style={{ fontSize: 11, color: "#475569", marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                                        Sent for review: {new Date((item as any)._exceptionSentAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Exception Decision Banner */}
+                    {["Duplicate", "Not Applicable"].includes(displayStatus) && (item as any)._exceptionDecision && (
+                        <div style={{ margin: "0 32px", padding: "14px 18px", borderRadius: 10, background: (item as any)._exceptionDecision === "Approve Removal" || (item as any)._exceptionDecision === "Approve Merge" ? "#f0fdf4" : "#fff7ed", border: `1px solid ${(item as any)._exceptionDecision === "Approve Removal" || (item as any)._exceptionDecision === "Approve Merge" ? "#86efac" : "#fdba74"}`, display: "flex", alignItems: "flex-start", gap: 12 }}>
+                            <div style={{ width: 24, height: 24, borderRadius: "50%", background: (item as any)._exceptionDecision === "Approve Removal" || (item as any)._exceptionDecision === "Approve Merge" ? "#166534" : "#ea580c", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                                {(item as any)._exceptionDecision === "Approve Removal" || (item as any)._exceptionDecision === "Approve Merge" ? (
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                ) : (
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                )}
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: (item as any)._exceptionDecision === "Approve Removal" || (item as any)._exceptionDecision === "Approve Merge" ? "#166534" : "#9a3412" }}>
+                                    {(item as any)._exceptionDecision === "Approve Removal" && "Partner Approved Removal"}
+                                    {(item as any)._exceptionDecision === "Keep Request" && "Partner Requested to Keep Item Active"}
+                                    {(item as any)._exceptionDecision === "Approve Merge" && "Partner Approved Merge"}
+                                    {(item as any)._exceptionDecision === "Keep Separate" && "Partner Requested to Keep Item Separate"}
+                                </div>
+                                {(item as any)._exceptionDecisionNote && (
+                                    <div style={{ fontSize: 13, color: "#334155", marginTop: 4, lineHeight: 1.6, padding: "8px 10px", background: "rgba(255,255,255,0.6)", borderRadius: 6, border: `1px solid ${(item as any)._exceptionDecision === "Approve Removal" || (item as any)._exceptionDecision === "Approve Merge" ? "#bbf7d0" : "#fed7aa"}`, whiteSpace: "pre-wrap" }}>
+                                        {(item as any)._exceptionDecisionNote}
+                                    </div>
+                                )}
+                                {(item as any)._exceptionDecisionAt && (
+                                    <div style={{ fontSize: 11, color: "#475569", marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                                        {new Date((item as any)._exceptionDecisionAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                                     </div>
                                 )}
                             </div>

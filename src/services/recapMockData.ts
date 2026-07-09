@@ -71,6 +71,13 @@ export interface RecapRequest {
     _partnerDecision?: "Approved" | "Rework Required" | null;
     _partnerNote?: string | null;
     _partnerActionAt?: string | null;
+    /** Exception recommendation sent to external partner for review */
+    _exceptionRecommendation?: "Duplicate" | "Not Applicable" | null;
+    _exceptionSentAt?: string | null;
+    /** External partner's decision on an exception recommendation */
+    _exceptionDecision?: "Approve Removal" | "Keep Request" | "Approve Merge" | "Keep Separate" | null;
+    _exceptionDecisionAt?: string | null;
+    _exceptionDecisionNote?: string | null;
 }
 
 export interface WorkNoteEntry {
@@ -686,6 +693,33 @@ export function getOverrideRequests(): RecapRequest[] {
         const due = new Date(r.dueDate);
         return due < now;
     });
+}
+
+export function sendExceptionRecommendation(id: string, recommendation: "Duplicate" | "Not Applicable", reason: string): RecapRequest | undefined {
+    const req = MOCK_REQUESTS.find((r) => r.id === id);
+    if (req) {
+        req._exceptionRecommendation = recommendation;
+        req._exceptionSentAt = new Date().toISOString();
+        req._statusNotes = reason;
+        req.lastUpdated = new Date().toISOString().split("T")[0];
+    }
+    return req;
+}
+
+export function partnerExceptionDecision(id: string, decision: "Approve Removal" | "Keep Request" | "Approve Merge" | "Keep Separate", note?: string): RecapRequest | undefined {
+    const req = MOCK_REQUESTS.find((r) => r.id === id);
+    if (req) {
+        req._exceptionDecision = decision;
+        req._exceptionDecisionAt = new Date().toISOString();
+        req._exceptionDecisionNote = note || null;
+        req.lastUpdated = new Date().toISOString().split("T")[0];
+        if (decision === "Approve Removal" || decision === "Approve Merge") {
+            req.status = "Completed";
+            req._completedBy = "External Partner";
+            req._completedAt = new Date().toISOString().split("T")[0];
+        }
+    }
+    return req;
 }
 
 export function updateRequestStatus(id: string, status: RecapRequest["status"]): RecapRequest | undefined {

@@ -92,6 +92,12 @@ export interface PortalRequest {
     _completionNotes?: string | null;
     _returnedBy?: string | null;
     _returnReason?: string | null;
+    /** Exception recommendation fields for external partner review */
+    _exceptionRecommendation?: "Duplicate" | "Not Applicable" | null;
+    _exceptionSentAt?: string | null;
+    _exceptionDecision?: "Approve Removal" | "Keep Request" | "Approve Merge" | "Keep Separate" | null;
+    _exceptionDecisionAt?: string | null;
+    _exceptionDecisionNote?: string | null;
 }
 
 export interface PortalQuestion {
@@ -219,8 +225,11 @@ function mapRecapToPortalTxn(txn: RecapTransaction): PortalTransaction {
 
 function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
     let portalStatus: string;
+    // Exception recommendation awaiting partner decision
+    if (req._exceptionRecommendation && !req._exceptionDecision) {
+        portalStatus = "Exception Review";
     // Published externally → check partner review status
-    if (req._publishedExternal || req._externalStatus === "Published External") {
+    } else if (req._publishedExternal || req._externalStatus === "Published External") {
         if (req.status === "Completed") {
             portalStatus = "Approved";
         } else if (req.status === "Needs Rework") {
@@ -280,6 +289,11 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
         _completionNotes: req._completionNotes,
         _returnedBy: req._returnedBy,
         _returnReason: req._returnReason,
+        _exceptionRecommendation: req._exceptionRecommendation ?? null,
+        _exceptionSentAt: req._exceptionSentAt ?? null,
+        _exceptionDecision: req._exceptionDecision ?? null,
+        _exceptionDecisionAt: req._exceptionDecisionAt ?? null,
+        _exceptionDecisionNote: req._exceptionDecisionNote ?? null,
     };
 }
 
@@ -1091,4 +1105,4 @@ export function clearPortalSubmissions(): void {
 }
 
 // Re-export partner lifecycle functions so UI components import from a single module
-export { partnerApproveRequest, partnerReworkRequest } from "./recapDataService";
+export { partnerApproveRequest, partnerReworkRequest, partnerExceptionDecision } from "./recapDataService";

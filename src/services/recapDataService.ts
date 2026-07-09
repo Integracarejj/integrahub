@@ -224,6 +224,63 @@ export function getOverrideRequests(): RecapRequest[] {
     return Mock.getOverrideRequests();
 }
 
+export function sendExceptionRecommendation(id: string, recommendation: "Duplicate" | "Not Applicable", reason: string): RecapRequest | undefined {
+    if (isDemoLoaded()) {
+        const result = Demo.updateDemoRequest(id, {
+            _exceptionRecommendation: recommendation,
+            _exceptionSentAt: new Date().toISOString(),
+            _statusNotes: reason,
+        });
+        if (result) return result;
+        return updatePortalRequestById(id, {
+            _exceptionRecommendation: recommendation,
+            _exceptionSentAt: new Date().toISOString(),
+            _statusNotes: reason,
+        });
+    }
+    const result = Mock.sendExceptionRecommendation(id, recommendation, reason);
+    if (result) return result;
+    return updatePortalRequestById(id, {
+        _exceptionRecommendation: recommendation,
+        _exceptionSentAt: new Date().toISOString(),
+        _statusNotes: reason,
+    });
+}
+
+export function partnerExceptionDecision(id: string, decision: "Approve Removal" | "Keep Request" | "Approve Merge" | "Keep Separate", note?: string): RecapRequest | undefined {
+    const now = new Date().toISOString();
+    const nowDate = now.split("T")[0];
+    const patch: Partial<RecapRequest> = {
+        _exceptionDecision: decision,
+        _exceptionDecisionAt: now,
+        _exceptionDecisionNote: note || null,
+    };
+    if (decision === "Approve Removal" || decision === "Approve Merge") {
+        patch.status = "Completed";
+        patch._completedBy = "External Partner";
+        patch._completedAt = nowDate;
+    }
+    const desc = `Partner exception decision: ${decision}${note ? `. Note: ${note}` : ""}`;
+    if (isDemoLoaded()) {
+        const result = Demo.updateDemoRequest(id, patch);
+        if (result) {
+            addActivityEntry({ type: "Status Change", description: `${result.requestId}: ${desc}`, userId: "portal", userName: "External Partner", requestId: result.id, requestTitle: result.title, transactionId: result.transactionId, transactionName: result.transactionName });
+            return result;
+        }
+        const pr = updatePortalRequestById(id, patch);
+        if (pr) addActivityEntry({ type: "Status Change", description: `${pr.requestId}: ${desc}`, userId: "portal", userName: "External Partner", requestId: pr.id, requestTitle: pr.title, transactionId: pr.transactionId, transactionName: pr.transactionName });
+        return pr;
+    }
+    const mockReq = Mock.partnerExceptionDecision(id, decision, note);
+    if (mockReq) {
+        addActivityEntry({ type: "Status Change", description: `${mockReq.requestId}: ${desc}`, userId: "portal", userName: "External Partner", requestId: mockReq.id, requestTitle: mockReq.title, transactionId: mockReq.transactionId, transactionName: mockReq.transactionName });
+        return mockReq;
+    }
+    const pr = updatePortalRequestById(id, patch);
+    if (pr) addActivityEntry({ type: "Status Change", description: `${pr.requestId}: ${desc}`, userId: "portal", userName: "External Partner", requestId: pr.id, requestTitle: pr.title, transactionId: pr.transactionId, transactionName: pr.transactionName });
+    return pr;
+}
+
 export function updateRequestStatus(id: string, status: RecapRequest["status"]): RecapRequest | undefined {
     if (isDemoLoaded()) {
         const result = Demo.updateDemoRequest(id, { status });
@@ -328,6 +385,11 @@ export function updateRequestReturnToOwner(id: string, reason: string, returnedB
             status: "Clarification Needed",
             _returnReason: reason,
             _returnedBy: returnedBy,
+            _exceptionRecommendation: null,
+            _exceptionSentAt: null,
+            _exceptionDecision: null,
+            _exceptionDecisionAt: null,
+            _exceptionDecisionNote: null,
             _workNotes: [...prevNotes, wnEntry],
         });
     } else {
@@ -336,6 +398,11 @@ export function updateRequestReturnToOwner(id: string, reason: string, returnedB
             req.status = "Clarification Needed";
             req._returnReason = reason;
             req._returnedBy = returnedBy;
+            req._exceptionRecommendation = null;
+            req._exceptionSentAt = null;
+            req._exceptionDecision = null;
+            req._exceptionDecisionAt = null;
+            req._exceptionDecisionNote = null;
             req._workNotes = [...prevNotes, wnEntry];
             req.lastUpdated = new Date().toISOString().split("T")[0];
         } else {
@@ -518,6 +585,30 @@ export function updateRequestStatusNotes(id: string, note: string | null): Recap
         return req;
     }
     return updatePortalRequestById(id, { _statusNotes: note });
+}
+
+export function clearExceptionFields(id: string): RecapRequest | undefined {
+    const data: Partial<RecapRequest> = {
+        _exceptionRecommendation: null,
+        _exceptionSentAt: null,
+        _exceptionDecision: null,
+        _exceptionDecisionAt: null,
+        _exceptionDecisionNote: null,
+    };
+    if (isDemoLoaded()) {
+        return Demo.updateDemoRequest(id, data);
+    }
+    const req = Mock.getRequestById(id);
+    if (req) {
+        req._exceptionRecommendation = null;
+        req._exceptionSentAt = null;
+        req._exceptionDecision = null;
+        req._exceptionDecisionAt = null;
+        req._exceptionDecisionNote = null;
+        req.lastUpdated = new Date().toISOString().split("T")[0];
+        return req;
+    }
+    return updatePortalRequestById(id, data);
 }
 
 /* ── Work Notes ──────────────────────────────────────────── */

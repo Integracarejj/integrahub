@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { getRequests, getTeamMembers, updateRequestStatus, updateRequestOwner, getDocuments, updateRequestReturnToOwner, getActivity, addActivityEntry, getWorkArtifactsByRequest, updateRequestStatusNotes, isDemoActive } from "../../services/recapDataService";
+import { getRequests, getTeamMembers, updateRequestStatus, updateRequestOwner, getDocuments, updateRequestReturnToOwner, getActivity, addActivityEntry, getWorkArtifactsByRequest, updateRequestStatusNotes, isDemoActive, sendExceptionRecommendation, clearExceptionFields } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -237,7 +237,12 @@ export default function RecapitalizationDdOperations() {
                                 </span>
                             </td>
                             <td>
-                                {req._partnerDecision === "Approved" ? (
+                                {req._exceptionDecision ? (
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#6b21a8", fontWeight: 600, fontSize: 11, background: "#faf5ff", padding: "3px 8px", borderRadius: 6, border: "1px solid #ddd6fe" }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                        Exception: {req._exceptionDecision}
+                                    </span>
+                                ) : req._partnerDecision === "Approved" ? (
                                     <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#166534", fontWeight: 600, fontSize: 11, background: "#f0fdf4", padding: "3px 8px", borderRadius: 6, border: "1px solid #bbf7d0" }}>
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                                         Partner Approved
@@ -250,7 +255,12 @@ export default function RecapitalizationDdOperations() {
                                 )}
                             </td>
                             <td style={{ maxWidth: 260, minWidth: 180 }}>
-                                {req._partnerNote ? (
+                                {req._exceptionDecision ? (
+                                    <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.5, background: "#f5f3ff", padding: "6px 10px", borderRadius: 6, border: "1px solid #ddd6fe", whiteSpace: "pre-wrap" }}>
+                                        <span style={{ fontWeight: 600, color: "#6b21a8" }}>Exception: {req._exceptionDecision}</span>
+                                        {req._exceptionDecisionNote && <><br />{req._exceptionDecisionNote}</>}
+                                    </div>
+                                ) : req._partnerNote ? (
                                     <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.5, background: "#f8faff", padding: "6px 10px", borderRadius: 6, border: "1px solid #dbeafe", whiteSpace: "pre-wrap" }}>
                                         {req._partnerNote}
                                     </div>
@@ -332,18 +342,18 @@ export default function RecapitalizationDdOperations() {
                                     <button
                                         onClick={() => setArchiveConfirm({ req })}
                                         style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#ede9fe", color: "#6d28d9", border: "1px solid #ddd6fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                        title="Archive duplicate item"
+                                        title="Approve this duplicate recommendation and send to external partner for decision"
                                     >
-                                        Archive Duplicate
+                                        Approve Recommendation (Duplicate)
                                     </button>
                                 )}
                                 {req.status === "Not Applicable" && (
                                     <button
                                         onClick={() => setArchiveConfirm({ req })}
                                         style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#f0f4ff", color: "#4f46e5", border: "1px solid #c7d2fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                        title="Archive this item as Not Applicable"
+                                        title="Approve this Not Applicable recommendation and send to external partner for decision"
                                     >
-                                        Archive as Not Applicable
+                                        Approve Recommendation (Not Applicable)
                                     </button>
                                 )}
                                 <button
@@ -763,29 +773,42 @@ export default function RecapitalizationDdOperations() {
 
             {archiveConfirm && (
                 <div className="rc-modal-overlay" onClick={() => setArchiveConfirm(null)}>
-                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
                         <div className="rc-modal-header">
-                            <h2>{archiveConfirm.req.status === "Not Applicable" ? "Archive as Not Applicable" : "Archive Duplicate"}</h2>
+                            <h2>Approve Recommendation &mdash; Send to External Partner</h2>
                             <button className="rc-modal-close" onClick={() => setArchiveConfirm(null)}>&times;</button>
                         </div>
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
                             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                                 <div style={{ fontSize: 14, color: "#1e293b", fontWeight: 500 }}>
-                                    {archiveConfirm.req.status === "Not Applicable" ? "Archive as Not Applicable" : "Archive Duplicate"} for <strong>{archiveConfirm.req.requestId}</strong> &mdash; {archiveConfirm.req.title.split(" - ").slice(1).join(" - ").trim() || archiveConfirm.req.title}?
+                                    Approve {archiveConfirm.req.status === "Not Applicable" ? "Not Applicable" : "Duplicate"} recommendation for <strong>{archiveConfirm.req.requestId}</strong> &mdash; {archiveConfirm.req.title.split(" - ").slice(1).join(" - ").trim() || archiveConfirm.req.title} and send to external partner for review?
                                 </div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#f0f4ff", border: "1px solid #c7d2fe", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#4338ca" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#faf5ff", border: "1px solid #ddd6fe", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#6d28d9" }}>
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg>
-                                    {archiveConfirm.req.status === "Not Applicable" ? "This will mark the item as Not Applicable and remove it from active work queues." : "This will mark the item as Duplicate and remove it from active work queues."}
+                                    {archiveConfirm.req.status === "Not Applicable"
+                                        ? "This will send the Not Applicable recommendation to the external partner for decision. The partner can Approve Removal or Keep Request active."
+                                        : "This will send the Duplicate recommendation to the external partner for decision. The partner can Approve Merge or Keep Separate."}
+                                </div>
+                                <div style={{ fontSize: 12, color: "#075985", background: "#e0f2fe", padding: "8px 10px", borderRadius: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                                    The item will remain in Exceptions until the partner responds.
+                                </div>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                                    Reason (from contributor)
+                                </label>
+                                <div style={{ fontSize: 13, color: "#334155", padding: "8px 10px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6 }}>
+                                    {getRequestNote(archiveConfirm.req) || "No reason provided"}
                                 </div>
                             </div>
                         </div>
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-ghost" onClick={() => setArchiveConfirm(null)}>Cancel</button>
                             <button className="rc-btn rc-btn-primary" onClick={() => {
-                                updateRequestStatus(archiveConfirm.req.id, archiveConfirm.req.status);
+                                const reason = getRequestNote(archiveConfirm.req) || "";
+                                sendExceptionRecommendation(archiveConfirm.req.id, archiveConfirm.req.status as "Duplicate" | "Not Applicable", reason);
                                 addActivityEntry({
                                     type: "Status Change",
-                                    description: `${archiveConfirm.req.requestId}: ${archiveConfirm.req.status === "Not Applicable" ? "Archived as Not Applicable" : "Archived as Duplicate"} by ${activeUser}`,
+                                    description: `${archiveConfirm.req.requestId}: ${archiveConfirm.req.status === "Not Applicable" ? "Not Applicable" : "Duplicate"} recommendation approved by ${activeUser} and sent to external partner.`,
                                     userId: activeUser,
                                     userName: activeUser,
                                     requestId: archiveConfirm.req.id,
@@ -794,12 +817,12 @@ export default function RecapitalizationDdOperations() {
                                     transactionName: archiveConfirm.req.transactionName,
                                 });
                                 setSuccessMsg({
-                                    title: "Archived",
-                                    body: `${archiveConfirm.req.requestId} has been archived as ${archiveConfirm.req.status === "Not Applicable" ? "Not Applicable" : "Duplicate"}.`,
+                                    title: "Recommendation Sent",
+                                    body: `${archiveConfirm.req.requestId} ${archiveConfirm.req.status === "Not Applicable" ? "Not Applicable" : "Duplicate"} recommendation sent to external partner for review.`,
                                 });
                                 setArchiveConfirm(null);
                                 setRefreshKey(k => k + 1);
-                            }}>{archiveConfirm.req.status === "Not Applicable" ? "Archive as Not Applicable" : "Archive Duplicate"}</button>
+                            }}>Send to External Partner</button>
                         </div>
                     </div>
                 </div>
@@ -898,6 +921,7 @@ export default function RecapitalizationDdOperations() {
                                 if (!reason) return;
                                 updateRequestStatus(returnToTeam.req.id, "Open" as RecapRequest["status"]);
                                 updateRequestStatusNotes(returnToTeam.req.id, `Returned to team: ${reason}`);
+                                clearExceptionFields(returnToTeam.req.id);
                                 addActivityEntry({
                                     type: "Status Change",
                                     description: `${returnToTeam.req.requestId}: Returned to team by ${activeUser}. Reason: ${reason}`,
