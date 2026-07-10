@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive, addExternalMessage, getExternalMessages, updateRequestNotMine, updateRequestReturnToOwner } from "../../services/recapDataService";
+import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive, addExternalMessage, getExternalMessages, updateRequestNotMine, updateRequestReturnToOwner, sendExceptionRecommendation } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -18,6 +18,15 @@ const STATUS_COLORS: Record<string, string> = {
 
 function getInitials(name: string): string {
     return name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
+}
+
+function RequestIdentityBlock({ displayId, displayTitle }: { displayId: string; displayTitle: string }) {
+    return (
+        <div style={{ fontSize: 12, color: "#334155", marginBottom: 14, display: "flex", flexDirection: "column", gap: 6, padding: "10px 12px", background: "#f8faff", borderRadius: 8, border: "1px solid #e0e7ff" }}>
+            <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 8 }}>Request ID</span><span style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 12, fontWeight: 600, color: "#0f172a" }}>{displayId}</span></div>
+            <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 8 }}>Deliverable</span><span style={{ color: "#0f172a", fontWeight: 500 }}>{displayTitle || "\u2014"}</span></div>
+        </div>
+    );
 }
 
 const BADGE_STYLES: Record<string, { bg: string; fg: string; border: string; label: string }> = {
@@ -98,6 +107,7 @@ export default function RecapitalizationWorkspace() {
     const [blockModal, setBlockModal] = useState<{ step: "input" | "completed"; reason: string } | null>(null);
     const [duplicateModal, setDuplicateModal] = useState<{ reason: string; optionalId: string } | null>(null);
     const [notApplicableModal, setNotApplicableModal] = useState<{ reason: string } | null>(null);
+    const [ddOpsRecommendModal, setDdOpsRecommendModal] = useState<{ type: "Duplicate" | "Not Applicable"; partnerNote: string } | null>(null);
     const [resolutionPrompt, setResolutionPrompt] = useState<{ note: string } | null>(null);
     const [completionModal, setCompletionModal] = useState<{ step: "input" | "completed"; note: string; readyForReview: boolean } | null>(null);
     const [notMine, setNotMine] = useState<{ req: RecapRequest; reason: string } | null>(null);
@@ -644,8 +654,8 @@ function WorkflowStateCard({
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>} label="Need Clarification" desc="Request more info" onClick={() => setNeedClarificationOpen(true)} />
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>} label="Return to Owner" desc="Send back with feedback" onClick={() => setReturnToOwnerModal({ step: "input", reason: "" })} />
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>} label="Reassign Owner" desc="Change the current owner" onClick={() => { const el = document.getElementById("ws-owner-select"); if (el) { (el as HTMLSelectElement).focus(); (el as HTMLSelectElement).click(); }}} />
-                              <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>} label="Mark Duplicate" desc="Possible duplicate" onClick={() => setDuplicateModal({ reason: "", optionalId: "" })} />
-                              <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>} label="Mark Not Applicable" desc="Not needed" onClick={() => setNotApplicableModal({ reason: "" })} />
+                              <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>} label="Recommend Duplicate to Partner" desc="Validate and send recommendation" onClick={() => setDdOpsRecommendModal({ type: "Duplicate", partnerNote: "" })} />
+                              <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>} label="Recommend Not Applicable to Partner" desc="Validate and send recommendation" onClick={() => setDdOpsRecommendModal({ type: "Not Applicable", partnerNote: "" })} />
                             </div>
                           </div>
 
@@ -1535,6 +1545,76 @@ function WorkflowStateCard({
                 </div>
             )}
 
+            {ddOpsRecommendModal && (
+                <div className="rc-modal-overlay" onClick={() => setDdOpsRecommendModal(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+                        <div className="rc-modal-header">
+                            <h2>{ddOpsRecommendModal.type === "Duplicate" ? "Duplicate Recommendation Review" : "Not Applicable Recommendation Review"}</h2>
+                            <button className="rc-modal-close" onClick={() => setDdOpsRecommendModal(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                <RequestIdentityBlock displayId={displayId} displayTitle={displayTitle || item.category || ""} />
+                                {item._statusNotes && (
+                                    <div style={{ padding: "8px 10px", background: "#f5f3ff", border: "1px solid #ddd6fe", borderRadius: 6, fontSize: 12, color: "#5b21b6", lineHeight: 1.5 }}>
+                                        <span style={{ fontWeight: 700, display: "block", marginBottom: 2, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em" }}>Contributor reason:</span>
+                                        {item._statusNotes}
+                                    </div>
+                                )}
+                                <div style={{ fontSize: 13, color: "#334155" }}>
+                                    {ddOpsRecommendModal.type === "Duplicate"
+                                        ? "Validate the duplicate recommendation and send it to the external partner for decision."
+                                        : "Validate the not applicable recommendation and send it to the external partner for decision."}
+                                </div>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                                    Partner-facing note <span style={{ color: "#6b7280", fontWeight: 400 }}>(optional)</span>
+                                </label>
+                                <textarea
+                                    value={ddOpsRecommendModal.partnerNote}
+                                    onChange={e => setDdOpsRecommendModal(prev => prev ? { ...prev, partnerNote: e.target.value } : null)}
+                                    placeholder="Add any additional context for the external partner..."
+                                    rows={3}
+                                    style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
+                                />
+                                <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#991b1b" }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                    {ddOpsRecommendModal.type === "Duplicate"
+                                        ? "This will ask the external partner to approve merging/removing this duplicate or keep it as a separate request."
+                                        : "This will ask the external partner to approve removing this request from the active due diligence list."}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setDdOpsRecommendModal(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" onClick={() => {
+                                const note = ddOpsRecommendModal.partnerNote.trim() || item._statusNotes || "";
+                                const reqId = item.id || item.intakeId || "";
+                                const status = ddOpsRecommendModal.type as RecapRequest["status"];
+                                updateRequestStatus(reqId, status);
+                                if (ddOpsRecommendModal.partnerNote.trim()) {
+                                    updateRequestStatusNotes(reqId, ddOpsRecommendModal.partnerNote.trim());
+                                }
+                                addWorkNote(reqId, note, currentUser, ddOpsRecommendModal.type);
+                                sendExceptionRecommendation(reqId, ddOpsRecommendModal.type, note);
+                                addActivityEntry({
+                                    type: "Status Change",
+                                    description: `${displayId}: ${ddOpsRecommendModal.type} recommendation sent to external partner. Note: ${note}`,
+                                    userId: "current-user",
+                                    userName: currentUser,
+                                    requestId: item.requestId || item.id,
+                                    requestTitle: displayTitle || item.category || "",
+                                    transactionId: item.transactionId,
+                                    transactionName: item.transactionName || item.transactionId,
+                                });
+                                setWsRefreshKey(k => k + 1);
+                                setDdOpsRecommendModal(null);
+                                setCompletionDialog(ddOpsRecommendModal.type === "Duplicate" ? "duplicate" : "not-applicable");
+                            }}>Send Recommendation to Partner</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {blockModal && blockModal.step === "input" && (
                 <div className="rc-modal-overlay" onClick={() => setBlockModal(null)}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
@@ -1669,6 +1749,7 @@ function WorkflowStateCard({
                         </div>
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
                             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                <RequestIdentityBlock displayId={displayId} displayTitle={displayTitle || item.category || ""} />
                                 <div style={{ fontSize: 13, color: "#334155" }}>
                                     The blocker is being resolved and the request will return to active work.
                                 </div>
@@ -1716,6 +1797,7 @@ function WorkflowStateCard({
                         </div>
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
                             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                <RequestIdentityBlock displayId={displayId} displayTitle={displayTitle || item.category || ""} />
                                 <div style={{ fontSize: 13, color: "#334155" }}>
                                     Tell DD Operations why this request should be assigned to someone else.
                                 </div>
@@ -1759,6 +1841,7 @@ function WorkflowStateCard({
                         </div>
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
                             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                <RequestIdentityBlock displayId={displayId} displayTitle={displayTitle || item.category || ""} />
                                 <div style={{ fontSize: 13, color: "#334155" }}>
                                     Send this request back to the contributor with feedback. The status will change to <strong>Needs Rework</strong>.
                                 </div>
