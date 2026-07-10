@@ -90,17 +90,15 @@ export default function RecapitalizationWorkspace() {
     const result = useMemo(() => id ? lookupWorkspaceItem(id) : null, [id, wsRefreshKey]);
 
     const [internalOwner, setInternalOwner] = useState("");
-    const [banner, setBanner] = useState<string | null>(null);
-    const [bannerError, setBannerError] = useState(false);
 
     const [localQuestions, setLocalQuestions] = useState<WorkspaceQuestion[]>([]);
 
     const [needClarificationOpen, setNeedClarificationOpen] = useState(false);
     const [clarificationText, setClarificationText] = useState("");
-
-    const [statusActionModal, setStatusActionModal] = useState<{ newStatus: RecapRequest["status"]; reason: string } | null>(null);
+    const [blockModal, setBlockModal] = useState<{ step: "input" | "completed"; reason: string } | null>(null);
+    const [statusActionModal, setStatusActionModal] = useState<{ newStatus: "Duplicate" | "Not Applicable"; reason: string } | null>(null);
     const [resolutionPrompt, setResolutionPrompt] = useState<{ note: string } | null>(null);
-    const [completionModal, setCompletionModal] = useState<{ note: string; readyForReview: boolean } | null>(null);
+    const [completionModal, setCompletionModal] = useState<{ step: "input" | "completed"; note: string; readyForReview: boolean } | null>(null);
     const [notMine, setNotMine] = useState<{ req: RecapRequest; reason: string } | null>(null);
     const [workArtifacts, setWorkArtifacts] = useState<WorkArtifact[]>([]);
     const [wnComposerOpen, setWnComposerOpen] = useState(false);
@@ -113,11 +111,12 @@ export default function RecapitalizationWorkspace() {
     const workspaceUserKey = "integrasource.recap.workspaceUser";
     const [currentUser] = useState(() => localStorage.getItem(workspaceUserKey) || TEAM_MEMBERS[0]);
     const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+    const [completionDialog, setCompletionDialog] = useState<"blocked" | "clarification" | "dd-review" | "return-to-owner" | null>(null);
     const [publishExternal, setPublishExternal] = useState<{ step: number; selectedArtifacts: string[]; note: string } | null>(null);
     const [artifactDetail, setArtifactDetail] = useState<WorkArtifact | null>(null);
     const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
     const [dragOverUpload, setDragOverUpload] = useState(false);
-    const [returnToOwnerModal, setReturnToOwnerModal] = useState<{ reason: string } | null>(null);
+    const [returnToOwnerModal, setReturnToOwnerModal] = useState<{ step: "input" | "completed"; reason: string } | null>(null);
 
     // Stable storage key for artifact persistence: use requestId > intakeId > route id
     const artifactStorageKey = useMemo(() => {
@@ -129,6 +128,20 @@ export default function RecapitalizationWorkspace() {
     useEffect(() => {
         if (artifactStorageKey) setWorkArtifacts(getWorkArtifactsByRequest(artifactStorageKey));
     }, [artifactStorageKey]);
+
+    useEffect(() => {
+        if (actionFeedback) {
+            const t = setTimeout(() => setActionFeedback(null), 4000);
+            return () => clearTimeout(t);
+        }
+    }, [actionFeedback]);
+
+    useEffect(() => {
+        if (uploadSuccess) {
+            const t = setTimeout(() => setUploadSuccess(null), 5000);
+            return () => clearTimeout(t);
+        }
+    }, [uploadSuccess]);
 
     const backFrom = (location.state as any)?.from || "tracker";
     const isDdOps = backFrom === "dd-operations";
@@ -322,8 +335,6 @@ export default function RecapitalizationWorkspace() {
         });
         setWsRefreshKey(k => k + 1);
         setActionFeedback(`\u2713 Status updated to ${newStatus}`);
-        setBanner(`\u2713 Status updated to ${newStatus}`);
-        setBannerError(false);
     }
 
     function doAssign(newOwner: string) {
@@ -341,8 +352,7 @@ export default function RecapitalizationWorkspace() {
             transactionName: item.transactionName || item.transactionId,
         });
         setWsRefreshKey(k => k + 1);
-        setBanner(newOwner ? `\u2713 Assigned to ${newOwner}` : "\u2713 Unassigned");
-        setBannerError(false);
+        setActionFeedback(newOwner ? `\u2713 Assigned to ${newOwner}` : "\u2713 Unassigned");
     }
 
     function addConversationEntry(text: string, from: string) {
@@ -360,9 +370,24 @@ export default function RecapitalizationWorkspace() {
     function submitClarification() {
         if (!clarificationText.trim()) return;
         addConversationEntry(clarificationText.trim(), currentUser + " (Internal)");
+        const reqId = item.id || item.intakeId || "";
+        updateRequestStatus(reqId, "Clarification Needed" as RecapRequest["status"]);
+        updateRequestStatusNotes(reqId, clarificationText.trim());
+        addWorkNote(reqId, clarificationText.trim(), currentUser, "Clarification Needed");
+        addActivityEntry({
+            type: "Status Change",
+            description: `${displayId}: Clarification requested. Question: ${clarificationText.trim()}`,
+            userId: "current-user",
+            userName: currentUser,
+            requestId: item.requestId || item.id,
+            requestTitle: displayTitle || item.category || "",
+            transactionId: item.transactionId,
+            transactionName: item.transactionName || item.transactionId,
+        });
         setClarificationText("");
         setNeedClarificationOpen(false);
-        setActionFeedback("\u2713 Clarification request sent");
+        setWsRefreshKey(k => k + 1);
+        setCompletionDialog("clarification");
     }
 
     function handleArtifactUpload(files: File[]) {
@@ -395,8 +420,8 @@ export default function RecapitalizationWorkspace() {
         const reqId = item.id || item.intakeId || "";
         updateRequestReturnToOwner(reqId, returnToOwnerModal.reason.trim(), currentUser);
         setWsRefreshKey(k => k + 1);
-        setActionFeedback(`\u2713 Returned to owner for revision`);
         setReturnToOwnerModal(null);
+        setCompletionDialog("return-to-owner");
     }
 
     return (
@@ -417,20 +442,6 @@ export default function RecapitalizationWorkspace() {
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
                         Testing as: <strong>{currentUser}</strong>
                         <span style={{ fontStyle: "italic", color: "#64748b" }}>(internal preview mode)</span>
-                    </div>
-                )}
-
-                {/* Success Feedback */}
-                {banner && (
-                    <div style={{
-                        padding: "6px 14px", marginBottom: 12, borderRadius: 6, fontSize: 12, fontWeight: 600,
-                        background: bannerError ? "#fef2f2" : "#f0fdf4",
-                        color: bannerError ? "#991b1b" : "#166534",
-                        border: `1px solid ${bannerError ? "#fecaca" : "#bbf7d0"}`,
-                        display: "inline-flex", alignItems: "center", gap: 8,
-                    }}>
-                        <span>{banner}</span>
-                        <button style={{ background: "none", border: "none", color: bannerError ? "#991b1b" : "#166534", fontSize: 14, cursor: "pointer", fontWeight: 700, padding: 0, lineHeight: 1 }} onClick={() => setBanner(null)}>&times;</button>
                     </div>
                 )}
 
@@ -533,7 +544,7 @@ export default function RecapitalizationWorkspace() {
 
                     <div style={{ height: 1, background: "#e2e8f0" }} />
 
-                    {!isTerminal && (
+                    {(!isTerminal || (!isDdOps && displayStatus === "Complete")) && (
                     <>
                     {isDdOps ? (
                       <div style={{ padding: "0 32px 24px" }}>
@@ -542,7 +553,7 @@ export default function RecapitalizationWorkspace() {
                           <div style={{ fontSize: 14, color: "#475569", marginBottom: 24 }}>Review the submitted work and choose the next step.</div>
                           <div style={{ display: "flex", gap: 16, marginBottom: 28 }}>
                             <div
-                              onClick={() => setReturnToOwnerModal({ reason: "" })}
+                              onClick={() => setReturnToOwnerModal({ step: "input", reason: "" })}
                               style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #fed7aa", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
                               onMouseEnter={e => { e.currentTarget.style.borderColor = "#f59e0b"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(245,158,11,0.1)"; }}
                               onMouseLeave={e => { e.currentTarget.style.borderColor = "#fed7aa"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}
@@ -578,7 +589,7 @@ export default function RecapitalizationWorkspace() {
                             <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 12 }}>Other Actions</div>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>} label="Need Clarification" desc="Request more info" onClick={() => setNeedClarificationOpen(true)} />
-                              <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>} label="Return to Owner" desc="Send back with feedback" onClick={() => setReturnToOwnerModal({ reason: "" })} />
+                              <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>} label="Return to Owner" desc="Send back with feedback" onClick={() => setReturnToOwnerModal({ step: "input", reason: "" })} />
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>} label="Reassign Owner" desc="Change the current owner" onClick={() => { const el = document.getElementById("ws-owner-select"); if (el) { (el as HTMLSelectElement).focus(); (el as HTMLSelectElement).click(); }}} />
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>} label="Mark Duplicate" desc="Possible duplicate" onClick={() => setStatusActionModal({ newStatus: "Duplicate", reason: "" })} />
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>} label="Mark Not Applicable" desc="Not needed" onClick={() => setStatusActionModal({ newStatus: "Not Applicable", reason: "" })} />
@@ -600,6 +611,69 @@ export default function RecapitalizationWorkspace() {
                           <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>Action Center</div>
                           <div style={{ fontSize: 14, color: "#475569", marginBottom: 24 }}>What would you like to do next?</div>
 
+                          {/* Submitted for DD Review waiting state */}
+                          {displayStatus === "Complete" && !isDdOps && (
+                            <div style={{ marginBottom: 24, padding: "16px 20px", borderRadius: 12, background: "#f0f7ff", border: "2px solid #dbeafe", boxShadow: "0 2px 8px rgba(37,99,235,0.06)" }}>
+                              <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+                                <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#dbeafe", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>Submitted for DD Review</div>
+                                  <div style={{ fontSize: 13, color: "#475569", marginTop: 4, lineHeight: 1.5 }}>Your work has been submitted. Waiting for DD Operations to review.</div>
+                                  <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "4px 10px", borderRadius: 4, background: "#dbeafe", fontSize: 11, fontWeight: 600, color: "#1d4ed8" }}>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                                    Waiting for DD Operations
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Needs Rework banner */}
+                          {displayStatus === "Needs Rework" && !isDdOps && (
+                            <div style={{ marginBottom: 24, padding: "16px 20px", borderRadius: 12, background: "#fff7ed", border: "2px solid #fed7aa", boxShadow: "0 2px 8px rgba(234,88,12,0.06)" }}>
+                              <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+                                <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#ffedd5", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>Returned with Feedback</div>
+                                  <div style={{ fontSize: 13, color: "#475569", marginTop: 4, lineHeight: 1.5 }}>DD Operations has returned this request with feedback. Review their notes and make the requested changes.</div>
+                                  {item._returnReason && (
+                                    <div style={{ marginTop: 8, padding: "8px 12px", background: "rgba(255,255,255,0.7)", border: "1px solid #fed7aa", borderRadius: 6, fontSize: 12, color: "#78350f", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                                      <span style={{ fontWeight: 700, display: "block", marginBottom: 2, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.03em" }}>Feedback from DD Operations:</span>
+                                      {item._returnReason}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Blocked info panel */}
+                          {displayStatus === "Blocked" && !isDdOps && (
+                            <div style={{ marginBottom: 24, padding: "16px 20px", borderRadius: 12, background: "#fef2f2", border: "2px solid #fecaca", boxShadow: "0 2px 8px rgba(220,38,38,0.06)" }}>
+                              <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+                                <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#fee2e2", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>Work Blocked</div>
+                                  <div style={{ fontSize: 13, color: "#475569", marginTop: 4, lineHeight: 1.5 }}>Waiting for DD Operations to review your blocker.</div>
+                                  {item._statusNotes && (
+                                    <div style={{ marginTop: 8, padding: "8px 12px", background: "rgba(255,255,255,0.7)", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b", lineHeight: 1.5 }}>
+                                      <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>Blocker reason:</span>
+                                      {item._statusNotes}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Primary Action Tiles */}
+                          {displayStatus !== "Complete" && (
                           <div style={{ display: "flex", gap: 16, marginBottom: 28 }}>
                             <div
                               onClick={() => document.getElementById("artifact-upload-hidden")?.click()}
@@ -645,7 +719,7 @@ export default function RecapitalizationWorkspace() {
                               </div>
                             )}
                             {displayStatus === "In Progress" && (
-                              <div onClick={() => setCompletionModal({ note: "", readyForReview: false })} style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bbf7d0", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
+                              <div onClick={() => setCompletionModal({ step: "input", note: "", readyForReview: false })} style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bbf7d0", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
                                 onMouseEnter={e => { e.currentTarget.style.borderColor = "#22c55e"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(34,197,94,0.1)"; }}
                                 onMouseLeave={e => { e.currentTarget.style.borderColor = "#bbf7d0"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}>
                                 <div style={{ width: 44, height: 44, borderRadius: 12, background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -663,6 +737,7 @@ export default function RecapitalizationWorkspace() {
                               </div>
                             )}
                           </div>
+                          )}
 
                           {uploadSuccess && (
                             <div style={{ padding: "8px 12px", marginBottom: 16, borderRadius: 8, background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
@@ -686,7 +761,7 @@ export default function RecapitalizationWorkspace() {
                               {["Open", "Assigned", "In Progress"].includes(displayStatus) && (
                                 <>
                                   <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>} label="Need Clarification" desc="Request more info" onClick={() => setNeedClarificationOpen(true)} />
-                                  <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>} label="Block Work" desc="Waiting on something" onClick={() => setStatusActionModal({ newStatus: "Blocked", reason: "" })} />
+                                  <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>} label="Block Work" desc="Waiting on something" onClick={() => setBlockModal({ step: "input", reason: "" })} />
                                   <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>} label="Mark Duplicate" desc="Possible duplicate" onClick={() => setStatusActionModal({ newStatus: "Duplicate", reason: "" })} />
                                   <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>} label="Mark Not Applicable" desc="Not needed" onClick={() => setStatusActionModal({ newStatus: "Not Applicable", reason: "" })} />
                                 </>
@@ -1279,7 +1354,6 @@ export default function RecapitalizationWorkspace() {
                                 <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Deliverable</span> {displayTitle || item.category || "\u2014"}</div>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#991b1b" }}>
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
-                                    {statusActionModal.newStatus === "Blocked" && "This will move the request to DD Operations \u2192 Needs DD Review for review."}
                                     {statusActionModal.newStatus === "Duplicate" && "This will move the request to DD Operations \u2192 Needs DD Review for duplicate review."}
                                     {statusActionModal.newStatus === "Not Applicable" && "This will move the request to DD Operations \u2192 Needs DD Review for disposition."}
                                 </div>
@@ -1314,8 +1388,7 @@ export default function RecapitalizationWorkspace() {
                                     transactionName: item.transactionName || item.transactionId,
                                 });
                                 setWsRefreshKey(k => k + 1);
-                                setBanner(`${displayId} moved to DD Operations \u2192 Needs DD Review.`);
-                                setBannerError(false);
+                                setActionFeedback(`\u2713 Marked as ${statusActionModal.newStatus}`);
                                 setStatusActionModal(null);
                             }}>Confirm</button>
                         </div>
@@ -1323,7 +1396,63 @@ export default function RecapitalizationWorkspace() {
                 </div>
             )}
 
-            {completionModal && (
+            {blockModal && blockModal.step === "input" && (
+                <div className="rc-modal-overlay" onClick={() => setBlockModal(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+                        <div className="rc-modal-header">
+                            <h2>Block Work</h2>
+                            <button className="rc-modal-close" onClick={() => setBlockModal(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ fontSize: 13, color: "#334155", marginBottom: 14 }}>
+                                Tell DD Operations what is preventing you from completing this request.
+                            </div>
+                            <div style={{ fontSize: 12, color: "#334155", marginBottom: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+                                <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Request ID</span> {displayId}</div>
+                                <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Deliverable</span> {displayTitle || item.category || "\u2014"}</div>
+                            </div>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6, display: "block" }}>Reason for Blocker <span style={{ color: "#dc2626" }}>*</span></label>
+                            <textarea
+                                value={blockModal.reason}
+                                onChange={e => setBlockModal(prev => prev ? { ...prev, reason: e.target.value } : null)}
+                                placeholder="What is blocking this request?"
+                                rows={3}
+                                style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
+                            />
+                            <div style={{ marginTop: 10, display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#991b1b" }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                This will notify DD Operations and move the request to Returned / Needs Attention in My Work.
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setBlockModal(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!blockModal.reason.trim()} onClick={() => {
+                                const reason = blockModal.reason.trim();
+                                if (!reason) return;
+                                const reqId = item.id || item.intakeId || "";
+                                updateRequestStatus(reqId, "Blocked" as RecapRequest["status"]);
+                                updateRequestStatusNotes(reqId, reason);
+                                addWorkNote(reqId, reason, currentUser, "Blocked");
+                                addActivityEntry({
+                                    type: "Status Change",
+                                    description: `${displayId}: Blocked. Reason: ${reason}`,
+                                    userId: "current-user",
+                                    userName: currentUser,
+                                    requestId: item.requestId || item.id,
+                                    requestTitle: displayTitle || item.category || "",
+                                    transactionId: item.transactionId,
+                                    transactionName: item.transactionName || item.transactionId,
+                                });
+                                setWsRefreshKey(k => k + 1);
+                                setBlockModal(null);
+                                setCompletionDialog("blocked");
+                            }}>Confirm Block</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {completionModal && completionModal.step === "input" && (
                 <div className="rc-modal-overlay" onClick={() => setCompletionModal(null)}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
                         <div className="rc-modal-header">
@@ -1384,10 +1513,8 @@ export default function RecapitalizationWorkspace() {
                                     transactionName: item.transactionName || item.transactionId,
                                 });
                                 setWsRefreshKey(k => k + 1);
-                                setActionFeedback("\u2713 Submitted for DD Review");
-                                setBanner("\u2713 Submitted for DD Review");
-                                setBannerError(false);
-                                setCompletionModal(null);
+                                setCompletionModal(prev => prev ? { ...prev, step: "completed" } : null);
+                                setCompletionDialog("dd-review");
                             }}>Submit for DD Review</button>
                         </div>
                     </div>
@@ -1460,8 +1587,7 @@ export default function RecapitalizationWorkspace() {
                                 if (!reason) return;
                                 updateRequestNotMine(notMine.req.id, reason, currentUser);
                                 setWsRefreshKey(k => k + 1);
-                                setBanner(`\u2713 ${notMine.req.requestId} sent to DD Operations for reassignment.`);
-                                setBannerError(false);
+                                setActionFeedback(`\u2713 ${notMine.req.requestId} sent for reassignment`);
                                 setNotMine(null);
                             }}>Report Not Mine</button>
                         </div>
@@ -1469,7 +1595,7 @@ export default function RecapitalizationWorkspace() {
                 </div>
             )}
 
-            {returnToOwnerModal && (
+            {returnToOwnerModal && returnToOwnerModal.step === "input" && (
                 <div className="rc-modal-overlay" onClick={() => setReturnToOwnerModal(null)}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
                         <div className="rc-modal-header">
@@ -1554,6 +1680,75 @@ export default function RecapitalizationWorkspace() {
                     </div>
                 </div>
             )}
+
+            {/* Completion Dialogs */}
+            <WorkflowCompletionDialog
+                isOpen={completionDialog === "blocked"}
+                onClose={() => setCompletionDialog(null)}
+                icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>}
+                iconBg="#dc2626"
+                title="Work Blocked"
+                explanation="Your blocker has been sent to DD Operations."
+                currentStatus="Blocked"
+                whatHappensNext={[
+                    "DD Operations will review the blocker.",
+                    "They may resolve it, return the request with guidance, or reassign it.",
+                    "This request will remain visible in My Work under Returned / Needs Attention.",
+                ]}
+                primaryAction={{ label: "Return to My Work", onClick: () => { setCompletionDialog(null); navigate("/recapitalization/my-work"); } }}
+                secondaryAction={{ label: "Stay on Request", onClick: () => setCompletionDialog(null) }}
+            />
+
+            <WorkflowCompletionDialog
+                isOpen={completionDialog === "clarification"}
+                onClose={() => setCompletionDialog(null)}
+                icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>}
+                iconBg="#d97706"
+                title="Clarification Sent"
+                explanation="Your question has been sent to DD Operations."
+                currentStatus="Needs Clarification"
+                whatHappensNext={[
+                    "DD Operations will review your question.",
+                    "They may respond directly or send it to the external partner.",
+                    "The request will remain visible under Returned / Needs Attention while you wait.",
+                ]}
+                primaryAction={{ label: "Return to My Work", onClick: () => { setCompletionDialog(null); navigate("/recapitalization/my-work"); } }}
+                secondaryAction={{ label: "Stay on Request", onClick: () => setCompletionDialog(null) }}
+            />
+
+            <WorkflowCompletionDialog
+                isOpen={completionDialog === "dd-review"}
+                onClose={() => setCompletionDialog(null)}
+                icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>}
+                iconBg="#166534"
+                title="Submitted for DD Review"
+                explanation="Your work has been sent to DD Operations for review."
+                currentStatus="Needs DD Review"
+                whatHappensNext={[
+                    "DD Operations will review the submitted artifacts and notes.",
+                    "They may publish the work externally.",
+                    "They may return the request to you with feedback.",
+                ]}
+                primaryAction={{ label: "Return to My Work", onClick: () => { setCompletionDialog(null); navigate("/recapitalization/my-work"); } }}
+                secondaryAction={{ label: "Stay on Request", onClick: () => setCompletionDialog(null) }}
+            />
+
+            <WorkflowCompletionDialog
+                isOpen={completionDialog === "return-to-owner"}
+                onClose={() => setCompletionDialog(null)}
+                icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>}
+                iconBg="#d97706"
+                title="Returned to Owner"
+                explanation="Your feedback has been sent to the request owner."
+                currentStatus="Needs Rework"
+                whatHappensNext={[
+                    "The owner will see this request under Returned / Needs Attention.",
+                    "Your feedback will be shown prominently in their workspace.",
+                    "The request will return to DD Operations after the owner resubmits it.",
+                ]}
+                primaryAction={{ label: "Return to DD Operations", onClick: () => { setCompletionDialog(null); navigate("/recapitalization/dd-operations"); } }}
+                secondaryAction={{ label: "Stay on Request", onClick: () => setCompletionDialog(null) }}
+            />
 
             {publishExternal && (
                 <div className="rc-modal-overlay" onClick={() => { if (publishExternal.step < 3) setPublishExternal(null); }}>
@@ -1667,19 +1862,43 @@ export default function RecapitalizationWorkspace() {
 
                             {publishExternal.step === 3 && (
                                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                                    <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center", textAlign: "center", padding: "8px 0" }}>
-                                        <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "center", textAlign: "center", padding: "4px 0" }}>
+                                        <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
                                         </div>
-                                        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Published Externally</div>
-                                        <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.5, maxWidth: 380 }}>
-                                            {displayId} &mdash; {displayTitle || item.category || "Item"} is now visible to the external portal.
+                                        <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a" }}>{displayStatus === "Needs Rework" ? "Rework Published" : "Published Externally"}</div>
+                                        <div style={{ fontSize: 14, color: "#334155", lineHeight: 1.5, maxWidth: 380 }}>
+                                            The approved artifacts are now available to the external partner.
+                                        </div>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 6, background: "#f1f5f9", fontSize: 12, fontWeight: 600, color: "#0f172a" }}>
+                                            <span style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em" }}>Status:</span>
+                                            Waiting Partner Review
                                         </div>
                                         {publishExternal.selectedArtifacts.length > 0 && (
                                             <div style={{ fontSize: 12, color: "#475569" }}>
                                                 {publishExternal.selectedArtifacts.length} supporting artifact{publishExternal.selectedArtifacts.length !== 1 ? "s" : ""} published{workArtifacts.some(a => a.isPrototype) ? " (prototype metadata)" : ""}.
                                             </div>
                                         )}
+                                    </div>
+
+                                    <div style={{ height: 1, background: "#e2e8f0" }} />
+
+                                    <div>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 10 }}>What happens next?</div>
+                                        <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
+                                            <li style={{ display: "flex", gap: 8, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
+                                                <span style={{ width: 18, height: 18, borderRadius: "50%", background: "#eef2ff", color: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>1</span>
+                                                <span>The external partner can approve the request.</span>
+                                            </li>
+                                            <li style={{ display: "flex", gap: 8, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
+                                                <span style={{ width: 18, height: 18, borderRadius: "50%", background: "#eef2ff", color: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>2</span>
+                                                <span>They can request rework and include comments.</span>
+                                            </li>
+                                            <li style={{ display: "flex", gap: 8, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
+                                                <span style={{ width: 18, height: 18, borderRadius: "50%", background: "#eef2ff", color: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>3</span>
+                                                <span>Their decision will appear in Partner Action.</span>
+                                            </li>
+                                        </ul>
                                     </div>
 
                                     <div style={{ height: 1, background: "#e2e8f0" }} />
@@ -1769,27 +1988,24 @@ export default function RecapitalizationWorkspace() {
                                                 const reqId = item.id || item.intakeId || "";
                                                 promoteToReusableKnowledge(reqId, "Promoted", workArtifacts.map(a => a.id), currentUser);
                                                 setPublishExternal(null);
-                                                setBanner(`\u2713 Published externally. ${displayId} promoted to Reusable Knowledge.`);
-                                                setBannerError(false);
                                                 setWsRefreshKey(k => k + 1);
+                                                navigate(backPath);
                                             }}>Promote to Reusable Knowledge</button>
                                             <button className="rc-btn rc-btn-secondary" style={{ width: "100%" }} onClick={() => {
                                                 const reqId = item.id || item.intakeId || "";
                                                 promoteToReusableKnowledge(reqId, "Skipped", workArtifacts.map(a => a.id), currentUser);
                                                 setPublishExternal(null);
-                                                setBanner(`\u2713 Published externally. ${displayId} skipped Reusable Knowledge promotion.`);
-                                                setBannerError(false);
                                                 setWsRefreshKey(k => k + 1);
+                                                navigate(backPath);
                                             }}>Skip for Now</button>
                                         </>
                                     ) : (
                                         <button className="rc-btn rc-btn-primary" style={{ width: "100%" }} onClick={() => {
                                             setPublishExternal(null);
-                                            setBanner("\u2713 Published externally.");
-                                            setBannerError(false);
+                                            navigate(backPath);
                                         }}>Done</button>
                                     )}
-                                    <button className="rc-btn rc-btn-ghost" style={{ width: "100%" }} onClick={() => { setPublishExternal(null); navigate(backPath); }}>{backLabel}</button>
+                                    <button className="rc-btn rc-btn-ghost" style={{ width: "100%" }} onClick={() => { setPublishExternal(null); }}>Stay on Request</button>
                                 </div>
                             )}
                         </div>
@@ -1835,6 +2051,76 @@ function AccordionSection({ icon, title, isOpen, onToggle, children }: { icon: R
                     {children}
                 </div>
             )}
+        </div>
+    );
+}
+
+/* ── Shared Workflow Completion Dialog ── */
+
+function WorkflowCompletionDialog({
+    isOpen,
+    onClose,
+    icon,
+    iconBg,
+    title,
+    explanation,
+    currentStatus,
+    whatHappensNext,
+    primaryAction,
+    secondaryAction,
+}: {
+    isOpen: boolean;
+    onClose: () => void;
+    icon: React.ReactNode;
+    iconBg: string;
+    title: string;
+    explanation: string;
+    currentStatus: string;
+    whatHappensNext: string[];
+    primaryAction: { label: string; onClick: () => void };
+    secondaryAction?: { label: string; onClick: () => void };
+}) {
+    if (!isOpen) return null;
+    return (
+        <div className="rc-modal-overlay" onClick={onClose}>
+            <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+                <div className="rc-modal-body" style={{ padding: "24px 24px 16px" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 16, alignItems: "center", textAlign: "center", padding: "8px 0" }}>
+                        <div style={{ width: 52, height: 52, borderRadius: "50%", background: iconBg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            {icon}
+                        </div>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a" }}>{title}</div>
+                        <div style={{ fontSize: 14, color: "#334155", lineHeight: 1.6, maxWidth: 380 }}>{explanation}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 6, background: "#f1f5f9", fontSize: 12, fontWeight: 600, color: "#0f172a" }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em" }}>Status:</span>
+                            {currentStatus}
+                        </div>
+                    </div>
+
+                    {whatHappensNext.length > 0 && (
+                        <>
+                            <div style={{ height: 1, background: "#e2e8f0", margin: "16px 0" }} />
+                            <div>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 10 }}>What happens next?</div>
+                                <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
+                                    {whatHappensNext.map((step, i) => (
+                                        <li key={i} style={{ display: "flex", gap: 8, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
+                                            <span style={{ width: 18, height: 18, borderRadius: "50%", background: "#eef2ff", color: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{i + 1}</span>
+                                            <span>{step}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </>
+                    )}
+                </div>
+                <div className="rc-modal-footer" style={{ flexDirection: "column", gap: 6, padding: "16px 24px 20px" }}>
+                    <button className="rc-btn rc-btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={primaryAction.onClick}>{primaryAction.label}</button>
+                    {secondaryAction && (
+                        <button className="rc-btn rc-btn-ghost" style={{ width: "100%", justifyContent: "center" }} onClick={secondaryAction.onClick}>{secondaryAction.label}</button>
+                    )}
+                </div>
+            </div>
         </div>
     );
 }
