@@ -16,6 +16,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
     Closed: { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
     "Closed / Duplicate": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
     "Closed / Not Applicable": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
+    "Exception Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -88,6 +89,7 @@ export default function PortalRequests() {
                     <option value="Approved">Approved</option>
                     <option value="Rework Required">Rework Required</option>
                     <option value="Action Needed">Action Needed</option>
+                    <option value="Exception Review">Exception Review</option>
                     <option value="Closed">Closed</option>
                 </select>
                 {categories.length > 0 && (

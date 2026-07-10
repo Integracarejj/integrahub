@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive, addExternalMessage, getExternalMessages } from "../../services/recapDataService";
+import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive, addExternalMessage, getExternalMessages, updateRequestNotMine } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -63,6 +63,25 @@ function BluePill({ children }: { children: React.ReactNode }) {
     return <span style={{ display: "inline-block", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "#dbeafe", color: "#1d4ed8", textTransform: "uppercase", letterSpacing: "0.03em" }}>{children}</span>;
 }
 
+function ActionTile({ icon, label, desc, onClick }: { icon: React.ReactNode; label: string; desc: string; onClick: () => void }) {
+    return (
+        <div 
+            onClick={onClick}
+            style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", border: "1px solid #e0e7ff", borderRadius: 12, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#93c5fd"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(37,99,235,0.08)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "#e0e7ff"; e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.02)"; }}
+        >
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "#f8faff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                {icon}
+            </div>
+            <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>{label}</div>
+                <div style={{ fontSize: 11, color: "#475569", marginTop: 1 }}>{desc}</div>
+            </div>
+        </div>
+    );
+}
+
 export default function RecapitalizationWorkspace() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
@@ -82,6 +101,7 @@ export default function RecapitalizationWorkspace() {
     const [statusActionModal, setStatusActionModal] = useState<{ newStatus: RecapRequest["status"]; reason: string } | null>(null);
     const [resolutionPrompt, setResolutionPrompt] = useState<{ note: string } | null>(null);
     const [completionModal, setCompletionModal] = useState<{ note: string; readyForReview: boolean } | null>(null);
+    const [notMine, setNotMine] = useState<{ req: RecapRequest; reason: string } | null>(null);
     const [workArtifacts, setWorkArtifacts] = useState<WorkArtifact[]>([]);
     const [wnComposerOpen, setWnComposerOpen] = useState(false);
     const [wnText, setWnText] = useState("");
@@ -137,6 +157,7 @@ export default function RecapitalizationWorkspace() {
     const isBulkUpload = item.type === "Broker Upload";
     const isDuplicate = displayStatus === "Duplicate";
     const statusColor = STATUS_COLORS[displayStatus] || "#64748b";
+    const isTerminal = displayStatus === "Complete" || displayStatus === "Completed" || (["Duplicate", "Not Applicable"].includes(displayStatus) && !!(item as any)._exceptionDecision);
 
     const completionSummary = useMemo(() => {
         if (result.type === "request") {
@@ -411,82 +432,18 @@ export default function RecapitalizationWorkspace() {
                             </div>
                         </div>
 
-                        {/* Right: Status + Assign + Actions */}
+                        {/* Right: Status + Assign */}
                         <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 240, maxWidth: 280 }}>
                             {/* Status */}
                             <div>
                                 <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 5 }}>Status</div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 10px", fontSize: 13, fontWeight: 600, borderRadius: 6, border: "1px solid #d1d5db", background: "#fff", color: "#0f172a", marginBottom: 6 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 10px", fontSize: 13, fontWeight: 600, borderRadius: 6, border: "1px solid #d1d5db", background: "#fff", color: "#0f172a" }}>
                                     {statusDot(statusColor)}
                                     <span>{displayStatus}</span>
                                 </div>
-                                <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
-                                    {["Open", "Assigned", "In Progress"].includes(displayStatus) && (
-                                        <>
-                                            <button
-                                                onClick={() => setStatusActionModal({ newStatus: "Blocked", reason: "" })}
-                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", cursor: "pointer", fontWeight: 600 }}
-                                            >
-                                                Block Work
-                                            </button>
-                                            <button
-                                                onClick={() => setNeedClarificationOpen(true)}
-                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fffbeb", color: "#92400e", border: "1px solid #fde68a", cursor: "pointer", fontWeight: 600 }}
-                                            >
-                                                Need Clarification
-                                            </button>
-                                            <button
-                                                onClick={() => setStatusActionModal({ newStatus: "Duplicate", reason: "" })}
-                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#ede9fe", color: "#6d28d9", border: "1px solid #ddd6fe", cursor: "pointer", fontWeight: 600 }}
-                                                title="Recommend as duplicate (sent to DD Ops Exceptions)"
-                                            >
-                                                Mark Duplicate
-                                            </button>
-                                            <button
-                                                onClick={() => setStatusActionModal({ newStatus: "Not Applicable", reason: "" })}
-                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#f0f4ff", color: "#4f46e5", border: "1px solid #c7d2fe", cursor: "pointer", fontWeight: 600 }}
-                                                title="Recommend as not applicable (sent to DD Ops Exceptions)"
-                                            >
-                                                Mark Not Applicable
-                                            </button>
-                                            {displayStatus === "In Progress" && (
-                                                <button
-                                                    onClick={() => setCompletionModal({ note: "", readyForReview: false })}
-                                                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#166534", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600 }}
-                                                >
-                                                    Complete Work
-                                                </button>
-                                            )}
-                                        </>
-                                    )}
-                                    {displayStatus === "Blocked" && (
-                                        <button
-                                            onClick={() => setResolutionPrompt({ note: "" })}
-                                            style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#1d4ed8", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600 }}
-                                        >
-                                            Resolve
-                                        </button>
-                                    )}
-                                    {displayStatus === "Clarification Needed" && (
-                                        <button
-                                            onClick={() => { doStatusChange("In Progress"); }}
-                                            style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#1d4ed8", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600 }}
-                                        >
-                                            Respond
-                                        </button>
-                                    )}
-                                    {["Duplicate", "Not Applicable"].includes(displayStatus) && (
-                                        <button
-                                            onClick={() => setResolutionPrompt({ note: "" })}
-                                            style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#1d4ed8", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600 }}
-                                        >
-                                            Reopen
-                                        </button>
-                                    )}
-                                </div>
                             </div>
 
-                            {/* Assign */}
+                            {/* Owner */}
                             <div>
                                 <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 5 }}>Owner</div>
                                 <div style={{ position: "relative" }}>
@@ -513,42 +470,6 @@ export default function RecapitalizationWorkspace() {
                                     </select>
                                 </div>
                             </div>
-
-                            {/* Action buttons */}
-                            <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
-                                <button
-                                    onClick={() => setNeedClarificationOpen(true)}
-                                    style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "7px 10px", fontSize: 12, fontWeight: 600, borderRadius: 6, background: "#fff", color: "#2563eb", border: "1px solid #2563eb", cursor: "pointer" }}
-                                >
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
-                                    Clarify
-                                </button>
-                                {item._publishedExternal && displayStatus !== "Needs Rework" ? (
-                                    <span style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "7px 10px", fontSize: 12, fontWeight: 700, borderRadius: 6, background: "#f0fdf4", color: "#166534", border: "1px solid #86efac" }}>
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
-                                        Published External
-                                    </span>
-                                ) : (
-                                    <button
-                                        onClick={() => setPublishExternal({ step: 1, selectedArtifacts: workArtifacts.map(a => a.name), note: "" })}
-                                        disabled={displayStatus !== "Complete" && displayStatus !== "Needs Rework"}
-                                        title={displayStatus !== "Complete" && displayStatus !== "Needs Rework" ? "Publishing requires Complete or Needs Rework status" : "Publish this deliverable"}
-                                        style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "7px 10px", fontSize: 12, fontWeight: 600, borderRadius: 6, background: displayStatus === "Complete" || displayStatus === "Needs Rework" ? "#1d4ed8" : "#f1f5f9", color: displayStatus === "Complete" || displayStatus === "Needs Rework" ? "#fff" : "#94a3b8", border: "none", cursor: displayStatus === "Complete" || displayStatus === "Needs Rework" ? "pointer" : "not-allowed" }}
-                                    >
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a3 3 0 1 0 3.99 3.98m-9.19-1.17L2 21l2.44-2.44m5.57-5.57L18 5l3 3L13.01 13.01" /></svg>
-                                        {displayStatus === "Needs Rework" ? "Re-Publish External" : "Publish External"}
-                                    </button>
-                                )}
-                                {displayStatus === "Open" && (
-                                    <button
-                                        onClick={() => { doStatusChange("In Progress"); }}
-                                        style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "7px 10px", fontSize: 12, fontWeight: 600, borderRadius: 6, background: "#1d4ed8", color: "#fff", border: "none", cursor: "pointer" }}
-                                    >
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3" /></svg>
-                                        Start Work
-                                    </button>
-                                )}
-                            </div>
                         </div>
                     </div>
 
@@ -568,6 +489,199 @@ export default function RecapitalizationWorkspace() {
                             <MetaField label="Request Type" value={item.category || "\u2014"} />
                         </div>
                     </div>
+
+                    <div style={{ height: 1, background: "#e2e8f0" }} />
+
+                    {!isTerminal && (
+                    <>
+                    {/* ── Action Center ── */}
+                    <div style={{ padding: "0 32px 24px" }}>
+                      <div style={{ border: "2px solid #dbeafe", borderRadius: 16, padding: 28, background: "linear-gradient(135deg, #f8faff 0%, #f0f7ff 100%)", boxShadow: "0 2px 12px rgba(37,99,235,0.06)" }}>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>Action Center</div>
+                        <div style={{ fontSize: 14, color: "#475569", marginBottom: 24 }}>What would you like to do next?</div>
+
+                        {/* Primary Actions */}
+                        <div style={{ display: "flex", gap: 16, marginBottom: 28 }}>
+                          {/* Upload Artifact */}
+                          <div 
+                            onClick={() => document.getElementById("artifact-upload")?.click()}
+                            style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bfdbfe", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = "#6366f1"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(37,99,235,0.1)"; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = "#bfdbfe"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}
+                          >
+                            <div style={{ width: 44, height: 44, borderRadius: 12, background: "#eef2ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Upload Artifact</div>
+                              <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Add supporting files</div>
+                            </div>
+                          </div>
+
+                          {/* Status-dependent primary action */}
+                          {(displayStatus === "Open" || displayStatus === "Assigned" || displayStatus === "Needs Rework") && (
+                            <div 
+                              onClick={() => doStatusChange("In Progress")}
+                              style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bfdbfe", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = "#3b82f6"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(37,99,235,0.1)"; }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = "#bfdbfe"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}
+                            >
+                              <div style={{ width: 44, height: 44, borderRadius: 12, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Accept Work</div>
+                                <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Start working on this item</div>
+                              </div>
+                            </div>
+                          )}
+
+                          {displayStatus === "Blocked" && (
+                            <div 
+                              onClick={() => setResolutionPrompt({ note: "" })}
+                              style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bfdbfe", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = "#3b82f6"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(37,99,235,0.1)"; }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = "#bfdbfe"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}
+                            >
+                              <div style={{ width: 44, height: 44, borderRadius: 12, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Resolve</div>
+                                <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Mark as resolved</div>
+                              </div>
+                            </div>
+                          )}
+
+                          {displayStatus === "Clarification Needed" && (
+                            <div 
+                              onClick={() => doStatusChange("In Progress")}
+                              style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bfdbfe", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = "#3b82f6"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(37,99,235,0.1)"; }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = "#bfdbfe"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}
+                            >
+                              <div style={{ width: 44, height: 44, borderRadius: 12, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Respond</div>
+                                <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Answer clarification question</div>
+                              </div>
+                            </div>
+                          )}
+
+                          {displayStatus === "In Progress" && (
+                            <div 
+                              onClick={() => setCompletionModal({ note: "", readyForReview: false })}
+                              style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bbf7d0", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = "#22c55e"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(34,197,94,0.1)"; }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = "#bbf7d0"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}
+                            >
+                              <div style={{ width: 44, height: 44, borderRadius: 12, background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Complete Review</div>
+                                <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Ready for DD review</div>
+                              </div>
+                            </div>
+                          )}
+
+                          {["Duplicate", "Not Applicable"].includes(displayStatus) && !isTerminal && (
+                            <div 
+                              onClick={() => doStatusChange("In Progress")}
+                              style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bfdbfe", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = "#3b82f6"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(37,99,235,0.1)"; }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = "#bfdbfe"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}
+                            >
+                              <div style={{ width: 44, height: 44, borderRadius: 12, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" /></svg>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Reopen</div>
+                                <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Return to active work</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Secondary Actions */}
+                        <div style={{ marginBottom: 14 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 12 }}>Other Actions</div>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                            {["Open", "Assigned", "In Progress"].includes(displayStatus) && (
+                              <>
+                                <ActionTile 
+                                  icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>}
+                                  label="Need Clarification"
+                                  desc="Request more info"
+                                  onClick={() => setNeedClarificationOpen(true)}
+                                />
+                                <ActionTile 
+                                  icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>}
+                                  label="Block Work"
+                                  desc="Waiting on something"
+                                  onClick={() => setStatusActionModal({ newStatus: "Blocked", reason: "" })}
+                                />
+                                <ActionTile 
+                                  icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>}
+                                  label="Mark Duplicate"
+                                  desc="Possible duplicate"
+                                  onClick={() => setStatusActionModal({ newStatus: "Duplicate", reason: "" })}
+                                />
+                                <ActionTile 
+                                  icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>}
+                                  label="Mark Not Applicable"
+                                  desc="Not needed"
+                                  onClick={() => setStatusActionModal({ newStatus: "Not Applicable", reason: "" })}
+                                />
+                              </>
+                            )}
+                            <ActionTile 
+                              icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>}
+                              label="Not Mine"
+                              desc="Return for reassignment"
+                              onClick={() => setNotMine({ req: result.item as RecapRequest, reason: "" })}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ── Publish External ── */}
+                    <div style={{ padding: "0 32px 24px" }}>
+                      <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: "16px 20px", background: "#fff", display: "flex", alignItems: "center", gap: 16 }}>
+                        <div style={{ width: 40, height: 40, borderRadius: 10, background: item._publishedExternal ? "#f0fdf4" : "#f0f7ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          {item._publishedExternal ? (
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                          ) : (
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a3 3 0 1 0 3.99 3.98m-9.19-1.17L2 21l2.44-2.44m5.57-5.57L18 5l3 3L13.01 13.01" /></svg>
+                          )}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>{item._publishedExternal ? "Published External" : "Publish External"}</div>
+                          <div style={{ fontSize: 12, color: "#475569", marginTop: 2 }}>{item._publishedExternal ? "This deliverable is visible on the external portal" : "Share deliverable with the external broker/buyer portal"}</div>
+                        </div>
+                        {item._publishedExternal && displayStatus !== "Needs Rework" ? (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "6px 14px", fontSize: 12, fontWeight: 700, borderRadius: 6, background: "#f0fdf4", color: "#166534", border: "1px solid #86efac" }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                            Published
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => setPublishExternal({ step: 1, selectedArtifacts: workArtifacts.map(a => a.name), note: "" })}
+                            disabled={displayStatus !== "Complete" && displayStatus !== "Needs Rework"}
+                            title={displayStatus !== "Complete" && displayStatus !== "Needs Rework" ? "Publishing requires Complete or Needs Rework status" : "Publish this deliverable"}
+                            style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "6px 14px", fontSize: 12, fontWeight: 600, borderRadius: 6, background: displayStatus === "Complete" || displayStatus === "Needs Rework" ? "#1d4ed8" : "#f1f5f9", color: displayStatus === "Complete" || displayStatus === "Needs Rework" ? "#fff" : "#94a3b8", border: "none", cursor: displayStatus === "Complete" || displayStatus === "Needs Rework" ? "pointer" : "not-allowed" }}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a3 3 0 1 0 3.99 3.98m-9.19-1.17L2 21l2.44-2.44m5.57-5.57L18 5l3 3L13.01 13.01" /></svg>
+                            {displayStatus === "Needs Rework" ? "Re-Publish" : "Publish"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    </>
+                    )}
 
                     <div style={{ height: 1, background: "#e2e8f0" }} />
 
@@ -1338,6 +1452,46 @@ export default function RecapitalizationWorkspace() {
                                 }
                                 setResolutionPrompt(null);
                             }}>{resolutionPrompt.note.trim() ? "Save & Continue" : "Continue"}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {notMine && (
+                <div className="rc-modal-overlay" onClick={() => setNotMine(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="rc-modal-header">
+                            <h2>Not Mine</h2>
+                            <button className="rc-modal-close" onClick={() => setNotMine(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                <div style={{ fontSize: 13, color: "#334155" }}>
+                                    This will remove the item from your Active Work and send it to DD Operations for reassignment.
+                                </div>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                                    Reason <span style={{ color: "#dc2626" }}>*</span>
+                                </label>
+                                <textarea
+                                    value={notMine.reason}
+                                    onChange={e => setNotMine(prev => prev ? { ...prev, reason: e.target.value } : null)}
+                                    placeholder="Why is this item not yours?"
+                                    rows={3}
+                                    style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
+                                />
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setNotMine(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!notMine.reason.trim()} onClick={() => {
+                                const reason = notMine.reason.trim();
+                                if (!reason) return;
+                                updateRequestNotMine(notMine.req.id, reason, currentUser);
+                                setWsRefreshKey(k => k + 1);
+                                setBanner(`\u2713 ${notMine.req.requestId} sent to DD Operations for reassignment.`);
+                                setBannerError(false);
+                                setNotMine(null);
+                            }}>Report Not Mine</button>
                         </div>
                     </div>
                 </div>

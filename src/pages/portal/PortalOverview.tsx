@@ -22,6 +22,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
     Closed: { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
     "Closed / Duplicate": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
     "Closed / Not Applicable": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
+    "Exception Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
 };
 
 const STAT_HELPERS: Record<string, string> = {
@@ -33,6 +34,7 @@ const STAT_HELPERS: Record<string, string> = {
     Approved: "Completed and approved",
     "Rework Required": "Returned for rework",
     "Action Needed": "Requires your attention",
+    "Exception Review": "Needs your decision on removal or merge",
     "Total Requests": "All active requests",
 };
 
@@ -91,6 +93,7 @@ export default function PortalOverview() {
     const intakeCount = portalRequests.filter(r => r.status === "Intake Review").length;
     const workQueueCount = portalRequests.filter(r => r.status === "Work Queue").length;
     const actionNeededCount = portalRequests.filter(r => r.status === "Action Needed").length;
+    const exceptionReviewCount = portalRequests.filter(r => r.status === "Exception Review").length;
     const inProgress = portalRequests.filter(r => r.status === "In Progress").length;
     const visibleRequests = portalRequests.filter(r => r.status !== "Closed" && r.status !== "Closed / Duplicate" && r.status !== "Closed / Not Applicable");
 
@@ -453,6 +456,13 @@ export default function PortalOverview() {
                         <span className="po-stat-helper">{STAT_HELPERS["Action Needed"]}</span>
                     </div>
                 )}
+                {exceptionReviewCount > 0 && (
+                    <div className={`po-stat-card${dashboardFilterStatus === "Exception Review" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Exception Review"); setDashboardFilterCategory("all"); }}>
+                        <span className="po-stat-value po-stat-value--indigo">{exceptionReviewCount}</span>
+                        <span className="po-stat-label">Exception Review</span>
+                        <span className="po-stat-helper">{STAT_HELPERS["Exception Review"]}</span>
+                    </div>
+                )}
             </div>
             <div style={{ fontSize: 12, color: "#475569", textAlign: "right", marginBottom: 12 }}>
                 Last updated: {lastUpdated.toLocaleTimeString()}
@@ -504,6 +514,7 @@ export default function PortalOverview() {
                                     <option value="Approved">Approved</option>
                                     <option value="Rework Required">Rework Required</option>
                                     <option value="Action Needed">Action Needed</option>
+                                    <option value="Exception Review">Exception Review</option>
                                 </select>
                                 <select className="po-filter-select" value={dashboardFilterCategory} onChange={e => setDashboardFilterCategory(e.target.value)}>
                                     <option value="all">All Categories</option>

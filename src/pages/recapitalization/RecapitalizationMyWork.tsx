@@ -1,12 +1,9 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { getRequests, isDemoActive, getTeamMembers, updateRequestStatus, bulkUpdateDemoRequests, getDocuments, updateRequestNotMine, addActivityEntry, updateRequestStatusNotes, getWorkArtifactsByRequest } from "../../services/recapDataService";
-import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
+import { getRequests, isDemoActive, getTeamMembers } from "../../services/recapDataService";
+import type { RecapRequest } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
-
-const STATUS_OPTIONS = ["Open", "Assigned", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate", "Waiting Partner Review", "Needs Rework", "Completed"];
-const RETURNED_STATUSES = ["Clarification Needed", "Blocked", "Duplicate", "Not Applicable"];
 
 type ViewTab = "active-work" | "completed-work" | "my-team" | "returned";
 
@@ -14,17 +11,9 @@ export default function RecapitalizationMyWork() {
     const navigate = useNavigate();
     const [activeUser, setActiveUser] = useState("Sarah Chen");
     const [detailItem, setDetailItem] = useState<RecapRequest | null>(null);
-    const [refreshKey, setRefreshKey] = useState(0);
-    const [bulkToast, setBulkToast] = useState("");
+    const [refreshKey, _setRefreshKey] = useState(0);
     const [successMsg, setSuccessMsg] = useState<{ title: string; body: string } | null>(null);
-    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [activeView, setActiveView] = useState<ViewTab>("active-work");
-    const [statusConfirm, setStatusConfirm] = useState<{ req: RecapRequest; newStatus: string; reason?: string } | null>(null);
-    const [notePopup, setNotePopup] = useState<{ req: RecapRequest; note: string } | null>(null);
-    const [artifactListModal, setArtifactListModal] = useState<{ req: RecapRequest; artifacts: WorkArtifact[] } | null>(null);
-    const [artifactWarning, setArtifactWarning] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
-    const [notMine, setNotMine] = useState<{ req: RecapRequest; reason: string } | null>(null);
-    const [confirmAction, setConfirmAction] = useState<{ title: string; action: () => void } | null>(null);
     const members = getTeamMembers();
     const allRequests = useMemo(() => getRequests(), [refreshKey]);
 
@@ -35,6 +24,8 @@ export default function RecapitalizationMyWork() {
 
     const user = members.find(m => m.name === activeUser);
     const userTeam = user?.team || "";
+
+    const RETURNED_STATUSES = ["Clarification Needed", "Blocked", "Duplicate", "Not Applicable"];
 
     const assignedToMe = useMemo(() => {
         return workItems
@@ -96,76 +87,6 @@ export default function RecapitalizationMyWork() {
         }
     }, [activeView, activeWork, completedWork, myTeamItems, returnedItems]);
 
-    function hasDocuments(req: RecapRequest): boolean {
-        const docs = getDocuments();
-        return docs.some(d => d.requestId === req.requestId);
-    }
-
-    function handleStatusChange(req: RecapRequest, newStatus: string, reason?: string) {
-        updateRequestStatus(req.id, newStatus as RecapRequest["status"]);
-        if (reason) {
-            updateRequestStatusNotes(req.id, reason);
-        }
-        addActivityEntry({
-            type: "Status Change",
-            description: `${req.requestId}: Status changed to ${newStatus} by ${activeUser}` + (reason ? `. Reason: ${reason}` : ""),
-            userId: activeUser,
-            userName: activeUser,
-            requestId: req.id,
-            requestTitle: req.title,
-            transactionId: req.transactionId,
-            transactionName: req.transactionName,
-        });
-        setRefreshKey(k => k + 1);
-        setBulkToast(`${req.requestId}: status changed to ${newStatus}`);
-    }
-
-    function handleBulkStatus(newStatus: string) {
-        const ids = [...selectedIds];
-        const reqs = workItems;
-        ids.forEach(id => {
-            const req = reqs.find(r => r.id === id);
-            updateRequestStatus(id, newStatus as RecapRequest["status"]);
-            if (req) {
-                addActivityEntry({
-                    type: "Status Change",
-                    description: `${req.requestId}: Status changed to ${newStatus} by ${activeUser}`,
-                    userId: activeUser,
-                    userName: activeUser,
-                    requestId: req.id,
-                    requestTitle: req.title,
-                    transactionId: req.transactionId,
-                    transactionName: req.transactionName,
-                });
-            }
-        });
-        setRefreshKey(k => k + 1);
-        setBulkToast(`Updated ${ids.length} item${ids.length !== 1 ? "s" : ""} to ${newStatus}`);
-        setSelectedIds(new Set());
-    }
-
-    function handleBulkDueDate(date: string) {
-        const ids = [...selectedIds];
-        ids.forEach(id => bulkUpdateDemoRequests([id], { dueDate: date }));
-        setRefreshKey(k => k + 1);
-        setBulkToast(`Set due date for ${ids.length} item${ids.length !== 1 ? "s" : ""}`);
-        setSelectedIds(new Set());
-    }
-
-    function handleBulkComplete() {
-        const ids = [...selectedIds];
-        const allReqs = workItems;
-        const noArtifactItems = ids.filter(reqId => {
-            const req = allReqs.find(r => r.id === reqId);
-            return req && !hasDocuments(req);
-        });
-        if (noArtifactItems.length > 0) {
-            setBulkToast(`Warning: ${noArtifactItems.length} item${noArtifactItems.length !== 1 ? "s" : ""} ha${noArtifactItems.length !== 1 ? "ve" : "s"} no artifacts. Use per-item status change to mark Complete.`);
-            return;
-        }
-        handleBulkStatus("Complete");
-    }
-
     const emptyMessages: Record<ViewTab, string> = {
         "active-work": "No active items assigned to you.",
         "completed-work": "No completed items.",
@@ -193,168 +114,52 @@ export default function RecapitalizationMyWork() {
         navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "my-work" } });
     }
 
-    function renderTable(items: RecapRequest[], emptyMsg: string, showCheckboxes = false) {
+    function renderTable(items: RecapRequest[], emptyMsg: string) {
         if (items.length === 0) return <div className="rc-empty-state" style={{ padding: 20 }}>{emptyMsg}</div>;
         return (
             <div style={{ overflowX: "auto" }}>
             <table className="rc-table">
                 <thead>
                     <tr>
-                        {showCheckboxes && <th style={{ width: 16, paddingRight: 4 }}></th>}
                         <th style={{ width: 110, minWidth: 90 }}>Request ID</th>
-                        <th style={{ minWidth: 140 }}>Deliverable</th>
-                        <th style={{ width: 90, minWidth: 70 }}>Community</th>
-                        <th style={{ width: 60, textAlign: "center" }}>Pri</th>
-                        <th style={{ width: 105, minWidth: 85 }}>Status</th>
-                        {activeView !== "my-team" && <th style={{ width: 80, minWidth: 70 }}>Owner</th>}
-                        <th style={{ width: 75, minWidth: 65 }}>Team</th>
-                        <th style={{ width: 85, minWidth: 70 }}>Due</th>
-                        <th style={{ width: 38, textAlign: "center" }}>Art</th>
-                        <th style={{ width: 38, textAlign: "center" }}>Notes</th>
+                        <th style={{ minWidth: 180 }}>Deliverable</th>
+                        <th style={{ width: 100, minWidth: 80 }}>Community</th>
+                        <th style={{ width: 60, textAlign: "center" }}>Priority</th>
+                        <th style={{ width: 110, minWidth: 90 }}>Status</th>
+                        <th style={{ width: 85, minWidth: 70 }}>Due Date</th>
                         <th style={{ width: 80, minWidth: 65 }}>Updated</th>
-                        <th style={{ width: 90, minWidth: 80 }}>Actions</th>
+                        <th style={{ width: 90, minWidth: 80, textAlign: "center" }}>Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     {items.map(req => (
                         <tr key={req.id} className="rc-row-clickable" onClick={() => openWorkspace(req)}>
-                            {showCheckboxes && (
-                                <td style={{ width: 16, paddingRight: 4 }} onClick={e => e.stopPropagation()}>
-                                    <input type="checkbox" checked={selectedIds.has(req.id)} onChange={() => {
-                                        setSelectedIds(prev => { const n = new Set(prev); if (n.has(req.id)) n.delete(req.id); else n.add(req.id); return n; });
-                                    }} />
-                                </td>
-                            )}
                             <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#475569", fontWeight: 600 }}>{req.requestId}</td>
-                            <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 200 }}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</td>
+                            <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 220 }}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</td>
                             <td style={{ fontSize: 12, color: "#475569" }}>{req.communityNames[0] || "\u2014"}</td>
-                            <td><PriorityBadge priority={req.priority} /></td>
-                            <td>
-                                <StatusBadge status={req.status} />
-                            </td>
-                            {activeView !== "my-team" && <td style={{ fontSize: 12, color: "#475569" }}>{req.owner || "\u2014"}</td>}
-                            <td style={{ fontSize: 12 }}>{req.team}</td>
-                            <td className="nowrap" style={{ fontSize: 12, color: req.status === "Overdue" ? "#991b1b" : "#475569", fontWeight: req.status === "Overdue" ? 600 : 400 }}>{req.dueDate}</td>
-                            <td onClick={e => e.stopPropagation()} style={{ fontSize: 11, textAlign: "center" }}>
-                                {(function() {
-                                    const key = req.requestId || req.intakeId || req.id;
-                                    const artifacts = getWorkArtifactsByRequest(key);
-                                    return artifacts.length > 0 ? (
-                                        <span onClick={() => setArtifactListModal({ req, artifacts })} style={{ cursor: "pointer", color: "#2563eb" }} title="View artifacts">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
-                                        </span>
-                                    ) : (
-                                        <span style={{ color: "#d1d5db" }}>&mdash;</span>
-                                    );
-                                })()}
-                            </td>
-                            <td onClick={e => e.stopPropagation()} style={{ fontSize: 11, textAlign: "center", maxWidth: 160 }}>
-                                {(function() {
-                                    const note = req._statusNotes || req._misassignedReason || req._returnReason || null;
-                                    return note ? (
-                                        <span onClick={() => setNotePopup({ req, note })} style={{ cursor: "pointer", color: "#92400e", display: "inline-flex", alignItems: "center", gap: 3 }} title="View note">
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
-                                            <span style={{ fontSize: 10, fontWeight: 600, color: "#92400e", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 120 }}>{note}</span>
-                                        </span>
-                                    ) : (
-                                        <span style={{ color: "#d1d5db", fontSize: 10 }}>No note</span>
-                                    );
-                                })()}
-                            </td>
+                            <td style={{ textAlign: "center" }}><PriorityBadge priority={req.priority} /></td>
+                            <td><StatusBadge status={req.status} /></td>
+                            <td style={{ fontSize: 12, color: req.dueDate && new Date(req.dueDate) < new Date() ? "#991b1b" : "#475569", fontWeight: req.dueDate && new Date(req.dueDate) < new Date() ? 600 : 400 }}>{req.dueDate || "\u2014"}</td>
                             <td style={{ fontSize: 12, color: req.lastUpdated ? "#475569" : "#64748b" }}>{req.lastUpdated || "\u2014"}</td>
-                            <td onClick={e => e.stopPropagation()} style={{ whiteSpace: "nowrap", minWidth: 90 }}>
-                                {activeView === "active-work" && req.owner === activeUser && req.status !== "Complete" && req._externalStatus !== "Published External" && (
-                                    <div style={{ display: "flex", gap: 3, flexWrap: "wrap", alignItems: "center" }}>
-                                        {(req.status === "Open" || req.status === "Assigned") && (
-                                            <button
-                                                onClick={() => handleStatusChange(req, "In Progress")}
-                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#1d4ed8", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                                title="Start working on this item"
-                                            >
-                                                Start Work
-                                            </button>
-                                        )}
-                                        {req.status === "In Progress" && (
-                                            <>
-                                                <button
-                                                    onClick={() => setStatusConfirm({ req, newStatus: "Blocked" })}
-                                                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                                    title="Block this work item"
-                                                >
-                                                    Block Work
-                                                </button>
-                                                <button
-                                                    onClick={() => setStatusConfirm({ req, newStatus: "Clarification Needed" })}
-                                                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fffbeb", color: "#92400e", border: "1px solid #fde68a", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                                    title="Request clarification"
-                                                >
-                                                    Need Clarification
-                                                </button>
-                                                <button
-                                                    onClick={() => setStatusConfirm({ req, newStatus: "Duplicate" })}
-                                                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#ede9fe", color: "#6d28d9", border: "1px solid #ddd6fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                                    title="Mark as duplicate (recommendation)"
-                                                >
-                                                    Mark Duplicate
-                                                </button>
-                                                <button
-                                                    onClick={() => setStatusConfirm({ req, newStatus: "Not Applicable" })}
-                                                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#f0f4ff", color: "#4f46e5", border: "1px solid #c7d2fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                                    title="Mark as not applicable (recommendation)"
-                                                >
-                                                    Mark Not Applicable
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        if (!hasDocuments(req)) {
-                                                            setArtifactWarning({ req, newStatus: "Complete" });
-                                                        } else {
-                                                            setStatusConfirm({ req, newStatus: "Complete" });
-                                                        }
-                                                    }}
-                                                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#166534", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                                    title="Complete this work item"
-                                                >
-                                                    Complete Work
-                                                </button>
-                                            </>
-                                        )}
-                                        {req.status === "Blocked" && (
-                                            <button
-                                                onClick={() => handleStatusChange(req, "In Progress")}
-                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#1d4ed8", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                                title="Resolve block and continue working"
-                                            >
-                                                Resolve
-                                            </button>
-                                        )}
-                                        <button
-                                            onClick={() => setNotMine({ req, reason: "" })}
-                                            style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: "#fff", color: "#dc2626", border: "1px solid #fecaca", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                            title="Report this item was not assigned to you"
-                                        >
-                                            Not Mine
-                                        </button>
-                                    </div>
-                                )}
-                                {activeView === "returned" && req.owner === activeUser && (
-                                    <div style={{ display: "flex", gap: 3, flexWrap: "wrap", alignItems: "center" }}>
-                                        <button
-                                            onClick={() => handleStatusChange(req, "In Progress")}
-                                            style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#1d4ed8", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                            title="Reopen and continue working"
-                                        >
-                                            {req.status === "Clarification Needed" ? "Respond" : "Reopen"}
-                                        </button>
-                                        <button
-                                            onClick={() => setNotMine({ req, reason: "" })}
-                                            style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: "#fff", color: "#dc2626", border: "1px solid #fecaca", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                            title="Report this item was not assigned to you"
-                                        >
-                                            Not Mine
-                                        </button>
-                                    </div>
-                                )}
+                            <td onClick={e => e.stopPropagation()} style={{ textAlign: "center" }}>
+                                <button
+                                    onClick={() => openWorkspace(req)}
+                                    style={{
+                                        fontSize: 12,
+                                        padding: "6px 16px",
+                                        borderRadius: 8,
+                                        background: "#1d4ed8",
+                                        color: "#fff",
+                                        border: "none",
+                                        cursor: "pointer",
+                                        fontWeight: 600,
+                                        whiteSpace: "nowrap",
+                                    }}
+                                    onMouseEnter={e => { (e.target as HTMLElement).style.background = "#1e40af"; }}
+                                    onMouseLeave={e => { (e.target as HTMLElement).style.background = "#1d4ed8"; }}
+                                >
+                                    {req.status === "In Progress" || req.status === "Needs Rework" ? "Resume" : "Open"}
+                                </button>
                             </td>
                         </tr>
                     ))}
@@ -367,12 +172,6 @@ export default function RecapitalizationMyWork() {
     return (
         <div className="rc-page">
             <RecapSubNav />
-            {bulkToast && (
-                <div style={{ padding: "8px 16px", marginBottom: 12, borderRadius: 8, fontSize: 13, fontWeight: 600, background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0" }}>
-                    {bulkToast}
-                    <button style={{ background: "none", border: "none", color: "#166534", marginLeft: 8, cursor: "pointer", fontSize: 12 }} onClick={() => setBulkToast("")}>OK</button>
-                </div>
-            )}
             <div className="rc-header">
                 <div className="rc-header-left">
                     <h1>My Work</h1>
@@ -391,25 +190,6 @@ export default function RecapitalizationMyWork() {
                 </div>
             </div>
 
-            {/* Bulk actions bar */}
-            {selectedIds.size > 0 && (
-                <div className="rc-bulk-bar" style={{ marginBottom: 8 }}>
-                    <span><span className="rc-bulk-count">{selectedIds.size}</span> selected</span>
-                    <div className="rc-bulk-sep" />
-                    <select onChange={e => { if (e.target.value) setConfirmAction({ title: `Change status of ${selectedIds.size} item${selectedIds.size !== 1 ? "s" : ""} to ${e.target.value}?`, action: () => { handleBulkStatus(e.target.value); } }); e.target.value = ""; }}
-                        style={{ fontSize: 11, padding: "2px 18px 2px 6px", borderRadius: 4, border: "1px solid #d1d5db" }}>
-                        <option value="">Change Status...</option>
-                        {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                    <input type="date" onChange={e => { if (e.target.value) handleBulkDueDate(e.target.value); e.target.value = ""; }}
-                        style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, border: "1px solid #d1d5db", maxWidth: 130 }}
-                        placeholder="Set due date" />
-                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setConfirmAction({ title: `Mark ${selectedIds.size} item${selectedIds.size !== 1 ? "s" : ""} Complete?`, action: handleBulkComplete })}>Mark Complete</button>
-                    <div className="rc-bulk-sep" />
-                    <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => setSelectedIds(new Set())}>Clear Selection</button>
-                </div>
-            )}
-
             <div className="rc-view-tabs" style={{ display: "flex", gap: 0, marginBottom: 16, borderBottom: "2px solid #e2e8f0" }}>
                 {(["active-work", "completed-work", "my-team", "returned"] as const).map(view => (
                     <button key={view} onClick={() => setActiveView(view)}
@@ -424,160 +204,9 @@ export default function RecapitalizationMyWork() {
                     <h2>{tabLabels[activeView]} ({activeItems.length})</h2>
                 </div>
                 <div className="rc-card-body" style={{ padding: 0 }}>
-                    {renderTable(activeItems, emptyMessages[activeView], activeView !== "my-team")}
+                    {renderTable(activeItems, emptyMessages[activeView])}
                 </div>
             </div>
-
-            {statusConfirm && (
-                <div className="rc-modal-overlay" onClick={() => setStatusConfirm(null)}>
-                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
-                        <div className="rc-modal-header">
-                            <h2>{statusConfirm.newStatus}</h2>
-                            <button className="rc-modal-close" onClick={() => setStatusConfirm(null)}>&times;</button>
-                        </div>
-                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                                <div style={{ fontSize: 14, color: "#1e293b", fontWeight: 500, margin: 0 }}>
-                                    Change <strong>{statusConfirm.req.requestId}</strong> &mdash; {statusConfirm.req.title.split(" - ").slice(1).join(" - ").trim() || statusConfirm.req.title} to <strong>{statusConfirm.newStatus}</strong>?
-                                </div>
-                                {["Blocked", "Duplicate", "Not Applicable"].includes(statusConfirm.newStatus) && (
-                                    <>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#991b1b" }}>
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
-                                            {statusConfirm.newStatus === "Blocked" && "This will move the request to DD Operations \u2192 Needs DD Review for review."}
-                                            {statusConfirm.newStatus === "Duplicate" && "This will flag the item as a Duplicate recommendation and move it to DD Operations \u2192 Exceptions for review and external partner decision."}
-                                            {statusConfirm.newStatus === "Not Applicable" && "This will flag the item as Not Applicable recommendation and move it to DD Operations \u2192 Exceptions for review and external partner decision."}
-                                        </div>
-                                        <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
-                                            Reason <span style={{ color: "#dc2626" }}>*</span>
-                                        </label>
-                                        <textarea
-                                            value={statusConfirm.reason || ""}
-                                            onChange={e => setStatusConfirm(prev => prev ? { ...prev, reason: e.target.value } : null)}
-                                            placeholder={"Explain why this item is " + statusConfirm.newStatus.toLowerCase() + "..."}
-                                            rows={3}
-                                            style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
-                                        />
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                        <div className="rc-modal-footer">
-                            <button className="rc-btn rc-btn-ghost" onClick={() => setStatusConfirm(null)}>Cancel</button>
-                            <button className="rc-btn rc-btn-primary" disabled={["Blocked", "Duplicate", "Not Applicable"].includes(statusConfirm.newStatus) && !(statusConfirm.reason?.trim())} onClick={() => {
-                                const reason = statusConfirm.reason?.trim();
-                                if (["Blocked", "Duplicate", "Not Applicable"].includes(statusConfirm.newStatus) && !reason) return;
-                                handleStatusChange(statusConfirm.req, statusConfirm.newStatus, reason);
-                                if (statusConfirm.newStatus === "Blocked") {
-                                    setSuccessMsg({
-                                        title: "Status Updated",
-                                        body: `${statusConfirm.req.requestId} moved to DD Operations \u2192 Needs DD Review.`,
-                                    });
-                                } else if (statusConfirm.newStatus === "Duplicate" || statusConfirm.newStatus === "Not Applicable") {
-                                    setSuccessMsg({
-                                        title: "Recommendation Submitted",
-                                        body: `${statusConfirm.req.requestId} sent to DD Operations \u2192 Exceptions as a ${statusConfirm.newStatus} recommendation.`,
-                                    });
-                                }
-                                setStatusConfirm(null);
-                            }}>Confirm</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {artifactWarning && (
-                <div className="rc-modal-overlay" onClick={() => setArtifactWarning(null)}>
-                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
-                        <div className="rc-modal-header">
-                            <h2>No Artifact Attached</h2>
-                            <button className="rc-modal-close" onClick={() => setArtifactWarning(null)}>&times;</button>
-                        </div>
-                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                                <div style={{ fontSize: 14, color: "#991b1b", fontWeight: 600 }}>
-                                    No artifact is attached to this request. Marking complete will send it to DD Review without supporting documentation.
-                                </div>
-                                <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
-                                    <strong>{artifactWarning.req.requestId}</strong> &mdash; {artifactWarning.req.title.split(" - ").slice(1).join(" - ").trim() || artifactWarning.req.title}
-                                </div>
-                            </div>
-                        </div>
-                        <div className="rc-modal-footer">
-                            <button className="rc-btn rc-btn-ghost" onClick={() => setArtifactWarning(null)}>Cancel</button>
-                            <button className="rc-btn rc-btn-primary" onClick={() => {
-                                const req = artifactWarning.req;
-                                const newStatus = artifactWarning.newStatus;
-                                setArtifactWarning(null);
-                                handleStatusChange(req, newStatus);
-                            }}>Mark Complete Anyway</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {notMine && (
-                <div className="rc-modal-overlay" onClick={() => setNotMine(null)}>
-                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
-                        <div className="rc-modal-header">
-                            <h2>Not Mine</h2>
-                            <button className="rc-modal-close" onClick={() => setNotMine(null)}>&times;</button>
-                        </div>
-                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                                <div style={{ fontSize: 13, color: "#334155" }}>
-                                    This will remove the item from your Active Work and send it to DD Operations \u2192 Needs Reassignment.
-                                </div>
-                                <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
-                                    <strong>{notMine.req.requestId}</strong> &mdash; {notMine.req.title.split(" - ").slice(1).join(" - ").trim() || notMine.req.title}
-                                </div>
-                                <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
-                                    Reason <span style={{ color: "#dc2626" }}>*</span>
-                                </label>
-                                <textarea
-                                    value={notMine.reason}
-                                    onChange={e => setNotMine(prev => prev ? { ...prev, reason: e.target.value } : null)}
-                                    placeholder="Why is this item not yours? (e.g., wrong team, wrong person, wrong category...)"
-                                    rows={3}
-                                    style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
-                                />
-                            </div>
-                        </div>
-                        <div className="rc-modal-footer">
-                            <button className="rc-btn rc-btn-ghost" onClick={() => setNotMine(null)}>Cancel</button>
-                            <button className="rc-btn rc-btn-primary" disabled={!notMine.reason.trim()} onClick={() => {
-                                const reason = notMine.reason.trim();
-                                if (!reason) return;
-                                updateRequestNotMine(notMine.req.id, reason, activeUser);
-                                setRefreshKey(k => k + 1);
-                                setSuccessMsg({
-                                    title: "Not Mine Reported",
-                                    body: `${notMine.req.requestId} sent to DD Operations \u2192 Needs Reassignment.`,
-                                });
-                                setNotMine(null);
-                            }}>Report Not Mine</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {confirmAction && (
-                <div className="rc-modal-overlay" onClick={() => setConfirmAction(null)}>
-                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 380 }}>
-                        <div className="rc-modal-header">
-                            <h2>Confirm</h2>
-                            <button className="rc-modal-close" onClick={() => setConfirmAction(null)}>&times;</button>
-                        </div>
-                        <div className="rc-modal-body" style={{ padding: "16px", textAlign: "center" }}>
-                            <p style={{ fontSize: 14, fontWeight: 600, color: "#1e293b", margin: 0 }}>{confirmAction.title}</p>
-                        </div>
-                        <div className="rc-modal-footer">
-                            <button className="rc-btn rc-btn-ghost" onClick={() => setConfirmAction(null)}>Cancel</button>
-                            <button className="rc-btn rc-btn-primary" onClick={() => { confirmAction.action(); setConfirmAction(null); }}>Confirm</button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {detailItem && (
                 <div className="rc-modal-overlay" onClick={() => setDetailItem(null)}>
@@ -625,59 +254,6 @@ export default function RecapitalizationMyWork() {
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-secondary" onClick={() => setDetailItem(null)}>Close</button>
                             <button className="rc-btn rc-btn-primary" onClick={() => { setDetailItem(null); openWorkspace(detailItem); }}>Open Workspace</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {notePopup && (
-                <div className="rc-modal-overlay" onClick={() => setNotePopup(null)}>
-                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
-                        <div className="rc-modal-header">
-                            <h2>Note &mdash; {notePopup.req.requestId}</h2>
-                            <button className="rc-modal-close" onClick={() => setNotePopup(null)}>&times;</button>
-                        </div>
-                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
-                            <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{notePopup.note}</div>
-                        </div>
-                        <div className="rc-modal-footer">
-                            <button className="rc-btn rc-btn-primary" onClick={() => setNotePopup(null)}>Close</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {artifactListModal && (
-                <div className="rc-modal-overlay" onClick={() => setArtifactListModal(null)}>
-                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
-                        <div className="rc-modal-header">
-                            <h2>Artifacts &mdash; {artifactListModal.req.requestId}</h2>
-                            <button className="rc-modal-close" onClick={() => setArtifactListModal(null)}>&times;</button>
-                        </div>
-                        <div className="rc-modal-body" style={{ padding: "12px 20px" }}>
-                            {artifactListModal.artifacts.length === 0 ? (
-                                <div style={{ padding: "12px 0", color: "#475569", fontSize: 13 }}>No artifacts.</div>
-                            ) : (
-                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                    {artifactListModal.artifacts.map(art => (
-                                        <div key={art.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "#f8faff", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12, color: "#1e293b" }}>
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <span style={{ fontWeight: 500 }}>{art.displayFileName || art.name}</span>
-                                                <div style={{ display: "flex", gap: 8, fontSize: 11, color: "#475569", marginTop: 1 }}>
-                                                    <span>{(art.size / 1024).toFixed(0)} KB</span>
-                                                    <span>{art.uploadedAt}</span>
-                                                    {art.uploadedBy && <span>{art.uploadedBy}</span>}
-                                                    {art.isPrototype && <span style={{ color: "#92400e", background: "#fffbeb", padding: "0 4px", borderRadius: 3, fontSize: 10, fontWeight: 600 }}>PROTOTYPE</span>}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                        <div className="rc-modal-footer">
-                            <button className="rc-btn rc-btn-primary" onClick={() => setArtifactListModal(null)}>Close</button>
                         </div>
                     </div>
                 </div>
