@@ -96,7 +96,8 @@ export default function RecapitalizationWorkspace() {
     const [needClarificationOpen, setNeedClarificationOpen] = useState(false);
     const [clarificationText, setClarificationText] = useState("");
     const [blockModal, setBlockModal] = useState<{ step: "input" | "completed"; reason: string } | null>(null);
-    const [statusActionModal, setStatusActionModal] = useState<{ newStatus: "Duplicate" | "Not Applicable"; reason: string } | null>(null);
+    const [duplicateModal, setDuplicateModal] = useState<{ reason: string; optionalId: string } | null>(null);
+    const [notApplicableModal, setNotApplicableModal] = useState<{ reason: string } | null>(null);
     const [resolutionPrompt, setResolutionPrompt] = useState<{ note: string } | null>(null);
     const [completionModal, setCompletionModal] = useState<{ step: "input" | "completed"; note: string; readyForReview: boolean } | null>(null);
     const [notMine, setNotMine] = useState<{ req: RecapRequest; reason: string } | null>(null);
@@ -111,7 +112,7 @@ export default function RecapitalizationWorkspace() {
     const workspaceUserKey = "integrasource.recap.workspaceUser";
     const [currentUser] = useState(() => localStorage.getItem(workspaceUserKey) || TEAM_MEMBERS[0]);
     const [actionFeedback, setActionFeedback] = useState<string | null>(null);
-    const [completionDialog, setCompletionDialog] = useState<"blocked" | "clarification" | "dd-review" | "return-to-owner" | null>(null);
+    const [completionDialog, setCompletionDialog] = useState<"blocked" | "clarification" | "dd-review" | "return-to-owner" | "duplicate" | "not-applicable" | "not-mine" | "resolved" | null>(null);
     const [publishExternal, setPublishExternal] = useState<{ step: number; selectedArtifacts: string[]; note: string } | null>(null);
     const [artifactDetail, setArtifactDetail] = useState<WorkArtifact | null>(null);
     const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
@@ -156,10 +157,62 @@ export default function RecapitalizationWorkspace() {
                     <h2 style={{ fontSize: 20, color: "#0f172a", margin: 0 }}>Item Not Found</h2>
                     <p style={{ fontSize: 14, color: "#475569" }}>The requested workspace item could not be found.</p>
                     <button className="rc-btn rc-btn-primary" onClick={() => navigate("/recapitalization/intake")}>Back to Intake Queue</button>
+            </div>
+        </div>
+    );
+}
+
+/* ── Shared Action Center State Card ── */
+
+function WorkflowStateCard({
+    icon,
+    iconBg,
+    title,
+    subtitle,
+    body,
+    details,
+    accentColor,
+    bgColor,
+    borderColor,
+}: {
+    icon: React.ReactNode;
+    iconBg: string;
+    title: string;
+    subtitle: string;
+    body: string;
+    details?: { label: string; value: string }[];
+    accentColor: string;
+    bgColor: string;
+    borderColor: string;
+}) {
+    return (
+        <div style={{ marginBottom: 24, padding: "16px 20px", borderRadius: 12, background: bgColor, border: `2px solid ${borderColor}`, boxShadow: `0 2px 8px rgba(0,0,0,0.04)` }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+                <div style={{ width: 40, height: 40, borderRadius: "50%", background: iconBg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    {icon}
+                </div>
+                <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{title}</div>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 6, padding: "3px 8px", borderRadius: 4, background: iconBg + "33", fontSize: 11, fontWeight: 600, color: accentColor }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                        {subtitle}
+                    </div>
+                    <div style={{ fontSize: 13, color: "#475569", marginTop: 8, lineHeight: 1.5 }}>{body}</div>
+                    {details && details.length > 0 && (
+                        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
+                            {details.map((d, i) => (
+                                <div key={i} style={{ display: "flex", gap: 6, fontSize: 12, color: "#334155", lineHeight: 1.5 }}>
+                                    <span style={{ fontWeight: 700, color: "#475569", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", minWidth: 70, flexShrink: 0 }}>{d.label}</span>
+                                    <span style={{ wordBreak: "break-word" }}>{d.value}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
-        );
-    }
+        </div>
+    );
+}
 
     const { transaction } = result;
     const item = result.item as any;
@@ -591,8 +644,8 @@ export default function RecapitalizationWorkspace() {
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>} label="Need Clarification" desc="Request more info" onClick={() => setNeedClarificationOpen(true)} />
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>} label="Return to Owner" desc="Send back with feedback" onClick={() => setReturnToOwnerModal({ step: "input", reason: "" })} />
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>} label="Reassign Owner" desc="Change the current owner" onClick={() => { const el = document.getElementById("ws-owner-select"); if (el) { (el as HTMLSelectElement).focus(); (el as HTMLSelectElement).click(); }}} />
-                              <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>} label="Mark Duplicate" desc="Possible duplicate" onClick={() => setStatusActionModal({ newStatus: "Duplicate", reason: "" })} />
-                              <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>} label="Mark Not Applicable" desc="Not needed" onClick={() => setStatusActionModal({ newStatus: "Not Applicable", reason: "" })} />
+                              <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>} label="Mark Duplicate" desc="Possible duplicate" onClick={() => setDuplicateModal({ reason: "", optionalId: "" })} />
+                              <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>} label="Mark Not Applicable" desc="Not needed" onClick={() => setNotApplicableModal({ reason: "" })} />
                             </div>
                           </div>
 
@@ -672,6 +725,44 @@ export default function RecapitalizationWorkspace() {
                             </div>
                           )}
 
+                          {/* Contributor Waiting State Cards */}
+                          {displayStatus === "Clarification Needed" && !isDdOps && (
+                            <WorkflowStateCard
+                              icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>}
+                              iconBg="#d97706"
+                              title="Clarification Requested"
+                              subtitle="Waiting for DD Operations"
+                              body="Your question has been sent to DD Operations for review."
+                              details={item._statusNotes ? [{ label: "Question", value: item._statusNotes }] : undefined}
+                              accentColor="#d97706"
+                              bgColor="#fff7ed"
+                              borderColor="#fed7aa"
+                            />
+                          )}
+
+                          {["Duplicate", "Not Applicable"].includes(displayStatus) && !isTerminal && !isDdOps && (
+                            <WorkflowStateCard
+                              icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">{displayStatus === "Duplicate"
+                                ? <><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></>
+                                : <><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></>
+                              }</svg>}
+                              iconBg={displayStatus === "Duplicate" ? "#6d28d9" : "#4f46e5"}
+                              title={displayStatus === "Duplicate" ? "Duplicate Review Pending" : "Not Applicable Review Pending"}
+                              subtitle="Waiting for DD Operations"
+                              body={displayStatus === "Duplicate"
+                                ? "Your duplicate recommendation has been sent to DD Operations for review."
+                                : "Your recommendation has been sent to DD Operations for review."}
+                              details={displayStatus === "Duplicate" ? [
+                                { label: "Reason", value: item._statusNotes || "—" },
+                              ] : [
+                                { label: "Reason", value: item._statusNotes || "—" },
+                              ]}
+                              accentColor={displayStatus === "Duplicate" ? "#6d28d9" : "#4f46e5"}
+                              bgColor={displayStatus === "Duplicate" ? "#faf5ff" : "#f5f3ff"}
+                              borderColor={displayStatus === "Duplicate" ? "#ddd6fe" : "#e0e7ff"}
+                            />
+                          )}
+
                           {/* Primary Action Tiles */}
                           {displayStatus !== "Complete" && (
                           <div style={{ display: "flex", gap: 16, marginBottom: 28 }}>
@@ -707,15 +798,6 @@ export default function RecapitalizationWorkspace() {
                                 <div style={{ width: 44, height: 44, borderRadius: 12, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg></div>
                                 <div><div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Resolve</div><div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Mark as resolved</div></div>
-                              </div>
-                            )}
-                            {displayStatus === "Clarification Needed" && (
-                              <div onClick={() => doStatusChange("In Progress")} style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bfdbfe", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
-                                onMouseEnter={e => { e.currentTarget.style.borderColor = "#3b82f6"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(37,99,235,0.1)"; }}
-                                onMouseLeave={e => { e.currentTarget.style.borderColor = "#bfdbfe"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}>
-                                <div style={{ width: 44, height: 44, borderRadius: 12, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg></div>
-                                <div><div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Respond</div><div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Answer clarification question</div></div>
                               </div>
                             )}
                             {displayStatus === "In Progress" && (
@@ -762,8 +844,8 @@ export default function RecapitalizationWorkspace() {
                                 <>
                                   <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>} label="Need Clarification" desc="Request more info" onClick={() => setNeedClarificationOpen(true)} />
                                   <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>} label="Block Work" desc="Waiting on something" onClick={() => setBlockModal({ step: "input", reason: "" })} />
-                                  <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>} label="Mark Duplicate" desc="Possible duplicate" onClick={() => setStatusActionModal({ newStatus: "Duplicate", reason: "" })} />
-                                  <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>} label="Mark Not Applicable" desc="Not needed" onClick={() => setStatusActionModal({ newStatus: "Not Applicable", reason: "" })} />
+                                  <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>} label="Mark Duplicate" desc="Possible duplicate" onClick={() => setDuplicateModal({ reason: "", optionalId: "" })} />
+                                  <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>} label="Mark Not Applicable" desc="Not needed" onClick={() => setNotApplicableModal({ reason: "" })} />
                                 </>
                               )}
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>} label="Not Mine" desc="Return for reassignment" onClick={() => setNotMine({ req: result.item as RecapRequest, reason: "" })} />
@@ -1341,45 +1423,46 @@ export default function RecapitalizationWorkspace() {
                 </div>
             )}
 
-            {statusActionModal && (
-                <div className="rc-modal-overlay" onClick={() => setStatusActionModal(null)}>
+            {duplicateModal && (
+                <div className="rc-modal-overlay" onClick={() => setDuplicateModal(null)}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
                         <div className="rc-modal-header">
-                            <h2>{statusActionModal.newStatus}</h2>
-                            <button className="rc-modal-close" onClick={() => setStatusActionModal(null)}>&times;</button>
+                            <h2>Mark as Possible Duplicate</h2>
+                            <button className="rc-modal-close" onClick={() => setDuplicateModal(null)}>&times;</button>
                         </div>
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ fontSize: 13, color: "#334155", marginBottom: 14 }}>
+                                Explain why you believe this request duplicates another request.
+                            </div>
                             <div style={{ fontSize: 12, color: "#334155", marginBottom: 14, display: "flex", flexDirection: "column", gap: 8 }}>
                                 <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Request ID</span> {displayId}</div>
                                 <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Deliverable</span> {displayTitle || item.category || "\u2014"}</div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#991b1b" }}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
-                                    {statusActionModal.newStatus === "Duplicate" && "This will move the request to DD Operations \u2192 Needs DD Review for duplicate review."}
-                                    {statusActionModal.newStatus === "Not Applicable" && "This will move the request to DD Operations \u2192 Needs DD Review for disposition."}
-                                </div>
                             </div>
                             <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6, display: "block" }}>Reason <span style={{ color: "#dc2626" }}>*</span></label>
                             <textarea
-                                value={statusActionModal.reason}
-                                onChange={e => setStatusActionModal(prev => prev ? { ...prev, reason: e.target.value } : null)}
-                                placeholder={"Explain why this item is " + statusActionModal.newStatus.toLowerCase() + "..."}
+                                value={duplicateModal.reason}
+                                onChange={e => setDuplicateModal(prev => prev ? { ...prev, reason: e.target.value } : null)}
+                                placeholder="Explain why this is a possible duplicate..."
                                 rows={3}
                                 style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
                             />
+                            <div style={{ marginTop: 10, display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#991b1b" }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                This will send the request to DD Operations for duplicate review. It will remain visible under Returned / Needs Attention while the recommendation is reviewed.
+                            </div>
                         </div>
                         <div className="rc-modal-footer">
-                            <button className="rc-btn rc-btn-ghost" onClick={() => setStatusActionModal(null)}>Cancel</button>
-                            <button className="rc-btn rc-btn-primary" disabled={!statusActionModal.reason.trim()} onClick={() => {
-                                if (!statusActionModal) return;
-                                const reason = statusActionModal.reason.trim();
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setDuplicateModal(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!duplicateModal.reason.trim()} onClick={() => {
+                                const reason = duplicateModal.reason.trim();
                                 if (!reason) return;
-                                                                const reqId = item.id || item.intakeId || "";
-                                                                updateRequestStatus(reqId, statusActionModal.newStatus);
-                                                                updateRequestStatusNotes(reqId, reason);
-                                                                addWorkNote(reqId, reason, currentUser, statusActionModal.newStatus);
-                                                                addActivityEntry({
+                                const reqId = item.id || item.intakeId || "";
+                                updateRequestStatus(reqId, "Duplicate" as RecapRequest["status"]);
+                                updateRequestStatusNotes(reqId, reason);
+                                addWorkNote(reqId, reason, currentUser, "Duplicate");
+                                addActivityEntry({
                                     type: "Status Change",
-                                    description: `${displayId}: ${statusActionModal.newStatus}. Reason: ${reason}`,
+                                    description: `${displayId}: Marked as Duplicate. Reason: ${reason}`,
                                     userId: "current-user",
                                     userName: currentUser,
                                     requestId: item.requestId || item.id,
@@ -1388,9 +1471,65 @@ export default function RecapitalizationWorkspace() {
                                     transactionName: item.transactionName || item.transactionId,
                                 });
                                 setWsRefreshKey(k => k + 1);
-                                setActionFeedback(`\u2713 Marked as ${statusActionModal.newStatus}`);
-                                setStatusActionModal(null);
-                            }}>Confirm</button>
+                                setDuplicateModal(null);
+                                setCompletionDialog("duplicate");
+                            }}>Submit for Review</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {notApplicableModal && (
+                <div className="rc-modal-overlay" onClick={() => setNotApplicableModal(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+                        <div className="rc-modal-header">
+                            <h2>Recommend Not Applicable</h2>
+                            <button className="rc-modal-close" onClick={() => setNotApplicableModal(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ fontSize: 13, color: "#334155", marginBottom: 14 }}>
+                                Explain why this request is not applicable to the transaction.
+                            </div>
+                            <div style={{ fontSize: 12, color: "#334155", marginBottom: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+                                <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Request ID</span> {displayId}</div>
+                                <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Deliverable</span> {displayTitle || item.category || "\u2014"}</div>
+                            </div>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6, display: "block" }}>Reason <span style={{ color: "#dc2626" }}>*</span></label>
+                            <textarea
+                                value={notApplicableModal.reason}
+                                onChange={e => setNotApplicableModal(prev => prev ? { ...prev, reason: e.target.value } : null)}
+                                placeholder="Explain why this is not applicable..."
+                                rows={3}
+                                style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
+                            />
+                            <div style={{ marginTop: 10, display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#991b1b" }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                This will send your recommendation to DD Operations for review. If approved, it may be sent to the external partner for confirmation.
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setNotApplicableModal(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!notApplicableModal.reason.trim()} onClick={() => {
+                                const reason = notApplicableModal.reason.trim();
+                                if (!reason) return;
+                                const reqId = item.id || item.intakeId || "";
+                                updateRequestStatus(reqId, "Not Applicable" as RecapRequest["status"]);
+                                updateRequestStatusNotes(reqId, reason);
+                                addWorkNote(reqId, reason, currentUser, "Not Applicable");
+                                addActivityEntry({
+                                    type: "Status Change",
+                                    description: `${displayId}: Marked as Not Applicable. Reason: ${reason}`,
+                                    userId: "current-user",
+                                    userName: currentUser,
+                                    requestId: item.requestId || item.id,
+                                    requestTitle: displayTitle || item.category || "",
+                                    transactionId: item.transactionId,
+                                    transactionName: item.transactionName || item.transactionId,
+                                });
+                                setWsRefreshKey(k => k + 1);
+                                setNotApplicableModal(null);
+                                setCompletionDialog("not-applicable");
+                            }}>Submit Recommendation</button>
                         </div>
                     </div>
                 </div>
@@ -1522,26 +1661,37 @@ export default function RecapitalizationWorkspace() {
             )}
 
             {resolutionPrompt && (
-                <div className="rc-modal-overlay" onClick={() => { doStatusChange("In Progress"); setResolutionPrompt(null); }}>
-                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+                <div className="rc-modal-overlay" onClick={() => setResolutionPrompt(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
                         <div className="rc-modal-header">
-                            <h2>Add a resolution note?</h2>
-                            <button className="rc-modal-close" onClick={() => { doStatusChange("In Progress"); setResolutionPrompt(null); }}>&times;</button>
+                            <h2>Resolve Blocker</h2>
+                            <button className="rc-modal-close" onClick={() => setResolutionPrompt(null)}>&times;</button>
                         </div>
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
-                            <div style={{ fontSize: 12, color: "#475569", marginBottom: 12, lineHeight: 1.5 }}>
-                                The status is being changed from <strong>{displayStatus}</strong> to <strong>In Progress</strong>. Optionally add a resolution note to explain what was resolved.
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                <div style={{ fontSize: 13, color: "#334155" }}>
+                                    The blocker is being resolved and the request will return to active work.
+                                </div>
+                                {item._statusNotes && (
+                                    <div style={{ padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b", lineHeight: 1.5 }}>
+                                        <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>Blocker reason:</span>
+                                        {item._statusNotes}
+                                    </div>
+                                )}
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                                    Resolution note <span style={{ color: "#6b7280", fontWeight: 400 }}>(optional)</span>
+                                </label>
+                                <textarea
+                                    value={resolutionPrompt.note}
+                                    onChange={e => setResolutionPrompt({ note: e.target.value })}
+                                    placeholder="Describe how the blocker was resolved..."
+                                    rows={3}
+                                    style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
+                                />
                             </div>
-                            <textarea
-                                value={resolutionPrompt.note}
-                                onChange={e => setResolutionPrompt({ note: e.target.value })}
-                                placeholder="What was resolved? (optional)"
-                                rows={3}
-                                style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
-                            />
                         </div>
                         <div className="rc-modal-footer">
-                            <button className="rc-btn rc-btn-ghost" onClick={() => { doStatusChange("In Progress"); setResolutionPrompt(null); }}>Skip</button>
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setResolutionPrompt(null)}>Cancel</button>
                             <button className="rc-btn rc-btn-primary" onClick={() => {
                                 const note = resolutionPrompt.note.trim();
                                 const reqId = item.id || item.intakeId || "";
@@ -1550,7 +1700,8 @@ export default function RecapitalizationWorkspace() {
                                     addWorkNote(reqId, note, currentUser, "Work Note");
                                 }
                                 setResolutionPrompt(null);
-                            }}>{resolutionPrompt.note.trim() ? "Save & Continue" : "Continue"}</button>
+                                setCompletionDialog("resolved");
+                            }}>Resolve Blocker</button>
                         </div>
                     </div>
                 </div>
@@ -1558,15 +1709,15 @@ export default function RecapitalizationWorkspace() {
 
             {notMine && (
                 <div className="rc-modal-overlay" onClick={() => setNotMine(null)}>
-                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
                         <div className="rc-modal-header">
-                            <h2>Not Mine</h2>
+                            <h2>Request Reassignment</h2>
                             <button className="rc-modal-close" onClick={() => setNotMine(null)}>&times;</button>
                         </div>
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
                             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                                 <div style={{ fontSize: 13, color: "#334155" }}>
-                                    This will remove the item from your Active Work and send it to DD Operations for reassignment.
+                                    Tell DD Operations why this request should be assigned to someone else.
                                 </div>
                                 <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
                                     Reason <span style={{ color: "#dc2626" }}>*</span>
@@ -1578,6 +1729,10 @@ export default function RecapitalizationWorkspace() {
                                     rows={3}
                                     style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
                                 />
+                                <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#991b1b" }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                    This will notify DD Operations and move the request to Returned / Needs Attention while reassignment is reviewed.
+                                </div>
                             </div>
                         </div>
                         <div className="rc-modal-footer">
@@ -1587,9 +1742,9 @@ export default function RecapitalizationWorkspace() {
                                 if (!reason) return;
                                 updateRequestNotMine(notMine.req.id, reason, currentUser);
                                 setWsRefreshKey(k => k + 1);
-                                setActionFeedback(`\u2713 ${notMine.req.requestId} sent for reassignment`);
                                 setNotMine(null);
-                            }}>Report Not Mine</button>
+                                setCompletionDialog("not-mine");
+                            }}>Request Reassignment</button>
                         </div>
                     </div>
                 </div>
@@ -1747,6 +1902,75 @@ export default function RecapitalizationWorkspace() {
                     "The request will return to DD Operations after the owner resubmits it.",
                 ]}
                 primaryAction={{ label: "Return to DD Operations", onClick: () => { setCompletionDialog(null); navigate("/recapitalization/dd-operations"); } }}
+                secondaryAction={{ label: "Stay on Request", onClick: () => setCompletionDialog(null) }}
+            />
+
+            <WorkflowCompletionDialog
+                isOpen={completionDialog === "duplicate"}
+                onClose={() => setCompletionDialog(null)}
+                icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>}
+                iconBg="#6d28d9"
+                title="Possible Duplicate Submitted"
+                explanation="Your duplicate recommendation has been sent to DD Operations."
+                currentStatus="Duplicate Review Pending"
+                whatHappensNext={[
+                    "DD Operations will compare this request with related requests.",
+                    "They may approve the duplicate recommendation or return it to you.",
+                    "If approved, the recommendation may be sent to the external partner for confirmation.",
+                    "The request will remain visible under Returned / Needs Attention while the review is pending.",
+                ]}
+                primaryAction={{ label: "Return to My Work", onClick: () => { setCompletionDialog(null); navigate("/recapitalization/my-work"); } }}
+                secondaryAction={{ label: "Stay on Request", onClick: () => setCompletionDialog(null) }}
+            />
+
+            <WorkflowCompletionDialog
+                isOpen={completionDialog === "not-applicable"}
+                onClose={() => setCompletionDialog(null)}
+                icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>}
+                iconBg="#4f46e5"
+                title="Not Applicable Recommendation Sent"
+                explanation="Your recommendation has been sent to DD Operations."
+                currentStatus="Not Applicable Review Pending"
+                whatHappensNext={[
+                    "DD Operations will review the recommendation.",
+                    "They may return the request to you for more information.",
+                    "If approved, the external partner may be asked to approve removal.",
+                    "The request will remain visible under Returned / Needs Attention while the decision is pending.",
+                ]}
+                primaryAction={{ label: "Return to My Work", onClick: () => { setCompletionDialog(null); navigate("/recapitalization/my-work"); } }}
+                secondaryAction={{ label: "Stay on Request", onClick: () => setCompletionDialog(null) }}
+            />
+
+            <WorkflowCompletionDialog
+                isOpen={completionDialog === "not-mine"}
+                onClose={() => setCompletionDialog(null)}
+                icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>}
+                iconBg="#2563eb"
+                title="Reassignment Requested"
+                explanation="DD Operations has been notified that this request needs a different owner."
+                currentStatus="Needs Reassignment"
+                whatHappensNext={[
+                    "DD Operations will review your reason.",
+                    "They may assign the request to another owner or return it to you.",
+                    "The request will remain visible under Returned / Needs Attention until reassignment is complete.",
+                ]}
+                primaryAction={{ label: "Return to My Work", onClick: () => { setCompletionDialog(null); navigate("/recapitalization/my-work"); } }}
+                secondaryAction={{ label: "Stay on Request", onClick: () => setCompletionDialog(null) }}
+            />
+
+            <WorkflowCompletionDialog
+                isOpen={completionDialog === "resolved"}
+                onClose={() => setCompletionDialog(null)}
+                icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>}
+                iconBg="#2563eb"
+                title="Blocker Resolved"
+                explanation="The blocker has been resolved and the request is ready to continue."
+                currentStatus="In Progress"
+                whatHappensNext={[
+                    "The request has returned to active work.",
+                    "The resolution will be visible in the activity history.",
+                ]}
+                primaryAction={{ label: "Return to My Work", onClick: () => { setCompletionDialog(null); navigate("/recapitalization/my-work"); } }}
                 secondaryAction={{ label: "Stay on Request", onClick: () => setCompletionDialog(null) }}
             />
 
