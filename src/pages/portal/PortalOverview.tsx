@@ -19,10 +19,13 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
     "Work Queue": { bg: "#fef3c7", text: "#92400e", border: "#fde68a" },
     "Quality Review": { bg: "#fffbeb", text: "#92400e", border: "#fde68a" },
     "Action Needed": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
+    "Clarification Requested": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
     Closed: { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
     "Closed / Duplicate": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
     "Closed / Not Applicable": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
     "Exception Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
+    "Possible Duplicate": { bg: "#faf5ff", text: "#6d28d9", border: "#ddd6fe" },
+    "Not Applicable Review": { bg: "#eef2ff", text: "#4338ca", border: "#c7d2fe" },
 };
 
 const STAT_HELPERS: Record<string, string> = {
@@ -34,7 +37,9 @@ const STAT_HELPERS: Record<string, string> = {
     Approved: "Completed and approved",
     "Rework Required": "Returned for rework",
     "Action Needed": "Requires your attention",
-    "Exception Review": "Needs your decision on removal or merge",
+    "Exception Review": "Needs your decision on duplicate or removal",
+    "Possible Duplicate": "Needs your decision on duplicate",
+    "Not Applicable Review": "Needs your decision on removal",
     "Total Requests": "All active requests",
 };
 
@@ -92,8 +97,8 @@ export default function PortalOverview() {
     const qualityReviewCount = portalRequests.filter(r => r.status === "Quality Review" && !r._publishedExternal && r.externalStatus !== "Published External").length;
     const intakeCount = portalRequests.filter(r => r.status === "Intake Review").length;
     const workQueueCount = portalRequests.filter(r => r.status === "Work Queue").length;
-    const actionNeededCount = portalRequests.filter(r => r.status === "Action Needed").length;
-    const exceptionReviewCount = portalRequests.filter(r => r.status === "Exception Review").length;
+    const actionNeededCount = portalRequests.filter(r => r.status === "Action Needed" || r.status === "Clarification Requested").length;
+    const exceptionReviewCount = portalRequests.filter(r => r.status === "Exception Review" || r.status === "Possible Duplicate" || r.status === "Not Applicable Review").length;
     const inProgress = portalRequests.filter(r => r.status === "In Progress").length;
     const visibleRequests = portalRequests.filter(r => r.status !== "Closed" && r.status !== "Closed / Duplicate" && r.status !== "Closed / Not Applicable");
 
@@ -515,6 +520,9 @@ export default function PortalOverview() {
                                     <option value="Rework Required">Rework Required</option>
                                     <option value="Action Needed">Action Needed</option>
                                     <option value="Exception Review">Exception Review</option>
+                                    <option value="Possible Duplicate">Possible Duplicate</option>
+                                    <option value="Not Applicable Review">Not Applicable Review</option>
+                                    <option value="Clarification Requested">Clarification Requested</option>
                                 </select>
                                 <select className="po-filter-select" value={dashboardFilterCategory} onChange={e => setDashboardFilterCategory(e.target.value)}>
                                     <option value="all">All Categories</option>

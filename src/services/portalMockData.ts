@@ -95,9 +95,13 @@ export interface PortalRequest {
     /** Exception recommendation fields for external partner review */
     _exceptionRecommendation?: "Duplicate" | "Not Applicable" | null;
     _exceptionSentAt?: string | null;
-    _exceptionDecision?: "Approve Removal" | "Keep Request" | "Approve Merge" | "Keep Separate" | null;
+    _exceptionDecision?: "Approve Removal" | "Keep Request" | "Confirm Duplicate" | "Keep Separate" | null;
     _exceptionDecisionAt?: string | null;
     _exceptionDecisionNote?: string | null;
+    _exceptionReason?: string | null;
+    _archived?: boolean;
+    _archiveReason?: "Duplicate" | "Not Applicable" | "Cancelled" | "Closed" | null;
+    _archivedAt?: string | null;
 }
 
 export interface PortalQuestion {
@@ -225,9 +229,9 @@ function mapRecapToPortalTxn(txn: RecapTransaction): PortalTransaction {
 
 function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
     let portalStatus: string;
-    // Exception recommendation awaiting partner decision
+    // Exception recommendation awaiting partner decision → specific status
     if (req._exceptionRecommendation && !req._exceptionDecision) {
-        portalStatus = "Exception Review";
+        portalStatus = req._exceptionRecommendation === "Duplicate" ? "Possible Duplicate" : "Not Applicable Review";
     // Published externally → check partner review status
     } else if (req._publishedExternal || req._externalStatus === "Published External") {
         if (req.status === "Completed") {
@@ -237,9 +241,9 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
         } else {
             portalStatus = "Waiting Review";
         }
-    // Clarification requested → Action Needed
+    // Clarification requested → Clarification Requested
     } else if (req.status === "Clarification Needed") {
-        portalStatus = "Action Needed";
+        portalStatus = "Clarification Requested";
     // Internal In Progress → External In Progress
     } else if (req.status === "In Progress") {
         portalStatus = "In Progress";
@@ -294,6 +298,10 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
         _exceptionDecision: req._exceptionDecision ?? null,
         _exceptionDecisionAt: req._exceptionDecisionAt ?? null,
         _exceptionDecisionNote: req._exceptionDecisionNote ?? null,
+        _exceptionReason: req._statusNotes ?? null,
+        _archived: !!req._archived,
+        _archiveReason: req._archiveReason ?? null,
+        _archivedAt: req._archivedAt ?? null,
     };
 }
 

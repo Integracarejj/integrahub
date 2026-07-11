@@ -18,6 +18,9 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
     "Closed / Duplicate": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
     "Closed / Not Applicable": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
     "Exception Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
+    "Possible Duplicate": { bg: "#faf5ff", text: "#6d28d9", border: "#ddd6fe" },
+    "Not Applicable Review": { bg: "#eef2ff", text: "#4338ca", border: "#c7d2fe" },
+    "Clarification Requested": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -37,6 +40,9 @@ const STATUS_PROGRESS: Record<string, { step: number; label: string }> = {
     Published: { step: 5, label: "Published" },
     "Waiting Review": { step: 6, label: "Waiting Review" },
     "Exception Review": { step: 6, label: "Exception Review" },
+    "Possible Duplicate": { step: 6, label: "Exception Review" },
+    "Not Applicable Review": { step: 6, label: "Exception Review" },
+    "Clarification Requested": { step: 4, label: "Clarification Requested" },
     Approved: { step: 7, label: "Approved" },
     "Rework Required": { step: 7, label: "Rework Required" },
 };
@@ -53,7 +59,7 @@ const TRACKER_STEPS = [
 function StatusTracker({ status }: { status: string }) {
     const current = STATUS_PROGRESS[status];
     if (!current) return null;
-    const isPartnerStatus = status === "Waiting Review" || status === "Approved" || status === "Rework Required" || status === "Exception Review";
+    const isPartnerStatus = status === "Waiting Review" || status === "Approved" || status === "Rework Required" || status === "Exception Review" || status === "Possible Duplicate" || status === "Not Applicable Review";
     return (
         <div style={{ marginBottom: 20 }}>
             <div className="po-tracker">
@@ -92,13 +98,16 @@ function StatusTracker({ status }: { status: string }) {
                     {status === "Published" && "The artifacts for this request are available. The team will be notified when you complete your review."}
                     {status === "Waiting Review" && "Due diligence artifacts are ready for your review. Please review the supporting materials and approve or request rework."}
                     {status === "Exception Review" && "The IntegraCare team has identified this request as potentially duplicate or not applicable. Please review the recommendation below and make a decision."}
+                    {status === "Possible Duplicate" && "The IntegraCare team has identified this request as a possible duplicate. Please review the recommendation below and make a decision."}
+                    {status === "Not Applicable Review" && "The IntegraCare team has identified this request as potentially not applicable. Please review the recommendation below and make a decision."}
+                    {status === "Clarification Requested" && "Additional information has been requested regarding your submission. Please check for open clarifications and respond."}
                     {status === "Approved" && "You have approved this request. The IntegraCare team has been notified of your decision."}
                     {status === "Rework Required" && "You have requested rework on this request. The IntegraCare team will address your feedback."}
                     {status === "Action Needed" && "Additional information is needed from your side. Please check for open clarifications and respond promptly."}
                     {status === "Closed" && "This request has been closed. Contact the DD team if you have questions."}
                     {status === "Closed / Duplicate" && "This request was found to be a duplicate and has been closed after partner confirmation."}
                     {status === "Closed / Not Applicable" && "This request was found to be not applicable and has been removed after partner confirmation."}
-                    {!["Intake Review", "Work Queue", "In Progress", "Quality Review", "Action Needed", "Closed", "Closed / Duplicate", "Closed / Not Applicable", "Published", "Waiting Review", "Approved", "Rework Required", "Exception Review"].includes(status) && "IntegraCare is processing this request."}
+                    {!["Intake Review", "Work Queue", "In Progress", "Quality Review", "Action Needed", "Clarification Requested", "Closed", "Closed / Duplicate", "Closed / Not Applicable", "Published", "Waiting Review", "Approved", "Rework Required", "Exception Review", "Possible Duplicate", "Not Applicable Review"].includes(status) && "IntegraCare is processing this request."}
                 </div>
             </div>
         </div>
@@ -215,18 +224,18 @@ function ExceptionDecisionModal({
 }: {
     recommendation: "Duplicate" | "Not Applicable";
     onClose: () => void;
-    onConfirm: (decision: "Approve Merge" | "Keep Separate" | "Approve Removal" | "Keep Request", note?: string) => void;
+    onConfirm: (decision: "Confirm Duplicate" | "Keep Separate" | "Approve Removal" | "Keep Request", note?: string) => void;
 }) {
     const [note, setNote] = useState("");
     const isDuplicate = recommendation === "Duplicate";
 
-    const approveLabel = isDuplicate ? "Approve Merge" : "Approve Removal";
+    const approveLabel = isDuplicate ? "Confirm Duplicate" : "Approve Removal";
     const keepLabel = isDuplicate ? "Keep Separate" : "Keep Request";
     const approveDesc = isDuplicate
-        ? "Agree that this request is a duplicate. It will be merged and closed."
-        : "Agree that this request is not applicable. It will be removed and closed.";
+        ? "Agree this appears to be a duplicate request. The request will be archived while the original request remains active."
+        : "Agree that this request is not applicable. It will be archived and removed.";
     const keepDesc = isDuplicate
-        ? "Disagree — this request is not a duplicate. It will remain active."
+        ? "Disagree — this is a unique request and should remain active."
         : "Disagree — this request is applicable. It will remain active.";
 
     return (
@@ -256,7 +265,7 @@ function ExceptionDecisionModal({
                     </div>
                     <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
                         <button
-                            onClick={() => onConfirm(isDuplicate ? "Approve Merge" : "Approve Removal")}
+                            onClick={() => onConfirm(isDuplicate ? "Confirm Duplicate" : "Approve Removal")}
                             style={{
                                 width: "100%", padding: "14px 16px", fontSize: 14, fontWeight: 700, borderRadius: 12,
                                 border: "2px solid #6b21a8", background: "#faf5ff", color: "#6b21a8",
@@ -335,7 +344,7 @@ export default function PortalRequestDetail() {
         setModalMode(null);
     };
 
-    const handleExceptionDecision = (decision: "Approve Merge" | "Keep Separate" | "Approve Removal" | "Keep Request", note?: string) => {
+    const handleExceptionDecision = (decision: "Confirm Duplicate" | "Keep Separate" | "Approve Removal" | "Keep Request", note?: string) => {
         if (!req) return;
         partnerExceptionDecision(req.id, decision, note);
         setExceptionModal(null);
@@ -581,7 +590,7 @@ export default function PortalRequestDetail() {
                     )}
 
                     {/* ── Exception Review Action Buttons ── */}
-                    {req.status === "Exception Review" && req._exceptionRecommendation && (
+                    {(req.status === "Exception Review" || req.status === "Possible Duplicate" || req.status === "Not Applicable Review") && req._exceptionRecommendation && (
                         <div style={{ border: "2px solid #ddd6fe", borderRadius: 16, padding: 24, background: "linear-gradient(135deg, #faf5ff 0%, #f0fdf4 100%)" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
                                 <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#6b21a8", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
@@ -617,8 +626,8 @@ export default function PortalRequestDetail() {
                         </div>
                     )}
 
-                    {/* ── Exception Decision: Approved Removal / Approved Merge ── */}
-                    {req._exceptionDecision === "Approve Removal" || req._exceptionDecision === "Approve Merge" ? (
+                    {/* ── Exception Decision: Approved Removal / Confirm Duplicate ── */}
+                    {req._exceptionDecision === "Approve Removal" || req._exceptionDecision === "Confirm Duplicate" ? (
                         <div style={{ border: "2px solid #bbf7d0", borderRadius: 16, padding: 24, background: "linear-gradient(135deg, #f0fdf4 0%, #faf5ff 100%)" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
                                 <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#166534", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
@@ -626,10 +635,12 @@ export default function PortalRequestDetail() {
                                 </div>
                                 <div>
                                     <div style={{ fontSize: 18, fontWeight: 800, color: "#166534" }}>
-                                        {req._exceptionDecision === "Approve Removal" ? "Removal Approved" : "Merge Approved"}
+                                        {req._exceptionDecision === "Approve Removal" ? "Removal Approved" : "Duplicate Confirmed"}
                                     </div>
                                     <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>
-                                        You approved the {req._exceptionRecommendation?.toLowerCase() ?? ""} recommendation. This request will be closed.
+                                        {req._exceptionDecision === "Approve Removal"
+                                            ? "You approved the removal recommendation. This request has been archived."
+                                            : "This request has been archived as a confirmed duplicate. The original request remains active."}
                                     </div>
                                 </div>
                             </div>

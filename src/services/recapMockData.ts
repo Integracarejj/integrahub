@@ -75,9 +75,14 @@ export interface RecapRequest {
     _exceptionRecommendation?: "Duplicate" | "Not Applicable" | null;
     _exceptionSentAt?: string | null;
     /** External partner's decision on an exception recommendation */
-    _exceptionDecision?: "Approve Removal" | "Keep Request" | "Approve Merge" | "Keep Separate" | null;
+    _exceptionDecision?: "Approve Removal" | "Keep Request" | "Confirm Duplicate" | "Keep Separate" | null;
     _exceptionDecisionAt?: string | null;
     _exceptionDecisionNote?: string | null;
+    /** Archive fields */
+    _archived?: boolean;
+    _archiveReason?: "Duplicate" | "Not Applicable" | "Cancelled" | "Closed" | null;
+    _archivedAt?: string | null;
+    _archivedBy?: string | null;
 }
 
 export interface WorkNoteEntry {
@@ -706,17 +711,21 @@ export function sendExceptionRecommendation(id: string, recommendation: "Duplica
     return req;
 }
 
-export function partnerExceptionDecision(id: string, decision: "Approve Removal" | "Keep Request" | "Approve Merge" | "Keep Separate", note?: string): RecapRequest | undefined {
+export function partnerExceptionDecision(id: string, decision: "Approve Removal" | "Keep Request" | "Confirm Duplicate" | "Keep Separate", note?: string): RecapRequest | undefined {
     const req = MOCK_REQUESTS.find((r) => r.id === id);
     if (req) {
         req._exceptionDecision = decision;
         req._exceptionDecisionAt = new Date().toISOString();
         req._exceptionDecisionNote = note || null;
         req.lastUpdated = new Date().toISOString().split("T")[0];
-        if (decision === "Approve Removal" || decision === "Approve Merge") {
+        if (decision === "Approve Removal" || decision === "Confirm Duplicate") {
             req.status = "Completed";
             req._completedBy = "External Partner";
             req._completedAt = new Date().toISOString().split("T")[0];
+            req._archived = true;
+            req._archiveReason = decision === "Confirm Duplicate" ? "Duplicate" : "Not Applicable";
+            req._archivedAt = new Date().toISOString().split("T")[0];
+            req._archivedBy = "External Partner";
         }
     }
     return req;

@@ -247,7 +247,7 @@ export function sendExceptionRecommendation(id: string, recommendation: "Duplica
     });
 }
 
-export function partnerExceptionDecision(id: string, decision: "Approve Removal" | "Keep Request" | "Approve Merge" | "Keep Separate", note?: string): RecapRequest | undefined {
+export function partnerExceptionDecision(id: string, decision: "Approve Removal" | "Keep Request" | "Confirm Duplicate" | "Keep Separate", note?: string): RecapRequest | undefined {
     const now = new Date().toISOString();
     const nowDate = now.split("T")[0];
     const patch: Partial<RecapRequest> = {
@@ -255,10 +255,14 @@ export function partnerExceptionDecision(id: string, decision: "Approve Removal"
         _exceptionDecisionAt: now,
         _exceptionDecisionNote: note || null,
     };
-    if (decision === "Approve Removal" || decision === "Approve Merge") {
+    if (decision === "Approve Removal" || decision === "Confirm Duplicate") {
         patch.status = "Completed";
         patch._completedBy = "External Partner";
         patch._completedAt = nowDate;
+        patch._archived = true;
+        patch._archiveReason = decision === "Confirm Duplicate" ? "Duplicate" : "Not Applicable";
+        patch._archivedAt = nowDate;
+        patch._archivedBy = "External Partner";
     }
     const desc = `Partner exception decision: ${decision}${note ? `. Note: ${note}` : ""}`;
     if (isDemoLoaded()) {

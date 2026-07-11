@@ -981,23 +981,23 @@ function WorkflowStateCard({
 
                     {/* Exception Decision Banner */}
                     {["Duplicate", "Not Applicable"].includes(displayStatus) && (item as any)._exceptionDecision && (
-                        <div style={{ margin: "0 32px", padding: "14px 18px", borderRadius: 10, background: (item as any)._exceptionDecision === "Approve Removal" || (item as any)._exceptionDecision === "Approve Merge" ? "#f0fdf4" : "#fff7ed", border: `1px solid ${(item as any)._exceptionDecision === "Approve Removal" || (item as any)._exceptionDecision === "Approve Merge" ? "#86efac" : "#fdba74"}`, display: "flex", alignItems: "flex-start", gap: 12 }}>
-                            <div style={{ width: 24, height: 24, borderRadius: "50%", background: (item as any)._exceptionDecision === "Approve Removal" || (item as any)._exceptionDecision === "Approve Merge" ? "#166534" : "#ea580c", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
-                                {(item as any)._exceptionDecision === "Approve Removal" || (item as any)._exceptionDecision === "Approve Merge" ? (
+                        <div style={{ margin: "0 32px", padding: "14px 18px", borderRadius: 10, background: (item as any)._exceptionDecision === "Approve Removal" || (item as any)._exceptionDecision === "Confirm Duplicate" ? "#f0fdf4" : "#fff7ed", border: `1px solid ${(item as any)._exceptionDecision === "Approve Removal" || (item as any)._exceptionDecision === "Confirm Duplicate" ? "#86efac" : "#fdba74"}`, display: "flex", alignItems: "flex-start", gap: 12 }}>
+                            <div style={{ width: 24, height: 24, borderRadius: "50%", background: (item as any)._exceptionDecision === "Approve Removal" || (item as any)._exceptionDecision === "Confirm Duplicate" ? "#166534" : "#ea580c", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                                {(item as any)._exceptionDecision === "Approve Removal" || (item as any)._exceptionDecision === "Confirm Duplicate" ? (
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                                 ) : (
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                                 )}
                             </div>
                             <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 14, fontWeight: 700, color: (item as any)._exceptionDecision === "Approve Removal" || (item as any)._exceptionDecision === "Approve Merge" ? "#166534" : "#9a3412" }}>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: (item as any)._exceptionDecision === "Approve Removal" || (item as any)._exceptionDecision === "Confirm Duplicate" ? "#166534" : "#9a3412" }}>
                                     {(item as any)._exceptionDecision === "Approve Removal" && "Partner Approved Removal"}
                                     {(item as any)._exceptionDecision === "Keep Request" && "Partner Requested to Keep Item Active"}
-                                    {(item as any)._exceptionDecision === "Approve Merge" && "Partner Approved Merge"}
+                                    {(item as any)._exceptionDecision === "Confirm Duplicate" && "Partner Confirmed Duplicate"}
                                     {(item as any)._exceptionDecision === "Keep Separate" && "Partner Requested to Keep Item Separate"}
                                 </div>
                                 {(item as any)._exceptionDecisionNote && (
-                                    <div style={{ fontSize: 13, color: "#334155", marginTop: 4, lineHeight: 1.6, padding: "8px 10px", background: "rgba(255,255,255,0.6)", borderRadius: 6, border: `1px solid ${(item as any)._exceptionDecision === "Approve Removal" || (item as any)._exceptionDecision === "Approve Merge" ? "#bbf7d0" : "#fed7aa"}`, whiteSpace: "pre-wrap" }}>
+                                    <div style={{ fontSize: 13, color: "#334155", marginTop: 4, lineHeight: 1.6, padding: "8px 10px", background: "rgba(255,255,255,0.6)", borderRadius: 6, border: `1px solid ${(item as any)._exceptionDecision === "Approve Removal" || (item as any)._exceptionDecision === "Confirm Duplicate" ? "#bbf7d0" : "#fed7aa"}`, whiteSpace: "pre-wrap" }}>
                                         {(item as any)._exceptionDecisionNote}
                                     </div>
                                 )}

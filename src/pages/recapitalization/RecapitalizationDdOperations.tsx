@@ -417,6 +417,7 @@ export default function RecapitalizationDdOperations() {
                         <th style={{ width: 90, minWidth: 70 }}>Community</th>
                         <th style={{ width: 60, textAlign: "center" }}>Pri</th>
                         <th style={{ width: 105, minWidth: 85 }}>Status</th>
+                        {activeView === "needs-dd-review" && <th style={{ width: 130, minWidth: 110 }}>Exception Type</th>}
                         {(activeView === "needs-dd-review" || activeView === "full-work-queue") && <th style={{ width: 80, minWidth: 70 }}>Owner</th>}
                         <th style={{ width: 75, minWidth: 65 }}>Team</th>
                         <th style={{ width: 85, minWidth: 70 }}>Due</th>
@@ -454,6 +455,34 @@ export default function RecapitalizationDdOperations() {
                                 </div>
                             </td>
                             <td><ExternalStatus req={req} /></td>
+                            {activeView === "needs-dd-review" && (
+                                <td onClick={e => e.stopPropagation()} style={{ fontSize: 11 }}>
+                                    {req.status === "Blocked" ? (
+                                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#fef2f2", color: "#dc2626", fontWeight: 600, border: "1px solid #fecaca", whiteSpace: "nowrap" }}>
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                                            Blocked
+                                        </span>
+                                    ) : req.status === "Clarification Needed" ? (
+                                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#fff7ed", color: "#9a3412", fontWeight: 600, border: "1px solid #fed7aa", whiteSpace: "nowrap" }}>
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
+                                            Clarification Needed
+                                        </span>
+                                    ) : req._needsReassignment || req._misassignedReason ? (
+                                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#f0f4ff", color: "#4338ca", fontWeight: 600, border: "1px solid #c7d2fe", whiteSpace: "nowrap" }}>
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" /></svg>
+                                            Needs Reassignment
+                                        </span>
+                                    ) : (
+                                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#f0fdf4", color: "#166534", fontWeight: 600, border: "1px solid #bbf7d0", whiteSpace: "nowrap" }}>
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                            Ready for Review
+                                        </span>
+                                    )}
+                                    <span style={{ display: "block", fontSize: 10, color: "#64748b", marginTop: 2, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={getRequestNote(req) || ""}>
+                                        {getRequestNote(req) ? `${getRequestNote(req)!.slice(0, 100)}${getRequestNote(req)!.length > 100 ? "..." : ""}` : ""}
+                                    </span>
+                                </td>
+                            )}
                             <td style={{ fontSize: 12, color: "#475569" }}>{req.owner || "\u2014"}</td>
                             <td style={{ fontSize: 12 }}>{req.team}</td>
                             <td className="nowrap" style={{ fontSize: 12, color: req.status === "Overdue" ? "#991b1b" : "#475569", fontWeight: req.status === "Overdue" ? 600 : 400 }}>{req.dueDate}</td>
@@ -479,13 +508,42 @@ export default function RecapitalizationDdOperations() {
                             </td>
                             <td onClick={e => e.stopPropagation()} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                 {activeView === "needs-dd-review" && req.owner && !req._needsReassignment && !req._misassignedReason && (
-                                    <button
-                                        onClick={() => setReturnToOwner({ req, reason: "" })}
-                                        style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#92400e", border: "1px solid #fde68a", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                        title="Return this item to the original owner"
-                                    >
-                                        Return to Owner
-                                    </button>
+                                    <>
+                                        {req.status === "Clarification Needed" && (
+                                            <button
+                                                onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })}
+                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff7ed", color: "#9a3412", border: "1px solid #fed7aa", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", marginRight: 4 }}
+                                                title="Review the clarification question"
+                                            >
+                                                Review Question
+                                            </button>
+                                        )}
+                                        {req.status === "Blocked" && (
+                                            <button
+                                                onClick={() => setResolveModal({ req, note: "" })}
+                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", marginRight: 4 }}
+                                                title="Review and resolve blocker"
+                                            >
+                                                Review Blocker
+                                            </button>
+                                        )}
+                                        {req.status !== "Clarification Needed" && req.status !== "Blocked" && (
+                                            <button
+                                                onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })}
+                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#f0f4ff", color: "#4338ca", border: "1px solid #c7d2fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", marginRight: 4 }}
+                                                title="Open request"
+                                            >
+                                                Open
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => setReturnToOwner({ req, reason: "" })}
+                                            style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#92400e", border: "1px solid #fde68a", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                            title="Return this item to the original owner"
+                                        >
+                                            Return to Owner
+                                        </button>
+                                    </>
                                 )}
                                 {((activeView === "needs-dd-review" && (!req.owner || req._needsReassignment || req._misassignedReason)) || (activeView === "full-work-queue" && !req.owner)) && (
                                     <select
@@ -519,15 +577,6 @@ export default function RecapitalizationDdOperations() {
                                         <option value="">Assign...</option>
                                         {members.filter(m => m.team !== "DD Management").map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                                     </select>
-                                )}
-                                {req.status === "Blocked" && (
-                                    <button
-                                        onClick={() => setResolveModal({ req, note: "" })}
-                                        style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                        title="Resolve blocker"
-                                    >
-                                        Resolve Blocker
-                                    </button>
                                 )}
                             </td>
                         </tr>
@@ -787,7 +836,7 @@ export default function RecapitalizationDdOperations() {
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg>
                                     {archiveConfirm.req.status === "Not Applicable"
                                         ? "This will send the Not Applicable recommendation to the external partner for decision. The partner can Approve Removal or Keep Request active."
-                                        : "This will send the Duplicate recommendation to the external partner for decision. The partner can Approve Merge or Keep Separate."}
+                                        : "This will send the Duplicate recommendation to the external partner for decision. The partner can Confirm Duplicate or Keep Separate."}
                                 </div>
                                 <div style={{ fontSize: 12, color: "#075985", background: "#e0f2fe", padding: "8px 10px", borderRadius: 6, display: "flex", alignItems: "center", gap: 6 }}>
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
