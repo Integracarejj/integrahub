@@ -606,6 +606,12 @@ export default function PortalRequestDetail() {
                                     </div>
                                 </div>
                             </div>
+                            {req._exceptionReason && (
+                                <div style={{ padding: "10px 14px", background: "#f5f3ff", border: "1px solid #ddd6fe", borderRadius: 8, fontSize: 13, color: "#5b21b6", lineHeight: 1.5, marginBottom: 16 }}>
+                                    <span style={{ fontWeight: 700, display: "block", marginBottom: 2, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em" }}>Reason</span>
+                                    {req._exceptionReason}
+                                </div>
+                            )}
                             <div style={{ fontSize: 14, color: "#334155", marginBottom: 20, textAlign: "center", lineHeight: 1.5 }}>
                                 Please review the recommendation and make a final decision.
                             </div>

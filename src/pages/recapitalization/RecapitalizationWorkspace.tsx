@@ -958,7 +958,7 @@ function WorkflowStateCard({
 
                     {/* Exception Recommendation Banner */}
                     {["Duplicate", "Not Applicable"].includes(displayStatus) && (item as any)._exceptionRecommendation && !(item as any)._exceptionDecision && (
-                        <div style={{ margin: "0 32px", padding: "14px 18px", borderRadius: 10, background: "#faf5ff", border: "1px solid #ddd6fe", display: "flex", alignItems: "flex-start", gap: 12, boxShadow: "0 2px 8px rgba(109,40,217,0.08)" }}>
+                        <div style={{ margin: "0 32px", padding: "14px 18px", borderRadius: 10, background: "#faf5ff", border: "1px solid #ddd6fe", display: "flex", alignItems: "flex-start", gap: 12 }}>
                             <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#7c3aed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                             </div>
@@ -969,10 +969,16 @@ function WorkflowStateCard({
                                 <div style={{ fontSize: 13, color: "#334155", marginTop: 4, lineHeight: 1.6 }}>
                                     This item was marked as <strong>{displayStatus}</strong> and is awaiting external partner review. The partner will decide whether to approve removal/merge or keep the item active.
                                 </div>
+                                {(item as any)._statusNotes && (
+                                    <div style={{ marginTop: 8, padding: "8px 10px", background: "rgba(255,255,255,0.6)", border: "1px solid #ddd6fe", borderRadius: 6, fontSize: 12, color: "#5b21b6", lineHeight: 1.5 }}>
+                                        <span style={{ fontWeight: 700, display: "block", marginBottom: 2, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em" }}>Reason</span>
+                                        {(item as any)._statusNotes}
+                                    </div>
+                                )}
                                 {(item as any)._exceptionSentAt && (
                                     <div style={{ fontSize: 11, color: "#475569", marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                                        Sent for review: {new Date((item as any)._exceptionSentAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                        Sent for review: {new Date((item as any)._exceptionSentAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                                     </div>
                                 )}
                             </div>

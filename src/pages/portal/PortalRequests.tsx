@@ -119,6 +119,11 @@ export default function PortalRequests() {
                         <span className="po-requests-id">{req.requestId}</span>
                         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                             <span className="po-requests-title">{req.title}</span>
+                            {req._exceptionReason && (
+                                <span style={{ fontSize: 10, color: "#6b21a8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 280 }} title={req._exceptionReason}>
+                                    {req._exceptionReason.slice(0, 100)}{req._exceptionReason.length > 100 ? "..." : ""}
+                                </span>
+                            )}
                         </div>
                         <span>
                             <StatusBadge status={req.status} />
