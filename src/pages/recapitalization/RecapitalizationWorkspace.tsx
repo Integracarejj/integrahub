@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive, addExternalMessage, getExternalMessages, updateRequestNotMine, updateRequestReturnToOwner, sendExceptionRecommendation } from "../../services/recapDataService";
-import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
+import type { RecapRequest, WorkArtifact, WorkNoteEntry } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
@@ -128,6 +128,7 @@ export default function RecapitalizationWorkspace() {
     const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
     const [dragOverUpload, setDragOverUpload] = useState(false);
     const [returnToOwnerModal, setReturnToOwnerModal] = useState<{ step: "input" | "completed"; reason: string } | null>(null);
+    const [clarifyResponseModal, setClarifyResponseModal] = useState<{ response: string } | null>(null);
 
     // Stable storage key for artifact persistence: use requestId > intakeId > route id
     const artifactStorageKey = useMemo(() => {
@@ -238,6 +239,7 @@ function WorkflowStateCard({
     const isDuplicate = displayStatus === "Duplicate";
     const statusColor = STATUS_COLORS[displayStatus] || "#64748b";
     const isTerminal = displayStatus === "Completed" || displayStatus === "Closed" || displayStatus === "Closed / Duplicate" || displayStatus === "Closed / Not Applicable" || (!isDdOps && displayStatus === "Complete") || (["Duplicate", "Not Applicable"].includes(displayStatus) && !!(item as any)._exceptionDecision);
+    const exceptionSentToPartner = ["Duplicate", "Not Applicable"].includes(displayStatus) && !!(item as any)._exceptionSentAt && !(item as any)._exceptionDecision;
 
     const completionSummary = useMemo(() => {
         if (result.type === "request") {
@@ -453,6 +455,28 @@ function WorkflowStateCard({
         setCompletionDialog("clarification");
     }
 
+    function submitClarifyResponse() {
+        if (!clarifyResponseModal?.response.trim()) return;
+        const resp = clarifyResponseModal.response.trim();
+        const reqId = item.id || item.intakeId || "";
+        updateRequestStatus(reqId, "In Progress" as RecapRequest["status"]);
+        updateRequestStatusNotes(reqId, resp);
+        addWorkNote(reqId, resp, currentUser, "Clarification Response");
+        addActivityEntry({
+            type: "Status Change",
+            description: `${displayId}: DD Ops responded to clarification request. Response: ${resp}`,
+            userId: currentUser,
+            userName: currentUser,
+            requestId: item.requestId || item.id,
+            requestTitle: displayTitle || item.category || "",
+            transactionId: item.transactionId,
+            transactionName: item.transactionName || item.transactionId,
+        });
+        setClarifyResponseModal(null);
+        setWsRefreshKey(k => k + 1);
+        setActionFeedback("Clarification response sent. Request returned to Active Work.");
+    }
+
     function handleArtifactUpload(files: File[]) {
         const idx = workArtifacts.length + 1;
         const newArtifacts = files.map((f, i) => ({
@@ -607,7 +631,7 @@ function WorkflowStateCard({
 
                     <div style={{ height: 1, background: "#e2e8f0" }} />
 
-                    {(!isTerminal || (!isDdOps && displayStatus === "Complete")) && (
+                    {(!isTerminal || (!isDdOps && displayStatus === "Complete")) && !exceptionSentToPartner && (
                     <>
                     {isDdOps ? (
                       <div style={{ padding: "0 32px 24px" }}>
@@ -651,7 +675,11 @@ function WorkflowStateCard({
                           <div style={{ marginBottom: 14 }}>
                             <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 12 }}>Other Actions</div>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                              {displayStatus !== "Clarification Needed" ? (
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>} label="Need Clarification" desc="Request more info" onClick={() => setNeedClarificationOpen(true)} />
+                              ) : (
+                              <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>} label="Respond to Clarification" desc="Answer the contributor's question" onClick={() => setClarifyResponseModal({ response: "" })} />
+                              )}
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>} label="Return to Owner" desc="Send back with feedback" onClick={() => setReturnToOwnerModal({ step: "input", reason: "" })} />
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>} label="Reassign Owner" desc="Change the current owner" onClick={() => { const el = document.getElementById("ws-owner-select"); if (el) { (el as HTMLSelectElement).focus(); (el as HTMLSelectElement).click(); }}} />
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>} label="Recommend Duplicate to Partner" desc="Validate and send recommendation" onClick={() => setDdOpsRecommendModal({ type: "Duplicate", partnerNote: "" })} />
@@ -750,7 +778,24 @@ function WorkflowStateCard({
                             />
                           )}
 
-                          {["Duplicate", "Not Applicable"].includes(displayStatus) && !isTerminal && !isDdOps && (
+                          {displayStatus === "In Progress" && !isDdOps && item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification Response") && (
+                            <WorkflowStateCard
+                              icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>}
+                              iconBg="#10b981"
+                              title="Clarification Response Received"
+                              subtitle="DD Operations has responded"
+                              body="Your clarification question has been answered. Review the response and continue your work."
+                              details={[
+                                { label: "Response", value: item._statusNotes || "—" },
+                                { label: "Question", value: item._workNotes?.find((n: WorkNoteEntry) => n.action === "Clarification Needed")?.text || "—" },
+                              ]}
+                              accentColor="#10b981"
+                              bgColor="#f0fdf4"
+                              borderColor="#bbf7d0"
+                            />
+                          )}
+
+                          {["Duplicate", "Not Applicable"].includes(displayStatus) && !isTerminal && !isDdOps && !exceptionSentToPartner && (
                             <WorkflowStateCard
                               icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">{displayStatus === "Duplicate"
                                 ? <><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></>
@@ -767,6 +812,25 @@ function WorkflowStateCard({
                               ] : [
                                 { label: "Reason", value: item._statusNotes || "—" },
                               ]}
+                              accentColor={displayStatus === "Duplicate" ? "#6d28d9" : "#4f46e5"}
+                              bgColor={displayStatus === "Duplicate" ? "#faf5ff" : "#f5f3ff"}
+                              borderColor={displayStatus === "Duplicate" ? "#ddd6fe" : "#e0e7ff"}
+                            />
+                          )}
+
+                          {["Duplicate", "Not Applicable"].includes(displayStatus) && !isTerminal && !isDdOps && exceptionSentToPartner && (
+                            <WorkflowStateCard
+                              icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">{displayStatus === "Duplicate"
+                                ? <><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></>
+                                : <><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></>
+                              }</svg>}
+                              iconBg={displayStatus === "Duplicate" ? "#6d28d9" : "#4f46e5"}
+                              title={displayStatus === "Duplicate" ? "Duplicate Recommendation Sent" : "Removal Recommendation Sent"}
+                              subtitle="Waiting on External Partner"
+                              body={displayStatus === "Duplicate"
+                                ? "DD Operations sent your duplicate recommendation to the external partner. Awaiting their decision."
+                                : "DD Operations sent your recommendation to the external partner. Awaiting their decision."}
+                              details={item._statusNotes ? [{ label: "Reason", value: item._statusNotes }] : undefined}
                               accentColor={displayStatus === "Duplicate" ? "#6d28d9" : "#4f46e5"}
                               bgColor={displayStatus === "Duplicate" ? "#faf5ff" : "#f5f3ff"}
                               borderColor={displayStatus === "Duplicate" ? "#ddd6fe" : "#e0e7ff"}
@@ -865,6 +929,45 @@ function WorkflowStateCard({
                       </div>
                     )}
                     </>)}
+
+                    {exceptionSentToPartner && isDdOps && (
+                        <div style={{ padding: "0 32px 24px" }}>
+                            <div style={{ marginBottom: 24, padding: "16px 20px", borderRadius: 12, background: "#f5f3ff", border: "2px solid #ddd6fe", boxShadow: "0 2px 8px rgba(109,40,217,0.06)" }}>
+                                <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+                                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#ede9fe", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
+                                            {displayStatus === "Duplicate" ? "Duplicate Recommendation Sent" : "Removal Recommendation Sent"}
+                                        </div>
+                                        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 6, padding: "3px 10px", borderRadius: 4, background: "#ede9fe", fontSize: 11, fontWeight: 600, color: "#6d28d9" }}>
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                                            Waiting Partner Decision — Next action: External Partner
+                                        </div>
+                                        <div style={{ fontSize: 13, color: "#475569", marginTop: 8, lineHeight: 1.5 }}>
+                                            {displayStatus === "Duplicate"
+                                                ? "The duplicate recommendation has been sent to the external partner. They will decide to Confirm Duplicate or Keep Separate."
+                                                : "The removal recommendation has been sent to the external partner. They will decide to Approve Removal or Keep Request."}
+                                        </div>
+                                        {(item as any)._statusNotes && (
+                                            <div style={{ marginTop: 8, padding: "8px 12px", background: "rgba(255,255,255,0.7)", border: "1px solid #ddd6fe", borderRadius: 6, fontSize: 12, color: "#5b21b6", lineHeight: 1.5 }}>
+                                                <span style={{ fontWeight: 700, display: "block", marginBottom: 2, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em" }}>Reason</span>
+                                                {(item as any)._statusNotes}
+                                            </div>
+                                        )}
+                                        {(item as any)._exceptionSentAt && (
+                                            <div style={{ fontSize: 11, color: "#475569", marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                                                Sent: {new Date((item as any)._exceptionSentAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {!isDdOps && (
                     <div style={{ padding: "0 32px 24px" }}>
                       <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: "16px 20px", background: "#fff", display: "flex", alignItems: "center", gap: 16 }}>
@@ -1434,6 +1537,41 @@ function WorkflowStateCard({
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-ghost" onClick={() => { setNeedClarificationOpen(false); setClarificationText(""); }}>Cancel</button>
                             <button className="rc-btn rc-btn-primary" disabled={!clarificationText.trim()} onClick={submitClarification}>Send Clarification</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Respond to Clarification Modal */}
+            {clarifyResponseModal && (
+                <div className="rc-modal-overlay" onClick={() => setClarifyResponseModal(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+                        <div className="rc-modal-header">
+                            <h2>Respond to Clarification</h2>
+                            <button className="rc-modal-close" onClick={() => setClarifyResponseModal(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ fontSize: 12, color: "#334155", marginBottom: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+                                <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Request ID</span> {displayId}</div>
+                                <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Deliverable</span> {displayTitle || item.category || "\u2014"}</div>
+                                <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Asked by</span> {item.owner || "Contributor"}</div>
+                            </div>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6, display: "block" }}>Original Question</label>
+                            <div style={{ padding: "8px 10px", fontSize: 13, background: "#f8faff", border: "1px solid #dbeafe", borderRadius: 6, color: "#0f172a", marginBottom: 14, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                                {item._statusNotes || "—"}
+                            </div>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6, display: "block" }}>Your Response <span style={{ color: "#dc2626" }}>*</span></label>
+                            <textarea
+                                value={clarifyResponseModal.response}
+                                onChange={e => setClarifyResponseModal({ response: e.target.value })}
+                                placeholder="Type your response to the contributor..."
+                                rows={4}
+                                style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
+                            />
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setClarifyResponseModal(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!clarifyResponseModal.response.trim()} onClick={submitClarifyResponse}>Send Response</button>
                         </div>
                     </div>
                 </div>

@@ -18,6 +18,8 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
     "Closed / Duplicate": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
     "Closed / Not Applicable": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
     "Exception Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
+    "Duplicate Decision Needed": { bg: "#faf5ff", text: "#6d28d9", border: "#ddd6fe" },
+    "Removal Approval Needed": { bg: "#eef2ff", text: "#4338ca", border: "#c7d2fe" },
     "Possible Duplicate": { bg: "#faf5ff", text: "#6d28d9", border: "#ddd6fe" },
     "Not Applicable Review": { bg: "#eef2ff", text: "#4338ca", border: "#c7d2fe" },
 };
@@ -94,8 +96,8 @@ export default function PortalRequests() {
                     <option value="Action Needed">Action Needed</option>
                     <option value="Clarification Requested">Clarification Requested</option>
                     <option value="Exception Review">Exception Review</option>
-                    <option value="Possible Duplicate">Possible Duplicate</option>
-                    <option value="Not Applicable Review">Not Applicable Review</option>
+                    <option value="Duplicate Decision Needed">Duplicate Decision Needed</option>
+                    <option value="Removal Approval Needed">Removal Approval Needed</option>
                     <option value="Closed">Closed</option>
                 </select>
                 {categories.length > 0 && (

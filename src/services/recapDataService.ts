@@ -386,7 +386,7 @@ export function updateRequestReturnToOwner(id: string, reason: string, returnedB
     const prevNotes = existing?._workNotes || [];
     if (isDemoLoaded()) {
         req = Demo.updateDemoRequest(id, {
-            status: "Clarification Needed",
+            status: "Needs Rework",
             _returnReason: reason,
             _returnedBy: returnedBy,
             _exceptionRecommendation: null,
@@ -399,7 +399,7 @@ export function updateRequestReturnToOwner(id: string, reason: string, returnedB
     } else {
         req = Mock.getRequestById(id);
         if (req) {
-            req.status = "Clarification Needed";
+            req.status = "Needs Rework";
             req._returnReason = reason;
             req._returnedBy = returnedBy;
             req._exceptionRecommendation = null;
@@ -411,7 +411,7 @@ export function updateRequestReturnToOwner(id: string, reason: string, returnedB
             req.lastUpdated = new Date().toISOString().split("T")[0];
         } else {
             req = updatePortalRequestById(id, {
-                status: "Clarification Needed",
+                status: "Needs Rework",
                 _returnReason: reason,
                 _returnedBy: returnedBy,
                 _workNotes: [...prevNotes, wnEntry],

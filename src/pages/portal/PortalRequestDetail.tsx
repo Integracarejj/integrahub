@@ -18,6 +18,8 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
     "Closed / Duplicate": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
     "Closed / Not Applicable": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
     "Exception Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
+    "Duplicate Decision Needed": { bg: "#faf5ff", text: "#6d28d9", border: "#ddd6fe" },
+    "Removal Approval Needed": { bg: "#eef2ff", text: "#4338ca", border: "#c7d2fe" },
     "Possible Duplicate": { bg: "#faf5ff", text: "#6d28d9", border: "#ddd6fe" },
     "Not Applicable Review": { bg: "#eef2ff", text: "#4338ca", border: "#c7d2fe" },
     "Clarification Requested": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
@@ -42,6 +44,8 @@ const STATUS_PROGRESS: Record<string, { step: number; label: string }> = {
     "Exception Review": { step: 6, label: "Exception Review" },
     "Possible Duplicate": { step: 6, label: "Exception Review" },
     "Not Applicable Review": { step: 6, label: "Exception Review" },
+    "Duplicate Decision Needed": { step: 6, label: "Exception Review" },
+    "Removal Approval Needed": { step: 6, label: "Exception Review" },
     "Clarification Requested": { step: 4, label: "Clarification Requested" },
     Approved: { step: 7, label: "Approved" },
     "Rework Required": { step: 7, label: "Rework Required" },
@@ -59,7 +63,7 @@ const TRACKER_STEPS = [
 function StatusTracker({ status }: { status: string }) {
     const current = STATUS_PROGRESS[status];
     if (!current) return null;
-    const isPartnerStatus = status === "Waiting Review" || status === "Approved" || status === "Rework Required" || status === "Exception Review" || status === "Possible Duplicate" || status === "Not Applicable Review";
+    const isPartnerStatus = status === "Waiting Review" || status === "Approved" || status === "Rework Required" || status === "Exception Review" || status === "Possible Duplicate" || status === "Not Applicable Review" || status === "Duplicate Decision Needed" || status === "Removal Approval Needed";
     return (
         <div style={{ marginBottom: 20 }}>
             <div className="po-tracker">
@@ -100,6 +104,8 @@ function StatusTracker({ status }: { status: string }) {
                     {status === "Exception Review" && "The IntegraCare team has identified this request as potentially duplicate or not applicable. Please review the recommendation below and make a decision."}
                     {status === "Possible Duplicate" && "The IntegraCare team has identified this request as a possible duplicate. Please review the recommendation below and make a decision."}
                     {status === "Not Applicable Review" && "The IntegraCare team has identified this request as potentially not applicable. Please review the recommendation below and make a decision."}
+                    {status === "Duplicate Decision Needed" && "The IntegraCare team has identified this request as a possible duplicate. Please review the recommendation below and make a decision."}
+                    {status === "Removal Approval Needed" && "The IntegraCare team has identified this request as potentially not applicable. Please review the recommendation below and make a decision."}
                     {status === "Clarification Requested" && "Additional information has been requested regarding your submission. Please check for open clarifications and respond."}
                     {status === "Approved" && "You have approved this request. The IntegraCare team has been notified of your decision."}
                     {status === "Rework Required" && "You have requested rework on this request. The IntegraCare team will address your feedback."}
@@ -107,7 +113,7 @@ function StatusTracker({ status }: { status: string }) {
                     {status === "Closed" && "This request has been closed. Contact the DD team if you have questions."}
                     {status === "Closed / Duplicate" && "This request was found to be a duplicate and has been closed after partner confirmation."}
                     {status === "Closed / Not Applicable" && "This request was found to be not applicable and has been removed after partner confirmation."}
-                    {!["Intake Review", "Work Queue", "In Progress", "Quality Review", "Action Needed", "Clarification Requested", "Closed", "Closed / Duplicate", "Closed / Not Applicable", "Published", "Waiting Review", "Approved", "Rework Required", "Exception Review", "Possible Duplicate", "Not Applicable Review"].includes(status) && "IntegraCare is processing this request."}
+                    {!["Intake Review", "Work Queue", "In Progress", "Quality Review", "Action Needed", "Clarification Requested", "Closed", "Closed / Duplicate", "Closed / Not Applicable", "Published", "Waiting Review", "Approved", "Rework Required", "Exception Review", "Possible Duplicate", "Not Applicable Review", "Duplicate Decision Needed", "Removal Approval Needed"].includes(status) && "IntegraCare is processing this request."}
                 </div>
             </div>
         </div>
@@ -590,7 +596,7 @@ export default function PortalRequestDetail() {
                     )}
 
                     {/* ── Exception Review Action Buttons ── */}
-                    {(req.status === "Exception Review" || req.status === "Possible Duplicate" || req.status === "Not Applicable Review") && req._exceptionRecommendation && (
+                    {(req.status === "Exception Review" || req.status === "Possible Duplicate" || req.status === "Not Applicable Review" || req.status === "Duplicate Decision Needed" || req.status === "Removal Approval Needed") && req._exceptionRecommendation && (
                         <div style={{ border: "2px solid #ddd6fe", borderRadius: 16, padding: 24, background: "linear-gradient(135deg, #faf5ff 0%, #f0fdf4 100%)" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
                                 <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#6b21a8", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>

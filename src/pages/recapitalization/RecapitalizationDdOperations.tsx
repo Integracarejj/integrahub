@@ -37,9 +37,9 @@ export default function RecapitalizationDdOperations() {
     const NEEDS_DD_REVIEW_STATUSES = ["Blocked", "Clarification Needed"];
     const kpiNeedsDDReview = useMemo(() => workItems.filter(r => (NEEDS_DD_REVIEW_STATUSES.includes(r.status) || r._needsReassignment || r._misassignedReason) && !r._returnReason).length, [workItems]);
     const kpiReadyToPublish = useMemo(() => workItems.filter(r => r.status === "Complete" && r._externalStatus !== "Published External").length, [workItems]);
-    const kpiExceptions = useMemo(() => workItems.filter(r => r.status === "Duplicate" || r.status === "Not Applicable").length, [workItems]);
-    const kpiPublishedExternal = useMemo(() => workItems.filter(r => r._externalStatus === "Published External" && !r._partnerDecision).length, [workItems]);
-    const kpiPartnerActionRequired = useMemo(() => workItems.filter(r => r._externalStatus === "Published External" && r._partnerDecision).length, [workItems]);
+    const kpiExceptions = useMemo(() => workItems.filter(r => (r.status === "Duplicate" || r.status === "Not Applicable") && !r._exceptionSentAt).length, [workItems]);
+    const kpiPublishedExternal = useMemo(() => workItems.filter(r => (r._externalStatus === "Published External" && !r._partnerDecision) || r._exceptionSentAt).length, [workItems]);
+    const kpiPartnerActionRequired = useMemo(() => workItems.filter(r => (r._externalStatus === "Published External" && r._partnerDecision) || r._exceptionDecision).length, [workItems]);
     const kpiUpdatedToday = useMemo(() => {
         const today = new Date().toISOString().split("T")[0];
         return workItems.filter(r => r.lastUpdated === today).length;
@@ -69,7 +69,7 @@ export default function RecapitalizationDdOperations() {
 
     const exceptionsItems = useMemo(() => {
         return workItems
-            .filter(r => r.status === "Duplicate" || r.status === "Not Applicable")
+            .filter(r => (r.status === "Duplicate" || r.status === "Not Applicable") && !r._exceptionSentAt)
             .sort((a, b) => {
                 const aDate = a.lastUpdated || "";
                 const bDate = b.lastUpdated || "";
@@ -79,7 +79,7 @@ export default function RecapitalizationDdOperations() {
 
     const publishedExternalItems = useMemo(() => {
         return workItems
-            .filter(r => r._externalStatus === "Published External" && !r._partnerDecision)
+            .filter(r => (r._externalStatus === "Published External" && !r._partnerDecision) || r._exceptionSentAt)
             .sort((a, b) => {
                 const aDate = a.lastUpdated || "";
                 const bDate = b.lastUpdated || "";
@@ -89,7 +89,7 @@ export default function RecapitalizationDdOperations() {
 
     const partnerActionItems = useMemo(() => {
         return workItems
-            .filter(r => r._externalStatus === "Published External" && r._partnerDecision)
+            .filter(r => (r._externalStatus === "Published External" && r._partnerDecision) || r._exceptionDecision)
             .sort((a, b) => {
                 const aDate = a.lastUpdated || "";
                 const bDate = b.lastUpdated || "";
@@ -207,6 +207,10 @@ export default function RecapitalizationDdOperations() {
         }
     };
 
+    function partnerBtnStyle(bg: string, color: string, border: string): React.CSSProperties {
+        return { fontSize: 11, padding: "5px 14px", borderRadius: 6, background: bg, color, border: `1px solid ${border}`, cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" };
+    }
+
     function renderPartnerActionTable(items: RecapRequest[]) {
         if (items.length === 0) return <div className="rc-empty-state" style={{ padding: 20 }}>No partner actions required.</div>;
         return (
@@ -219,6 +223,7 @@ export default function RecapitalizationDdOperations() {
                         <th style={{ width: 90, minWidth: 70 }}>Community</th>
                         <th style={{ width: 105, minWidth: 85 }}>Internal Status</th>
                         <th style={{ width: 130, minWidth: 110 }}>Partner Decision</th>
+                        <th style={{ width: 130, minWidth: 110 }}>Decision Type</th>
                         <th style={{ minWidth: 180 }}>Partner Note / Comment</th>
                         <th style={{ width: 85, minWidth: 70 }}>Updated</th>
                         <th style={{ width: 80, minWidth: 65 }}>Owner</th>
@@ -237,10 +242,25 @@ export default function RecapitalizationDdOperations() {
                                 </span>
                             </td>
                             <td>
-                                {req._exceptionDecision ? (
-                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#6b21a8", fontWeight: 600, fontSize: 11, background: "#faf5ff", padding: "3px 8px", borderRadius: 6, border: "1px solid #ddd6fe" }}>
+                                {req._exceptionDecision === "Confirm Duplicate" ? (
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#6d28d9", fontWeight: 600, fontSize: 11, background: "#f5f3ff", padding: "3px 8px", borderRadius: 6, border: "1px solid #ddd6fe" }}>
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
-                                        Exception: {req._exceptionDecision}
+                                        Duplicate Confirmed
+                                    </span>
+                                ) : req._exceptionDecision === "Keep Separate" ? (
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#92400e", fontWeight: 600, fontSize: 11, background: "#fffbeb", padding: "3px 8px", borderRadius: 6, border: "1px solid #fde68a" }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                        Keep Separate
+                                    </span>
+                                ) : req._exceptionDecision === "Approve Removal" ? (
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#166534", fontWeight: 600, fontSize: 11, background: "#f0fdf4", padding: "3px 8px", borderRadius: 6, border: "1px solid #bbf7d0" }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                        Removal Approved
+                                    </span>
+                                ) : req._exceptionDecision === "Keep Request" ? (
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#92400e", fontWeight: 600, fontSize: 11, background: "#fffbeb", padding: "3px 8px", borderRadius: 6, border: "1px solid #fde68a" }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                        Keep Request
                                     </span>
                                 ) : req._partnerDecision === "Approved" ? (
                                     <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#166534", fontWeight: 600, fontSize: 11, background: "#f0fdf4", padding: "3px 8px", borderRadius: 6, border: "1px solid #bbf7d0" }}>
@@ -250,6 +270,21 @@ export default function RecapitalizationDdOperations() {
                                 ) : (
                                     <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#9a3412", fontWeight: 600, fontSize: 11, background: "#fff7ed", padding: "3px 8px", borderRadius: 6, border: "1px solid #fed7aa" }}>
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                        Rework Requested
+                                    </span>
+                                )}
+                            </td>
+                            <td>
+                                {req._exceptionDecision ? (
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#6b21a8", fontWeight: 600, fontSize: 11, background: "#faf5ff", padding: "3px 8px", borderRadius: 6, border: "1px solid #ddd6fe" }}>
+                                        Exception: {req._exceptionDecision}
+                                    </span>
+                                ) : req._partnerDecision === "Approved" ? (
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#166534", fontWeight: 600, fontSize: 11, background: "#f0fdf4", padding: "3px 8px", borderRadius: 6, border: "1px solid #bbf7d0" }}>
+                                        Partner Approved
+                                    </span>
+                                ) : (
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#9a3412", fontWeight: 600, fontSize: 11, background: "#fff7ed", padding: "3px 8px", borderRadius: 6, border: "1px solid #fed7aa" }}>
                                         Rework Requested
                                     </span>
                                 )}
@@ -271,18 +306,33 @@ export default function RecapitalizationDdOperations() {
                             <td style={{ fontSize: 12, color: "#475569" }}>{req.lastUpdated}</td>
                             <td style={{ fontSize: 12, color: "#475569" }} onClick={e => e.stopPropagation()}>{req.owner || "\u2014"}</td>
                             <td onClick={e => e.stopPropagation()}>
-                                {req._partnerDecision === "Approved" ? (
-                                    <button
-                                        onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })}
-                                        style={{ fontSize: 11, padding: "4px 12px", borderRadius: 6, background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                    >
-                                        Open Approval
+                                {req._exceptionDecision === "Approve Removal" && (
+                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#f5f3ff", "#6d28d9", "#ddd6fe")}>
+                                        Finalize Removal
                                     </button>
-                                ) : (
-                                    <button
-                                        onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })}
-                                        style={{ fontSize: 11, padding: "4px 12px", borderRadius: 6, background: "#fff7ed", color: "#9a3412", border: "1px solid #fed7aa", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                    >
+                                )}
+                                {req._exceptionDecision === "Confirm Duplicate" && (
+                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#f5f3ff", "#6d28d9", "#ddd6fe")}>
+                                        Finalize Duplicate
+                                    </button>
+                                )}
+                                {req._exceptionDecision === "Keep Separate" && (
+                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#f0fdf4", "#166534", "#bbf7d0")}>
+                                        Return to Active Work
+                                    </button>
+                                )}
+                                {req._exceptionDecision === "Keep Request" && (
+                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#f0fdf4", "#166534", "#bbf7d0")}>
+                                        Return to Active Work
+                                    </button>
+                                )}
+                                {req._partnerDecision === "Approved" && !req._exceptionDecision && (
+                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#f0fdf4", "#166534", "#bbf7d0")}>
+                                        Acknowledge Approval
+                                    </button>
+                                )}
+                                {req._partnerDecision === "Rework Required" && !req._exceptionDecision && (
+                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#fff7ed", "#9a3412", "#fed7aa")}>
                                         Open Rework
                                     </button>
                                 )}
@@ -341,24 +391,28 @@ export default function RecapitalizationDdOperations() {
                                 {req.status === "Duplicate" && (
                                     <button
                                         onClick={() => setArchiveConfirm({ req })}
-                                        style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#ede9fe", color: "#6d28d9", border: "1px solid #ddd6fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                        title="Approve this duplicate recommendation and send to external partner for decision"
+                                        style={{ fontSize: 11, padding: "6px 16px", borderRadius: 6, background: "#f5f3ff", color: "#6d28d9", border: "1px solid #ddd6fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", transition: "all 0.15s" }}
+                                        onMouseEnter={e => { (e.target as HTMLElement).style.background = "#ede9fe"; }}
+                                        onMouseLeave={e => { (e.target as HTMLElement).style.background = "#f5f3ff"; }}
+                                        title="Review the duplicate recommendation and send to external partner"
                                     >
-                                        Approve Recommendation (Duplicate)
+                                        Review Duplicate
                                     </button>
                                 )}
                                 {req.status === "Not Applicable" && (
                                     <button
                                         onClick={() => setArchiveConfirm({ req })}
-                                        style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#f0f4ff", color: "#4f46e5", border: "1px solid #c7d2fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                        title="Approve this Not Applicable recommendation and send to external partner for decision"
+                                        style={{ fontSize: 11, padding: "6px 16px", borderRadius: 6, background: "#eef2ff", color: "#4338ca", border: "1px solid #c7d2fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", transition: "all 0.15s" }}
+                                        onMouseEnter={e => { (e.target as HTMLElement).style.background = "#e0e7ff"; }}
+                                        onMouseLeave={e => { (e.target as HTMLElement).style.background = "#eef2ff"; }}
+                                        title="Review the not applicable recommendation and send to external partner"
                                     >
-                                        Approve Recommendation (Not Applicable)
+                                        Review Not Applicable
                                     </button>
                                 )}
                                 <button
                                     onClick={() => setReturnToTeam({ req, reason: "" })}
-                                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#475569", border: "1px solid #d1d5db", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                    style={{ fontSize: 11, padding: "6px 12px", borderRadius: 6, background: "#fff", color: "#475569", border: "1px solid #d1d5db", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
                                     title="Return this item to the work queue for reassignment"
                                 >
                                     Return to Team
@@ -822,31 +876,35 @@ export default function RecapitalizationDdOperations() {
 
             {archiveConfirm && (
                 <div className="rc-modal-overlay" onClick={() => setArchiveConfirm(null)}>
-                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
                         <div className="rc-modal-header">
-                            <h2>Approve Recommendation &mdash; Send to External Partner</h2>
+                            <h2>{archiveConfirm.req.status === "Not Applicable" ? "Send Removal Recommendation" : "Send Duplicate Recommendation"}</h2>
                             <button className="rc-modal-close" onClick={() => setArchiveConfirm(null)}>&times;</button>
                         </div>
-                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                                <div style={{ fontSize: 14, color: "#1e293b", fontWeight: 500 }}>
-                                    Approve {archiveConfirm.req.status === "Not Applicable" ? "Not Applicable" : "Duplicate"} recommendation for <strong>{archiveConfirm.req.requestId}</strong> &mdash; {archiveConfirm.req.title.split(" - ").slice(1).join(" - ").trim() || archiveConfirm.req.title} and send to external partner for review?
+                        <div className="rc-modal-body" style={{ padding: "16px 24px" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                                <div style={{ fontSize: 13, color: "#0f172a", display: "flex", flexDirection: "column", gap: 6, padding: "10px 14px", background: "#f8faff", borderRadius: 8, border: "1px solid #e0e7ff" }}>
+                                    <div><span style={{ fontWeight: 700, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 8, color: "#475569" }}>Request ID</span><span style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{archiveConfirm.req.requestId}</span></div>
+                                    <div><span style={{ fontWeight: 700, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 8, color: "#475569" }}>Deliverable</span><span style={{ color: "#0f172a", fontWeight: 500 }}>{archiveConfirm.req.title.split(" - ").slice(1).join(" - ").trim() || archiveConfirm.req.title}</span></div>
                                 </div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#faf5ff", border: "1px solid #ddd6fe", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#6d28d9" }}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg>
+                                
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: archiveConfirm.req.status === "Not Applicable" ? "#f5f3ff" : "#faf5ff", border: archiveConfirm.req.status === "Not Applicable" ? "1px solid #c7d2fe" : "1px solid #ddd6fe", borderRadius: 8, fontSize: 12, fontWeight: 600, color: archiveConfirm.req.status === "Not Applicable" ? "#4338ca" : "#6d28d9" }}>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                    {archiveConfirm.req.status === "Not Applicable" ? "Not Applicable" : "Possible Duplicate"}
+                                </div>
+
+                                <div style={{ padding: "10px 14px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8 }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 4 }}>Contributor Reason</div>
+                                    <div style={{ fontSize: 13, color: "#0f172a", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                                        {getRequestNote(archiveConfirm.req) || "No reason provided"}
+                                    </div>
+                                </div>
+
+                                <div style={{ padding: "10px 14px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, fontSize: 12, color: "#166534", lineHeight: 1.5 }}>
+                                    <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>Partner Decision Preview</span>
                                     {archiveConfirm.req.status === "Not Applicable"
-                                        ? "This will send the Not Applicable recommendation to the external partner for decision. The partner can Approve Removal or Keep Request active."
-                                        : "This will send the Duplicate recommendation to the external partner for decision. The partner can Confirm Duplicate or Keep Separate."}
-                                </div>
-                                <div style={{ fontSize: 12, color: "#075985", background: "#e0f2fe", padding: "8px 10px", borderRadius: 6, display: "flex", alignItems: "center", gap: 6 }}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
-                                    The item will remain in Exceptions until the partner responds.
-                                </div>
-                                <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
-                                    Reason (from contributor)
-                                </label>
-                                <div style={{ fontSize: 13, color: "#334155", padding: "8px 10px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6 }}>
-                                    {getRequestNote(archiveConfirm.req) || "No reason provided"}
+                                        ? "The partner will choose: Approve Removal or Keep Request"
+                                        : "The partner will choose: Confirm Duplicate or Keep Separate"}
                                 </div>
                             </div>
                         </div>
@@ -866,8 +924,8 @@ export default function RecapitalizationDdOperations() {
                                     transactionName: archiveConfirm.req.transactionName,
                                 });
                                 setSuccessMsg({
-                                    title: "Recommendation Sent",
-                                    body: `${archiveConfirm.req.requestId} ${archiveConfirm.req.status === "Not Applicable" ? "Not Applicable" : "Duplicate"} recommendation sent to external partner for review.`,
+                                    title: "Recommendation Sent to Partner",
+                                    body: `${archiveConfirm.req.requestId} — ${archiveConfirm.req.status === "Not Applicable" ? "Removal" : "Duplicate"} recommendation sent. Moving to Published External — awaiting partner decision.`,
                                 });
                                 setArchiveConfirm(null);
                                 setRefreshKey(k => k + 1);

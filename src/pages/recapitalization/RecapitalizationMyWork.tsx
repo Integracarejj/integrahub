@@ -25,7 +25,21 @@ export default function RecapitalizationMyWork() {
     const user = members.find(m => m.name === activeUser);
     const userTeam = user?.team || "";
 
-    const RETURNED_STATUSES = ["Clarification Needed", "Blocked", "Duplicate", "Not Applicable"];
+    const RETURNED_STATUSES = ["Clarification Needed", "Blocked", "Duplicate", "Not Applicable", "Needs Rework"];
+
+    function getDisplayStatus(req: RecapRequest): string {
+        const wn = req._workNotes;
+        if (req._exceptionSentAt && req._exceptionRecommendation === "Duplicate") return "Sent to Partner (Duplicate Review)";
+        if (req._exceptionSentAt && req._exceptionRecommendation === "Not Applicable") return "Sent to Partner (Removal Review)";
+        if (req._exceptionDecision === "Confirm Duplicate" || req._exceptionDecision === "Keep Separate") return "Duplicate Decision Received";
+        if (req._exceptionDecision === "Approve Removal" || req._exceptionDecision === "Keep Request") return "Removal Decision Received";
+        if (wn?.some(n => n.action === "Clarification Response") && req.status === "In Progress") return "Clarification Response Received";
+        if (req.status === "Duplicate") return "Duplicate Review Pending";
+        if (req.status === "Not Applicable") return "Not Applicable Review Pending";
+        if (req.status === "Clarification Needed") return "Clarification Requested";
+        if (req.status === "Needs Rework") return "Needs Rework";
+        return req.status;
+    }
 
     const assignedToMe = useMemo(() => {
         return workItems
@@ -46,7 +60,7 @@ export default function RecapitalizationMyWork() {
         return assignedToMe.filter(r =>
             r.status !== "Complete" &&
             r._externalStatus !== "Ready to Publish" &&
-            (r._externalStatus !== "Published External" || r.status === "Needs Rework") &&
+            r._externalStatus !== "Published External" &&
             !RETURNED_STATUSES.includes(r.status) &&
             !r._needsReassignment
         );
@@ -101,9 +115,9 @@ export default function RecapitalizationMyWork() {
         "returned": "Returned / Needs Attention",
     };
 
-    const StatusBadge = ({ status }: { status: string }) => {
-        const cls = status === "Overdue" ? "overdue" : status.toLowerCase().replace(/\s+/g, "-");
-        return <span className={`rc-badge rc-badge-${cls}`} style={{ fontSize: 10 }}>{status}</span>;
+    const StatusBadge = ({ displayLabel }: { displayLabel: string }) => {
+        const cls = displayLabel === "Overdue" ? "overdue" : displayLabel.toLowerCase().replace(/\s+/g, "-");
+        return <span className={`rc-badge rc-badge-${cls}`} style={{ fontSize: 10 }}>{displayLabel}</span>;
     };
 
     const PriorityBadge = ({ priority }: { priority: string }) => (
@@ -138,7 +152,7 @@ export default function RecapitalizationMyWork() {
                             <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 220 }}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</td>
                             <td style={{ fontSize: 12, color: "#475569" }}>{req.communityNames[0] || "\u2014"}</td>
                             <td style={{ textAlign: "center" }}><PriorityBadge priority={req.priority} /></td>
-                            <td><StatusBadge status={req.status} /></td>
+                            <td><StatusBadge displayLabel={getDisplayStatus(req)} /></td>
                             <td style={{ fontSize: 12, color: req.dueDate && new Date(req.dueDate) < new Date() ? "#991b1b" : "#475569", fontWeight: req.dueDate && new Date(req.dueDate) < new Date() ? 600 : 400 }}>{req.dueDate || "\u2014"}</td>
                             <td style={{ fontSize: 12, color: req.lastUpdated ? "#475569" : "#64748b" }}>{req.lastUpdated || "\u2014"}</td>
                             <td onClick={e => e.stopPropagation()} style={{ textAlign: "center" }}>
@@ -227,7 +241,7 @@ export default function RecapitalizationMyWork() {
                                 </div>
                                 <div className="rc-drawer-field">
                                     <span className="rc-drawer-field-label">Status</span>
-                                    <span className="rc-drawer-field-value"><StatusBadge status={detailItem.status} /></span>
+                                    <span className="rc-drawer-field-value"><StatusBadge displayLabel={getDisplayStatus(detailItem)} /></span>
                                 </div>
                                 <div className="rc-drawer-field">
                                     <span className="rc-drawer-field-label">Priority</span>

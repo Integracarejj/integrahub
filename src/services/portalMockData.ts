@@ -231,7 +231,7 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
     let portalStatus: string;
     // Exception recommendation awaiting partner decision → specific status
     if (req._exceptionRecommendation && !req._exceptionDecision) {
-        portalStatus = req._exceptionRecommendation === "Duplicate" ? "Possible Duplicate" : "Not Applicable Review";
+        portalStatus = req._exceptionRecommendation === "Duplicate" ? "Duplicate Decision Needed" : "Removal Approval Needed";
     // Published externally → check partner review status
     } else if (req._publishedExternal || req._externalStatus === "Published External") {
         if (req.status === "Completed") {

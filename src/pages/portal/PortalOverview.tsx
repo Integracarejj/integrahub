@@ -24,6 +24,8 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
     "Closed / Duplicate": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
     "Closed / Not Applicable": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
     "Exception Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
+    "Duplicate Decision Needed": { bg: "#faf5ff", text: "#6d28d9", border: "#ddd6fe" },
+    "Removal Approval Needed": { bg: "#eef2ff", text: "#4338ca", border: "#c7d2fe" },
     "Possible Duplicate": { bg: "#faf5ff", text: "#6d28d9", border: "#ddd6fe" },
     "Not Applicable Review": { bg: "#eef2ff", text: "#4338ca", border: "#c7d2fe" },
 };
@@ -36,10 +38,10 @@ const STAT_HELPERS: Record<string, string> = {
     "Waiting Review": "Awaiting partner decision",
     Approved: "Completed and approved",
     "Rework Required": "Returned for rework",
-    "Action Needed": "Requires your attention",
+    "Action Needed": "Requires your action — review or respond",
     "Exception Review": "Needs your decision on duplicate or removal",
-    "Possible Duplicate": "Needs your decision on duplicate",
-    "Not Applicable Review": "Needs your decision on removal",
+    "Duplicate Decision Needed": "Needs your decision on duplicate",
+    "Removal Approval Needed": "Needs your decision on removal",
     "Total Requests": "All active requests",
 };
 
@@ -97,8 +99,8 @@ export default function PortalOverview() {
     const qualityReviewCount = portalRequests.filter(r => r.status === "Quality Review" && !r._publishedExternal && r.externalStatus !== "Published External").length;
     const intakeCount = portalRequests.filter(r => r.status === "Intake Review").length;
     const workQueueCount = portalRequests.filter(r => r.status === "Work Queue").length;
-    const actionNeededCount = portalRequests.filter(r => r.status === "Action Needed" || r.status === "Clarification Requested").length;
-    const exceptionReviewCount = portalRequests.filter(r => r.status === "Exception Review" || r.status === "Possible Duplicate" || r.status === "Not Applicable Review").length;
+    const actionNeededCount = portalRequests.filter(r => r.status === "Action Needed" || r.status === "Clarification Requested" || r.status === "Duplicate Decision Needed" || r.status === "Removal Approval Needed").length;
+    const exceptionReviewCount = portalRequests.filter(r => r.status === "Exception Review" || r.status === "Duplicate Decision Needed" || r.status === "Removal Approval Needed").length;
     const inProgress = portalRequests.filter(r => r.status === "In Progress").length;
     const visibleRequests = portalRequests.filter(r => r.status !== "Closed" && r.status !== "Closed / Duplicate" && r.status !== "Closed / Not Applicable");
 
@@ -107,7 +109,15 @@ export default function PortalOverview() {
     const [dashboardFilterCategory, setDashboardFilterCategory] = useState("all");
     const dashboardCategories = [...new Set(portalRequests.map(r => r.category))];
     const dashboardFiltered = visibleRequests.filter(r => {
-        if (dashboardFilterStatus !== "all" && r.status !== dashboardFilterStatus) return false;
+        if (dashboardFilterStatus !== "all") {
+            if (dashboardFilterStatus === "Action Needed") {
+                if (r.status !== "Action Needed" && r.status !== "Clarification Requested") return false;
+            }
+            else if (dashboardFilterStatus === "Exception Review") {
+                if (r.status !== "Exception Review" && r.status !== "Duplicate Decision Needed" && r.status !== "Removal Approval Needed") return false;
+            }
+            else if (r.status !== dashboardFilterStatus) return false;
+        }
         if (dashboardFilterCategory !== "all" && r.category !== dashboardFilterCategory) return false;
         if (dashboardSearch) {
             const q = dashboardSearch.toLowerCase();
@@ -520,8 +530,8 @@ export default function PortalOverview() {
                                     <option value="Rework Required">Rework Required</option>
                                     <option value="Action Needed">Action Needed</option>
                                     <option value="Exception Review">Exception Review</option>
-                                    <option value="Possible Duplicate">Possible Duplicate</option>
-                                    <option value="Not Applicable Review">Not Applicable Review</option>
+                                    <option value="Duplicate Decision Needed">Duplicate Decision Needed</option>
+                                    <option value="Removal Approval Needed">Removal Approval Needed</option>
                                     <option value="Clarification Requested">Clarification Requested</option>
                                 </select>
                                 <select className="po-filter-select" value={dashboardFilterCategory} onChange={e => setDashboardFilterCategory(e.target.value)}>
