@@ -786,22 +786,33 @@ export default function RecapitalizationTracker() {
                                                     const rec = getReusableKnowledgeRecommendation(detailModalItem.category || "");
                                                     return (
                                                         <>
-                                                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px", marginBottom: 10 }}>
-                                                                <div>
-                                                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Request ID</div>
-                                                                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{detailModalItem.requestId}</div>
+                                                            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
+                                                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px" }}>
+                                                                    <div>
+                                                                        <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Request ID</div>
+                                                                        <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{detailModalItem.requestId}</div>
+                                                                    </div>
+                                                                    <div>
+                                                                        <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Deliverable</div>
+                                                                        <div style={{ fontSize: 13, color: "#334155" }}>{detailModalItem.title}</div>
+                                                                    </div>
                                                                 </div>
-                                                                <div>
-                                                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Artifact Count</div>
-                                                                    <div style={{ fontSize: 13, color: "#334155" }}>{artifacts.length}</div>
-                                                                </div>
-                                                                <div>
-                                                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Deliverable</div>
-                                                                    <div style={{ fontSize: 13, color: "#334155" }}>{detailModalItem.title}</div>
-                                                                </div>
-                                                                <div>
-                                                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Category</div>
-                                                                    <div style={{ fontSize: 13, color: "#334155" }}>{detailModalItem.category || "\u2014"}</div>
+                                                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 2 }}>Artifacts ({artifacts.length})</div>
+                                                                    {artifacts.map(art => (
+                                                                        <div key={art.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "#f8faff", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12, color: "#1e293b" }}>
+                                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
+                                                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                                                <span style={{ fontWeight: 500 }}>{art.displayFileName || art.originalFileName || art.name}</span>
+                                                                                <div style={{ display: "flex", gap: 8, fontSize: 11, color: "#475569", marginTop: 1 }}>
+                                                                                    {art.artifactType && <span>{art.artifactType}</span>}
+                                                                                    <span>{(art.size / 1024).toFixed(0)} KB</span>
+                                                                                    <span>{art.uploadedAt}</span>
+                                                                                    {art.uploadedBy && <span>{art.uploadedBy}</span>}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
                                                                 </div>
                                                             </div>
                                                             <div style={{ padding: "8px 12px", borderRadius: 6, fontSize: 12, lineHeight: 1.5,

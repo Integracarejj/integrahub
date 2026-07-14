@@ -1,31 +1,11 @@
 import { useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getPortalRequests, getActivePersona, getPortalTransactions } from "../../services/portalMockData";
+import { getExternalStatusInfo, getStatusPillStyle, getExceptionContext } from "../../services/externalStatusMapping";
 import "./PortalOverview.css";
 
-const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-    Published: { bg: "#f0fdf4", text: "#166534", border: "#bbf7d0" },
-    "Waiting Review": { bg: "#eff6ff", text: "#1e40af", border: "#bfdbfe" },
-    Approved: { bg: "#f0fdf4", text: "#166534", border: "#bbf7d0" },
-    "Rework Required": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
-    "In Progress": { bg: "#eff6ff", text: "#1e40af", border: "#bfdbfe" },
-    "Intake Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
-    "Work Queue": { bg: "#fef3c7", text: "#92400e", border: "#fde68a" },
-    "Quality Review": { bg: "#fffbeb", text: "#92400e", border: "#fde68a" },
-    "Action Needed": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
-    "Clarification Requested": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
-    Closed: { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
-    "Closed / Duplicate": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
-    "Closed / Not Applicable": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
-    "Exception Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
-    "Duplicate Decision Needed": { bg: "#faf5ff", text: "#6d28d9", border: "#ddd6fe" },
-    "Removal Approval Needed": { bg: "#eef2ff", text: "#4338ca", border: "#c7d2fe" },
-    "Possible Duplicate": { bg: "#faf5ff", text: "#6d28d9", border: "#ddd6fe" },
-    "Not Applicable Review": { bg: "#eef2ff", text: "#4338ca", border: "#c7d2fe" },
-};
-
 function StatusBadge({ status }: { status: string }) {
-    const c = STATUS_COLORS[status] || { bg: "#f8fafc", text: "#475569", border: "#e2e8f0" };
+    const c = getStatusPillStyle(status);
     return (
         <span className="po-status-badge" style={{ background: c.bg, color: c.text, borderColor: c.border }}>
             {status}
@@ -52,7 +32,13 @@ export default function PortalRequests() {
             const q = search.toLowerCase();
             result = result.filter(r => r.title.toLowerCase().includes(q) || r.requestId.toLowerCase().includes(q) || r.category.toLowerCase().includes(q));
         }
-        if (filterStatus !== "all") result = result.filter(r => r.status === filterStatus);
+        if (filterStatus !== "all") {
+            if (filterStatus === "Action Needed") {
+                result = result.filter(r => getExternalStatusInfo(r).externalActionRequired);
+            } else {
+                result = result.filter(r => getExternalStatusInfo(r).label === filterStatus);
+            }
+        }
         if (filterCategory !== "all") result = result.filter(r => r.category === filterCategory);
         if (filterCommunity !== "all") result = result.filter(r => r.communityNames.includes(filterCommunity));
         return result;
@@ -85,62 +71,77 @@ export default function PortalRequests() {
                 </div>
                 <select className="po-filter-select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
                     <option value="all">All Statuses</option>
-                    <option value="Intake Review">Intake Review</option>
-                    <option value="Work Queue">Work Queue</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Quality Review">Quality Review</option>
-                    <option value="Published">Published</option>
-                    <option value="Waiting Review">Waiting Review</option>
-                    <option value="Approved">Approved</option>
-                    <option value="Rework Required">Rework Required</option>
-                    <option value="Action Needed">Action Needed</option>
-                    <option value="Clarification Requested">Clarification Requested</option>
+                    <option value="Submitted">Submitted</option>
+                    <option value="Under Review">Under Review</option>
+                    <option value="Information Requested">Information Requested</option>
+                    <option value="Awaiting Your Review">Awaiting Your Review</option>
                     <option value="Exception Review">Exception Review</option>
-                    <option value="Duplicate Decision Needed">Duplicate Decision Needed</option>
-                    <option value="Removal Approval Needed">Removal Approval Needed</option>
-                    <option value="Closed">Closed</option>
+                    <option value="Complete">Complete</option>
+                    <option value="Action Needed">Action Needed</option>
                 </select>
-                {categories.length > 0 && (
-                    <select className="po-filter-select" value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
-                        <option value="all">All Categories</option>
-                        {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                )}
+                <select className="po-filter-select" value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
+                    <option value="all">All Categories</option>
+                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
                 <select className="po-filter-select" value={filterCommunity} onChange={(e) => setFilterCommunity(e.target.value)}>
                     <option value="all">All Communities</option>
-                    {communities.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    {communities.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                 </select>
             </div>
 
-            <div className="po-requests-table">
-                <div className="po-requests-header" style={{ gridTemplateColumns: "0.6fr 1.8fr 1fr 0.9fr 0.7fr 0.7fr" }}>
-                    <span>ID</span><span>Request</span><span>Status</span><span>Category</span><span>Community</span><span>Updated</span>
-                </div>
-                {filtered.map((req) => (
-                    <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.6fr 1.8fr 1fr 0.9fr 0.7fr 0.7fr" }} onClick={() => navigate(`/portal/requests/${req.id}`)}>
-                        <span className="po-requests-id">{req.requestId}</span>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                            <span className="po-requests-title">{req.title}</span>
-                            {req._exceptionReason && (
-                                <span style={{ fontSize: 10, color: "#6b21a8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 280 }} title={req._exceptionReason}>
-                                    {req._exceptionReason.slice(0, 100)}{req._exceptionReason.length > 100 ? "..." : ""}
-                                </span>
-                            )}
-                        </div>
-                        <span>
-                            <StatusBadge status={req.status} />
-                        </span>
-                        <span className="po-requests-txn">{req.category || "\u2014"}</span>
-                        <span className="po-requests-txn">{req.communityNames[0] || "\u2014"}</span>
-                        <span className="po-requests-txn">{req.updatedAt || req.neededBy || "\u2014"}</span>
+            <div className="rc-card">
+                <div className="po-requests-table">
+                    <div className="po-requests-header" style={{ gridTemplateColumns: "0.5fr 2.5fr 1fr 0.9fr 0.7fr 0.7fr 0.7fr" }}>
+                        <span>ID</span><span>Request</span><span>Status</span><span>Category</span><span>Community</span><span>Updated</span><span style={{ textAlign: "center" }}>Action</span>
                     </div>
-                ))}
-                {filtered.length === 0 && (
-                    <div style={{ padding: "36px 24px", textAlign: "center", fontSize: 15, color: "#334155" }}>No requests match your filters.</div>
-                )}
-            </div>
-            <div style={{ marginTop: 8, fontSize: 13, color: "#475569" }}>
-                Showing {filtered.length} of {allRequests.length} requests
+                    {filtered.length === 0 ? (
+                        <div className="po-empty-state" style={{ padding: "40px 20px", textAlign: "center" }}>
+                            <p style={{ fontSize: 14, color: "#475569" }}>No requests match the selected filters.</p>
+                        </div>
+                    ) : filtered.map((req) => {
+                        const extInfo = getExternalStatusInfo(req);
+                        const excCtx = getExceptionContext(req);
+                        return (
+                            <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.5fr 2.5fr 1fr 0.9fr 0.7fr 0.7fr 0.7fr" }} onClick={() => navigate(`/portal/requests/${req.id}`)} title={req.requestId}>
+                                <span className="po-requests-id">{req.requestId.split("-").length >= 3 ? req.requestId.split("-")[0] + "-" + req.requestId.split("-").slice(-1)[0] : req.requestId}</span>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
+                                    <span className="po-requests-title" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={req.title}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</span>
+                                    {extInfo.status === "Awaiting Your Review" && (
+                                        <span style={{ fontSize: 11, color: "#047857", fontWeight: 500 }}>Document ready for approval</span>
+                                    )}
+                                    {excCtx.contextLabel && (
+                                        <span style={{ fontSize: 11, color: "#6d28d9", fontWeight: 500 }}>{excCtx.contextLabel}</span>
+                                    )}
+                                    {extInfo.status === "Information Requested" && (
+                                        <span style={{ fontSize: 11, color: "#92400e", fontWeight: 500 }}>IntegraCare needs additional information</span>
+                                    )}
+                                </div>
+                                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                    <StatusBadge status={extInfo.label} />
+                                </span>
+                                <span className="po-requests-txn">{req.category || "\u2014"}</span>
+                                <span className="po-requests-txn">{req.communityNames[0] || "\u2014"}</span>
+                                <span className="po-requests-txn">{req.updatedAt || req.neededBy || "\u2014"}</span>
+                                <span style={{ display: "flex", justifyContent: "center" }}>
+                                    {extInfo.externalActionRequired && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); navigate(`/portal/requests/${req.id}`); }}
+                                            style={{
+                                                fontSize: 12, padding: "6px 16px", borderRadius: 8,
+                                                background: "#1d4ed8", color: "#fff", border: "none",
+                                                cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap",
+                                            }}
+                                            onMouseEnter={e => { (e.target as HTMLElement).style.background = "#1e40af"; }}
+                                            onMouseLeave={e => { (e.target as HTMLElement).style.background = "#1d4ed8"; }}
+                                        >
+                                            {extInfo.externalActionLabel || "Open"}
+                                        </button>
+                                    )}
+                                </span>
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
         </div>
     );

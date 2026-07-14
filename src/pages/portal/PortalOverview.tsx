@@ -7,41 +7,16 @@ import {
     parseUploadedXLSX, extractCategoriesFromParsedRows,
     saveParsedRows,
 } from "../../services/portalMockData";
+import { getExternalStatusInfo, getStatusPillStyle } from "../../services/externalStatusMapping";
 import "./PortalOverview.css";
 
-const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-    Published: { bg: "#f0fdf4", text: "#166534", border: "#bbf7d0" },
-    "Waiting Review": { bg: "#eff6ff", text: "#1e40af", border: "#bfdbfe" },
-    Approved: { bg: "#f0fdf4", text: "#166534", border: "#bbf7d0" },
-    "Rework Required": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
-    "In Progress": { bg: "#eff6ff", text: "#1e40af", border: "#bfdbfe" },
-    "Intake Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
-    "Work Queue": { bg: "#fef3c7", text: "#92400e", border: "#fde68a" },
-    "Quality Review": { bg: "#fffbeb", text: "#92400e", border: "#fde68a" },
-    "Action Needed": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
-    "Clarification Requested": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
-    Closed: { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
-    "Closed / Duplicate": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
-    "Closed / Not Applicable": { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0" },
-    "Exception Review": { bg: "#faf5ff", text: "#6b21a8", border: "#ddd6fe" },
-    "Duplicate Decision Needed": { bg: "#faf5ff", text: "#6d28d9", border: "#ddd6fe" },
-    "Removal Approval Needed": { bg: "#eef2ff", text: "#4338ca", border: "#c7d2fe" },
-    "Possible Duplicate": { bg: "#faf5ff", text: "#6d28d9", border: "#ddd6fe" },
-    "Not Applicable Review": { bg: "#eef2ff", text: "#4338ca", border: "#c7d2fe" },
-};
-
 const STAT_HELPERS: Record<string, string> = {
-    "Intake Review": "Awaiting initial review",
-    "Work Queue": "Queued for processing",
-    "In Progress": "Actively being worked on",
-    "Quality Review": "Final review in progress",
-    "Waiting Review": "Awaiting partner decision",
-    Approved: "Completed and approved",
-    "Rework Required": "Returned for rework",
-    "Action Needed": "Requires your action — review or respond",
-    "Exception Review": "Needs your decision on duplicate or removal",
-    "Duplicate Decision Needed": "Needs your decision on duplicate",
-    "Removal Approval Needed": "Needs your decision on removal",
+    "Submitted": "Package received, awaiting initial review",
+    "Under Review": "IntegraCare is processing this request",
+    "Information Requested": "IntegraCare needs additional information",
+    "Awaiting Your Review": "Documents ready for your review",
+    "Exception Review": "Needs your decision on an exception recommendation",
+    "Complete": "Review complete — no further action required",
     "Total Requests": "All active requests",
 };
 
@@ -54,7 +29,7 @@ function shortId(id: string): string {
 }
 
 function StatusBadge({ status }: { status: string }) {
-    const c = STATUS_COLORS[status] || { bg: "#f8fafc", text: "#475569", border: "#e2e8f0" };
+    const c = getStatusPillStyle(status);
     return (
         <span className="po-status-badge" style={{ background: c.bg, color: c.text, borderColor: c.border }}>
             {status}
@@ -91,32 +66,31 @@ export default function PortalOverview() {
     const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
     const [banner, setBanner] = useState<string | null>(null);
 
-    /* ── Derived Stats ── */
-    const waitingReviewCount = portalRequests.filter(r => r.status === "Waiting Review" && (r._publishedExternal || r.externalStatus === "Published External")).length;
-    const approvedCount = portalRequests.filter(r => r.status === "Approved" && (r._publishedExternal || r.externalStatus === "Published External")).length;
-    const reworkRequiredCount = portalRequests.filter(r => r.status === "Rework Required" && (r._publishedExternal || r.externalStatus === "Published External")).length;
-    const publishedCount = portalRequests.filter(r => (r._publishedExternal || r.externalStatus === "Published External") && r.status !== "Waiting Review" && r.status !== "Approved" && r.status !== "Rework Required").length;
-    const qualityReviewCount = portalRequests.filter(r => r.status === "Quality Review" && !r._publishedExternal && r.externalStatus !== "Published External").length;
-    const intakeCount = portalRequests.filter(r => r.status === "Intake Review").length;
-    const workQueueCount = portalRequests.filter(r => r.status === "Work Queue").length;
-    const actionNeededCount = portalRequests.filter(r => r.status === "Action Needed" || r.status === "Clarification Requested" || r.status === "Duplicate Decision Needed" || r.status === "Removal Approval Needed").length;
-    const exceptionReviewCount = portalRequests.filter(r => r.status === "Exception Review" || r.status === "Duplicate Decision Needed" || r.status === "Removal Approval Needed").length;
-    const inProgress = portalRequests.filter(r => r.status === "In Progress").length;
-    const visibleRequests = portalRequests.filter(r => r.status !== "Closed" && r.status !== "Closed / Duplicate" && r.status !== "Closed / Not Applicable");
+    /* ── Derived Stats using centralized external status mapping ── */
+    const portalStatuses = portalRequests.map(r => getExternalStatusInfo(r));
+    const submittedCount = portalStatuses.filter(s => s.status === "Submitted").length;
+    const underReviewCount = portalStatuses.filter(s => s.status === "Under Review").length;
+    const infoRequestedCount = portalStatuses.filter(s => s.status === "Information Requested").length;
+    const awaitingReviewCount = portalStatuses.filter(s => s.status === "Awaiting Your Review").length;
+    const exceptionReviewCount = portalStatuses.filter(s => s.status === "Exception Review").length;
+    const completeCount = portalStatuses.filter(s => s.status === "Complete").length;
+    const actionNeededCount = portalStatuses.filter(s => s.externalActionRequired).length;
+    const visibleRequests = portalRequests.filter(r => getExternalStatusInfo(r).status !== "Complete");
 
     const [dashboardSearch, setDashboardSearch] = useState("");
     const [dashboardFilterStatus, setDashboardFilterStatus] = useState("all");
     const [dashboardFilterCategory, setDashboardFilterCategory] = useState("all");
     const dashboardCategories = [...new Set(portalRequests.map(r => r.category))];
     const dashboardFiltered = visibleRequests.filter(r => {
+        const ext = getExternalStatusInfo(r);
         if (dashboardFilterStatus !== "all") {
             if (dashboardFilterStatus === "Action Needed") {
-                if (r.status !== "Action Needed" && r.status !== "Clarification Requested") return false;
+                if (!ext.externalActionRequired) return false;
             }
             else if (dashboardFilterStatus === "Exception Review") {
-                if (r.status !== "Exception Review" && r.status !== "Duplicate Decision Needed" && r.status !== "Removal Approval Needed") return false;
+                if (ext.status !== "Exception Review") return false;
             }
-            else if (r.status !== dashboardFilterStatus) return false;
+            else if (ext.label !== dashboardFilterStatus) return false;
         }
         if (dashboardFilterCategory !== "all" && r.category !== dashboardFilterCategory) return false;
         if (dashboardSearch) {
@@ -311,25 +285,37 @@ export default function PortalOverview() {
 
                         {uploadState === "complete" && analysis && (
                             <div>
-                                <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#dcfce7", color: "#166534", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", border: "3px solid #bbf7d0" }}>
+                                <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#dcfce7", color: "#166534", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", border: "3px solid #bbf7d0" }}>
                                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                         <polyline points="20 6 9 17 4 12" />
                                     </svg>
                                 </div>
-                                <h3 style={{ fontSize: 24, fontWeight: 800, color: "#166534", margin: "0 0 6px", letterSpacing: "-0.02em" }}>Package Ready</h3>
-                                <p style={{ fontSize: 15, color: "#334155", margin: "0 0 6px" }}>
-                                    {analysis.packageName} &mdash; {analysis.detected} request{analysis.detected !== 1 ? "s" : ""} detected.
+                                <h3 style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", margin: "0 0 8px", letterSpacing: "-0.02em" }}>Package Successfully Analyzed</h3>
+                                <p style={{ fontSize: 16, color: "#334155", margin: "0 0 6px", fontWeight: 600 }}>
+                                    We identified <strong style={{ color: "#0f172a" }}>{analysis.detected}</strong> potential due diligence request{analysis.detected !== 1 ? "s" : ""} in <strong style={{ color: "#0f172a" }}>{analysis.packageName}</strong>.
                                 </p>
-                                <p style={{ fontSize: 13, color: "#475569", margin: "0 0 20px", fontStyle: "italic" }}>
-                                    IntegraCare will review all request rows internally before publishing to your dashboard.
+                                <p style={{ fontSize: 14, color: "#dc2626", margin: "0 0 4px", fontWeight: 700 }}>
+                                    Your package has not yet been submitted to IntegraCare.
+                                </p>
+                                <p style={{ fontSize: 14, color: "#334155", margin: "0 0 20px", lineHeight: 1.6 }}>
+                                    Review the summary below, then select <strong>Submit Package</strong> to send these requests to the IntegraCare Due Diligence Team.
                                 </p>
                                 <div style={{ textAlign: "center", marginBottom: 18 }}>
-                                    <div style={{ fontSize: 42, fontWeight: 800, color: "#166534", lineHeight: 1 }}>{analysis.detected}</div>
+                                    <div style={{ fontSize: 42, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{analysis.detected}</div>
                                     <div style={{ fontSize: 14, color: "#334155", fontWeight: 600 }}>Requests Detected</div>
                                 </div>
+                                <div style={{ background: "#f8faff", borderRadius: 12, border: "1px solid #dbeafe", padding: "16px 20px", marginBottom: 20, textAlign: "left" }}>
+                                    <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 10 }}>After submission</div>
+                                    <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.8, display: "flex", flexDirection: "column", gap: 2 }}>
+                                        <span>&bull; IntegraCare performs an initial review of your requests</span>
+                                        <span>&bull; Requests are assigned internally to the appropriate team members</span>
+                                        <span>&bull; Clarification may be requested if additional information is needed</span>
+                                        <span>&bull; Approved documents will be returned through this portal for your review</span>
+                                    </div>
+                                </div>
                                 <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-                                    <button className="rc-btn rc-btn-primary" onClick={handleSubmitPackage} style={{ padding: "14px 36px", fontSize: 15, fontWeight: 700, borderRadius: 12 }}>Confirm &amp; Submit to IntegraCare</button>
-                                    <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ padding: "14px 24px", fontSize: 14, borderRadius: 12 }}>Start Over</button>
+                                    <button className="rc-btn rc-btn-primary" onClick={handleSubmitPackage} style={{ padding: "14px 40px", fontSize: 16, fontWeight: 700, borderRadius: 12 }}>Submit Package</button>
+                                    <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ padding: "14px 24px", fontSize: 14, borderRadius: 12, border: "1px solid #d1d5db", color: "#0f172a", background: "#fff" }}>Upload Different Package</button>
                                 </div>
                             </div>
                         )}
@@ -340,7 +326,7 @@ export default function PortalOverview() {
                             <h3 style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", marginBottom: 16, textAlign: "center" }}>How it works</h3>
                             <div className="po-how-it-works">
                                 {[
-                                    { step: "1", title: "Upload", desc: "Upload your DD request list as an Excel file" },
+                                    { step: "1", title: "Upload", desc: "Upload your due diligence request list as an Excel file" },
                                     { step: "2", title: "Review", desc: "IntegraCare reviews and routes your requests" },
                                     { step: "3", title: "Track", desc: "Monitor progress and published results here" },
                                 ].map(s => (
@@ -356,23 +342,48 @@ export default function PortalOverview() {
                 </div>
             )}
 
-            {/* ── Compact Submitted Banner ── */}
+            {/* ── Enhanced Submitted Banner ── */}
             {uploadState === "submitted" && analysis && (
                 <div style={{ marginBottom: 0 }}>
                     <div className="po-submitted-banner" style={{ padding: "28px 32px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 18, justifyContent: "center", flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 18, justifyContent: "center", flexWrap: "wrap", marginBottom: 20 }}>
                             <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#166534", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: "3px solid #86efac" }}>
                                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                     <polyline points="20 6 9 17 4 12" />
                                 </svg>
                             </div>
                             <div style={{ textAlign: "left" }}>
-                                <div style={{ fontSize: 20, fontWeight: 800, color: "#166534", marginBottom: 4, letterSpacing: "-0.02em" }}>Package Submitted</div>
-                                <div style={{ fontSize: 14, color: "#334155", lineHeight: 1.5 }}>
-                                    {analysis.detected} request{analysis.detected !== 1 ? "s" : ""} are now in Intake Review. You will be notified when items are published.
+                                <div style={{ fontSize: 22, fontWeight: 800, color: "#166534", marginBottom: 4, letterSpacing: "-0.02em" }}>Package Submitted Successfully</div>
+                                <div style={{ fontSize: 15, color: "#334155", lineHeight: 1.5 }}>
+                                    <strong>{analysis.detected}</strong> request{analysis.detected !== 1 ? "s" : ""} have entered IntegraCare&rsquo;s review process.
+                                </div>
+                                <div style={{ fontSize: 13, color: "#475569", marginTop: 4 }}>
+                                    No action is required from you right now. The IntegraCare team owns the next step.
                                 </div>
                             </div>
                             <button className="rc-btn rc-btn-primary" onClick={resetUpload} style={{ padding: "10px 24px", fontSize: 13, fontWeight: 700 }}>Upload Another Package</button>
+                        </div>
+                        <div style={{ borderTop: "1px solid #bbf7d0", paddingTop: 16, maxWidth: 700, margin: "0 auto" }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 12, textAlign: "center" }}>How the review process works</div>
+                            <div style={{ display: "flex", gap: 4, alignItems: "flex-start", justifyContent: "center", flexWrap: "wrap" }}>
+                                {[
+                                    { step: "1", title: "Submitted", desc: "Package received successfully." },
+                                    { step: "2", title: "Initial Review", desc: "IntegraCare verifies the requests, classifications, and duplicates." },
+                                    { step: "3", title: "Internal Processing", desc: "Requests are assigned to the appropriate team members." },
+                                    { step: "4", title: "Questions, if needed", desc: "You may receive clarification requests or other items requiring your response." },
+                                    { step: "5", title: "Ready for Your Review", desc: "Completed documents are published for your approval or rework." },
+                                    { step: "6", title: "Complete", desc: "The request is closed after your approval." },
+                                ].map(s => (
+                                    <div key={s.step} style={{ flex: "0 1 150px", textAlign: "center", padding: "8px 6px" }}>
+                                        <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#dcfce7", color: "#166534", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, margin: "0 auto 6px", border: "2px solid #bbf7d0" }}>{s.step}</div>
+                                        <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", marginBottom: 2 }}>{s.title}</div>
+                                        <div style={{ fontSize: 11, color: "#475569", lineHeight: 1.3 }}>{s.desc}</div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div style={{ fontSize: 12, color: "#475569", textAlign: "center", marginTop: 8, fontStyle: "italic" }}>
+                                Requests may move through the process at different times. Your dashboard will update as each item progresses.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -397,8 +408,8 @@ export default function PortalOverview() {
                             </svg>
                             <span style={{ fontSize: 16, fontWeight: 700, color: "#166534" }}>Package Ready</span>
                             <span style={{ fontSize: 14, color: "#334155" }}>{analysis.detected} request{analysis.detected !== 1 ? "s" : ""} detected in {analysis.packageName}</span>
-                            <button className="rc-btn rc-btn-primary" onClick={handleSubmitPackage} style={{ padding: "8px 20px", fontSize: 13, fontWeight: 700 }}>Confirm &amp; Submit</button>
-                            <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ padding: "8px 14px", fontSize: 13 }}>Start Over</button>
+                            <button className="rc-btn rc-btn-primary" onClick={handleSubmitPackage} style={{ padding: "8px 20px", fontSize: 13, fontWeight: 700 }}>Submit Package</button>
+                            <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ padding: "8px 14px", fontSize: 13 }}>Upload Different Package</button>
                         </div>
                     )}
                 </div>
@@ -412,63 +423,32 @@ export default function PortalOverview() {
                     <span className="po-stat-label">Total Requests</span>
                     <span className="po-stat-helper">{STAT_HELPERS["Total Requests"]}</span>
                 </div>
-                {intakeCount > 0 && (
-                    <div className={`po-stat-card${dashboardFilterStatus === "Intake Review" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Intake Review"); setDashboardFilterCategory("all"); }}>
-                        <span className="po-stat-value po-stat-value--indigo">{intakeCount}</span>
-                        <span className="po-stat-label">Intake Review</span>
-                        <span className="po-stat-helper">{STAT_HELPERS["Intake Review"]}</span>
+                {submittedCount > 0 && (
+                    <div className={`po-stat-card${dashboardFilterStatus === "Submitted" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Submitted"); setDashboardFilterCategory("all"); }}>
+                        <span className="po-stat-value po-stat-value--blue">{submittedCount}</span>
+                        <span className="po-stat-label">Submitted</span>
+                        <span className="po-stat-helper">{STAT_HELPERS["Submitted"]}</span>
                     </div>
                 )}
-                {workQueueCount > 0 && (
-                    <div className={`po-stat-card${dashboardFilterStatus === "Work Queue" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Work Queue"); setDashboardFilterCategory("all"); }}>
-                        <span className="po-stat-value po-stat-value--amber">{workQueueCount}</span>
-                        <span className="po-stat-label">Work Queue</span>
-                        <span className="po-stat-helper">{STAT_HELPERS["Work Queue"]}</span>
+                {underReviewCount > 0 && (
+                    <div className={`po-stat-card${dashboardFilterStatus === "Under Review" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Under Review"); setDashboardFilterCategory("all"); }}>
+                        <span className="po-stat-value po-stat-value--blue">{underReviewCount}</span>
+                        <span className="po-stat-label">Under Review</span>
+                        <span className="po-stat-helper">{STAT_HELPERS["Under Review"]}</span>
                     </div>
                 )}
-                <div className={`po-stat-card${dashboardFilterStatus === "In Progress" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("In Progress"); setDashboardFilterCategory("all"); }}>
-                    <span className="po-stat-value po-stat-value--blue">{inProgress}</span>
-                    <span className="po-stat-label">In Progress</span>
-                    <span className="po-stat-helper">{STAT_HELPERS["In Progress"]}</span>
-                </div>
-                <div className={`po-stat-card${dashboardFilterStatus === "Quality Review" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Quality Review"); setDashboardFilterCategory("all"); }}>
-                    <span className="po-stat-value po-stat-value--amber">{qualityReviewCount}</span>
-                    <span className="po-stat-label">Quality Review</span>
-                    <span className="po-stat-helper">{STAT_HELPERS["Quality Review"]}</span>
-                </div>
-                {waitingReviewCount > 0 && (
-                    <div className={`po-stat-card${dashboardFilterStatus === "Waiting Review" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Waiting Review"); setDashboardFilterCategory("all"); }}>
-                        <span className="po-stat-value po-stat-value--green">{waitingReviewCount}</span>
-                        <span className="po-stat-label">Waiting Review</span>
-                        <span className="po-stat-helper">{STAT_HELPERS["Waiting Review"]}</span>
+                {infoRequestedCount > 0 && (
+                    <div className={`po-stat-card${dashboardFilterStatus === "Information Requested" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Information Requested"); setDashboardFilterCategory("all"); }}>
+                        <span className="po-stat-value po-stat-value--amber">{infoRequestedCount}</span>
+                        <span className="po-stat-label">Information Requested</span>
+                        <span className="po-stat-helper">{STAT_HELPERS["Information Requested"]}</span>
                     </div>
                 )}
-                {approvedCount > 0 && (
-                    <div className={`po-stat-card${dashboardFilterStatus === "Approved" ? " po-stat-card--active" : ""} po-stat-card--highlight`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Approved"); setDashboardFilterCategory("all"); }}>
-                        <span className="po-stat-value po-stat-value--green">{approvedCount}</span>
-                        <span className="po-stat-label">Approved</span>
-                        <span className="po-stat-helper">{STAT_HELPERS["Approved"]}</span>
-                    </div>
-                )}
-                {reworkRequiredCount > 0 && (
-                    <div className={`po-stat-card${dashboardFilterStatus === "Rework Required" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Rework Required"); setDashboardFilterCategory("all"); }}>
-                        <span className="po-stat-value po-stat-value--amber">{reworkRequiredCount}</span>
-                        <span className="po-stat-label">Rework Required</span>
-                        <span className="po-stat-helper">{STAT_HELPERS["Rework Required"]}</span>
-                    </div>
-                )}
-                {publishedCount > 0 && (
-                    <div className={`po-stat-card${dashboardFilterStatus === "Published" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Published"); setDashboardFilterCategory("all"); }}>
-                        <span className="po-stat-value po-stat-value--green">{publishedCount}</span>
-                        <span className="po-stat-label">Published</span>
-                        <span className="po-stat-helper">Awaiting partner action</span>
-                    </div>
-                )}
-                {actionNeededCount > 0 && (
-                    <div className={`po-stat-card${dashboardFilterStatus === "Action Needed" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Action Needed"); setDashboardFilterCategory("all"); }}>
-                        <span className="po-stat-value po-stat-value--red">{actionNeededCount}</span>
-                        <span className="po-stat-label">Action Needed</span>
-                        <span className="po-stat-helper">{STAT_HELPERS["Action Needed"]}</span>
+                {awaitingReviewCount > 0 && (
+                    <div className={`po-stat-card${dashboardFilterStatus === "Awaiting Your Review" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Awaiting Your Review"); setDashboardFilterCategory("all"); }}>
+                        <span className="po-stat-value po-stat-value--green">{awaitingReviewCount}</span>
+                        <span className="po-stat-label">Awaiting Your Review</span>
+                        <span className="po-stat-helper">{STAT_HELPERS["Awaiting Your Review"]}</span>
                     </div>
                 )}
                 {exceptionReviewCount > 0 && (
@@ -476,6 +456,20 @@ export default function PortalOverview() {
                         <span className="po-stat-value po-stat-value--indigo">{exceptionReviewCount}</span>
                         <span className="po-stat-label">Exception Review</span>
                         <span className="po-stat-helper">{STAT_HELPERS["Exception Review"]}</span>
+                    </div>
+                )}
+                {completeCount > 0 && (
+                    <div className={`po-stat-card${dashboardFilterStatus === "Complete" ? " po-stat-card--active" : ""} po-stat-card--highlight`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Complete"); setDashboardFilterCategory("all"); }}>
+                        <span className="po-stat-value po-stat-value--green">{completeCount}</span>
+                        <span className="po-stat-label">Complete</span>
+                        <span className="po-stat-helper">{STAT_HELPERS["Complete"]}</span>
+                    </div>
+                )}
+                {actionNeededCount > 0 && (
+                    <div className={`po-stat-card${dashboardFilterStatus === "Action Needed" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Action Needed"); setDashboardFilterCategory("all"); }}>
+                        <span className="po-stat-value po-stat-value--red">{actionNeededCount}</span>
+                        <span className="po-stat-label">Action Needed</span>
+                        <span className="po-stat-helper">Requires your action — review or respond</span>
                     </div>
                 )}
             </div>
@@ -509,7 +503,7 @@ export default function PortalOverview() {
                                 </svg>
                             </div>
                             <p style={{ fontSize: 16, color: "#334155", margin: "0 0 6px", fontWeight: 600 }}>No requests have been submitted yet.</p>
-                            <p style={{ fontSize: 14, color: "#475569", margin: 0, lineHeight: 1.5 }}>Select <strong>Confirm &amp; Submit</strong> above to begin processing your due diligence package.</p>
+                            <p style={{ fontSize: 14, color: "#475569", margin: 0, lineHeight: 1.5 }}>Select <strong>Submit Package</strong> above to begin processing your due diligence package.</p>
                         </div>
                     ) : (
                         <>
@@ -520,19 +514,13 @@ export default function PortalOverview() {
                                 </div>
                                 <select className="po-filter-select" value={dashboardFilterStatus} onChange={e => setDashboardFilterStatus(e.target.value)}>
                                     <option value="all">All Statuses</option>
-                                    <option value="Intake Review">Intake Review</option>
-                                    <option value="Work Queue">Work Queue</option>
-                                    <option value="In Progress">In Progress</option>
-                                    <option value="Quality Review">Quality Review</option>
-                                    <option value="Published">Published</option>
-                                    <option value="Waiting Review">Waiting Review</option>
-                                    <option value="Approved">Approved</option>
-                                    <option value="Rework Required">Rework Required</option>
-                                    <option value="Action Needed">Action Needed</option>
+                                    <option value="Submitted">Submitted</option>
+                                    <option value="Under Review">Under Review</option>
+                                    <option value="Information Requested">Information Requested</option>
+                                    <option value="Awaiting Your Review">Awaiting Your Review</option>
                                     <option value="Exception Review">Exception Review</option>
-                                    <option value="Duplicate Decision Needed">Duplicate Decision Needed</option>
-                                    <option value="Removal Approval Needed">Removal Approval Needed</option>
-                                    <option value="Clarification Requested">Clarification Requested</option>
+                                    <option value="Complete">Complete</option>
+                                    <option value="Action Needed">Action Needed</option>
                                 </select>
                                 <select className="po-filter-select" value={dashboardFilterCategory} onChange={e => setDashboardFilterCategory(e.target.value)}>
                                     <option value="all">All Categories</option>

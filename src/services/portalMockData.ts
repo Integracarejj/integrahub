@@ -1,5 +1,6 @@
 import { getTransactions, getRequests, getDocuments, isDemoActive, initDemo, getDemoEngineSummary, addPortalCreatedIntakeItem, addPortalCreatedRequests, addPortalSubmission, getPortalSubmissions, updatePortalSubmissionStatus, clearAllPortalCreatedData, isRecapDataWiped, clearRecapWiped, addActivityEntry } from "./recapDataService";
 import type { RecapRequest, RecapDocument, RecapTransaction, RecapIntakeItem } from "./recapDataService";
+import { getExternalStatusInfo } from "./externalStatusMapping";
 
 const PERSONA_KEY = "integrasource.recap.portalPersona";
 const PARSED_ROWS_KEY = "integrasource.recap.demo.parsedRows";
@@ -228,44 +229,8 @@ function mapRecapToPortalTxn(txn: RecapTransaction): PortalTransaction {
 }
 
 function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
-    let portalStatus: string;
-    // Exception recommendation awaiting partner decision → specific status
-    if (req._exceptionRecommendation && !req._exceptionDecision) {
-        portalStatus = req._exceptionRecommendation === "Duplicate" ? "Duplicate Decision Needed" : "Removal Approval Needed";
-    // Published externally → check partner review status
-    } else if (req._publishedExternal || req._externalStatus === "Published External") {
-        if (req.status === "Completed") {
-            portalStatus = "Approved";
-        } else if (req.status === "Needs Rework") {
-            portalStatus = "Rework Required";
-        } else {
-            portalStatus = "Waiting Review";
-        }
-    // Clarification requested → Clarification Requested
-    } else if (req.status === "Clarification Needed") {
-        portalStatus = "Clarification Requested";
-    // Internal In Progress → External In Progress
-    } else if (req.status === "In Progress") {
-        portalStatus = "In Progress";
-    // Published out of intake into work queue / open / assigned
-    } else if (req._publishedAt) {
-        portalStatus = "Work Queue";
-    // Complete but not yet published externally
-    } else if (req.status === "Complete") {
-        portalStatus = "Quality Review";
-    // Duplicate → Closed / Duplicate
-    } else if (req.status === "Duplicate") {
-        portalStatus = "Closed / Duplicate";
-    // Not Applicable → Closed / Not Applicable
-    } else if (req.status === "Not Applicable") {
-        portalStatus = "Closed / Not Applicable";
-    // Rejected → Closed
-    } else if (req.status === "Rejected") {
-        portalStatus = "Closed";
-    // Still in intake / under review / not yet published
-    } else {
-        portalStatus = "Intake Review";
-    }
+    const extInfo = getExternalStatusInfo(req);
+    let portalStatus = extInfo.label;
     return {
         id: req.id,
         requestId: req.requestId,
