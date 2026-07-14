@@ -321,7 +321,7 @@
     border: 1px solid #bbf7d0;
     border-radius: 16px;
     padding: 32px;
-    background: linear-gradient(135deg, #f0fdf4 0%, #faf5ff 100%);
+    background: #fff;
     text-align: center;
 }
 
@@ -331,7 +331,7 @@
     border-radius: 16px;
     padding: 40px 24px;
     text-align: center;
-    background: #f5f7ff;
+    background: #fff;
 }
 
 .po-empty-state p {
@@ -633,6 +633,15 @@
 @keyframes po-fade-in {
     from { opacity: 0; transform: translateY(4px); }
     to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Focus / Accessibility ── */
+.po-search-box input:focus-visible,
+.po-filter-select:focus-visible,
+.rc-btn:focus-visible,
+.po-status-badge:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
 }
 
 /* ── Responsive ── */

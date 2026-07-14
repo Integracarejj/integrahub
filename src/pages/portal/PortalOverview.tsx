@@ -84,10 +84,7 @@ export default function PortalOverview() {
     const dashboardFiltered = visibleRequests.filter(r => {
         const ext = getExternalStatusInfo(r);
         if (dashboardFilterStatus !== "all") {
-            if (dashboardFilterStatus === "Action Needed") {
-                if (!ext.externalActionRequired) return false;
-            }
-            else if (dashboardFilterStatus === "Exception Review") {
+            if (dashboardFilterStatus === "Exception Review") {
                 if (ext.status !== "Exception Review") return false;
             }
             else if (ext.label !== dashboardFilterStatus) return false;
@@ -211,14 +208,11 @@ export default function PortalOverview() {
     const hasSubmitted = submissions.length > 0 || uploadState === "submitted";
     const showOnlyUpload = submissions.length === 0 && uploadState !== "submitted";
 
-    /* ── Scroll indicator state ── */
-    const [showScrollHint, setShowScrollHint] = useState(true);
-    useEffect(() => {
-        const handleScroll = () => {
-            if (window.scrollY > 100) setShowScrollHint(false);
-        };
-        window.addEventListener("scroll", handleScroll, { passive: true });
-        return () => window.removeEventListener("scroll", handleScroll);
+    /* ── Scroll ref and state ── */
+    const requestsRef = useRef<HTMLDivElement>(null);
+    const handleViewRequests = useCallback(() => {
+        requestsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        setTimeout(() => requestsRef.current?.querySelector<HTMLElement>("input, select, a, button")?.focus(), 600);
     }, []);
 
     return (
@@ -307,8 +301,7 @@ export default function PortalOverview() {
                                 <div style={{ background: "#f8faff", borderRadius: 12, border: "1px solid #dbeafe", padding: "16px 20px", marginBottom: 20, textAlign: "left" }}>
                                     <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 10 }}>After submission</div>
                                     <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.8, display: "flex", flexDirection: "column", gap: 2 }}>
-                                        <span>&bull; IntegraCare performs an initial review of your requests</span>
-                                        <span>&bull; Requests are assigned internally to the appropriate team members</span>
+                                        <span>&bull; IntegraCare will review, classify, assign, and process each request</span>
                                         <span>&bull; Clarification may be requested if additional information is needed</span>
                                         <span>&bull; Approved documents will be returned through this portal for your review</span>
                                     </div>
@@ -465,32 +458,61 @@ export default function PortalOverview() {
                         <span className="po-stat-helper">{STAT_HELPERS["Complete"]}</span>
                     </div>
                 )}
-                {actionNeededCount > 0 && (
-                    <div className={`po-stat-card${dashboardFilterStatus === "Action Needed" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Action Needed"); setDashboardFilterCategory("all"); }}>
-                        <span className="po-stat-value po-stat-value--red">{actionNeededCount}</span>
-                        <span className="po-stat-label">Action Needed</span>
-                        <span className="po-stat-helper">Requires your action — review or respond</span>
-                    </div>
-                )}
             </div>
+
+            {/* ── Attention Summary Banner (replaces Action Needed card) ── */}
+            {actionNeededCount > 0 && (
+                <div style={{
+                    display: "flex", alignItems: "center", gap: 12, justifyContent: "center",
+                    padding: "10px 18px", background: "#fff", border: "1px solid #fcd34d", borderRadius: 10,
+                    fontSize: 13, color: "#0f172a", fontWeight: 600,
+                }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                        <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                    <span>{actionNeededCount} request{actionNeededCount !== 1 ? "s" : ""} need{actionNeededCount === 1 ? "s" : ""} your attention</span>
+                    {awaitingReviewCount > 0 && (
+                        <button
+                            className="rc-btn rc-btn-ghost" style={{ fontSize: 12, fontWeight: 600, padding: "4px 10px", color: "#1d4ed8", textDecoration: "underline" }}
+                            onClick={() => { setDashboardFilterStatus("Awaiting Your Review"); setDashboardFilterCategory("all"); }}
+                        >
+                            {awaitingReviewCount} awaiting review
+                        </button>
+                    )}
+                    {exceptionReviewCount > 0 && (
+                        <button
+                            className="rc-btn rc-btn-ghost" style={{ fontSize: 12, fontWeight: 600, padding: "4px 10px", color: "#6d28d9", textDecoration: "underline" }}
+                            onClick={() => { setDashboardFilterStatus("Exception Review"); setDashboardFilterCategory("all"); }}
+                        >
+                            {exceptionReviewCount} exception recommendation{exceptionReviewCount !== 1 ? "s" : ""}
+                        </button>
+                    )}
+                </div>
+            )}
             <div style={{ fontSize: 12, color: "#475569", textAlign: "right", marginBottom: 12 }}>
                 Last updated: {lastUpdated.toLocaleTimeString()}
             </div>
 
-            {/* ── Scroll Hint ── */}
-            {showScrollHint && visibleRequests.length > 0 && (
-                <div style={{
-                    textAlign: "center", fontSize: 12, color: "#475569", padding: "2px 0 8px",
-                    opacity: showScrollHint ? 1 : 0,
-                    transition: "opacity 0.4s ease",
-                    animation: "po-fade-in 0.6s ease",
-                }}>
-                    Scroll for requests &darr;
+            {/* ── View Submitted Requests Cue ── */}
+            {visibleRequests.length > 0 && (
+                <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
+                    <button
+                        onClick={handleViewRequests}
+                        className="rc-btn rc-btn-primary"
+                        style={{ padding: "10px 28px", fontSize: 14, fontWeight: 700, borderRadius: 10 }}
+                        aria-label="View submitted requests"
+                    >
+                        View Submitted Requests &darr;
+                    </button>
+                    <div style={{ fontSize: 13, color: "#475569", marginTop: 6 }}>
+                        Your requests are listed below and will update as they move through the review process.
+                    </div>
                 </div>
             )}
 
             {/* ── Full-Width Requests Grid ── */}
-            <div className="po-dashboard-grid">
+            <div className="po-dashboard-grid" ref={requestsRef}>
                 <div className="po-section">
                     <h2 className="po-section-title">Submitted Requests</h2>
                     {visibleRequests.length === 0 ? (
@@ -510,9 +532,9 @@ export default function PortalOverview() {
                             <div className="po-filter-row">
                                 <div className="po-search-box">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
-                                    <input type="text" placeholder="Search..." value={dashboardSearch} onChange={e => setDashboardSearch(e.target.value)} />
+                                    <input type="text" placeholder="Search..." aria-label="Search requests" value={dashboardSearch} onChange={e => setDashboardSearch(e.target.value)} />
                                 </div>
-                                <select className="po-filter-select" value={dashboardFilterStatus} onChange={e => setDashboardFilterStatus(e.target.value)}>
+                                <select className="po-filter-select" aria-label="Filter by status" value={dashboardFilterStatus} onChange={e => setDashboardFilterStatus(e.target.value)}>
                                     <option value="all">All Statuses</option>
                                     <option value="Submitted">Submitted</option>
                                     <option value="Under Review">Under Review</option>
@@ -520,9 +542,8 @@ export default function PortalOverview() {
                                     <option value="Awaiting Your Review">Awaiting Your Review</option>
                                     <option value="Exception Review">Exception Review</option>
                                     <option value="Complete">Complete</option>
-                                    <option value="Action Needed">Action Needed</option>
                                 </select>
-                                <select className="po-filter-select" value={dashboardFilterCategory} onChange={e => setDashboardFilterCategory(e.target.value)}>
+                                <select className="po-filter-select" aria-label="Filter by category" value={dashboardFilterCategory} onChange={e => setDashboardFilterCategory(e.target.value)}>
                                     <option value="all">All Categories</option>
                                     {dashboardCategories.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>

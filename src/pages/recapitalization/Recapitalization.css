@@ -98,6 +98,7 @@
     border: 1px solid #e0e7ff;
     border-radius: 12px;
     box-shadow: 0 4px 16px rgba(79,70,229,0.04);
+    overflow: hidden;
 }
 
 .rc-card-header {
@@ -106,10 +107,18 @@
     justify-content: space-between;
     padding: 14px 18px;
     border-bottom: 1px solid #f1f5f9;
+    flex-shrink: 0;
 }
 
 .rc-card-body {
     padding: 18px;
+}
+
+/* ── Table inside card ── */
+.rc-table-wrapper {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: calc(100vh - 310px);
 }
 
 .rc-stats-row {
@@ -2176,4 +2185,25 @@
 
 .ws-actions-group-label:first-child {
     margin-top: 0;
+}
+
+/* ── Focus / Accessibility ── */
+.rc-btn:focus-visible,
+.rc-filter-select:focus-visible,
+.rc-search-box input:focus-visible,
+.rc-subnav-btn:focus-visible,
+.rc-tab:focus-visible,
+.rc-drawer-close:focus-visible,
+.rc-modal-close:focus-visible,
+.rc-toggle-btn:focus-visible,
+.rc-table select:focus-visible,
+.rc-table button:focus-visible,
+.rc-table td[onClick]:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+}
+
+/* Improve dialog semantics */
+.rc-modal-overlay[role="dialog"] .rc-modal {
+    outline: none;
 }

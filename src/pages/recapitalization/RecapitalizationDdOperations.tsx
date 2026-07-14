@@ -188,27 +188,29 @@ export default function RecapitalizationDdOperations() {
     const ExternalStatus = ({ req }: { req: RecapRequest }) => {
         const pill = req._partnerDecision ? (
             req._partnerDecision === "Approved" ? (
-                <span style={{ color: "#166534", fontWeight: 600, fontSize: 10, background: "#f0fdf4", padding: "1px 6px", borderRadius: 4, border: "1px solid #bbf7d0", marginLeft: 4 }}>
-                    &#10003; Partner Approved
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "#0f172a", fontWeight: 600, fontSize: 10, background: "#fff", padding: "1px 6px", borderRadius: 4, border: "1px solid #86efac", marginLeft: 4 }}>
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                    Partner Approved
                 </span>
             ) : (
-                <span style={{ color: "#9a3412", fontWeight: 600, fontSize: 10, background: "#fff7ed", padding: "1px 6px", borderRadius: 4, border: "1px solid #fed7aa", marginLeft: 4 }}>
-                    &#9888; Rework Requested
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "#0f172a", fontWeight: 600, fontSize: 10, background: "#fff", padding: "1px 6px", borderRadius: 4, border: "1px solid #fed7aa", marginLeft: 4 }}>
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                    Rework Requested
                 </span>
             )
         ) : null;
         switch (req._externalStatus) {
             case "Published External":
-                return <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}><span style={{ color: "#166534", fontWeight: 600, fontSize: 11, background: "#f0fdf4", padding: "1px 6px", borderRadius: 4 }}>Published External</span>{pill}</span>;
+                return <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "#0f172a", fontWeight: 600, fontSize: 11, background: "#fff", padding: "2px 8px", borderRadius: 4, border: "1px solid #86efac" }}><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /></svg>Published External</span>{pill}</span>;
             case "Ready to Publish":
-                return <span style={{ color: "#92400e", fontWeight: 600, fontSize: 11, background: "#fffbeb", padding: "1px 6px", borderRadius: 4 }}>Ready to Publish</span>;
+                return <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "#0f172a", fontWeight: 600, fontSize: 11, background: "#fff", padding: "2px 8px", borderRadius: 4, border: "1px solid #c7d2fe" }}>Ready to Publish</span>;
             default:
                 return <span style={{ color: "#475569", fontSize: 11 }}>Internal Only</span>;
         }
     };
 
-    function partnerBtnStyle(bg: string, color: string, border: string): React.CSSProperties {
-        return { fontSize: 11, padding: "5px 14px", borderRadius: 6, background: bg, color, border: `1px solid ${border}`, cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" };
+    function partnerBtnStyle(border: string): React.CSSProperties {
+        return { fontSize: 11, padding: "5px 14px", borderRadius: 6, background: "#fff", color: "#0f172a", border: `1px solid ${border}`, cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" };
     }
 
     function renderPartnerActionTable(items: RecapRequest[]) {
@@ -232,7 +234,7 @@ export default function RecapitalizationDdOperations() {
                 </thead>
                 <tbody>
                     {items.map(req => (
-                        <tr key={req.id} className="rc-row-clickable" onClick={() => openWorkspace(req)}>
+                        <tr key={req.id} className="rc-row-clickable" onClick={() => openWorkspace(req)} tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') openWorkspace(req); }}>
                             <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#475569", fontWeight: 600 }}>{req.requestId}</td>
                             <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 240 }}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</td>
                             <td style={{ fontSize: 12, color: "#475569" }}>{req.communityNames[0] || "\u2014"}</td>
@@ -243,60 +245,60 @@ export default function RecapitalizationDdOperations() {
                             </td>
                             <td>
                                 {req._exceptionDecision === "Confirm Duplicate" ? (
-                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#6d28d9", fontWeight: 600, fontSize: 11, background: "#f5f3ff", padding: "3px 8px", borderRadius: 6, border: "1px solid #ddd6fe" }}>
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#0f172a", fontWeight: 600, fontSize: 11, background: "#fff", padding: "3px 8px", borderRadius: 6, border: "1px solid #c4b5fd" }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                                         Duplicate Confirmed
                                     </span>
                                 ) : req._exceptionDecision === "Keep Separate" ? (
-                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#92400e", fontWeight: 600, fontSize: 11, background: "#fffbeb", padding: "3px 8px", borderRadius: 6, border: "1px solid #fde68a" }}>
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#0f172a", fontWeight: 600, fontSize: 11, background: "#fff", padding: "3px 8px", borderRadius: 6, border: "1px solid #c7d2fe" }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                                         Keep Separate
                                     </span>
                                 ) : req._exceptionDecision === "Approve Removal" ? (
-                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#166534", fontWeight: 600, fontSize: 11, background: "#f0fdf4", padding: "3px 8px", borderRadius: 6, border: "1px solid #bbf7d0" }}>
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#0f172a", fontWeight: 600, fontSize: 11, background: "#fff", padding: "3px 8px", borderRadius: 6, border: "1px solid #86efac" }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                                         Removal Approved
                                     </span>
                                 ) : req._exceptionDecision === "Keep Request" ? (
-                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#92400e", fontWeight: 600, fontSize: 11, background: "#fffbeb", padding: "3px 8px", borderRadius: 6, border: "1px solid #fde68a" }}>
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#0f172a", fontWeight: 600, fontSize: 11, background: "#fff", padding: "3px 8px", borderRadius: 6, border: "1px solid #c7d2fe" }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                                         Keep Request
                                     </span>
                                 ) : req._partnerDecision === "Approved" ? (
-                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#166534", fontWeight: 600, fontSize: 11, background: "#f0fdf4", padding: "3px 8px", borderRadius: 6, border: "1px solid #bbf7d0" }}>
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#0f172a", fontWeight: 600, fontSize: 11, background: "#fff", padding: "3px 8px", borderRadius: 6, border: "1px solid #86efac" }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                                         Partner Approved
                                     </span>
                                 ) : (
-                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#9a3412", fontWeight: 600, fontSize: 11, background: "#fff7ed", padding: "3px 8px", borderRadius: 6, border: "1px solid #fed7aa" }}>
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#0f172a", fontWeight: 600, fontSize: 11, background: "#fff", padding: "3px 8px", borderRadius: 6, border: "1px solid #fed7aa" }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                                         Rework Requested
                                     </span>
                                 )}
                             </td>
                             <td>
                                 {req._exceptionDecision ? (
-                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#6b21a8", fontWeight: 600, fontSize: 11, background: "#faf5ff", padding: "3px 8px", borderRadius: 6, border: "1px solid #ddd6fe" }}>
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#0f172a", fontWeight: 600, fontSize: 11, background: "#fff", padding: "3px 8px", borderRadius: 6, border: "1px solid #c4b5fd" }}>
                                         Exception: {req._exceptionDecision}
                                     </span>
                                 ) : req._partnerDecision === "Approved" ? (
-                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#166534", fontWeight: 600, fontSize: 11, background: "#f0fdf4", padding: "3px 8px", borderRadius: 6, border: "1px solid #bbf7d0" }}>
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#0f172a", fontWeight: 600, fontSize: 11, background: "#fff", padding: "3px 8px", borderRadius: 6, border: "1px solid #86efac" }}>
                                         Partner Approved
                                     </span>
                                 ) : (
-                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#9a3412", fontWeight: 600, fontSize: 11, background: "#fff7ed", padding: "3px 8px", borderRadius: 6, border: "1px solid #fed7aa" }}>
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#0f172a", fontWeight: 600, fontSize: 11, background: "#fff", padding: "3px 8px", borderRadius: 6, border: "1px solid #fed7aa" }}>
                                         Rework Requested
                                     </span>
                                 )}
                             </td>
                             <td style={{ maxWidth: 260, minWidth: 180 }}>
                                 {req._exceptionDecision ? (
-                                    <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.5, background: "#f5f3ff", padding: "6px 10px", borderRadius: 6, border: "1px solid #ddd6fe", whiteSpace: "pre-wrap" }}>
-                                        <span style={{ fontWeight: 600, color: "#6b21a8" }}>Exception: {req._exceptionDecision}</span>
+                                    <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.5, background: "#fff", padding: "6px 10px", borderRadius: 6, border: "1px solid #c4b5fd", whiteSpace: "pre-wrap" }}>
+                                        <span style={{ fontWeight: 600, color: "#0f172a" }}>Exception: {req._exceptionDecision}</span>
                                         {req._exceptionDecisionNote && <><br />{req._exceptionDecisionNote}</>}
                                     </div>
                                 ) : req._partnerNote ? (
-                                    <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.5, background: "#f8faff", padding: "6px 10px", borderRadius: 6, border: "1px solid #dbeafe", whiteSpace: "pre-wrap" }}>
+                                    <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.5, background: "#fff", padding: "6px 10px", borderRadius: 6, border: "1px solid #e0e7ff", whiteSpace: "pre-wrap" }}>
                                         {req._partnerNote}
                                     </div>
                                 ) : (
@@ -307,32 +309,32 @@ export default function RecapitalizationDdOperations() {
                             <td style={{ fontSize: 12, color: "#475569" }} onClick={e => e.stopPropagation()}>{req.owner || "\u2014"}</td>
                             <td onClick={e => e.stopPropagation()}>
                                 {req._exceptionDecision === "Approve Removal" && (
-                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#f5f3ff", "#6d28d9", "#ddd6fe")}>
+                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#c4b5fd")}>
                                         Finalize Removal
                                     </button>
                                 )}
                                 {req._exceptionDecision === "Confirm Duplicate" && (
-                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#f5f3ff", "#6d28d9", "#ddd6fe")}>
+                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#c4b5fd")}>
                                         Finalize Duplicate
                                     </button>
                                 )}
                                 {req._exceptionDecision === "Keep Separate" && (
-                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#f0fdf4", "#166534", "#bbf7d0")}>
+                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#86efac")}>
                                         Return to Active Work
                                     </button>
                                 )}
                                 {req._exceptionDecision === "Keep Request" && (
-                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#f0fdf4", "#166534", "#bbf7d0")}>
+                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#86efac")}>
                                         Return to Active Work
                                     </button>
                                 )}
                                 {req._partnerDecision === "Approved" && !req._exceptionDecision && (
-                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#f0fdf4", "#166534", "#bbf7d0")}>
+                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#86efac")}>
                                         Acknowledge Approval
                                     </button>
                                 )}
                                 {req._partnerDecision === "Rework Required" && !req._exceptionDecision && (
-                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#fff7ed", "#9a3412", "#fed7aa")}>
+                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#fed7aa")}>
                                         Open Rework
                                     </button>
                                 )}
@@ -365,7 +367,7 @@ export default function RecapitalizationDdOperations() {
                 </thead>
                 <tbody>
                     {items.map(req => (
-                        <tr key={req.id} className="rc-row-clickable" onClick={() => openWorkspace(req)}>
+                        <tr key={req.id} className="rc-row-clickable" onClick={() => openWorkspace(req)} tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') openWorkspace(req); }}>
                             <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#475569", fontWeight: 600 }}>{req.requestId}</td>
                             <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 240 }}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</td>
                             <td style={{ fontSize: 12, color: "#475569" }}>{req.communityNames[0] || "\u2014"}</td>
@@ -377,7 +379,7 @@ export default function RecapitalizationDdOperations() {
                             </td>
                             <td onClick={e => e.stopPropagation()} style={{ maxWidth: 260, fontSize: 12, color: "#475569" }}>
                                 {getRequestNote(req) ? (
-                                    <span onClick={() => setNotePopup({ req, note: getRequestNote(req)! })} style={{ cursor: "pointer", color: "#92400e", display: "inline-flex", alignItems: "center", gap: 4 }} title="Click to view reason">
+                                    <span onClick={() => setNotePopup({ req, note: getRequestNote(req)! })} role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') setNotePopup({ req, note: getRequestNote(req)! }); }} style={{ cursor: "pointer", color: "#92400e", display: "inline-flex", alignItems: "center", gap: 4 }} title="Click to view reason">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
                                         <span style={{ fontSize: 10, fontWeight: 600, color: "#92400e", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 140 }}>{getRequestNote(req)}</span>
                                     </span>
@@ -391,9 +393,9 @@ export default function RecapitalizationDdOperations() {
                                 {req.status === "Duplicate" && (
                                     <button
                                         onClick={() => setArchiveConfirm({ req })}
-                                        style={{ fontSize: 11, padding: "6px 16px", borderRadius: 6, background: "#f5f3ff", color: "#6d28d9", border: "1px solid #ddd6fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", transition: "all 0.15s" }}
-                                        onMouseEnter={e => { (e.target as HTMLElement).style.background = "#ede9fe"; }}
-                                        onMouseLeave={e => { (e.target as HTMLElement).style.background = "#f5f3ff"; }}
+                                        style={{ fontSize: 11, padding: "6px 16px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #c4b5fd", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", transition: "all 0.15s" }}
+                                        onMouseEnter={e => { (e.target as HTMLElement).style.background = "#f5f3ff"; }}
+                                        onMouseLeave={e => { (e.target as HTMLElement).style.background = "#fff"; }}
                                         title="Review the duplicate recommendation and send to external partner"
                                     >
                                         Review Duplicate
@@ -402,9 +404,9 @@ export default function RecapitalizationDdOperations() {
                                 {req.status === "Not Applicable" && (
                                     <button
                                         onClick={() => setArchiveConfirm({ req })}
-                                        style={{ fontSize: 11, padding: "6px 16px", borderRadius: 6, background: "#eef2ff", color: "#4338ca", border: "1px solid #c7d2fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", transition: "all 0.15s" }}
-                                        onMouseEnter={e => { (e.target as HTMLElement).style.background = "#e0e7ff"; }}
-                                        onMouseLeave={e => { (e.target as HTMLElement).style.background = "#eef2ff"; }}
+                                        style={{ fontSize: 11, padding: "6px 16px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #c7d2fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", transition: "all 0.15s" }}
+                                        onMouseEnter={e => { (e.target as HTMLElement).style.background = "#eef2ff"; }}
+                                        onMouseLeave={e => { (e.target as HTMLElement).style.background = "#fff"; }}
                                         title="Review the not applicable recommendation and send to external partner"
                                     >
                                         Review Not Applicable
@@ -412,7 +414,7 @@ export default function RecapitalizationDdOperations() {
                                 )}
                                 <button
                                     onClick={() => setReturnToTeam({ req, reason: "" })}
-                                    style={{ fontSize: 11, padding: "6px 12px", borderRadius: 6, background: "#fff", color: "#475569", border: "1px solid #d1d5db", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                    style={{ fontSize: 11, padding: "6px 12px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #d1d5db", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
                                     title="Return this item to the work queue for reassignment"
                                 >
                                     Return to Team
@@ -483,7 +485,7 @@ export default function RecapitalizationDdOperations() {
                 </thead>
                 <tbody>
                     {items.map(req => (
-                        <tr key={req.id} className="rc-row-clickable" onClick={() => openWorkspace(req)}>
+                        <tr key={req.id} className="rc-row-clickable" onClick={() => openWorkspace(req)} tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') openWorkspace(req); }}>
                             <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#475569", fontWeight: 600 }}>{req.requestId}</td>
                             <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 240 }}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</td>
                             <td style={{ fontSize: 12, color: "#475569" }}>{req.communityNames[0] || "\u2014"}</td>
@@ -491,6 +493,7 @@ export default function RecapitalizationDdOperations() {
                             <td onClick={e => e.stopPropagation()}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                     <select
+                                        aria-label={`Status for ${req.requestId}`}
                                         value={req.status}
                                         onChange={e => {
                                             const newStatus = e.target.value;
@@ -512,23 +515,23 @@ export default function RecapitalizationDdOperations() {
                             {activeView === "needs-dd-review" && (
                                 <td onClick={e => e.stopPropagation()} style={{ fontSize: 11 }}>
                                     {req.status === "Blocked" ? (
-                                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#fef2f2", color: "#dc2626", fontWeight: 600, border: "1px solid #fecaca", whiteSpace: "nowrap" }}>
-                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", fontWeight: 600, border: "1px solid #fca5a5", whiteSpace: "nowrap" }}>
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                                             Blocked
                                         </span>
                                     ) : req.status === "Clarification Needed" ? (
-                                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#fff7ed", color: "#9a3412", fontWeight: 600, border: "1px solid #fed7aa", whiteSpace: "nowrap" }}>
-                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
+                                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", fontWeight: 600, border: "1px solid #fcd34d", whiteSpace: "nowrap" }}>
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
                                             Clarification Needed
                                         </span>
                                     ) : req._needsReassignment || req._misassignedReason ? (
-                                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#f0f4ff", color: "#4338ca", fontWeight: 600, border: "1px solid #c7d2fe", whiteSpace: "nowrap" }}>
-                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" /></svg>
+                                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", fontWeight: 600, border: "1px solid #c7d2fe", whiteSpace: "nowrap" }}>
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" /></svg>
                                             Needs Reassignment
                                         </span>
                                     ) : (
-                                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#f0fdf4", color: "#166534", fontWeight: 600, border: "1px solid #bbf7d0", whiteSpace: "nowrap" }}>
-                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", fontWeight: 600, border: "1px solid #86efac", whiteSpace: "nowrap" }}>
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                                             Ready for Review
                                         </span>
                                     )}
@@ -543,7 +546,7 @@ export default function RecapitalizationDdOperations() {
                             <td style={{ fontSize: 12, color: "#475569" }}>{req.lastUpdated}</td>
                             <td onClick={e => e.stopPropagation()} style={{ fontSize: 11, textAlign: "center", color: getWorkArtifactsByRequest(getArtifactKey(req)).length > 0 ? "#2563eb" : "#d1d5db" }}>
                                 {getWorkArtifactsByRequest(getArtifactKey(req)).length > 0 ? (
-                                    <span onClick={() => setArtifactListModal({ req, artifacts: getWorkArtifactsByRequest(getArtifactKey(req)) })} style={{ cursor: "pointer" }} title="View artifacts">
+                                    <span onClick={() => setArtifactListModal({ req, artifacts: getWorkArtifactsByRequest(getArtifactKey(req)) })} role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') setArtifactListModal({ req, artifacts: getWorkArtifactsByRequest(getArtifactKey(req)) }); }} style={{ cursor: "pointer" }} title="View artifacts">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
                                     </span>
                                 ) : (
@@ -552,7 +555,7 @@ export default function RecapitalizationDdOperations() {
                             </td>
                             <td onClick={e => e.stopPropagation()} style={{ fontSize: 11, textAlign: "center", maxWidth: 160 }}>
                                 {getRequestNote(req) ? (
-                                    <span onClick={() => setNotePopup({ req, note: getRequestNote(req)! })} style={{ cursor: "pointer", color: "#92400e", display: "inline-flex", alignItems: "center", gap: 4 }} title="Click to view note/reason">
+                                    <span onClick={() => setNotePopup({ req, note: getRequestNote(req)! })} role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') setNotePopup({ req, note: getRequestNote(req)! }); }} style={{ cursor: "pointer", color: "#92400e", display: "inline-flex", alignItems: "center", gap: 4 }} title="Click to view note/reason">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
                                         <span style={{ fontSize: 10, fontWeight: 600, color: "#92400e", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 120 }}>{getRequestNote(req)}</span>
                                     </span>
@@ -566,7 +569,7 @@ export default function RecapitalizationDdOperations() {
                                         {req.status === "Clarification Needed" && (
                                             <button
                                                 onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })}
-                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff7ed", color: "#9a3412", border: "1px solid #fed7aa", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", marginRight: 4 }}
+                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", border: "1px solid #fcd34d", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", marginRight: 4 }}
                                                 title="Review the clarification question"
                                             >
                                                 Review Question
@@ -575,7 +578,7 @@ export default function RecapitalizationDdOperations() {
                                         {req.status === "Blocked" && (
                                             <button
                                                 onClick={() => setResolveModal({ req, note: "" })}
-                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", marginRight: 4 }}
+                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", border: "1px solid #fca5a5", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", marginRight: 4 }}
                                                 title="Review and resolve blocker"
                                             >
                                                 Review Blocker
@@ -584,7 +587,7 @@ export default function RecapitalizationDdOperations() {
                                         {req.status !== "Clarification Needed" && req.status !== "Blocked" && (
                                             <button
                                                 onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })}
-                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#f0f4ff", color: "#4338ca", border: "1px solid #c7d2fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", marginRight: 4 }}
+                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", border: "1px solid #c7d2fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", marginRight: 4 }}
                                                 title="Open request"
                                             >
                                                 Open
@@ -592,7 +595,7 @@ export default function RecapitalizationDdOperations() {
                                         )}
                                         <button
                                             onClick={() => setReturnToOwner({ req, reason: "" })}
-                                            style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#92400e", border: "1px solid #fde68a", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                            style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", border: "1px solid #fcd34d", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
                                             title="Return this item to the original owner"
                                         >
                                             Return to Owner
@@ -601,6 +604,7 @@ export default function RecapitalizationDdOperations() {
                                 )}
                                 {((activeView === "needs-dd-review" && (!req.owner || req._needsReassignment || req._misassignedReason)) || (activeView === "full-work-queue" && !req.owner)) && (
                                     <select
+                                        aria-label={`Assign ${req.requestId}`}
                                         value=""
                                         onChange={e => {
                                             const newOwner = e.target.value;
@@ -655,7 +659,7 @@ export default function RecapitalizationDdOperations() {
                             Testing as: <strong>{activeUser}</strong>
                         </span>
                     )}
-                    <select className="rc-filter-select" value={activeUser} onChange={e => setActiveUser(e.target.value)}>
+                    <select className="rc-filter-select" aria-label="Switch user" value={activeUser} onChange={e => setActiveUser(e.target.value)}>
                         {ddMembers.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                     </select>
                 </div>
@@ -700,11 +704,11 @@ export default function RecapitalizationDdOperations() {
             </div>
 
             {statusConfirm && (
-                <div className="rc-modal-overlay" onClick={() => setStatusConfirm(null)}>
+                <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label={`Confirm status change to ${statusConfirm.newStatus}`} onClick={() => setStatusConfirm(null)}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
                         <div className="rc-modal-header">
                             <h2>{statusConfirm.newStatus}</h2>
-                            <button className="rc-modal-close" onClick={() => setStatusConfirm(null)}>&times;</button>
+                            <button className="rc-modal-close" onClick={() => setStatusConfirm(null)} aria-label="Close">&times;</button>
                         </div>
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
                             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -713,8 +717,8 @@ export default function RecapitalizationDdOperations() {
                                 </div>
                                 {["Blocked", "Duplicate", "Not Applicable"].includes(statusConfirm.newStatus) && (
                                     <>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#991b1b" }}>
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#fff", border: "1px solid #fca5a5", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#991b1b" }}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                                             {statusConfirm.newStatus === "Blocked" && "This will move the request to Needs DD Review for review."}
                                             {statusConfirm.newStatus === "Duplicate" && "This will move the request to Needs DD Review for duplicate review."}
                                             {statusConfirm.newStatus === "Not Applicable" && "This will move the request to Needs DD Review for disposition."}
@@ -747,11 +751,11 @@ export default function RecapitalizationDdOperations() {
             )}
 
             {returnToOwner && (
-                <div className="rc-modal-overlay" onClick={() => setReturnToOwner(null)}>
+                <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label="Return to owner" onClick={() => setReturnToOwner(null)}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
                         <div className="rc-modal-header">
                             <h2>Return to Owner</h2>
-                            <button className="rc-modal-close" onClick={() => setReturnToOwner(null)}>&times;</button>
+                            <button className="rc-modal-close" onClick={() => setReturnToOwner(null)} aria-label="Close">&times;</button>
                         </div>
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
                             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -792,11 +796,11 @@ export default function RecapitalizationDdOperations() {
             )}
 
             {artifactWarning && (
-                <div className="rc-modal-overlay" onClick={() => setArtifactWarning(null)}>
+                <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label="No artifact warning" onClick={() => setArtifactWarning(null)}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
                         <div className="rc-modal-header">
                             <h2>No Artifact Attached</h2>
-                            <button className="rc-modal-close" onClick={() => setArtifactWarning(null)}>&times;</button>
+                            <button className="rc-modal-close" onClick={() => setArtifactWarning(null)} aria-label="Close">&times;</button>
                         </div>
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
                             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -822,11 +826,11 @@ export default function RecapitalizationDdOperations() {
             )}
 
             {notePopup && (
-                <div className="rc-modal-overlay" onClick={() => setNotePopup(null)}>
+                <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label="View note" onClick={() => setNotePopup(null)}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
                         <div className="rc-modal-header">
                             <h2>Note &mdash; {notePopup.req.requestId}</h2>
-                            <button className="rc-modal-close" onClick={() => setNotePopup(null)}>&times;</button>
+                            <button className="rc-modal-close" onClick={() => setNotePopup(null)} aria-label="Close">&times;</button>
                         </div>
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
                             <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{notePopup.note}</div>
@@ -839,11 +843,11 @@ export default function RecapitalizationDdOperations() {
             )}
 
             {artifactListModal && (
-                <div className="rc-modal-overlay" onClick={() => setArtifactListModal(null)}>
+                <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label={`Artifacts for ${artifactListModal.req.requestId}`} onClick={() => setArtifactListModal(null)}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
                         <div className="rc-modal-header">
                             <h2>Artifacts &mdash; {artifactListModal.req.requestId}</h2>
-                            <button className="rc-modal-close" onClick={() => setArtifactListModal(null)}>&times;</button>
+                            <button className="rc-modal-close" onClick={() => setArtifactListModal(null)} aria-label="Close">&times;</button>
                         </div>
                         <div className="rc-modal-body" style={{ padding: "12px 20px" }}>
                             {artifactListModal.artifacts.length === 0 ? (
@@ -875,11 +879,11 @@ export default function RecapitalizationDdOperations() {
             )}
 
             {archiveConfirm && (
-                <div className="rc-modal-overlay" onClick={() => setArchiveConfirm(null)}>
+                <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label="Send recommendation to partner" onClick={() => setArchiveConfirm(null)}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
                         <div className="rc-modal-header">
                             <h2>{archiveConfirm.req.status === "Not Applicable" ? "Send Removal Recommendation" : "Send Duplicate Recommendation"}</h2>
-                            <button className="rc-modal-close" onClick={() => setArchiveConfirm(null)}>&times;</button>
+                            <button className="rc-modal-close" onClick={() => setArchiveConfirm(null)} aria-label="Close">&times;</button>
                         </div>
                         <div className="rc-modal-body" style={{ padding: "16px 24px" }}>
                             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -888,19 +892,19 @@ export default function RecapitalizationDdOperations() {
                                     <div><span style={{ fontWeight: 700, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 8, color: "#475569" }}>Deliverable</span><span style={{ color: "#0f172a", fontWeight: 500 }}>{archiveConfirm.req.title.split(" - ").slice(1).join(" - ").trim() || archiveConfirm.req.title}</span></div>
                                 </div>
                                 
-                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: archiveConfirm.req.status === "Not Applicable" ? "#f5f3ff" : "#faf5ff", border: archiveConfirm.req.status === "Not Applicable" ? "1px solid #c7d2fe" : "1px solid #ddd6fe", borderRadius: 8, fontSize: 12, fontWeight: 600, color: archiveConfirm.req.status === "Not Applicable" ? "#4338ca" : "#6d28d9" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "#fff", border: archiveConfirm.req.status === "Not Applicable" ? "1px solid #c7d2fe" : "1px solid #ddd6fe", borderRadius: 8, fontSize: 12, fontWeight: 600, color: archiveConfirm.req.status === "Not Applicable" ? "#4338ca" : "#6d28d9" }}>
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                                     {archiveConfirm.req.status === "Not Applicable" ? "Not Applicable" : "Possible Duplicate"}
                                 </div>
 
-                                <div style={{ padding: "10px 14px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8 }}>
+                                <div style={{ padding: "10px 14px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8 }}>
                                     <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 4 }}>Contributor Reason</div>
                                     <div style={{ fontSize: 13, color: "#0f172a", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
                                         {getRequestNote(archiveConfirm.req) || "No reason provided"}
                                     </div>
                                 </div>
 
-                                <div style={{ padding: "10px 14px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, fontSize: 12, color: "#166534", lineHeight: 1.5 }}>
+                                <div style={{ padding: "10px 14px", background: "#fff", border: "1px solid #bbf7d0", borderRadius: 8, fontSize: 12, color: "#166534", lineHeight: 1.5 }}>
                                     <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>Partner Decision Preview</span>
                                     {archiveConfirm.req.status === "Not Applicable"
                                         ? "The partner will choose: Approve Removal or Keep Request"
@@ -936,19 +940,19 @@ export default function RecapitalizationDdOperations() {
             )}
 
             {resolveModal && (
-                <div className="rc-modal-overlay" onClick={() => setResolveModal(null)}>
+                <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label="Resolve blocker" onClick={() => setResolveModal(null)}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
                         <div className="rc-modal-header">
                             <h2>Resolve Blocker</h2>
-                            <button className="rc-modal-close" onClick={() => setResolveModal(null)}>&times;</button>
+                            <button className="rc-modal-close" onClick={() => setResolveModal(null)} aria-label="Close">&times;</button>
                         </div>
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
                             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                                 <div style={{ fontSize: 14, color: "#1e293b", fontWeight: 500 }}>
                                     Resolve blocker for <strong>{resolveModal.req.requestId}</strong> &mdash; {resolveModal.req.title.split(" - ").slice(1).join(" - ").trim() || resolveModal.req.title}
                                 </div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#991b1b" }}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#fff", border: "1px solid #fca5a5", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#991b1b" }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
                                     This will move the item to "In Progress" status.
                                 </div>
                                 <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
@@ -994,19 +998,19 @@ export default function RecapitalizationDdOperations() {
             )}
 
             {returnToTeam && (
-                <div className="rc-modal-overlay" onClick={() => setReturnToTeam(null)}>
+                <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label="Return to team" onClick={() => setReturnToTeam(null)}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
                         <div className="rc-modal-header">
                             <h2>Return to Team</h2>
-                            <button className="rc-modal-close" onClick={() => setReturnToTeam(null)}>&times;</button>
+                            <button className="rc-modal-close" onClick={() => setReturnToTeam(null)} aria-label="Close">&times;</button>
                         </div>
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
                             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                                 <div style={{ fontSize: 14, color: "#1e293b", fontWeight: 500, margin: 0 }}>
                                     Return <strong>{returnToTeam.req.requestId}</strong> &mdash; {returnToTeam.req.title.split(" - ").slice(1).join(" - ").trim() || returnToTeam.req.title} to the work queue?
                                 </div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#f0f4ff", border: "1px solid #c7d2fe", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#4338ca" }}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#fff", border: "1px solid #c7d2fe", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#4338ca" }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
                                     This will set the status to "Open" and return the item to the Needs DD Review queue for reassignment.
                                 </div>
                                 <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
@@ -1052,11 +1056,11 @@ export default function RecapitalizationDdOperations() {
             )}
 
             {successMsg && (
-                <div className="rc-modal-overlay" onClick={() => setSuccessMsg(null)}>
+                <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label={successMsg.title} onClick={() => setSuccessMsg(null)}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
                         <div className="rc-modal-header">
                             <h2>{successMsg.title}</h2>
-                            <button className="rc-modal-close" onClick={() => setSuccessMsg(null)}>&times;</button>
+                            <button className="rc-modal-close" onClick={() => setSuccessMsg(null)} aria-label="Close">&times;</button>
                         </div>
                         <div className="rc-modal-body" style={{ padding: "20px", textAlign: "center" }}>
                             <div style={{ fontSize: 40, marginBottom: 8 }}>&#10003;</div>
