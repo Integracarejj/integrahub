@@ -113,7 +113,7 @@ export default function PortalRequestDetail() {
     const artifacts = getWorkArtifactsByRequest(req.id);
     const messages = getExternalMessages(req.id);
     const exceptionRec = req._exceptionRecommendation;
-    const isComplete = extInfo?.isTerminal || req._completedAt;
+    const isComplete = !!extInfo?.isTerminal;
 
     const isAwaitingReview = extInfo?.status === "Awaiting Your Review" && !isComplete;
     const isExceptionReview = extInfo?.status === "Exception Review" && !isComplete;
@@ -208,40 +208,93 @@ export default function PortalRequestDetail() {
 
             {/* Exception Review Section */}
             {isExceptionReview && (
-                <div style={{ marginBottom: 24 }}>
-                    <MetaCard label={exceptionRec === "Duplicate" ? "Duplicate Recommendation" : "Not Applicable Recommendation"}>
-                        <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-                            {exceptionRec === "Duplicate"
-                                ? "IntegraCare identified this request as a potential duplicate. Review the reason below and decide whether to confirm the duplicate or keep the request separate."
-                                : "IntegraCare identified this request as potentially not applicable to this due diligence scope. Review the reason below and decide."}
+                <div style={{ marginBottom: 28 }}>
+                    <div style={{
+                        padding: "20px 24px", borderRadius: 14,
+                        background: "#fff",
+                        border: exceptionRec === "Duplicate" ? "2px solid #c4b5fd" : "2px solid #a5b4fc",
+                    }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                            <div style={{
+                                width: 36, height: 36, borderRadius: "50%",
+                                background: exceptionRec === "Duplicate" ? "#f5f3ff" : "#eef2ff",
+                                color: exceptionRec === "Duplicate" ? "#7c3aed" : "#4338ca",
+                                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                            }}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                                    <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                                </svg>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.01em" }}>
+                                    {exceptionRec === "Duplicate" ? "Potential Duplicate" : "Potentially Not Applicable"}
+                                </div>
+                                <div style={{ fontSize: 13, color: "#334155", marginTop: 2 }}>
+                                    {exceptionRec === "Duplicate"
+                                        ? "IntegraCare identified this request as a potential duplicate. Review the reason below and decide."
+                                        : "IntegraCare identified this request as potentially not applicable. Review the reason below and decide."}
+                                </div>
+                            </div>
                         </div>
-                    </MetaCard>
-                    {req._exceptionReason && (
-                        <div style={{ marginTop: 10, padding: "12px 14px", background: "#fff", border: "1px solid #e0e7ff", borderRadius: 10 }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 4 }}>Reason provided by IntegraCare</div>
-                            <div style={{ fontSize: 13, color: "#0f172a", lineHeight: 1.5 }}>{req._exceptionReason}</div>
-                        </div>
-                    )}
-                    <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
-                        {exceptionRec === "Duplicate" ? (
-                            <>
-                                <button className="rc-btn rc-btn-primary" onClick={() => handleExceptionDecision("Confirm Duplicate")} style={{ padding: "10px 24px", fontSize: 14, fontWeight: 700 }}>
-                                    Confirm Duplicate
-                                </button>
-                                <button className="rc-btn rc-btn-secondary" onClick={() => handleExceptionDecision("Keep Separate")} style={{ padding: "10px 24px", fontSize: 14, fontWeight: 700 }}>
-                                    Keep as Separate Request
-                                </button>
-                            </>
-                        ) : (
-                            <>
-                                <button className="rc-btn rc-btn-primary" onClick={() => handleExceptionDecision("Approve Removal")} style={{ padding: "10px 24px", fontSize: 14, fontWeight: 700 }}>
-                                    Approve Removal
-                                </button>
-                                <button className="rc-btn rc-btn-secondary" onClick={() => handleExceptionDecision("Keep Request")} style={{ padding: "10px 24px", fontSize: 14, fontWeight: 700 }}>
-                                    Keep Request
-                                </button>
-                            </>
+
+                        {req._exceptionReason && (
+                            <div style={{
+                                padding: "14px 16px", background: "#f8faff",
+                                border: "1px solid #e0e7ff", borderRadius: 10, marginBottom: 18,
+                            }}>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6 }}>
+                                    Reason provided by IntegraCare
+                                </div>
+                                <div style={{ fontSize: 14, color: "#0f172a", lineHeight: 1.6, fontWeight: 500 }}>
+                                    {req._exceptionReason}
+                                </div>
+                            </div>
                         )}
+
+                        <div style={{ display: "flex", gap: 14, marginTop: 4 }}>
+                            {exceptionRec === "Duplicate" ? (
+                                <>
+                                    <button
+                                        className="rc-btn rc-btn-primary"
+                                        onClick={() => handleExceptionDecision("Confirm Duplicate")}
+                                        style={{ padding: "12px 32px", fontSize: 15, fontWeight: 700, borderRadius: 10 }}
+                                    >
+                                        Confirm Duplicate
+                                    </button>
+                                    <button
+                                        className="rc-btn rc-btn-secondary"
+                                        onClick={() => handleExceptionDecision("Keep Separate")}
+                                        style={{
+                                            padding: "12px 32px", fontSize: 15, fontWeight: 700, borderRadius: 10,
+                                            border: "2px solid #c7d2fe", color: "#0f172a",
+                                        }}
+                                    >
+                                        Keep as Separate Request
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <button
+                                        className="rc-btn rc-btn-primary"
+                                        onClick={() => handleExceptionDecision("Approve Removal")}
+                                        style={{ padding: "12px 32px", fontSize: 15, fontWeight: 700, borderRadius: 10 }}
+                                    >
+                                        Approve Removal
+                                    </button>
+                                    <button
+                                        className="rc-btn rc-btn-secondary"
+                                        onClick={() => handleExceptionDecision("Keep Request")}
+                                        style={{
+                                            padding: "12px 32px", fontSize: 15, fontWeight: 700, borderRadius: 10,
+                                            border: "2px solid #c7d2fe", color: "#0f172a",
+                                        }}
+                                    >
+                                        Keep Request
+                                    </button>
+                                </>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

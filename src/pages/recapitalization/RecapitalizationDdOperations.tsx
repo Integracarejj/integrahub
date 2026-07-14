@@ -358,11 +358,12 @@ export default function RecapitalizationDdOperations() {
                         <th style={{ minWidth: 140 }}>Deliverable</th>
                         <th style={{ width: 90, minWidth: 70 }}>Community</th>
                         <th style={{ width: 60, textAlign: "center" }}>Pri</th>
-                        <th style={{ width: 125, minWidth: 100 }}>Status</th>
+                        <th style={{ width: 100, minWidth: 80 }}>Status</th>
+                        <th style={{ width: 100, minWidth: 80 }}>Review Type</th>
                         <th style={{ minWidth: 180 }}>Reason</th>
                         <th style={{ width: 85, minWidth: 70 }}>Updated</th>
                         <th style={{ width: 80, minWidth: 65 }}>Owner</th>
-                        <th style={{ width: 170, minWidth: 140 }}>Actions</th>
+                        <th style={{ width: 180, minWidth: 150 }}>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -375,6 +376,11 @@ export default function RecapitalizationDdOperations() {
                             <td>
                                 <span className={`rc-badge ${req.status === "Duplicate" ? "rc-badge-duplicate" : "rc-badge-not-applicable"}`} style={{ fontSize: 11 }}>
                                     {req.status}
+                                </span>
+                            </td>
+                            <td>
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#0f172a", fontWeight: 600, fontSize: 11, background: "#fff", padding: "2px 8px", borderRadius: 4, border: req.status === "Duplicate" ? "1px solid #c4b5fd" : "1px solid #a5b4fc", whiteSpace: "nowrap" }}>
+                                    {req.status === "Duplicate" ? "Duplicate" : "Not Applicable"}
                                 </span>
                             </td>
                             <td onClick={e => e.stopPropagation()} style={{ maxWidth: 260, fontSize: 12, color: "#475569" }}>
@@ -393,8 +399,8 @@ export default function RecapitalizationDdOperations() {
                                 {req.status === "Duplicate" && (
                                     <button
                                         onClick={() => setArchiveConfirm({ req })}
-                                        style={{ fontSize: 11, padding: "6px 16px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #c4b5fd", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", transition: "all 0.15s" }}
-                                        onMouseEnter={e => { (e.target as HTMLElement).style.background = "#f5f3ff"; }}
+                                        style={{ fontSize: 11, padding: "6px 16px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #5eead4", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", transition: "all 0.15s" }}
+                                        onMouseEnter={e => { (e.target as HTMLElement).style.background = "#ccfbf1"; }}
                                         onMouseLeave={e => { (e.target as HTMLElement).style.background = "#fff"; }}
                                         title="Review the duplicate recommendation and send to external partner"
                                     >
@@ -404,8 +410,8 @@ export default function RecapitalizationDdOperations() {
                                 {req.status === "Not Applicable" && (
                                     <button
                                         onClick={() => setArchiveConfirm({ req })}
-                                        style={{ fontSize: 11, padding: "6px 16px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #c7d2fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", transition: "all 0.15s" }}
-                                        onMouseEnter={e => { (e.target as HTMLElement).style.background = "#eef2ff"; }}
+                                        style={{ fontSize: 11, padding: "6px 16px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #5eead4", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", transition: "all 0.15s" }}
+                                        onMouseEnter={e => { (e.target as HTMLElement).style.background = "#ccfbf1"; }}
                                         onMouseLeave={e => { (e.target as HTMLElement).style.background = "#fff"; }}
                                         title="Review the not applicable recommendation and send to external partner"
                                     >
@@ -414,7 +420,7 @@ export default function RecapitalizationDdOperations() {
                                 )}
                                 <button
                                     onClick={() => setReturnToTeam({ req, reason: "" })}
-                                    style={{ fontSize: 11, padding: "6px 12px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #d1d5db", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                    style={{ fontSize: 11, padding: "6px 12px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #fcd34d", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
                                     title="Return this item to the work queue for reassignment"
                                 >
                                     Return to Team
@@ -460,183 +466,292 @@ export default function RecapitalizationDdOperations() {
         );
     }
 
+    /* ── Issue/Exception Badge ── */
+    function IssueExceptionBadge({ req }: { req: RecapRequest }) {
+        if (req.status === "Blocked") {
+            return (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", fontWeight: 600, border: "1px solid #fca5a5", whiteSpace: "nowrap", fontSize: 11 }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                    Blocked
+                </span>
+            );
+        }
+        if (req.status === "Clarification Needed") {
+            return (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", fontWeight: 600, border: "1px solid #fcd34d", whiteSpace: "nowrap", fontSize: 11 }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
+                    Clarification Needed
+                </span>
+            );
+        }
+        if (req._needsReassignment || req._misassignedReason) {
+            return (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", fontWeight: 600, border: "1px solid #c7d2fe", whiteSpace: "nowrap", fontSize: 11 }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" /></svg>
+                    Needs Reassignment
+                </span>
+            );
+        }
+        return (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", fontWeight: 600, border: "1px solid #86efac", whiteSpace: "nowrap", fontSize: 11 }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                Ready for Review
+            </span>
+        );
+    }
+
     /* ── Table View ── */
     function renderTable(items: RecapRequest[], emptyMsg: string) {
         if (items.length === 0) return <div className="rc-empty-state" style={{ padding: 20 }}>{emptyMsg}</div>;
+        const isNddr = activeView === "needs-dd-review";
         return (
             <div style={{ overflowX: "auto", maxHeight: "calc(100vh - 310px)", overflowY: "auto" }}>
             <table className="rc-table">
                 <thead>
                     <tr>
-                        <th style={{ width: 110, minWidth: 90 }}>Request ID</th>
-                        <th style={{ minWidth: 140 }}>Deliverable</th>
-                        <th style={{ width: 90, minWidth: 70 }}>Community</th>
-                        <th style={{ width: 60, textAlign: "center" }}>Pri</th>
-                        <th style={{ width: 105, minWidth: 85 }}>Status</th>
-                        {activeView === "needs-dd-review" && <th style={{ width: 130, minWidth: 110 }}>Exception Type</th>}
-                        {(activeView === "needs-dd-review" || activeView === "full-work-queue") && <th style={{ width: 80, minWidth: 70 }}>Owner</th>}
-                        <th style={{ width: 75, minWidth: 65 }}>Team</th>
-                        <th style={{ width: 85, minWidth: 70 }}>Due</th>
-                        <th style={{ width: 80, minWidth: 65 }}>Updated</th>
-                        <th style={{ width: 38, textAlign: "center" }}>Art</th>
-                        <th style={{ width: 38, textAlign: "center" }}>Notes</th>
-                        <th style={{ width: 140, minWidth: 120 }}>{activeView === "full-work-queue" || activeView === "needs-dd-review" ? "Assign" : "Actions"}</th>
+                        {isNddr ? (
+                            <>
+                                <th style={{ width: 110, minWidth: 90 }}>Request ID</th>
+                                <th style={{ minWidth: 140 }}>Deliverable</th>
+                                <th style={{ width: 60, textAlign: "center" }}>Pri</th>
+                                <th style={{ width: 150, minWidth: 120 }}>Issue / Exception</th>
+                                <th style={{ width: 90, minWidth: 70 }}>Owner</th>
+                                <th style={{ width: 80, minWidth: 65 }}>Updated</th>
+                                <th style={{ width: 180, minWidth: 150 }}>Actions</th>
+                            </>
+                        ) : (
+                            <>
+                                <th style={{ width: 110, minWidth: 90 }}>Request ID</th>
+                                <th style={{ minWidth: 140 }}>Deliverable</th>
+                                <th style={{ width: 90, minWidth: 70 }}>Community</th>
+                                <th style={{ width: 60, textAlign: "center" }}>Pri</th>
+                                <th style={{ width: 105, minWidth: 85 }}>Status</th>
+                                <th style={{ width: 120, minWidth: 100 }}>External Status</th>
+                                {activeView === "full-work-queue" && <th style={{ width: 80, minWidth: 70 }}>Owner</th>}
+                                <th style={{ width: 75, minWidth: 65 }}>Team</th>
+                                <th style={{ width: 85, minWidth: 70 }}>Due</th>
+                                <th style={{ width: 80, minWidth: 65 }}>Updated</th>
+                                <th style={{ width: 38, textAlign: "center" }}>Art</th>
+                                <th style={{ width: 38, textAlign: "center" }}>Notes</th>
+                                <th style={{ width: 140, minWidth: 120 }}>{activeView === "full-work-queue" ? "Assign" : "Actions"}</th>
+                            </>
+                        )}
                     </tr>
                 </thead>
                 <tbody>
                     {items.map(req => (
                         <tr key={req.id} className="rc-row-clickable" onClick={() => openWorkspace(req)} tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') openWorkspace(req); }}>
-                            <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#475569", fontWeight: 600 }}>{req.requestId}</td>
-                            <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 240 }}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</td>
-                            <td style={{ fontSize: 12, color: "#475569" }}>{req.communityNames[0] || "\u2014"}</td>
-                            <td><PriorityBadge priority={req.priority} /></td>
-                            <td onClick={e => e.stopPropagation()}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                    <select
-                                        aria-label={`Status for ${req.requestId}`}
-                                        value={req.status}
-                                        onChange={e => {
-                                            const newStatus = e.target.value;
-                                            if (newStatus !== req.status) {
-                                                if (newStatus === "Complete" && !hasDocuments(req)) {
-                                                    setArtifactWarning({ req, newStatus });
-                                                } else {
-                                                    setStatusConfirm({ req, newStatus });
-                                                }
-                                            }
-                                        }}
-                                        style={{ fontSize: 10, padding: "2px 14px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 85, cursor: "pointer", border: "1px solid #d1d5db", width: "100%" }}
-                                    >
-                                        {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                                    </select>
-                                </div>
-                            </td>
-                            <td><ExternalStatus req={req} /></td>
-                            {activeView === "needs-dd-review" && (
-                                <td onClick={e => e.stopPropagation()} style={{ fontSize: 11 }}>
-                                    {req.status === "Blocked" ? (
-                                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", fontWeight: 600, border: "1px solid #fca5a5", whiteSpace: "nowrap" }}>
-                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-                                            Blocked
+                            {isNddr ? (
+                                <>
+                                    <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#475569", fontWeight: 600 }}>{req.requestId}</td>
+                                    <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 240 }}>
+                                        {req.title.split(" - ").slice(1).join(" - ").trim() || req.title}
+                                        <span style={{ display: "inline-flex", gap: 6, marginLeft: 6, verticalAlign: "middle" }}>
+                                            {getWorkArtifactsByRequest(getArtifactKey(req)).length > 0 && (
+                                                <span onClick={e => { e.stopPropagation(); setArtifactListModal({ req, artifacts: getWorkArtifactsByRequest(getArtifactKey(req)) }); }} role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') setArtifactListModal({ req, artifacts: getWorkArtifactsByRequest(getArtifactKey(req)) }); }} style={{ cursor: "pointer", color: "#2563eb" }} title="View artifacts">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
+                                                </span>
+                                            )}
+                                            {getRequestNote(req) && (
+                                                <span onClick={e => { e.stopPropagation(); setNotePopup({ req, note: getRequestNote(req)! }); }} role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') setNotePopup({ req, note: getRequestNote(req)! }); }} style={{ cursor: "pointer", color: "#92400e" }} title="Click to view note/reason">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                                                </span>
+                                            )}
                                         </span>
-                                    ) : req.status === "Clarification Needed" ? (
-                                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", fontWeight: 600, border: "1px solid #fcd34d", whiteSpace: "nowrap" }}>
-                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
-                                            Clarification Needed
-                                        </span>
-                                    ) : req._needsReassignment || req._misassignedReason ? (
-                                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", fontWeight: 600, border: "1px solid #c7d2fe", whiteSpace: "nowrap" }}>
-                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" /></svg>
-                                            Needs Reassignment
-                                        </span>
-                                    ) : (
-                                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", fontWeight: 600, border: "1px solid #86efac", whiteSpace: "nowrap" }}>
-                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                                            Ready for Review
-                                        </span>
-                                    )}
-                                    <span style={{ display: "block", fontSize: 10, color: "#64748b", marginTop: 2, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={getRequestNote(req) || ""}>
-                                        {getRequestNote(req) ? `${getRequestNote(req)!.slice(0, 100)}${getRequestNote(req)!.length > 100 ? "..." : ""}` : ""}
-                                    </span>
-                                </td>
+                                    </td>
+                                    <td><PriorityBadge priority={req.priority} /></td>
+                                    <td onClick={e => e.stopPropagation()}>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                                <select
+                                                    aria-label={`Status for ${req.requestId}`}
+                                                    value={req.status}
+                                                    onChange={e => {
+                                                        const newStatus = e.target.value;
+                                                        if (newStatus !== req.status) {
+                                                            if (newStatus === "Complete" && !hasDocuments(req)) {
+                                                                setArtifactWarning({ req, newStatus });
+                                                            } else {
+                                                                setStatusConfirm({ req, newStatus });
+                                                            }
+                                                        }
+                                                    }}
+                                                    style={{ fontSize: 10, padding: "2px 14px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 85, cursor: "pointer", border: "1px solid #d1d5db" }}
+                                                >
+                                                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                                                </select>
+                                            </div>
+                                            <div><IssueExceptionBadge req={req} /></div>
+                                            {getRequestNote(req) && (
+                                                <span style={{ fontSize: 9, color: "#64748b", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={getRequestNote(req) || ""}>
+                                                    {getRequestNote(req)!.slice(0, 80)}{getRequestNote(req)!.length > 80 ? "..." : ""}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td style={{ fontSize: 12, color: "#475569" }}>{req.owner || "\u2014"}</td>
+                                    <td style={{ fontSize: 12, color: "#475569" }}>{req.lastUpdated}</td>
+                                    <td onClick={e => e.stopPropagation()} style={{ whiteSpace: "nowrap" }}>
+                                        {req.owner && !req._needsReassignment && !req._misassignedReason ? (
+                                            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+                                                {req.status === "Clarification Needed" && (
+                                                    <button
+                                                        onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })}
+                                                        style={{ fontSize: 10, padding: "4px 12px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #5eead4", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                                        title="Review the clarification question"
+                                                    >
+                                                        Review Question
+                                                    </button>
+                                                )}
+                                                {req.status === "Blocked" && (
+                                                    <button
+                                                        onClick={() => setResolveModal({ req, note: "" })}
+                                                        style={{ fontSize: 10, padding: "4px 12px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #5eead4", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                                        title="Review and resolve blocker"
+                                                    >
+                                                        Review Blocker
+                                                    </button>
+                                                )}
+                                                {req.status !== "Clarification Needed" && req.status !== "Blocked" && (
+                                                    <button
+                                                        onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })}
+                                                        style={{ fontSize: 10, padding: "4px 12px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #c7d2fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                                        title="Open request"
+                                                    >
+                                                        Open
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => setReturnToOwner({ req, reason: "" })}
+                                                    style={{ fontSize: 10, padding: "4px 12px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #fcd34d", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                                    title="Return this item to the original owner"
+                                                >
+                                                    Return to Owner
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <select
+                                                aria-label={`Assign ${req.requestId}`}
+                                                value=""
+                                                onChange={e => {
+                                                    const newOwner = e.target.value;
+                                                    if (newOwner) {
+                                                        updateRequestOwner(req.id, newOwner);
+                                                        updateRequestStatus(req.id, "Open" as RecapRequest["status"]);
+                                                        req._needsReassignment = false;
+                                                        req._misassignedReason = null;
+                                                        addActivityEntry({
+                                                            type: "Assignment",
+                                                            description: `${req.requestId}: Reassigned to ${newOwner} by ${activeUser}`,
+                                                            userId: activeUser,
+                                                            userName: activeUser,
+                                                            requestId: req.id,
+                                                            requestTitle: req.title,
+                                                            transactionId: req.transactionId,
+                                                            transactionName: req.transactionName,
+                                                        });
+                                                        setSuccessMsg({
+                                                            title: "Reassigned",
+                                                            body: `${req.requestId} \u2014 ${req.title.split(" - ").slice(1).join(" - ").trim() || req.title} reassigned to ${newOwner}.`,
+                                                        });
+                                                        setRefreshKey(k => k + 1);
+                                                    }
+                                                }}
+                                                style={{ fontSize: 10, padding: "2px 4px", borderRadius: 4, border: "1px solid #d1d5db", cursor: "pointer", minWidth: 110 }}
+                                            >
+                                                <option value="">Assign...</option>
+                                                {members.filter(m => m.team !== "DD Management").map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                                            </select>
+                                        )}
+                                    </td>
+                                </>
+                            ) : (
+                                <>
+                                    <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#475569", fontWeight: 600 }}>{req.requestId}</td>
+                                    <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 240 }}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</td>
+                                    <td style={{ fontSize: 12, color: "#475569" }}>{req.communityNames[0] || "\u2014"}</td>
+                                    <td><PriorityBadge priority={req.priority} /></td>
+                                    <td onClick={e => e.stopPropagation()}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                            <select
+                                                aria-label={`Status for ${req.requestId}`}
+                                                value={req.status}
+                                                onChange={e => {
+                                                    const newStatus = e.target.value;
+                                                    if (newStatus !== req.status) {
+                                                        if (newStatus === "Complete" && !hasDocuments(req)) {
+                                                            setArtifactWarning({ req, newStatus });
+                                                        } else {
+                                                            setStatusConfirm({ req, newStatus });
+                                                        }
+                                                    }
+                                                }}
+                                                style={{ fontSize: 10, padding: "2px 14px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 85, cursor: "pointer", border: "1px solid #d1d5db", width: "100%" }}
+                                            >
+                                                {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                        </div>
+                                    </td>
+                                    <td><ExternalStatus req={req} /></td>
+                                    {activeView === "full-work-queue" && <td style={{ fontSize: 12, color: "#475569" }}>{req.owner || "\u2014"}</td>}
+                                    <td style={{ fontSize: 12 }}>{req.team}</td>
+                                    <td className="nowrap" style={{ fontSize: 12, color: req.status === "Overdue" ? "#991b1b" : "#475569", fontWeight: req.status === "Overdue" ? 600 : 400 }}>{req.dueDate}</td>
+                                    <td style={{ fontSize: 12, color: "#475569" }}>{req.lastUpdated}</td>
+                                    <td onClick={e => e.stopPropagation()} style={{ fontSize: 11, textAlign: "center", color: getWorkArtifactsByRequest(getArtifactKey(req)).length > 0 ? "#2563eb" : "#d1d5db" }}>
+                                        {getWorkArtifactsByRequest(getArtifactKey(req)).length > 0 ? (
+                                            <span onClick={() => setArtifactListModal({ req, artifacts: getWorkArtifactsByRequest(getArtifactKey(req)) })} role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') setArtifactListModal({ req, artifacts: getWorkArtifactsByRequest(getArtifactKey(req)) }); }} style={{ cursor: "pointer" }} title="View artifacts">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
+                                            </span>
+                                        ) : (
+                                            <span style={{ color: "#d1d5db" }}>&mdash;</span>
+                                        )}
+                                    </td>
+                                    <td onClick={e => e.stopPropagation()} style={{ fontSize: 11, textAlign: "center", maxWidth: 160 }}>
+                                        {getRequestNote(req) ? (
+                                            <span onClick={() => setNotePopup({ req, note: getRequestNote(req)! })} role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') setNotePopup({ req, note: getRequestNote(req)! }); }} style={{ cursor: "pointer", color: "#92400e", display: "inline-flex", alignItems: "center", gap: 4 }} title="Click to view note/reason">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                                                <span style={{ fontSize: 10, fontWeight: 600, color: "#92400e", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 120 }}>{getRequestNote(req)}</span>
+                                            </span>
+                                        ) : (
+                                            <span style={{ color: "#d1d5db", fontSize: 10 }}>No note</span>
+                                        )}
+                                    </td>
+                                    <td onClick={e => e.stopPropagation()} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                        {activeView === "full-work-queue" && !req.owner && (
+                                            <select
+                                                aria-label={`Assign ${req.requestId}`}
+                                                value=""
+                                                onChange={e => {
+                                                    const newOwner = e.target.value;
+                                                    if (newOwner) {
+                                                        updateRequestOwner(req.id, newOwner);
+                                                        updateRequestStatus(req.id, "Open" as RecapRequest["status"]);
+                                                        addActivityEntry({
+                                                            type: "Assignment",
+                                                            description: `${req.requestId}: Assigned to ${newOwner} by ${activeUser}`,
+                                                            userId: activeUser,
+                                                            userName: activeUser,
+                                                            requestId: req.id,
+                                                            requestTitle: req.title,
+                                                            transactionId: req.transactionId,
+                                                            transactionName: req.transactionName,
+                                                        });
+                                                        setSuccessMsg({
+                                                            title: "Assigned",
+                                                            body: `${req.requestId} assigned to ${newOwner}.`,
+                                                        });
+                                                        setRefreshKey(k => k + 1);
+                                                    }
+                                                }}
+                                                style={{ fontSize: 10, padding: "2px 4px", borderRadius: 4, border: "1px solid #d1d5db", cursor: "pointer", minWidth: 110 }}
+                                            >
+                                                <option value="">Assign...</option>
+                                                {members.filter(m => m.team !== "DD Management").map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                                            </select>
+                                        )}
+                                    </td>
+                                </>
                             )}
-                            <td style={{ fontSize: 12, color: "#475569" }}>{req.owner || "\u2014"}</td>
-                            <td style={{ fontSize: 12 }}>{req.team}</td>
-                            <td className="nowrap" style={{ fontSize: 12, color: req.status === "Overdue" ? "#991b1b" : "#475569", fontWeight: req.status === "Overdue" ? 600 : 400 }}>{req.dueDate}</td>
-                            <td style={{ fontSize: 12, color: "#475569" }}>{req.lastUpdated}</td>
-                            <td onClick={e => e.stopPropagation()} style={{ fontSize: 11, textAlign: "center", color: getWorkArtifactsByRequest(getArtifactKey(req)).length > 0 ? "#2563eb" : "#d1d5db" }}>
-                                {getWorkArtifactsByRequest(getArtifactKey(req)).length > 0 ? (
-                                    <span onClick={() => setArtifactListModal({ req, artifacts: getWorkArtifactsByRequest(getArtifactKey(req)) })} role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') setArtifactListModal({ req, artifacts: getWorkArtifactsByRequest(getArtifactKey(req)) }); }} style={{ cursor: "pointer" }} title="View artifacts">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
-                                    </span>
-                                ) : (
-                                    <span style={{ color: "#d1d5db" }}>&mdash;</span>
-                                )}
-                            </td>
-                            <td onClick={e => e.stopPropagation()} style={{ fontSize: 11, textAlign: "center", maxWidth: 160 }}>
-                                {getRequestNote(req) ? (
-                                    <span onClick={() => setNotePopup({ req, note: getRequestNote(req)! })} role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') setNotePopup({ req, note: getRequestNote(req)! }); }} style={{ cursor: "pointer", color: "#92400e", display: "inline-flex", alignItems: "center", gap: 4 }} title="Click to view note/reason">
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
-                                        <span style={{ fontSize: 10, fontWeight: 600, color: "#92400e", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 120 }}>{getRequestNote(req)}</span>
-                                    </span>
-                                ) : (
-                                    <span style={{ color: "#d1d5db", fontSize: 10 }}>No note</span>
-                                )}
-                            </td>
-                            <td onClick={e => e.stopPropagation()} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                {activeView === "needs-dd-review" && req.owner && !req._needsReassignment && !req._misassignedReason && (
-                                    <>
-                                        {req.status === "Clarification Needed" && (
-                                            <button
-                                                onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })}
-                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", border: "1px solid #fcd34d", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", marginRight: 4 }}
-                                                title="Review the clarification question"
-                                            >
-                                                Review Question
-                                            </button>
-                                        )}
-                                        {req.status === "Blocked" && (
-                                            <button
-                                                onClick={() => setResolveModal({ req, note: "" })}
-                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", border: "1px solid #fca5a5", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", marginRight: 4 }}
-                                                title="Review and resolve blocker"
-                                            >
-                                                Review Blocker
-                                            </button>
-                                        )}
-                                        {req.status !== "Clarification Needed" && req.status !== "Blocked" && (
-                                            <button
-                                                onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })}
-                                                style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", border: "1px solid #c7d2fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", marginRight: 4 }}
-                                                title="Open request"
-                                            >
-                                                Open
-                                            </button>
-                                        )}
-                                        <button
-                                            onClick={() => setReturnToOwner({ req, reason: "" })}
-                                            style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", border: "1px solid #fcd34d", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                            title="Return this item to the original owner"
-                                        >
-                                            Return to Owner
-                                        </button>
-                                    </>
-                                )}
-                                {((activeView === "needs-dd-review" && (!req.owner || req._needsReassignment || req._misassignedReason)) || (activeView === "full-work-queue" && !req.owner)) && (
-                                    <select
-                                        aria-label={`Assign ${req.requestId}`}
-                                        value=""
-                                        onChange={e => {
-                                            const newOwner = e.target.value;
-                                            if (newOwner) {
-                                                updateRequestOwner(req.id, newOwner);
-                                                updateRequestStatus(req.id, "Open" as RecapRequest["status"]);
-                                                req._needsReassignment = false;
-                                                req._misassignedReason = null;
-                                                addActivityEntry({
-                                                    type: "Assignment",
-                                                    description: `${req.requestId}: Reassigned to ${newOwner} by ${activeUser}`,
-                                                    userId: activeUser,
-                                                    userName: activeUser,
-                                                    requestId: req.id,
-                                                    requestTitle: req.title,
-                                                    transactionId: req.transactionId,
-                                                    transactionName: req.transactionName,
-                                                });
-                                                setSuccessMsg({
-                                                    title: "Reassigned",
-                                                    body: `${req.requestId} \u2014 ${req.title.split(" - ").slice(1).join(" - ").trim() || req.title} reassigned to ${newOwner}.`,
-                                                });
-                                                setRefreshKey(k => k + 1);
-                                            }
-                                        }}
-                                        style={{ fontSize: 10, padding: "2px 4px", borderRadius: 4, border: "1px solid #d1d5db", cursor: "pointer", minWidth: 110 }}
-                                    >
-                                        <option value="">Assign...</option>
-                                        {members.filter(m => m.team !== "DD Management").map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
-                                    </select>
-                                )}
-                            </td>
                         </tr>
                     ))}
                 </tbody>

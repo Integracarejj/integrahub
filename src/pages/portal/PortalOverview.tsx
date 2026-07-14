@@ -74,7 +74,6 @@ export default function PortalOverview() {
     const awaitingReviewCount = portalStatuses.filter(s => s.status === "Awaiting Your Review").length;
     const exceptionReviewCount = portalStatuses.filter(s => s.status === "Exception Review").length;
     const completeCount = portalStatuses.filter(s => s.status === "Complete").length;
-    const actionNeededCount = portalStatuses.filter(s => s.externalActionRequired).length;
     const visibleRequests = portalRequests.filter(r => getExternalStatusInfo(r).status !== "Complete");
 
     const [dashboardSearch, setDashboardSearch] = useState("");
@@ -202,7 +201,6 @@ export default function PortalOverview() {
         if (!analysis) return;
         confirmBrokerPackage(analysis.submissionId);
         setUploadState("submitted");
-        setBanner("Package submitted successfully!");
     };
 
     const hasSubmitted = submissions.length > 0 || uploadState === "submitted";
@@ -460,37 +458,7 @@ export default function PortalOverview() {
                 )}
             </div>
 
-            {/* ── Attention Summary Banner (replaces Action Needed card) ── */}
-            {actionNeededCount > 0 && (
-                <div style={{
-                    display: "flex", alignItems: "center", gap: 12, justifyContent: "center",
-                    padding: "10px 18px", background: "#fff", border: "1px solid #fcd34d", borderRadius: 10,
-                    fontSize: 13, color: "#0f172a", fontWeight: 600,
-                }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                        <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-                    </svg>
-                    <span>{actionNeededCount} request{actionNeededCount !== 1 ? "s" : ""} need{actionNeededCount === 1 ? "s" : ""} your attention</span>
-                    {awaitingReviewCount > 0 && (
-                        <button
-                            className="rc-btn rc-btn-ghost" style={{ fontSize: 12, fontWeight: 600, padding: "4px 10px", color: "#1d4ed8", textDecoration: "underline" }}
-                            onClick={() => { setDashboardFilterStatus("Awaiting Your Review"); setDashboardFilterCategory("all"); }}
-                        >
-                            {awaitingReviewCount} awaiting review
-                        </button>
-                    )}
-                    {exceptionReviewCount > 0 && (
-                        <button
-                            className="rc-btn rc-btn-ghost" style={{ fontSize: 12, fontWeight: 600, padding: "4px 10px", color: "#6d28d9", textDecoration: "underline" }}
-                            onClick={() => { setDashboardFilterStatus("Exception Review"); setDashboardFilterCategory("all"); }}
-                        >
-                            {exceptionReviewCount} exception recommendation{exceptionReviewCount !== 1 ? "s" : ""}
-                        </button>
-                    )}
-                </div>
-            )}
-            <div style={{ fontSize: 12, color: "#475569", textAlign: "right", marginBottom: 12 }}>
+            <div style={{ fontSize: 12, color: "#334155", textAlign: "right", marginBottom: 12 }}>
                 Last updated: {lastUpdated.toLocaleTimeString()}
             </div>
 
