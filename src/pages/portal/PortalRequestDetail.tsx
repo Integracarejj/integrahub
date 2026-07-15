@@ -1,9 +1,124 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getPortalRequests, partnerApproveRequest, partnerReworkRequest, partnerExceptionDecision } from "../../services/portalMockData";
-import { getExternalMessages, getWorkArtifactsByRequest } from "../../services/recapDataService";
+import type { PortalRequest } from "../../services/portalMockData";
+import { getExternalMessages, getWorkArtifactsByRequest, addWorkNote, addActivityEntry, updateRequestStatus } from "../../services/recapDataService";
 import { getExternalStatusInfo, getStatusPillStyle } from "../../services/externalStatusMapping";
+import type { RecapRequest } from "../../services/recapMockData";
 import "./PortalOverview.css";
+
+function InformationRequestedSection({ req, onResponseSubmitted }: { req: PortalRequest; onResponseSubmitted: () => void }) {
+    const [response, setResponse] = useState("");
+    const [submitted, setSubmitted] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
+
+    const clarificationQuestion = req._returnReason || "Please provide the requested information.";
+    const questionAuthor = req.owner || "DD Operations";
+
+    function handleSubmit() {
+        if (!response.trim()) return;
+        const reqId = req.id || req.intakeId || "";
+        
+        // Add work note with the external response
+        addWorkNote(reqId, response.trim(), "External Partner", "Clarification Response");
+        
+        // Add activity entry
+        addActivityEntry({
+            type: "Status Change",
+            description: `${req.requestId}: External partner responded to clarification.`,
+            userId: "external-partner",
+            userName: "External Partner",
+            requestId: req.requestId || req.id,
+            requestTitle: req.title || req.category || "",
+            transactionId: req.transactionId,
+            transactionName: req.transactionName || req.transactionId,
+        });
+        
+        // Update status to Under Review (internal)
+        updateRequestStatus(reqId, "In Progress" as RecapRequest["status"]);
+        
+        setSubmitted(true);
+        setShowConfirm(false);
+        onResponseSubmitted();
+    }
+
+    if (submitted) {
+        return (
+            <div style={{ marginBottom: 24, padding: "20px 24px", borderRadius: 12, border: "2px solid #bbf7d0", background: "#f0fdf4" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                    </div>
+                    <div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: "#166534" }}>Response Submitted</div>
+                        <div style={{ fontSize: 13, color: "#334155" }}>Your response was sent to IntegraCare. No further action is required from you right now.</div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{ marginBottom: 24, padding: "20px 24px", borderRadius: 12, border: "2px solid #fcd34d", background: "#fff" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#fef3c7", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                </div>
+                <div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>Additional Information Required</div>
+                    <div style={{ fontSize: 12, color: "#475569" }}>IntegraCare needs additional information from you.</div>
+                </div>
+            </div>
+            
+            {/* Clarification Question */}
+            <div style={{ marginBottom: 16, padding: "12px 14px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6 }}>What's Needed</div>
+                <div style={{ fontSize: 13, color: "#0f172a", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                    {clarificationQuestion || "No specific question recorded. Please provide the requested information."}
+                </div>
+                <div style={{ fontSize: 11, color: "#64748b", marginTop: 6 }}>
+                    Asked by {questionAuthor}
+                </div>
+            </div>
+
+            {/* Response Area */}
+            {!showConfirm ? (
+                <>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: "#334155", marginBottom: 6, display: "block" }}>Your Response <span style={{ color: "#dc2626" }}>*</span></label>
+                    <textarea
+                        value={response}
+                        onChange={e => setResponse(e.target.value)}
+                        placeholder="Enter your response to the question above..."
+                        rows={4}
+                        style={{ width: "100%", padding: "10px 12px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a", marginBottom: 12 }}
+                    />
+                    <button
+                        className="rc-btn rc-btn-primary"
+                        disabled={!response.trim()}
+                        onClick={() => setShowConfirm(true)}
+                        style={{ padding: "10px 24px", fontSize: 14, fontWeight: 700 }}
+                    >
+                        Submit Response
+                    </button>
+                </>
+            ) : (
+                <div style={{ padding: "14px 16px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>Confirm Submission</div>
+                    <div style={{ fontSize: 12, color: "#334155", marginBottom: 10, lineHeight: 1.5 }}>
+                        Your response will be sent to IntegraCare for review.
+                    </div>
+                    <div style={{ padding: "8px 10px", background: "#fff", border: "1px solid #bbf7d0", borderRadius: 6, fontSize: 12, color: "#166534", marginBottom: 12 }}>
+                        <strong>Your Response:</strong><br />{response}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                        <button className="rc-btn rc-btn-ghost" onClick={() => setShowConfirm(false)}>Back</button>
+                        <button className="rc-btn rc-btn-primary" onClick={handleSubmit}>Confirm & Submit</button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
 
 const EXTERNAL_LIFECYCLE = [
     { step: 1, key: "Submitted", label: "Submitted" },
@@ -77,7 +192,14 @@ export default function PortalRequestDetail() {
     const allRequests = getPortalRequests();
     const req = allRequests.find(r => r.id === id) || allRequests.find(r => r.requestId === id);
     const [showApprovedModal, setShowApprovedModal] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0);
     const extInfo = req ? getExternalStatusInfo(req) : null;
+
+    // Re-fetch data when refreshKey changes
+    useEffect(() => {
+        // This effect triggers a re-render when refreshKey changes
+        // The data is already re-fetched via getPortalRequests()
+    }, [refreshKey]);
 
     const handleViewDashboard = useCallback(() => {
         navigate("/portal");
@@ -321,21 +443,7 @@ export default function PortalRequestDetail() {
 
             {/* Information Requested Section */}
             {extInfo?.status === "Information Requested" && !isComplete && (
-                <div style={{ marginBottom: 24, padding: "20px 24px", borderRadius: 12, border: "2px solid #fcd34d", background: "#fff" }}>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>Additional Information Required</div>
-                    <div style={{ fontSize: 14, color: "#334155", marginBottom: 12, lineHeight: 1.6 }}>
-                        IntegraCare needs additional information from you to continue processing this request. Please check the clarification section below.
-                    </div>
-                    {req._returnReason && (
-                        <div style={{ padding: "10px 14px", background: "#fff", border: "1px solid #fde68a", borderRadius: 8, fontSize: 13, color: "#0f172a", marginBottom: 12, lineHeight: 1.5 }}>
-                            <span style={{ fontWeight: 700, display: "block", marginBottom: 4, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.03em", color: "#0f172a" }}>Information requested</span>
-                            {req._returnReason}
-                        </div>
-                    )}
-                    <button className="rc-btn rc-btn-primary" onClick={() => navigate("/portal/clarifications")} style={{ padding: "10px 24px", fontSize: 14, fontWeight: 700 }}>
-                        Respond
-                    </button>
-                </div>
+                <InformationRequestedSection req={req} onResponseSubmitted={() => setRefreshKey(k => k + 1)} />
             )}
 
             {/* Supporting Artifacts */}

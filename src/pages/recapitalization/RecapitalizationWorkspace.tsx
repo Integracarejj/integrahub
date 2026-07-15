@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive, addExternalMessage, getExternalMessages, updateRequestNotMine, updateRequestReturnToOwner, sendExceptionRecommendation } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact, WorkNoteEntry } from "../../services/recapDataService";
+import ClarificationThread from "../../components/common/ClarificationThread";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
@@ -129,6 +130,13 @@ export default function RecapitalizationWorkspace() {
     const [dragOverUpload, setDragOverUpload] = useState(false);
     const [returnToOwnerModal, setReturnToOwnerModal] = useState<{ step: "input" | "completed"; reason: string } | null>(null);
     const [clarifyResponseModal, setClarifyResponseModal] = useState<{ response: string } | null>(null);
+    const [clarificationSupportModalOpen, setClarificationSupportModalOpen] = useState(false);
+    const [clarificationPath, setClarificationPath] = useState<"A" | "B" | null>(null);
+    const [clarificationInternalResponse, setClarificationInternalResponse] = useState("");
+    const [clarificationInternalNote, setClarificationInternalNote] = useState("");
+    const [clarificationExternalQuestion, setClarificationExternalQuestion] = useState("");
+    const [clarificationExternalInstructions, setClarificationExternalInstructions] = useState("");
+    const [clarificationSubmitStep, setClarificationSubmitStep] = useState<"select" | "confirm" | "done">("select");
 
     // Stable storage key for artifact persistence: use requestId > intakeId > route id
     const artifactStorageKey = useMemo(() => {
@@ -477,6 +485,50 @@ function WorkflowStateCard({
         setActionFeedback("Clarification response sent. Request returned to Active Work.");
     }
 
+    function submitClarificationSupport() {
+        const reqId = item.id || item.intakeId || "";
+        if (clarificationPath === "A") {
+            // Path A: Internal answer and return to owner
+            updateRequestStatus(reqId, "In Progress" as RecapRequest["status"]);
+            addWorkNote(reqId, clarificationInternalResponse.trim(), currentUser, "Clarification Response");
+            if (clarificationInternalNote.trim()) {
+                addWorkNote(reqId, clarificationInternalNote.trim(), currentUser, "Work Note");
+            }
+            addActivityEntry({
+                type: "Status Change",
+                description: `${displayId}: Clarification answered internally by ${currentUser} and returned to ${item.owner}.`,
+                userId: currentUser,
+                userName: currentUser,
+                requestId: item.requestId || item.id,
+                requestTitle: displayTitle || item.category || "",
+                transactionId: item.transactionId,
+                transactionName: item.transactionName || item.transactionId,
+            });
+            setClarificationSubmitStep("done");
+            setActionFeedback("Clarification answered internally. Request returned to owner.");
+        } else if (clarificationPath === "B") {
+            // Path B: Send to external partner
+            updateRequestStatus(reqId, "Clarification Needed" as RecapRequest["status"]);
+            addWorkNote(reqId, clarificationExternalQuestion.trim(), currentUser, "Clarification External Question");
+            if (clarificationExternalInstructions.trim()) {
+                addWorkNote(reqId, clarificationExternalInstructions.trim(), currentUser, "Work Note");
+            }
+            addActivityEntry({
+                type: "Status Change",
+                description: `${displayId}: Clarification sent to external partner by ${currentUser}.`,
+                userId: currentUser,
+                userName: currentUser,
+                requestId: item.requestId || item.id,
+                requestTitle: displayTitle || item.category || "",
+                transactionId: item.transactionId,
+                transactionName: item.transactionName || item.transactionId,
+            });
+            setClarificationSubmitStep("done");
+            setActionFeedback("Clarification sent to external partner. Request paused internally.");
+        }
+        setWsRefreshKey(k => k + 1);
+    }
+
     function handleArtifactUpload(files: File[]) {
         const idx = workArtifacts.length + 1;
         const newArtifacts = files.map((f, i) => ({
@@ -505,10 +557,34 @@ function WorkflowStateCard({
     function doReturnToOwner() {
         if (!returnToOwnerModal?.reason.trim()) return;
         const reqId = item.id || item.intakeId || "";
-        updateRequestReturnToOwner(reqId, returnToOwnerModal.reason.trim(), currentUser);
+        
+        // Check if this is a clarification response return
+        const hasExternalClarificationResponse = displayStatus === "Clarification Needed" && 
+            item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification Response");
+        
+        if (hasExternalClarificationResponse) {
+            // For external clarification response, update status and add guidance
+            updateRequestStatus(reqId, "In Progress" as RecapRequest["status"]);
+            addWorkNote(reqId, returnToOwnerModal.reason.trim(), currentUser, "Clarification Guidance");
+            addActivityEntry({
+                type: "Status Change",
+                description: `${displayId}: External clarification response returned to owner by ${currentUser} with guidance.`,
+                userId: currentUser,
+                userName: currentUser,
+                requestId: item.requestId || item.id,
+                requestTitle: displayTitle || item.category || "",
+                transactionId: item.transactionId,
+                transactionName: item.transactionName || item.transactionId,
+            });
+            setActionFeedback("External clarification response returned to owner with guidance.");
+        } else {
+            // Standard return to owner flow
+            updateRequestReturnToOwner(reqId, returnToOwnerModal.reason.trim(), currentUser);
+            setCompletionDialog("return-to-owner");
+        }
+        
         setWsRefreshKey(k => k + 1);
         setReturnToOwnerModal(null);
-        setCompletionDialog("return-to-owner");
     }
 
     return (
@@ -638,21 +714,63 @@ function WorkflowStateCard({
                         <div style={{ border: "2px solid #dbeafe", borderRadius: 16, padding: 28, background: "linear-gradient(135deg, #faf5ff 0%, #f0f7ff 100%)", boxShadow: "0 2px 12px rgba(37,99,235,0.06)" }}>
                           <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>DD Operations Review</div>
                           <div style={{ fontSize: 14, color: "#475569", marginBottom: 24 }}>Review the submitted work and choose the next step.</div>
-                          <div style={{ display: "flex", gap: 16, marginBottom: 28 }}>
-                            <div
-                              onClick={() => setReturnToOwnerModal({ step: "input", reason: "" })}
-                              style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #fed7aa", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
-                              onMouseEnter={e => { e.currentTarget.style.borderColor = "#f59e0b"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(245,158,11,0.1)"; }}
-                              onMouseLeave={e => { e.currentTarget.style.borderColor = "#fed7aa"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}
-                            >
-                              <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fffbeb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>
-                              </div>
-                              <div>
-                                <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Return to Owner</div>
-                                <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Send back with feedback</div>
+
+                          {/* External Clarification Response Received Banner */}
+                          {displayStatus === "Clarification Needed" && item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification Response") && (
+                            <div style={{ marginBottom: 20, padding: "16px 20px", borderRadius: 12, background: "#f0fdf4", border: "2px solid #bbf7d0", boxShadow: "0 2px 8px rgba(16,185,129,0.06)" }}>
+                              <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+                                <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>External Clarification Response Received</div>
+                                  <div style={{ fontSize: 13, color: "#475569", marginTop: 4, lineHeight: 1.5 }}>The external partner has responded to your information request.</div>
+                                  {item._workNotes?.filter((n: WorkNoteEntry) => n.action === "Clarification Response").map((n: WorkNoteEntry) => (
+                                    <div key={n.id} style={{ marginTop: 8, padding: "8px 12px", background: "rgba(255,255,255,0.7)", border: "1px solid #bbf7d0", borderRadius: 6, fontSize: 12, color: "#166534", lineHeight: 1.5 }}>
+                                      <span style={{ fontWeight: 700, display: "block", marginBottom: 2, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.03em" }}>External Response:</span>
+                                      {n.text}
+                                    </div>
+                                  ))}
+                                  <div style={{ marginTop: 8, fontSize: 12, color: "#475569" }}>
+                                    <strong>Next Action:</strong> Return to Owner with Response or Continue Internal Review
+                                  </div>
+                                </div>
                               </div>
                             </div>
+                          )}
+
+                          <div style={{ display: "flex", gap: 16, marginBottom: 28 }}>
+                            {displayStatus === "Clarification Needed" && item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification Response") ? (
+                              <div
+                                onClick={() => setReturnToOwnerModal({ step: "input", reason: "" })}
+                                style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bbf7d0", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
+                                onMouseEnter={e => { e.currentTarget.style.borderColor = "#22c55e"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(34,197,94,0.1)"; }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = "#bbf7d0"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}
+                              >
+                                <div style={{ width: 44, height: 44, borderRadius: 12, background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Return to Owner with Response</div>
+                                  <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Share the external partner's answer with the contributor</div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div
+                                onClick={() => setReturnToOwnerModal({ step: "input", reason: "" })}
+                                style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #fed7aa", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
+                                onMouseEnter={e => { e.currentTarget.style.borderColor = "#f59e0b"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(245,158,11,0.1)"; }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = "#fed7aa"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}
+                              >
+                                <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fffbeb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Return to Owner</div>
+                                  <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Send back with feedback</div>
+                                </div>
+                              </div>
+                            )}
 
                             <div
                               onClick={workArtifacts.length > 0 && (displayStatus === "Complete" || displayStatus === "Needs Rework") ? () => setPublishExternal({ step: 1, selectedArtifacts: workArtifacts.map(a => a.name), note: "" }) : undefined}
@@ -675,11 +793,7 @@ function WorkflowStateCard({
                           <div style={{ marginBottom: 14 }}>
                             <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 12 }}>Other Actions</div>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-                              {displayStatus !== "Clarification Needed" ? (
-                              <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>} label="Need Clarification" desc="Request more info" onClick={() => setNeedClarificationOpen(true)} />
-                              ) : (
-                              <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>} label="Respond to Clarification" desc="Answer the contributor's question" onClick={() => setClarifyResponseModal({ response: "" })} />
-                              )}
+                              <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0891b2" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>} label="Clarification Support" desc="Answer internally or request information" onClick={() => setClarificationSupportModalOpen(true)} />
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>} label="Return to Owner" desc="Send back with feedback" onClick={() => setReturnToOwnerModal({ step: "input", reason: "" })} />
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>} label="Reassign Owner" desc="Change the current owner" onClick={() => { const el = document.getElementById("ws-owner-select"); if (el) { (el as HTMLSelectElement).focus(); (el as HTMLSelectElement).click(); }}} />
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>} label="Recommend Duplicate to Partner" desc="Validate and send recommendation" onClick={() => setDdOpsRecommendModal({ type: "Duplicate", partnerNote: "" })} />
@@ -916,7 +1030,7 @@ function WorkflowStateCard({
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
                               {["Open", "Assigned", "In Progress"].includes(displayStatus) && (
                                 <>
-                                  <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>} label="Need Clarification" desc="Request more info" onClick={() => setNeedClarificationOpen(true)} />
+                                  <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0891b2" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>} label="Clarification Support" desc="Answer internally or request information" onClick={() => setClarificationSupportModalOpen(true)} />
                                   <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>} label="Block Work" desc="Waiting on something" onClick={() => setBlockModal({ step: "input", reason: "" })} />
                                   <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>} label="Mark Duplicate" desc="Possible duplicate" onClick={() => setDuplicateModal({ reason: "", optionalId: "" })} />
                                   <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>} label="Mark Not Applicable" desc="Not needed" onClick={() => setNotApplicableModal({ reason: "" })} />
@@ -1572,6 +1686,189 @@ function WorkflowStateCard({
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-ghost" onClick={() => setClarifyResponseModal(null)}>Cancel</button>
                             <button className="rc-btn rc-btn-primary" disabled={!clarifyResponseModal.response.trim()} onClick={submitClarifyResponse}>Send Response</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Clarification Support Modal */}
+            {clarificationSupportModalOpen && (
+                <div className="rc-modal-overlay" onClick={() => { setClarificationSupportModalOpen(false); setClarificationPath(null); setClarificationInternalResponse(""); setClarificationInternalNote(""); setClarificationExternalQuestion(""); setClarificationExternalInstructions(""); setClarificationSubmitStep("select"); }}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600, maxHeight: "85vh", overflow: "auto" }}>
+                        <div className="rc-modal-header" style={{ borderBottom: "1px solid #e5e7eb", paddingBottom: 12 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <div style={{ width: 32, height: 32, borderRadius: 8, background: "#ecfeff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0891b2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                </div>
+                                <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: 0 }}>Clarification Support</h2>
+                            </div>
+                            <button className="rc-modal-close" onClick={() => { setClarificationSupportModalOpen(false); setClarificationPath(null); setClarificationInternalResponse(""); setClarificationInternalNote(""); setClarificationExternalQuestion(""); setClarificationExternalInstructions(""); setClarificationSubmitStep("select"); }}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            {/* Context Section */}
+                            <div style={{ marginBottom: 16, padding: "12px 14px", background: "#f8fafc", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 8 }}>Current Context</div>
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 12 }}>
+                                    <div><span style={{ fontWeight: 600, color: "#0f172a" }}>Request ID</span> <span style={{ color: "#475569" }}>{displayId}</span></div>
+                                    <div><span style={{ fontWeight: 600, color: "#0f172a" }}>Status</span> <span style={{ color: "#475569" }}>{displayStatus}</span></div>
+                                    <div style={{ gridColumn: "1 / -1" }}><span style={{ fontWeight: 600, color: "#0f172a" }}>Deliverable</span> <span style={{ color: "#475569" }}>{displayTitle || item.category || "\u2014"}</span></div>
+                                    <div><span style={{ fontWeight: 600, color: "#0f172a" }}>Owner</span> <span style={{ color: "#475569" }}>{item.owner || "\u2014"}</span></div>
+                                    <div><span style={{ fontWeight: 600, color: "#0f172a" }}>Next Action</span> <span style={{ color: "#475569" }}>DD Operations</span></div>
+                                </div>
+                            </div>
+
+                            {/* Original Question */}
+                            <div style={{ marginBottom: 16 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6 }}>Original Clarification Question</div>
+                                <div style={{ padding: "10px 12px", fontSize: 13, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, color: "#92400e", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                                    {item._statusNotes || "No question recorded."}
+                                </div>
+                                <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>Asked by {item.owner || "Contributor"}</div>
+                            </div>
+
+                            {/* Clarification Thread */}
+                            <div style={{ marginBottom: 16 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6 }}>Clarification Thread</div>
+                                <div style={{ maxHeight: 200, overflow: "auto" }}>
+                                    <ClarificationThread 
+                                        workNotes={item._workNotes || []} 
+                                        statusNotes={item._statusNotes}
+                                        questionAuthor={item.owner}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Path Selection */}
+                            {clarificationSubmitStep === "select" && (
+                                <>
+                                    <div style={{ fontSize: 13, color: "#334155", marginBottom: 12, lineHeight: 1.5 }}>
+                                        Review the contributor's question and choose how the clarification should be resolved.
+                                    </div>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                        <div
+                                            onClick={() => setClarificationPath("A")}
+                                            style={{ padding: "14px 16px", border: clarificationPath === "A" ? "2px solid #0891b2" : "2px solid #e5e7eb", borderRadius: 10, background: clarificationPath === "A" ? "#ecfeff" : "#fff", cursor: "pointer", transition: "all 0.15s" }}
+                                        >
+                                            <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>Answer Internally and Return to Owner</div>
+                                            <div style={{ fontSize: 12, color: "#475569" }}>Provide guidance to the contributor without contacting the external partner.</div>
+                                        </div>
+                                        <div
+                                            onClick={() => setClarificationPath("B")}
+                                            style={{ padding: "14px 16px", border: clarificationPath === "B" ? "2px solid #0891b2" : "2px solid #e5e7eb", borderRadius: 10, background: clarificationPath === "B" ? "#ecfeff" : "#fff", cursor: "pointer", transition: "all 0.15s" }}
+                                        >
+                                            <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>Request Information from External Partner</div>
+                                            <div style={{ fontSize: 12, color: "#475569" }}>Send a clear question to the external partner and pause internal processing until they respond.</div>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Path A Form */}
+                            {clarificationSubmitStep === "select" && clarificationPath === "A" && (
+                                <div style={{ marginTop: 16, padding: "14px 16px", border: "1px solid #e5e7eb", borderRadius: 10, background: "#f8fafc" }}>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 10 }}>Internal Response</div>
+                                    <label style={{ fontSize: 11, fontWeight: 600, color: "#334155", marginBottom: 4, display: "block" }}>Response / Guidance <span style={{ color: "#dc2626" }}>*</span></label>
+                                    <textarea
+                                        value={clarificationInternalResponse}
+                                        onChange={e => setClarificationInternalResponse(e.target.value)}
+                                        placeholder="Provide your response to the contributor's question..."
+                                        rows={3}
+                                        style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a", marginBottom: 10 }}
+                                    />
+                                    <label style={{ fontSize: 11, fontWeight: 600, color: "#334155", marginBottom: 4, display: "block" }}>Additional Internal Note (optional)</label>
+                                    <textarea
+                                        value={clarificationInternalNote}
+                                        onChange={e => setClarificationInternalNote(e.target.value)}
+                                        placeholder="Add any internal notes for the record..."
+                                        rows={2}
+                                        style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Path B Form */}
+                            {clarificationSubmitStep === "select" && clarificationPath === "B" && (
+                                <div style={{ marginTop: 16, padding: "14px 16px", border: "1px solid #e5e7eb", borderRadius: 10, background: "#f8fafc" }}>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 10 }}>External Information Request</div>
+                                    <label style={{ fontSize: 11, fontWeight: 600, color: "#334155", marginBottom: 4, display: "block" }}>External-Facing Question <span style={{ color: "#dc2626" }}>*</span></label>
+                                    <textarea
+                                        value={clarificationExternalQuestion}
+                                        onChange={e => setClarificationExternalQuestion(e.target.value)}
+                                        placeholder="Enter the question to send to the external partner..."
+                                        rows={3}
+                                        style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a", marginBottom: 10 }}
+                                    />
+                                    <label style={{ fontSize: 11, fontWeight: 600, color: "#334155", marginBottom: 4, display: "block" }}>Supporting Instructions (optional)</label>
+                                    <textarea
+                                        value={clarificationExternalInstructions}
+                                        onChange={e => setClarificationExternalInstructions(e.target.value)}
+                                        placeholder="Add any additional context for the partner..."
+                                        rows={2}
+                                        style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
+                                    />
+                                    <div style={{ marginTop: 10, padding: "8px 10px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, fontSize: 12, color: "#92400e" }}>
+                                        <strong>Note:</strong> The external partner will see this question. Your internal contributor question will be preserved separately.
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Confirmation Step */}
+                            {clarificationSubmitStep === "confirm" && (
+                                <div style={{ marginTop: 16, padding: "14px 16px", border: "1px solid #e5e7eb", borderRadius: 10, background: "#f0fdf4" }}>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 10 }}>Confirm {clarificationPath === "A" ? "Internal Answer" : "External Request"}</div>
+                                    <div style={{ fontSize: 12, color: "#334155", marginBottom: 10, lineHeight: 1.5 }}>
+                                        {clarificationPath === "A" ? (
+                                            <>This will save your response and return the request to <strong>{item.owner}</strong>. The request will move out of DD Operations review.</>
+                                        ) : (
+                                            <>This will send the question to the external partner. The request will be paused internally until they respond.</>
+                                        )}
+                                    </div>
+                                    {clarificationPath === "A" && (
+                                        <div style={{ padding: "8px 10px", background: "#fff", border: "1px solid #bbf7d0", borderRadius: 6, fontSize: 12, color: "#166534", marginBottom: 8 }}>
+                                            <strong>Your Response:</strong><br />{clarificationInternalResponse}
+                                        </div>
+                                    )}
+                                    {clarificationPath === "B" && (
+                                        <div style={{ padding: "8px 10px", background: "#fff", border: "1px solid #bbf7d0", borderRadius: 6, fontSize: 12, color: "#166534", marginBottom: 8 }}>
+                                            <strong>External Question:</strong><br />{clarificationExternalQuestion}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Success Step */}
+                            {clarificationSubmitStep === "done" && (
+                                <div style={{ marginTop: 16, padding: "14px 16px", border: "1px solid #bbf7d0", borderRadius: 10, background: "#f0fdf4", textAlign: "center" }}>
+                                    <div style={{ fontSize: 16, fontWeight: 700, color: "#166534", marginBottom: 8 }}>✓ {clarificationPath === "A" ? "Response Saved" : "Request Sent"}</div>
+                                    <div style={{ fontSize: 13, color: "#334155" }}>
+                                        {clarificationPath === "A" ? "The request has been returned to the owner with your response." : "The external partner will receive your question and respond."}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        <div className="rc-modal-footer" style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12 }}>
+                            {clarificationSubmitStep === "select" && (
+                                <>
+                                    <button className="rc-btn rc-btn-ghost" onClick={() => { setClarificationSupportModalOpen(false); setClarificationPath(null); setClarificationInternalResponse(""); setClarificationInternalNote(""); setClarificationExternalQuestion(""); setClarificationExternalInstructions(""); }}>Cancel</button>
+                                    <button
+                                        className="rc-btn rc-btn-primary"
+                                        disabled={!clarificationPath || (clarificationPath === "A" && !clarificationInternalResponse.trim()) || (clarificationPath === "B" && !clarificationExternalQuestion.trim())}
+                                        onClick={() => setClarificationSubmitStep("confirm")}
+                                        style={{ background: "#0891b2" }}
+                                    >
+                                        Continue
+                                    </button>
+                                </>
+                            )}
+                            {clarificationSubmitStep === "confirm" && (
+                                <>
+                                    <button className="rc-btn rc-btn-ghost" onClick={() => setClarificationSubmitStep("select")}>Back</button>
+                                    <button className="rc-btn rc-btn-primary" style={{ background: "#0891b2" }} onClick={submitClarificationSupport}>Confirm & {clarificationPath === "A" ? "Return to Owner" : "Send to Partner"}</button>
+                                </>
+                            )}
+                            {clarificationSubmitStep === "done" && (
+                                <button className="rc-btn rc-btn-primary" onClick={() => { setClarificationSupportModalOpen(false); setClarificationPath(null); setClarificationInternalResponse(""); setClarificationInternalNote(""); setClarificationExternalQuestion(""); setClarificationExternalInstructions(""); setClarificationSubmitStep("select"); }}>Close</button>
+                            )}
                         </div>
                     </div>
                 </div>

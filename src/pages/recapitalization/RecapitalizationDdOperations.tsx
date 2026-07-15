@@ -594,16 +594,7 @@ export default function RecapitalizationDdOperations() {
                                     <td onClick={e => e.stopPropagation()} style={{ whiteSpace: "nowrap" }}>
                                         {req.owner && !req._needsReassignment && !req._misassignedReason ? (
                                             <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
-                                                {req.status === "Clarification Needed" && (
-                                                    <button
-                                                        onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })}
-                                                        style={{ fontSize: 10, padding: "4px 12px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #5eead4", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                                        title="Review the clarification question"
-                                                    >
-                                                        Review Question
-                                                    </button>
-                                                )}
-                                                {req.status === "Blocked" && (
+                                                {req.status === "Blocked" ? (
                                                     <button
                                                         onClick={() => setResolveModal({ req, note: "" })}
                                                         style={{ fontSize: 10, padding: "4px 12px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #5eead4", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
@@ -611,8 +602,7 @@ export default function RecapitalizationDdOperations() {
                                                     >
                                                         Review Blocker
                                                     </button>
-                                                )}
-                                                {req.status !== "Clarification Needed" && req.status !== "Blocked" && (
+                                                ) : (
                                                     <button
                                                         onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })}
                                                         style={{ fontSize: 10, padding: "4px 12px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #c7d2fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
