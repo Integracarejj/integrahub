@@ -91,8 +91,8 @@ export default function PortalRequests() {
 
             <div className="rc-card">
                 <div className="po-requests-table">
-                    <div className="po-requests-header" style={{ gridTemplateColumns: "0.5fr 2.5fr 1fr 0.9fr 0.7fr 0.7fr 0.7fr" }}>
-                        <span>ID</span><span>Request</span><span>Status</span><span>Category</span><span>Community</span><span>Updated</span><span style={{ textAlign: "center" }}>Action</span>
+                    <div className="po-requests-header" style={{ gridTemplateColumns: "0.5fr 2.5fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr 0.7fr" }}>
+                        <span>ID</span><span>Request</span><span>Status</span><span>Review Type</span><span>Category</span><span>Community</span><span>Updated</span><span style={{ textAlign: "center" }}>Action</span>
                     </div>
                     {filtered.length === 0 ? (
                         <div className="po-empty-state" style={{ padding: "40px 20px", textAlign: "center" }}>
@@ -102,7 +102,7 @@ export default function PortalRequests() {
                         const extInfo = getExternalStatusInfo(req);
                         const excCtx = getExceptionContext(req);
                         return (
-                            <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.5fr 2.5fr 1fr 0.9fr 0.7fr 0.7fr 0.7fr" }} onClick={() => navigate(`/portal/requests/${req.id}`)} title={req.requestId}>
+                            <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.5fr 2.5fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr 0.7fr" }} onClick={() => navigate(`/portal/requests/${req.id}`)} title={req.requestId}>
                                 <span className="po-requests-id">{req.requestId.split("-").length >= 3 ? req.requestId.split("-")[0] + "-" + req.requestId.split("-").slice(-1)[0] : req.requestId}</span>
                                 <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
                                     <span className="po-requests-title" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={req.title}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</span>
@@ -118,6 +118,15 @@ export default function PortalRequests() {
                                 </div>
                                 <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                     <StatusBadge status={extInfo.label} />
+                                </span>
+                                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                    {excCtx.recommendationType ? (
+                                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#0f172a", fontWeight: 600, fontSize: 11, background: "#fff", padding: "2px 8px", borderRadius: 4, border: excCtx.recommendationType === "Duplicate" ? "1px solid #c4b5fd" : "1px solid #a5b4fc", whiteSpace: "nowrap" }}>
+                                            {excCtx.recommendationType === "Duplicate" ? "Duplicate" : "Not Applicable"}
+                                        </span>
+                                    ) : (
+                                        <span style={{ color: "#94a3b8", fontSize: 12 }}>{"\u2014"}</span>
+                                    )}
                                 </span>
                                 <span className="po-requests-txn">{req.category || "\u2014"}</span>
                                 <span className="po-requests-txn">{req.communityNames[0] || "\u2014"}</span>

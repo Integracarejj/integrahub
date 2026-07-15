@@ -395,11 +395,6 @@ function BrokerUploadForm() {
     if (uploadState === "submitted") {
         return (
             <div>
-                {banner && (
-                    <div className="ps-banner" style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", padding: "10px 16px", borderRadius: 8, fontWeight: 600, fontSize: 13, marginBottom: 16 }}>
-                        {banner}
-                    </div>
-                )}
                 <div className="ps-success-banner">Package submitted successfully! IntegraCare will review and publish approved requests.</div>
                 <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ marginTop: 12 }}>Upload Another Package</button>
             </div>

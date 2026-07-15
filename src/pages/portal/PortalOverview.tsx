@@ -7,7 +7,7 @@ import {
     parseUploadedXLSX, extractCategoriesFromParsedRows,
     saveParsedRows,
 } from "../../services/portalMockData";
-import { getExternalStatusInfo, getStatusPillStyle } from "../../services/externalStatusMapping";
+import { getExternalStatusInfo, getStatusPillStyle, getExceptionContext } from "../../services/externalStatusMapping";
 import "./PortalOverview.css";
 
 const STAT_HELPERS: Record<string, string> = {
@@ -517,28 +517,35 @@ export default function PortalOverview() {
                                 </select>
                             </div>
                             <div className="po-requests-table">
-                                <div className="po-requests-header" style={{ gridTemplateColumns: "0.5fr 2fr 1fr 0.9fr 0.7fr 0.7fr" }}>
-                                    <span>ID</span><span>Request</span><span>Status</span><span>Category</span><span>Community</span><span>Updated</span>
+                                <div className="po-requests-header" style={{ gridTemplateColumns: "0.5fr 2fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr" }}>
+                                    <span>ID</span><span>Request</span><span>Status</span><span>Review Type</span><span>Category</span><span>Community</span><span>Updated</span>
                                 </div>
-                                {dashboardFiltered.slice(0, 10).map((req) => (
-                                    <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.5fr 2fr 1fr 0.9fr 0.7fr 0.7fr" }} onClick={() => navigate(`/portal/requests/${req.id}`)} title={req.requestId}>
+                                {dashboardFiltered.slice(0, 10).map((req) => {
+                                    const excCtx = getExceptionContext(req);
+                                    return (
+                                    <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.5fr 2fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr" }} onClick={() => navigate(`/portal/requests/${req.id}`)} title={req.requestId}>
                                         <span className="po-requests-id">{shortId(req.requestId)}</span>
                                         <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
                                             <span className="po-requests-title" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={req.title}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</span>
-                                            {req._exceptionReason && (
-                                                <span style={{ fontSize: 10, color: "#6b21a8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 280 }} title={req._exceptionReason}>
-                                                    {req._exceptionReason.slice(0, 100)}{req._exceptionReason.length > 100 ? "..." : ""}
-                                                </span>
-                                            )}
                                         </div>
                                         <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                             <StatusBadge status={req.status} />
+                                        </span>
+                                        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                            {excCtx.recommendationType ? (
+                                                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#0f172a", fontWeight: 600, fontSize: 11, background: "#fff", padding: "2px 8px", borderRadius: 4, border: excCtx.recommendationType === "Duplicate" ? "1px solid #c4b5fd" : "1px solid #a5b4fc", whiteSpace: "nowrap" }}>
+                                                    {excCtx.recommendationType === "Duplicate" ? "Duplicate" : "Not Applicable"}
+                                                </span>
+                                            ) : (
+                                                <span style={{ color: "#94a3b8", fontSize: 12 }}>{"\u2014"}</span>
+                                            )}
                                         </span>
                                         <span className="po-requests-txn">{req.category || "\u2014"}</span>
                                         <span className="po-requests-txn">{req.communityNames[0] || "\u2014"}</span>
                                         <span className="po-requests-txn">{req.updatedAt || req.neededBy || "\u2014"}</span>
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                             {dashboardFiltered.length > 10 && (
                                 <div style={{ textAlign: "right", marginTop: 6 }}>

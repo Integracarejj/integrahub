@@ -678,9 +678,11 @@
     .po-requests-header span:nth-child(3),
     .po-requests-header span:nth-child(4),
     .po-requests-header span:nth-child(5),
+    .po-requests-header span:nth-child(6),
     .po-requests-row span:nth-child(3),
     .po-requests-row span:nth-child(4),
-    .po-requests-row span:nth-child(5) {
+    .po-requests-row span:nth-child(5),
+    .po-requests-row span:nth-child(6) {
         display: none;
     }
     .po-how-it-works {
