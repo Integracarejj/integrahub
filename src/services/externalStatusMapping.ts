@@ -51,7 +51,7 @@ function getRecapStatus(req: { status: string; _exceptionRecommendation?: string
             }
         }
         if (notes?.some((n: { action?: string | null }) => n.action === "Clarification Response")) return "under-review";
-        return "information-requested";
+        return "under-review";
     }
     if (req._externalStatus === "Published External" || publishedExt) {
         if (status === "Needs Rework") return "under-review";

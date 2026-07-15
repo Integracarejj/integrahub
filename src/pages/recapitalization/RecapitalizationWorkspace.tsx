@@ -786,9 +786,9 @@ function WorkflowStateCard({
                             )}
 
                             <div
-                              onClick={workArtifacts.length > 0 && (displayStatus === "Complete" || displayStatus === "Needs Rework") ? () => setPublishExternal({ step: 1, selectedArtifacts: workArtifacts.map(a => a.name), note: "" }) : undefined}
-                              style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bbf7d0", borderRadius: 14, background: "#fff", cursor: workArtifacts.length > 0 && (displayStatus === "Complete" || displayStatus === "Needs Rework") ? "pointer" : "not-allowed", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)", opacity: workArtifacts.length > 0 && (displayStatus === "Complete" || displayStatus === "Needs Rework") ? 1 : 0.5 }}
-                              onMouseEnter={e => { if (workArtifacts.length > 0) { e.currentTarget.style.borderColor = "#22c55e"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(34,197,94,0.1)"; }}}
+                              onClick={(displayStatus === "Complete" || displayStatus === "Needs Rework") ? () => setPublishExternal({ step: 1, selectedArtifacts: workArtifacts.map(a => a.name), note: "" }) : undefined}
+                              style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bbf7d0", borderRadius: 14, background: "#fff", cursor: (displayStatus === "Complete" || displayStatus === "Needs Rework") ? "pointer" : "not-allowed", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)", opacity: (displayStatus === "Complete" || displayStatus === "Needs Rework") ? 1 : 0.5 }}
+                              onMouseEnter={e => { if (displayStatus === "Complete" || displayStatus === "Needs Rework") { e.currentTarget.style.borderColor = "#22c55e"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(34,197,94,0.1)"; }}}
                               onMouseLeave={e => { e.currentTarget.style.borderColor = "#bbf7d0"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}
                             >
                               <div style={{ width: 44, height: 44, borderRadius: 12, background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -797,7 +797,7 @@ function WorkflowStateCard({
                               <div>
                                 <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{displayStatus === "Needs Rework" ? "Re-Publish External" : "Publish External"}</div>
                                 <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>
-                                  {workArtifacts.length > 0 ? "Share approved artifacts with the external partner" : "Upload at least one work artifact before publishing."}
+                                  Share approved artifacts with the external partner
                                 </div>
                               </div>
                             </div>
