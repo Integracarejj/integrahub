@@ -138,9 +138,9 @@ export default function RecapitalizationDdOperations() {
         const wn = req._workNotes;
         if (req.status === "Clarification Needed") {
             const hasExtQ = wn?.some(n => n.action === "Clarification External Question");
-            if (hasExtQ) {
-                const hasExtR = wn?.some(n => n.action === "Clarification Response" && n.author === "External Partner");
-                const hasGuidance = wn?.some(n => n.action === "Clarification Guidance");
+            if (hasExtQ && wn) {
+                const hasExtR = wn.some(n => n.action === "Clarification Response" && n.author === "External Partner");
+                const hasGuidance = wn.some(n => n.action === "Clarification Guidance");
                 const clarActions = ["Clarification External Question", "Clarification Guidance"];
                 const clarNotes = wn.filter(n => clarActions.includes(n.action || ""));
                 const lastClarAction = clarNotes.length > 0 ? clarNotes[clarNotes.length - 1].action : null;

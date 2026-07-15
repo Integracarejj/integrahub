@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getPortalRequests, partnerApproveRequest, partnerReworkRequest, partnerExceptionDecision } from "../../services/portalMockData";
 import type { PortalRequest } from "../../services/portalMockData";
-import { getExternalMessages, getWorkArtifactsByRequest, addWorkNote, addActivityEntry, updateRequestStatus, updateRequestReturnReason } from "../../services/recapDataService";
+import { getExternalMessages, getWorkArtifactsByRequest, addWorkNote, addActivityEntry, updateRequestReturnReason } from "../../services/recapDataService";
 import { getExternalStatusInfo, getStatusPillStyle } from "../../services/externalStatusMapping";
 import "./PortalOverview.css";
 

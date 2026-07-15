@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { getExternalStatusInfo } from '../services/externalStatusMapping';
 import type { RecapRequest, WorkNoteEntry } from '../services/recapMockData';
 
