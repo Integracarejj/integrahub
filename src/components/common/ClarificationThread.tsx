@@ -9,7 +9,7 @@ interface ClarificationThreadProps {
 
 interface ThreadEntry {
     id: string;
-    type: "Contributor Question" | "DD Operations Guidance" | "External Question" | "External Partner Response" | "Internal Follow-up";
+    type: "Contributor Question" | "Contributor Context" | "DD Operations Guidance" | "External Question" | "External Partner Response" | "Internal Follow-up";
     author: string;
     timestamp: string;
     message: string;
@@ -91,6 +91,16 @@ function getClarificationThread({ workNotes, statusNotes, questionAuthor }: Clar
                         audience: "Internal",
                     });
                     break;
+                case "Clarification Context":
+                    entries.push({
+                        id: note.id,
+                        type: "Contributor Context",
+                        author: note.author,
+                        timestamp: note.timestamp,
+                        message: note.text,
+                        audience: "Internal",
+                    });
+                    break;
                 default:
                     // Other work notes are internal follow-ups
                     if (note.text && note.action !== "Work Note") {
@@ -115,6 +125,8 @@ function getEntryStyle(type: ThreadEntry["type"]): { bg: string; border: string;
     switch (type) {
         case "Contributor Question":
             return { bg: "#fffbeb", border: "#fde68a", icon: "?", color: "#92400e" };
+        case "Contributor Context":
+            return { bg: "#fffbeb", border: "#fde68a", icon: "i", color: "#92400e" };
         case "DD Operations Guidance":
             return { bg: "#ecfeff", border: "#a5f3fc", icon: "→", color: "#0e7490" };
         case "External Question":
