@@ -591,6 +591,19 @@ export function updateRequestStatusNotes(id: string, note: string | null): Recap
     return updatePortalRequestById(id, { _statusNotes: note });
 }
 
+export function updateRequestReturnReason(id: string, reason: string | null): RecapRequest | undefined {
+    if (isDemoLoaded()) {
+        return Demo.updateDemoRequest(id, { _returnReason: reason });
+    }
+    const req = Mock.getRequestById(id);
+    if (req) {
+        req._returnReason = reason;
+        req.lastUpdated = new Date().toISOString().split("T")[0];
+        return req;
+    }
+    return updatePortalRequestById(id, { _returnReason: reason });
+}
+
 export function clearExceptionFields(id: string): RecapRequest | undefined {
     const data: Partial<RecapRequest> = {
         _exceptionRecommendation: null,

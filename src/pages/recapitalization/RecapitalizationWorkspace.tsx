@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive, addExternalMessage, getExternalMessages, updateRequestNotMine, updateRequestReturnToOwner, sendExceptionRecommendation } from "../../services/recapDataService";
+import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive, addExternalMessage, getExternalMessages, updateRequestNotMine, updateRequestReturnToOwner, updateRequestReturnReason, sendExceptionRecommendation } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact, WorkNoteEntry } from "../../services/recapDataService";
-import ClarificationThread from "../../components/common/ClarificationThread";
+import ClarificationThread, { getClarificationSummary } from "../../components/common/ClarificationThread";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
@@ -507,6 +507,7 @@ function WorkflowStateCard({
             // Path B: Send to external partner
             updateRequestStatus(reqId, "Clarification Needed" as RecapRequest["status"]);
             addWorkNote(reqId, clarificationExternalQuestion.trim(), currentUser, "Clarification External Question");
+            updateRequestReturnReason(reqId, clarificationExternalQuestion.trim());
             if (clarificationExternalInstructions.trim()) {
                 addWorkNote(reqId, clarificationExternalInstructions.trim(), currentUser, "Work Note");
             }
@@ -555,14 +556,16 @@ function WorkflowStateCard({
         if (!returnToOwnerModal?.reason.trim()) return;
         const reqId = item.id || item.intakeId || "";
         
-        // Check if this is a clarification response return
-        const hasExternalClarificationResponse = displayStatus === "Clarification Needed" && 
-            item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification Response");
+        // Check if this is a clarification response return (external partner responded)
+        const hasExternalClarificationResponse = 
+            item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification External Question") &&
+            item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification Response" && n.author === "External Partner");
         
         if (hasExternalClarificationResponse) {
             // For external clarification response, update status and add guidance
             updateRequestStatus(reqId, "In Progress" as RecapRequest["status"]);
             addWorkNote(reqId, returnToOwnerModal.reason.trim(), currentUser, "Clarification Guidance");
+            updateRequestReturnReason(reqId, null);
             addActivityEntry({
                 type: "Status Change",
                 description: `${displayId}: External clarification response returned to owner by ${currentUser} with guidance.`,
@@ -573,7 +576,7 @@ function WorkflowStateCard({
                 transactionId: item.transactionId,
                 transactionName: item.transactionName || item.transactionId,
             });
-            setActionFeedback("External clarification response returned to owner with guidance.");
+            setActionFeedback("Clarification returned to contributor with guidance.");
         } else {
             // Standard return to owner flow
             updateRequestReturnToOwner(reqId, returnToOwnerModal.reason.trim(), currentUser);
@@ -713,7 +716,11 @@ function WorkflowStateCard({
                           <div style={{ fontSize: 14, color: "#475569", marginBottom: 24 }}>Review the submitted work and choose the next step.</div>
 
                           {/* External Clarification Response Received Banner */}
-                          {displayStatus === "Clarification Needed" && item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification Response") && (
+                          {(() => {
+                              const hasExternalQuestion = item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification External Question");
+                              const hasExternalResponse = item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification Response" && n.author === "External Partner");
+                              const isClarificationActive = displayStatus === "Clarification Needed" || (displayStatus === "In Progress" && hasExternalQuestion);
+                              return isClarificationActive && hasExternalResponse && (
                             <div style={{ marginBottom: 20, padding: "16px 20px", borderRadius: 12, background: "#f0fdf4", border: "2px solid #bbf7d0", boxShadow: "0 2px 8px rgba(16,185,129,0.06)" }}>
                               <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
                                 <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -722,22 +729,27 @@ function WorkflowStateCard({
                                 <div style={{ flex: 1 }}>
                                   <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>External Clarification Response Received</div>
                                   <div style={{ fontSize: 13, color: "#475569", marginTop: 4, lineHeight: 1.5 }}>The external partner has responded to your information request.</div>
-                                  {item._workNotes?.filter((n: WorkNoteEntry) => n.action === "Clarification Response").map((n: WorkNoteEntry) => (
+                                  {item._workNotes?.filter((n: WorkNoteEntry) => n.action === "Clarification Response" && n.author === "External Partner").map((n: WorkNoteEntry) => (
                                     <div key={n.id} style={{ marginTop: 8, padding: "8px 12px", background: "rgba(255,255,255,0.7)", border: "1px solid #bbf7d0", borderRadius: 6, fontSize: 12, color: "#166534", lineHeight: 1.5 }}>
                                       <span style={{ fontWeight: 700, display: "block", marginBottom: 2, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.03em" }}>External Response:</span>
                                       {n.text}
                                     </div>
                                   ))}
                                   <div style={{ marginTop: 8, fontSize: 12, color: "#475569" }}>
-                                    <strong>Next Action:</strong> Return to Owner with Response or Continue Internal Review
+                                    <strong>Next Action:</strong> Return Guidance to Contributor
                                   </div>
                                 </div>
                               </div>
                             </div>
-                          )}
+                          )})()}
 
                           <div style={{ display: "flex", gap: 16, marginBottom: 28 }}>
-                            {displayStatus === "Clarification Needed" && item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification Response") ? (
+                            {(() => {
+                              const hasExtQ = item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification External Question");
+                              const hasExtR = item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification Response" && n.author === "External Partner");
+                              const isClarActive = displayStatus === "Clarification Needed" || (displayStatus === "In Progress" && hasExtQ);
+                              return isClarActive && hasExtR;
+                            })() ? (
                               <div
                                 onClick={() => setReturnToOwnerModal({ step: "input", reason: "" })}
                                 style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bbf7d0", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
@@ -748,7 +760,7 @@ function WorkflowStateCard({
                                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
                                 </div>
                                 <div>
-                                  <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Return to Owner with Response</div>
+                                  <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Return Guidance to Contributor</div>
                                   <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Share the external partner's answer with the contributor</div>
                                 </div>
                               </div>
@@ -882,7 +894,7 @@ function WorkflowStateCard({
                               title="Clarification Requested"
                               subtitle="Waiting for DD Operations"
                               body="Your question has been sent to DD Operations for review."
-                              details={item._statusNotes ? [{ label: "Question", value: item._statusNotes }] : undefined}
+                              details={item._statusNotes ? [{ label: "Question", value: item._statusNotes }] : [{ label: "Question", value: "Question not captured for this legacy record." }]}
                               accentColor="#d97706"
                               bgColor="#fff7ed"
                               borderColor="#fed7aa"
@@ -890,20 +902,28 @@ function WorkflowStateCard({
                           )}
 
                           {displayStatus === "In Progress" && !isDdOps && item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification Response") && (
-                            <WorkflowStateCard
-                              icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>}
-                              iconBg="#10b981"
-                              title="Clarification Response Received"
-                              subtitle="DD Operations has responded"
-                              body="Your clarification question has been answered. Review the response and continue your work."
-                              details={[
-                                { label: "Response", value: item._statusNotes || "—" },
-                                { label: "Question", value: item._workNotes?.find((n: WorkNoteEntry) => n.action === "Clarification Needed")?.text || "—" },
-                              ]}
-                              accentColor="#10b981"
-                              bgColor="#f0fdf4"
-                              borderColor="#bbf7d0"
-                            />
+                            (() => {
+                                const clSum = getClarificationSummary({ workNotes: item._workNotes || [], statusNotes: item._statusNotes, questionAuthor: item.owner });
+                                const responseText = clSum.finalGuidance || clSum.ddOpsResponse || null;
+                                return (
+                                    <WorkflowStateCard
+                                        icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>}
+                                        iconBg="#10b981"
+                                        title="Clarification Response Received"
+                                        subtitle="DD Operations has responded"
+                                        body="Your clarification question has been answered. Review the response and continue your work."
+                                        details={[
+                                            { label: "Question", value: clSum.originalQuestion || "Question unavailable for this legacy record." },
+                                            { label: "Response", value: responseText || "Response unavailable for this legacy record." },
+                                            ...(clSum.externalResponse ? [{ label: "External Response", value: clSum.externalResponse }] : []),
+                                            ...(clSum.ddOpsResponseAuthor ? [{ label: "Answered by", value: clSum.finalGuidanceAuthor || clSum.ddOpsResponseAuthor }] : []),
+                                        ]}
+                                        accentColor="#10b981"
+                                        bgColor="#f0fdf4"
+                                        borderColor="#bbf7d0"
+                                    />
+                                );
+                            })()
                           )}
 
                           {["Duplicate", "Not Applicable"].includes(displayStatus) && !isTerminal && !isDdOps && !exceptionSentToPartner && (
@@ -1748,7 +1768,7 @@ function WorkflowStateCard({
             {/* Clarification Support Modal */}
             {clarificationSupportModalOpen && (
                 <div className="rc-modal-overlay" onClick={() => { setClarificationSupportModalOpen(false); setClarificationPath(null); setClarificationInternalResponse(""); setClarificationInternalNote(""); setClarificationExternalQuestion(""); setClarificationExternalInstructions(""); setClarificationSubmitStep("select"); }}>
-                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600, maxHeight: "85vh", overflow: "auto" }}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
                         <div className="rc-modal-header" style={{ borderBottom: "1px solid #e5e7eb", paddingBottom: 12 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <div style={{ width: 32, height: 32, borderRadius: 8, background: "#ecfeff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -1772,24 +1792,32 @@ function WorkflowStateCard({
                             </div>
 
                             {/* Original Question */}
-                            <div style={{ marginBottom: 16 }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6 }}>Original Clarification Question</div>
-                                <div style={{ padding: "10px 12px", fontSize: 13, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, color: "#92400e", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
-                                    {item._statusNotes || "Original question was not captured for this older record."}
-                                </div>
-                                <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>Asked by {item.owner || "Contributor"}</div>
-                            </div>
+                            {(() => {
+                                const clSummary = getClarificationSummary({ workNotes: item._workNotes || [], statusNotes: item._statusNotes, questionAuthor: item.owner });
+                                return clSummary.originalQuestion ? (
+                                    <div style={{ marginBottom: 16 }}>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6 }}>Contributor Question</div>
+                                        <div style={{ padding: "10px 12px", fontSize: 13, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, color: "#92400e", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                                            {clSummary.originalQuestion}
+                                        </div>
+                                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>Asked by {clSummary.questionAuthor || item.owner || "Contributor"}</div>
+                                    </div>
+                                ) : (
+                                    <div style={{ marginBottom: 16, padding: "10px 12px", fontSize: 13, background: "#f8fafc", border: "1px solid #e5e7eb", borderRadius: 6, color: "#475569" }}>
+                                        Original question was not captured for this older record.
+                                    </div>
+                                );
+                            })()}
 
                             {/* Clarification Thread */}
                             <div style={{ marginBottom: 16 }}>
                                 <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6 }}>Clarification Thread</div>
-                                <div style={{ maxHeight: 200, overflow: "auto" }}>
-                                    <ClarificationThread 
-                                        workNotes={item._workNotes || []} 
-                                        statusNotes={item._statusNotes}
-                                        questionAuthor={item.owner}
-                                    />
-                                </div>
+                                <ClarificationThread 
+                                    workNotes={item._workNotes || []} 
+                                    statusNotes={item._statusNotes}
+                                    questionAuthor={item.owner}
+                                    excludeQuestion
+                                />
                             </div>
 
                             {/* Path Selection */}
@@ -1803,14 +1831,14 @@ function WorkflowStateCard({
                                             onClick={() => setClarificationPath("A")}
                                             style={{ padding: "14px 16px", border: clarificationPath === "A" ? "2px solid #0891b2" : "2px solid #e5e7eb", borderRadius: 10, background: clarificationPath === "A" ? "#ecfeff" : "#fff", cursor: "pointer", transition: "all 0.15s" }}
                                         >
-                                            <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>Answer Contributor Internally</div>
+                                            <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>Answer Contributor</div>
                                             <div style={{ fontSize: 12, color: "#475569" }}>Provide guidance and return the request to the contributor.</div>
                                         </div>
                                         <div
                                             onClick={() => setClarificationPath("B")}
                                             style={{ padding: "14px 16px", border: clarificationPath === "B" ? "2px solid #0891b2" : "2px solid #e5e7eb", borderRadius: 10, background: clarificationPath === "B" ? "#ecfeff" : "#fff", cursor: "pointer", transition: "all 0.15s" }}
                                         >
-                                            <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>Request Information from External Partner</div>
+                                            <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>Ask External Partner</div>
                                             <div style={{ fontSize: 12, color: "#475569" }}>Send a clear external-facing question and pause internal work until the partner responds.</div>
                                         </div>
                                     </div>
