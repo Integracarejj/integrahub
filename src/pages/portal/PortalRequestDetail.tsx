@@ -2,9 +2,8 @@ import { useState, useCallback, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getPortalRequests, partnerApproveRequest, partnerReworkRequest, partnerExceptionDecision } from "../../services/portalMockData";
 import type { PortalRequest } from "../../services/portalMockData";
-import { getExternalMessages, getWorkArtifactsByRequest, addWorkNote, addActivityEntry, updateRequestStatus } from "../../services/recapDataService";
+import { getExternalMessages, getWorkArtifactsByRequest, addWorkNote, addActivityEntry, updateRequestStatus, updateRequestReturnReason } from "../../services/recapDataService";
 import { getExternalStatusInfo, getStatusPillStyle } from "../../services/externalStatusMapping";
-import type { RecapRequest } from "../../services/recapMockData";
 import "./PortalOverview.css";
 
 function InformationRequestedSection({ req, onResponseSubmitted }: { req: PortalRequest; onResponseSubmitted: () => void }) {
@@ -19,10 +18,8 @@ function InformationRequestedSection({ req, onResponseSubmitted }: { req: Portal
         if (!response.trim()) return;
         const reqId = req.id || req.intakeId || "";
         
-        // Add work note with the external response
         addWorkNote(reqId, response.trim(), "External Partner", "Clarification Response");
         
-        // Add activity entry
         addActivityEntry({
             type: "Status Change",
             description: `${req.requestId}: External partner responded to clarification.`,
@@ -34,8 +31,7 @@ function InformationRequestedSection({ req, onResponseSubmitted }: { req: Portal
             transactionName: req.transactionName || req.transactionId,
         });
         
-        // Update status to Under Review (internal)
-        updateRequestStatus(reqId, "In Progress" as RecapRequest["status"]);
+        updateRequestReturnReason(reqId, null);
         
         setSubmitted(true);
         setShowConfirm(false);

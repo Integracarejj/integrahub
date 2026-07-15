@@ -27,6 +27,17 @@ export default function RecapitalizationMyWork() {
 
     const RETURNED_STATUSES = ["Clarification Needed", "Blocked", "Duplicate", "Not Applicable", "Needs Rework"];
 
+    function isActiveExternalClarification(req: RecapRequest): boolean {
+        const notes = req._workNotes;
+        if (!notes) return false;
+        const hasExternalQuestion = notes.some(n => n.action === "Clarification External Question");
+        if (!hasExternalQuestion) return false;
+        const clarActions = ["Clarification External Question", "Clarification Guidance"];
+        const clarNotes = notes.filter(n => clarActions.includes(n.action || ""));
+        if (clarNotes.length === 0) return false;
+        return clarNotes[clarNotes.length - 1].action === "Clarification External Question";
+    }
+
     function getDisplayStatus(req: RecapRequest): string {
         const wn = req._workNotes;
         if (req._exceptionSentAt && req._exceptionRecommendation === "Duplicate") return "Sent to Partner (Duplicate Review)";
@@ -36,7 +47,10 @@ export default function RecapitalizationMyWork() {
         if (wn?.some(n => n.action === "Clarification Response") && req.status === "In Progress") return "Clarification Response Received";
         if (req.status === "Duplicate") return "Duplicate Review Pending";
         if (req.status === "Not Applicable") return "Not Applicable Review Pending";
-        if (req.status === "Clarification Needed") return "Clarification Requested";
+        if (req.status === "Clarification Needed") {
+            if (wn?.some(n => n.action === "Clarification External Question") && !isActiveExternalClarification(req)) return "Clarification Response Received";
+            return "Clarification Requested";
+        }
         if (req.status === "Needs Rework") return "Needs Rework";
         return req.status;
     }
@@ -88,7 +102,7 @@ export default function RecapitalizationMyWork() {
 
     const returnedItems = useMemo(() => {
         return assignedToMe.filter(r =>
-            RETURNED_STATUSES.includes(r.status) || r._needsReassignment
+            (RETURNED_STATUSES.includes(r.status) && !(r.status === "Clarification Needed" && (r._returnReason || isActiveExternalClarification(r)))) || r._needsReassignment
         );
     }, [assignedToMe]);
 

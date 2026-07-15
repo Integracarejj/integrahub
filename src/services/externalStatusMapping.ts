@@ -37,6 +37,19 @@ function getRecapStatus(req: { status: string; _exceptionRecommendation?: string
     }
     if (status === "Clarification Needed") {
         const notes = req._workNotes;
+        if (notes && notes.length > 0) {
+            const hasExternalQuestion = notes.some((n: { action?: string | null }) => n.action === "Clarification External Question");
+            if (hasExternalQuestion) {
+                const clarActions = ["Clarification External Question", "Clarification Response", "Clarification Guidance"];
+                const clarNotes = notes.filter((n: { action?: string | null }) => clarActions.includes(n.action || ""));
+                if (clarNotes.length > 0) {
+                    const lastAction = clarNotes[clarNotes.length - 1].action;
+                    if (lastAction === "Clarification External Question") return "information-requested";
+                    if (lastAction === "Clarification Response") return "under-review";
+                }
+                return "information-requested";
+            }
+        }
         if (notes?.some((n: { action?: string | null }) => n.action === "Clarification Response")) return "under-review";
         return "information-requested";
     }

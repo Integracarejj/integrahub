@@ -719,8 +719,10 @@ function WorkflowStateCard({
                           {(() => {
                               const hasExternalQuestion = item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification External Question");
                               const hasExternalResponse = item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification Response" && n.author === "External Partner");
+                              const hasGuidanceReturned = item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification Guidance");
+                              const extCycleNeedsDdReview = hasExternalQuestion && hasExternalResponse && !hasGuidanceReturned;
                               const isClarificationActive = displayStatus === "Clarification Needed" || (displayStatus === "In Progress" && hasExternalQuestion);
-                              return isClarificationActive && hasExternalResponse && (
+                              return isClarificationActive && extCycleNeedsDdReview && (
                             <div style={{ marginBottom: 20, padding: "16px 20px", borderRadius: 12, background: "#f0fdf4", border: "2px solid #bbf7d0", boxShadow: "0 2px 8px rgba(16,185,129,0.06)" }}>
                               <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
                                 <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -747,8 +749,10 @@ function WorkflowStateCard({
                             {(() => {
                               const hasExtQ = item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification External Question");
                               const hasExtR = item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification Response" && n.author === "External Partner");
+                              const hasGuidanceReturned = item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification Guidance");
+                              const extCycleNeedsDdReview = hasExtQ && hasExtR && !hasGuidanceReturned;
                               const isClarActive = displayStatus === "Clarification Needed" || (displayStatus === "In Progress" && hasExtQ);
-                              return isClarActive && hasExtR;
+                              return isClarActive && extCycleNeedsDdReview;
                             })() ? (
                               <div
                                 onClick={() => setReturnGuidanceModal({ step: "input", guidance: "", internalNote: "" })}

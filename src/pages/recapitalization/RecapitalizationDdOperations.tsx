@@ -134,6 +134,26 @@ export default function RecapitalizationDdOperations() {
         return docs.some(d => d.requestId === req.requestId);
     }
 
+    function getDisplayStatus(req: RecapRequest): string {
+        const wn = req._workNotes;
+        if (req.status === "Clarification Needed") {
+            const hasExtQ = wn?.some(n => n.action === "Clarification External Question");
+            if (hasExtQ) {
+                const hasExtR = wn?.some(n => n.action === "Clarification Response" && n.author === "External Partner");
+                const hasGuidance = wn?.some(n => n.action === "Clarification Guidance");
+                const clarActions = ["Clarification External Question", "Clarification Guidance"];
+                const clarNotes = wn.filter(n => clarActions.includes(n.action || ""));
+                const lastClarAction = clarNotes.length > 0 ? clarNotes[clarNotes.length - 1].action : null;
+                if (hasGuidance && lastClarAction === "Clarification Guidance") return "Clarification Resolved";
+                if (hasExtR && !hasGuidance) return "External Response Received";
+                if (lastClarAction === "Clarification External Question") return "Waiting on External";
+            }
+            return "Clarification Requested";
+        }
+        if (req.status === "Blocked") return "Blocked";
+        return req.status;
+    }
+
     function handleStatusChange(req: RecapRequest, newStatus: string, reason?: string) {
         updateRequestStatus(req.id, newStatus as RecapRequest["status"]);
         if (reason) {
@@ -240,7 +260,7 @@ export default function RecapitalizationDdOperations() {
                             <td style={{ fontSize: 12, color: "#475569" }}>{req.communityNames[0] || "\u2014"}</td>
                             <td>
                                 <span className={`rc-badge rc-badge-${req.status.toLowerCase().replace(/\s+/g, "-")}`} style={{ fontSize: 11 }}>
-                                    {req.status}
+                                    {getDisplayStatus(req)}
                                 </span>
                             </td>
                             <td>
