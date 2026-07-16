@@ -68,7 +68,7 @@ function isExternalResponseReceived(req: RecapRequest): boolean {
 
 function needsDDReview(req: RecapRequest): boolean {
     const NEEDS_DD_REVIEW = ['Blocked', 'Clarification Needed'];
-    return (NEEDS_DD_REVIEW.includes(req.status) || req._needsReassignment || req._misassignedReason || req._partnerDecision === 'Rework Required') && !req._returnReason;
+    return (NEEDS_DD_REVIEW.includes(req.status) || !!req._needsReassignment || !!req._misassignedReason || req._partnerDecision === 'Rework Required') && !req._returnReason;
 }
 
 function isReturnedToContributor(req: RecapRequest): boolean {
@@ -828,7 +828,7 @@ describe('TEST 12 — DD Operations predicates after external rework', () => {
 
     it('14. partnerActionItems predicate excludes rework item', () => {
         const req = simulateExternalRework('Sarah Chen', 'Revise the revenue.');
-        expect(inPartnerAction(req)).toBe(false);
+        expect(partnerActionItems([req])).toHaveLength(0);
     });
 
     it('15. rework item excluded from contributor My Work despite Needs Rework status', () => {
