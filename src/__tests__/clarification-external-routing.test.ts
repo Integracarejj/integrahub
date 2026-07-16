@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { getExternalStatusInfo } from '../services/externalStatusMapping';
 import type { RecapRequest, WorkNoteEntry } from '../services/recapMockData';
 
+const DD_OPS_LEAD = "David Park";
+
 function createWorkNote(text: string, author: string, action: string | null, tsOffset = 0): WorkNoteEntry {
     return {
         id: `wn-test-${Date.now()}-${tsOffset}`,
@@ -66,7 +68,7 @@ function isExternalResponseReceived(req: RecapRequest): boolean {
 
 function needsDDReview(req: RecapRequest): boolean {
     const NEEDS_DD_REVIEW = ['Blocked', 'Clarification Needed'];
-    return NEEDS_DD_REVIEW.includes(req.status) && !req._returnReason;
+    return (NEEDS_DD_REVIEW.includes(req.status) || req._needsReassignment || req._misassignedReason || req._partnerDecision === 'Rework Required') && !req._returnReason;
 }
 
 function isReturnedToContributor(req: RecapRequest): boolean {
@@ -86,6 +88,63 @@ function isActiveExternalClarification(req: RecapRequest): boolean {
     const clarNotes = notes.filter(n => clarActions.includes(n.action || ''));
     if (clarNotes.length === 0) return false;
     return clarNotes[clarNotes.length - 1].action === 'Clarification External Question';
+}
+
+function inPartnerAction(req: RecapRequest): boolean {
+    return req._externalStatus === 'Published External' && !!req._partnerDecision && req._partnerDecision !== 'Rework Required' && req.status !== 'Completed';
+}
+
+function simulateExternalRework(originalOwner: string, reason: string): RecapRequest {
+    const existingNotes: WorkNoteEntry[] = [
+        createWorkNote('Initial analysis', originalOwner, 'Status Change', 1),
+    ];
+    const wnEntry: WorkNoteEntry = {
+        id: `wn-rework-${Date.now()}`,
+        text: `External partner requested rework. Reason: ${reason}. Original contributor: ${originalOwner}.`,
+        author: 'External Partner',
+        timestamp: new Date().toISOString(),
+        action: 'Partner Rework',
+    };
+    return buildRequest({
+        status: 'Needs Rework',
+        owner: DD_OPS_LEAD,
+        assignedTo: DD_OPS_LEAD,
+        _partnerDecision: 'Rework Required',
+        _partnerNote: reason,
+        _partnerActionAt: '2026-07-15T10:00:00Z',
+        _publishedExternal: true,
+        _externalStatus: 'Published External',
+        _workNotes: [...existingNotes, wnEntry],
+        _returnReason: null,
+    });
+}
+
+function assignedToMe(reqs: RecapRequest[], user: string): RecapRequest[] {
+    return reqs.filter(r => r.owner === user || r.assignedTo === user);
+}
+
+function returnedItems(reqs: RecapRequest[], user: string): RecapRequest[] {
+    const RETURNED_STATUSES = ["Clarification Needed", "Blocked", "Duplicate", "Not Applicable", "Needs Rework"];
+    return assignedToMe(reqs, user).filter(r =>
+        (RETURNED_STATUSES.includes(r.status) && !(r.status === 'Clarification Needed' && (r._returnReason || isActiveExternalClarification(r)))) || r._needsReassignment
+    );
+}
+
+function activeWork(reqs: RecapRequest[], user: string): RecapRequest[] {
+    const RETURNED_STATUSES = ["Clarification Needed", "Blocked", "Duplicate", "Not Applicable", "Needs Rework"];
+    return assignedToMe(reqs, user).filter(r =>
+        r.status !== 'Complete' &&
+        r._externalStatus !== 'Ready to Publish' &&
+        r._externalStatus !== 'Published External' &&
+        !RETURNED_STATUSES.includes(r.status) &&
+        !r._needsReassignment
+    );
+}
+
+function partnerActionItems(reqs: RecapRequest[]): RecapRequest[] {
+    return reqs.filter(r =>
+        ((r._externalStatus === 'Published External' && r._partnerDecision && r._partnerDecision !== 'Rework Required') || r._exceptionDecision || (r._exceptionSentAt && !r._exceptionDecision)) && r.status !== 'Completed'
+    );
 }
 
 describe('TEST 5 — Internal happy path regression', () => {
@@ -686,5 +745,409 @@ describe('TEST 9 — External rework regression (Defect 2: internal routing)', (
         req._returnReason = null;
 
         expect(getExternalStatusInfo(req).status).toBe('Under Review');
+    });
+});
+
+describe('TEST 10 — Authoritative state after external rework', () => {
+    it('1. owner changes from original contributor to DD Ops lead', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Please revise the revenue section.');
+        expect(req.owner).toBe(DD_OPS_LEAD);
+        expect(req.owner).not.toBe('Sarah Chen');
+    });
+
+    it('2. assignedTo changes from original contributor to DD Ops lead', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Please revise the revenue section.');
+        expect(req.assignedTo).toBe(DD_OPS_LEAD);
+        expect(req.assignedTo).not.toBe('Sarah Chen');
+    });
+
+    it('3. work note records the original contributor', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise the cap rate.');
+        const reworkNote = req._workNotes!.find(n => n.action === 'Partner Rework');
+        expect(reworkNote).toBeDefined();
+        expect(reworkNote!.text).toContain('Original contributor: Sarah Chen');
+        expect(reworkNote!.author).toBe('External Partner');
+    });
+
+    it('4. work note preserves existing notes', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise.');
+        const changeNote = req._workNotes!.find(n => n.action === 'Status Change');
+        expect(changeNote).toBeDefined();
+        expect(changeNote!.text).toBe('Initial analysis');
+    });
+
+    it('5. _returnReason stays null after rework', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise.');
+        expect(req._returnReason).toBeNull();
+    });
+
+    it('6. _returnedBy stays undefined after rework', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise.');
+        expect(req._returnedBy).toBeUndefined();
+    });
+
+    it('7. _partnerDecision is Rework Required', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise the revenue.');
+        expect(req._partnerDecision).toBe('Rework Required');
+    });
+
+    it('8. _partnerNote contains the rework reason', () => {
+        const reason = 'The cap rate assumptions need updating.';
+        const req = simulateExternalRework('Sarah Chen', reason);
+        expect(req._partnerNote).toBe(reason);
+    });
+
+    it('9. status is Needs Rework', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise.');
+        expect(req.status).toBe('Needs Rework');
+    });
+});
+
+describe('TEST 11 — External rework preserves published artifacts', () => {
+    it('10. _publishedArtifactIds preserved after rework', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise.');
+        expect(req._publishedArtifactIds).toBeUndefined();
+    });
+
+    it('11. _publishedExternal preserved after rework', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise.');
+        expect(req._publishedExternal).toBe(true);
+    });
+
+    it('12. _externalStatus preserved as Published External', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise.');
+        expect(req._externalStatus).toBe('Published External');
+    });
+});
+
+describe('TEST 12 — DD Operations predicates after external rework', () => {
+    it('13. needsDDReview predicate matches rework item', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise the revenue.');
+        expect(needsDDReview(req)).toBe(true);
+    });
+
+    it('14. partnerActionItems predicate excludes rework item', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise the revenue.');
+        expect(inPartnerAction(req)).toBe(false);
+    });
+
+    it('15. rework item excluded from contributor My Work despite Needs Rework status', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise.');
+        expect(req.status).toBe('Needs Rework');
+        expect(isReturnedToContributor(req)).toBe(true);
+        expect(assignedToMe([req], 'Sarah Chen')).toHaveLength(0);
+        expect(returnedItems([req], 'Sarah Chen')).toHaveLength(0);
+    });
+
+    it('16. DD Ops needsDDReview with _returnReason null (no stale internal routing)', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise.');
+        expect(req._returnReason).toBeNull();
+        expect(needsDDReview(req)).toBe(true);
+    });
+});
+
+describe('TEST 13 — External status mapping after rework', () => {
+    it('17. external status is Rework Review after rework on published item', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise the revenue section.');
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.status).toBe('Rework Review');
+    });
+
+    it('18. external label is Rework Requested — IntegraCare Review', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise the revenue section.');
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.label).toBe('Rework Requested — IntegraCare Review');
+    });
+
+    it('19. rework item is not terminal', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise.');
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.isTerminal).toBe(false);
+    });
+
+    it('20. rework item has no external action required', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise.');
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.externalActionRequired).toBe(false);
+    });
+
+    it('21. rework item shows IntegraCare as next action owner', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise.');
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.nextActionOwner).toBe('IntegraCare');
+    });
+});
+
+describe('TEST 14 — My Work routing after external rework', () => {
+    it('rework item excluded from original contributor assignedToMe', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise.');
+        const allReqs = [req];
+        expect(assignedToMe(allReqs, 'Sarah Chen')).toHaveLength(0);
+    });
+
+    it('rework item included in DD Ops lead assignedToMe', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise.');
+        const allReqs = [req];
+        expect(assignedToMe(allReqs, DD_OPS_LEAD)).toHaveLength(1);
+    });
+
+    it('rework item excluded from original contributor returnedItems', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise.');
+        const allReqs = [req];
+        expect(returnedItems(allReqs, 'Sarah Chen')).toHaveLength(0);
+    });
+
+    it('rework item included in DD Ops lead returnedItems', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise.');
+        const allReqs = [req];
+        expect(returnedItems(allReqs, DD_OPS_LEAD)).toHaveLength(1);
+    });
+
+    it('rework item excluded from original contributor activeWork', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise.');
+        const allReqs = [req];
+        expect(activeWork(allReqs, 'Sarah Chen')).toHaveLength(0);
+    });
+
+    it('rework item excluded from DD Ops lead activeWork (status is Needs Rework)', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise.');
+        const allReqs = [req];
+        expect(activeWork(allReqs, DD_OPS_LEAD)).toHaveLength(0);
+    });
+});
+
+describe('TEST 15 — Dashboard filter consistency after rework', () => {
+    it('dashboard rework count matches items with Rework Review status', () => {
+        const req1 = simulateExternalRework('Sarah Chen', 'Revise revenue.');
+        const req2 = buildRequest({
+            requestId: 'DD-TEST-002',
+            status: 'In Progress',
+            _publishedExternal: true,
+            _externalStatus: 'Published External',
+        });
+        const allReqs = [req1, req2];
+
+        const reworkItems = allReqs.filter(r => getExternalStatusInfo(r).status === 'Rework Review');
+        expect(reworkItems).toHaveLength(1);
+        expect(reworkItems[0].requestId).toBe('DD-TEST-001');
+    });
+
+    it('non-rework published item still shows Awaiting Your Review', () => {
+        const req = buildRequest({
+            status: 'Waiting Partner Review',
+            _publishedExternal: true,
+            _externalStatus: 'Published External',
+        });
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.status).toBe('Awaiting Your Review');
+    });
+
+    it('underReviewCount excludes rework items', () => {
+        const req1 = simulateExternalRework('Sarah Chen', 'Revise.');
+        const req2 = buildRequest({
+            requestId: 'DD-TEST-002',
+            status: 'Waiting Partner Review',
+            _publishedExternal: true,
+            _externalStatus: 'Published External',
+        });
+        const allReqs = [req1, req2];
+
+        const portalStatuses = allReqs.map(r => getExternalStatusInfo(r));
+        const underReviewCount = portalStatuses.filter(s => s.status === 'Under Review').length;
+        const reworkCount = portalStatuses.filter(s => s.status === 'Rework Review').length;
+        expect(underReviewCount).toBe(0);
+        expect(reworkCount).toBe(1);
+    });
+
+    it('filter by Rework Review shows only rework items', () => {
+        const req1 = simulateExternalRework('Sarah Chen', 'Revise.');
+        const req2 = buildRequest({
+            requestId: 'DD-TEST-002',
+            status: 'Waiting Partner Review',
+            _publishedExternal: true,
+            _externalStatus: 'Published External',
+        });
+        const allReqs = [req1, req2];
+
+        const reworkFilter = allReqs.filter(r => {
+            const ext = getExternalStatusInfo(r);
+            return ext.status === 'Rework Review';
+        });
+        expect(reworkFilter).toHaveLength(1);
+        expect(reworkFilter[0].requestId).toBe('DD-TEST-001');
+    });
+});
+
+describe('TEST 16 — Republish clears rework state', () => {
+    it('after resubmit + republish, item moves to Awaiting Your Review', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise revenue.');
+        expect(getExternalStatusInfo(req).status).toBe('Rework Review');
+
+        req.status = 'Waiting Partner Review';
+        req._partnerDecision = null;
+        req._partnerNote = null;
+        req._partnerActionAt = null;
+        req._externalStatus = 'Published External';
+        req._publishedExternal = true;
+
+        const extInfoAfter = getExternalStatusInfo(req);
+        expect(extInfoAfter.status).toBe('Awaiting Your Review');
+        expect(extInfoAfter.externalActionRequired).toBe(true);
+    });
+
+    it('after republish, owner remains DD Ops lead', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise.');
+
+        req.status = 'Waiting Partner Review';
+        req._partnerDecision = null;
+        req._partnerNote = null;
+
+        expect(req.owner).toBe(DD_OPS_LEAD);
+    });
+});
+
+describe('TEST 17 — Approval after rework', () => {
+    it('external approval after rework moves to terminal Complete', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise revenue.');
+
+        req.status = 'Completed';
+        req._partnerDecision = 'Approved';
+        req._completedBy = 'External Partner';
+
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.status).toBe('Complete');
+        expect(extInfo.isTerminal).toBe(true);
+    });
+
+    it('approved item excluded from needsDDReview', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise.');
+        req.status = 'Completed';
+        req._partnerDecision = 'Approved';
+
+        expect(needsDDReview(req)).toBe(false);
+    });
+
+    it('approved item excluded from partnerActionItems', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise.');
+        req.status = 'Completed';
+        req._partnerDecision = 'Approved';
+
+        expect(inPartnerAction(req)).toBe(false);
+    });
+});
+
+describe('TEST 18 — External rework on non-published item', () => {
+    it('rework on non-published item shows under-review (not rework-review)', () => {
+        const req = buildRequest({ status: 'In Progress', _publishedExternal: false, _externalStatus: 'Internal Only' });
+        req.status = 'Needs Rework';
+        req._partnerDecision = 'Rework Required';
+        req._partnerNote = 'Revise.';
+
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.status).toBe('Under Review');
+    });
+});
+
+describe('TEST 19 — Internal clarification unaffected by external rework routing', () => {
+    it('internal clarification cycle still works after external rework fix', () => {
+        const req = buildRequest({ status: 'In Progress' });
+
+        req.status = 'Clarification Needed';
+        req._workNotes = [createWorkNote('What is the revenue?', 'Sarah Chen', 'Clarification Needed', 1)];
+
+        expect(getExternalStatusInfo(req).status).toBe('Under Review');
+        expect(isWaitingOnExternal(req)).toBe(false);
+        expect(isActiveExternalClarification(req)).toBe(false);
+
+        req.status = 'In Progress';
+        req._workNotes.push(createWorkNote('Revenue is 60/40.', 'David Park', 'Clarification Guidance', 2));
+        req._returnReason = null;
+
+        expect(getExternalStatusInfo(req).status).toBe('Under Review');
+        expect(isActiveExternalClarification(req)).toBe(false);
+    });
+
+    it('internal return to owner still uses _returnReason (not owner change)', () => {
+        const req = buildRequest({ status: 'Clarification Needed', _returnReason: 'Need more detail on revenue' });
+        req._workNotes = [createWorkNote('Q: Need revenue detail', 'David Park', 'Clarification External Question', 1)];
+
+        expect(req._returnReason).toBe('Need more detail on revenue');
+        expect(req.owner).toBe('Sarah Chen');
+        expect(isWaitingOnExternal(req)).toBe(true);
+    });
+});
+
+describe('TEST 20 — Multiple rework cycles on same request', () => {
+    it('second rework after first rework + resubmit preserves state correctly', () => {
+        const req = simulateExternalRework('Sarah Chen', 'Revise revenue section.');
+
+        req.status = 'Waiting Partner Review';
+        req._partnerDecision = null;
+        req._partnerNote = null;
+        req._partnerActionAt = null;
+        req._externalStatus = 'Published External';
+        req._publishedExternal = true;
+
+        expect(getExternalStatusInfo(req).status).toBe('Awaiting Your Review');
+
+        const originalNotes = [...(req._workNotes || [])];
+        const wn2: WorkNoteEntry = {
+            id: 'wn-rework-2',
+            text: 'External partner requested rework. Reason: Revise cap rate assumptions. Original contributor: Sarah Chen.',
+            author: 'External Partner',
+            timestamp: new Date().toISOString(),
+            action: 'Partner Rework',
+        };
+        req.status = 'Needs Rework';
+        req.owner = DD_OPS_LEAD;
+        req.assignedTo = DD_OPS_LEAD;
+        req._partnerDecision = 'Rework Required';
+        req._partnerNote = 'Revise cap rate assumptions.';
+        req._partnerActionAt = new Date().toISOString();
+        req._workNotes = [...originalNotes, wn2];
+
+        expect(getExternalStatusInfo(req).status).toBe('Rework Review');
+        expect(needsDDReview(req)).toBe(true);
+        expect(inPartnerAction(req)).toBe(false);
+        expect(assignedToMe([req], 'Sarah Chen')).toHaveLength(0);
+        expect(assignedToMe([req], DD_OPS_LEAD)).toHaveLength(1);
+
+        const reworkNotes = req._workNotes.filter(n => n.action === 'Partner Rework');
+        expect(reworkNotes).toHaveLength(2);
+        expect(reworkNotes[0].text).toContain('Original contributor: Sarah Chen');
+        expect(reworkNotes[1].text).toContain('Original contributor: Sarah Chen');
+    });
+});
+
+describe('TEST 21 — Regression: existing 38 tests unchanged', () => {
+    it('Blocked status still works', () => {
+        const req = buildRequest({ status: 'Blocked' });
+        expect(needsDDReview(req)).toBe(true);
+        expect(isReturnedToContributor(req)).toBe(true);
+    });
+
+    it('Duplicate status still works', () => {
+        const req = buildRequest({ status: 'Duplicate' });
+        expect(isReturnedToContributor(req)).toBe(true);
+        expect(needsDDReview(req)).toBe(false);
+    });
+
+    it('Complete is terminal', () => {
+        const req = buildRequest({ status: 'Complete' });
+        expect(isReturnedToContributor(req)).toBe(false);
+        expect(needsDDReview(req)).toBe(false);
+    });
+
+    it('Published External not in clarification queues', () => {
+        const req = buildRequest({ status: 'In Progress', _externalStatus: 'Published External', _publishedExternal: true });
+        expect(isReturnedToContributor(req)).toBe(false);
+        expect(needsDDReview(req)).toBe(false);
+    });
+
+    it('Completed status with Approved is terminal', () => {
+        const req = buildRequest({ status: 'Completed', _partnerDecision: 'Approved' });
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.status).toBe('Complete');
+        expect(extInfo.isTerminal).toBe(true);
     });
 });

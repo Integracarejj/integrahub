@@ -13,6 +13,7 @@ import "./PortalOverview.css";
 const STAT_HELPERS: Record<string, string> = {
     "Submitted": "Package received, awaiting initial review",
     "Under Review": "IntegraCare is processing this request",
+    "Rework Review": "IntegraCare is reviewing your requested changes",
     "Information Requested": "IntegraCare needs additional information",
     "Awaiting Your Review": "Documents ready for your review",
     "Exception Review": "Needs your decision on an exception recommendation",
@@ -74,6 +75,7 @@ export default function PortalOverview() {
     const awaitingReviewCount = portalStatuses.filter(s => s.status === "Awaiting Your Review").length;
     const exceptionReviewCount = portalStatuses.filter(s => s.status === "Exception Review").length;
     const completeCount = portalStatuses.filter(s => s.status === "Complete").length;
+    const reworkSubmittedCount = portalStatuses.filter(s => s.status === "Rework Review").length;
     const visibleRequests = portalRequests.filter(r => getExternalStatusInfo(toExternalStatusInput(r)).status !== "Complete");
 
     const [dashboardSearch, setDashboardSearch] = useState("");
@@ -84,8 +86,8 @@ export default function PortalOverview() {
     const dashboardFiltered = dashboardBase.filter(r => {
         const ext = getExternalStatusInfo(toExternalStatusInput(r));
         if (dashboardFilterStatus !== "all") {
-            if (dashboardFilterStatus === "Exception Review") {
-                if (ext.status !== "Exception Review") return false;
+            if (dashboardFilterStatus === "Exception Review" || dashboardFilterStatus === "Rework Review") {
+                if (ext.status !== dashboardFilterStatus) return false;
             }
             else if (ext.label !== dashboardFilterStatus) return false;
         }
@@ -457,6 +459,13 @@ export default function PortalOverview() {
                         <span className="po-stat-helper">{STAT_HELPERS["Complete"]}</span>
                     </div>
                 )}
+                {reworkSubmittedCount > 0 && (
+                    <div className={`po-stat-card${dashboardFilterStatus === "Rework Review" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Rework Review"); setDashboardFilterCategory("all"); }}>
+                        <span className="po-stat-value po-stat-value--amber">{reworkSubmittedCount}</span>
+                        <span className="po-stat-label">Rework Submitted</span>
+                        <span className="po-stat-helper">{STAT_HELPERS["Rework Review"]}</span>
+                    </div>
+                )}
             </div>
 
             <div style={{ fontSize: 12, color: "#334155", textAlign: "right", marginBottom: 12 }}>
@@ -510,6 +519,7 @@ export default function PortalOverview() {
                                     <option value="Information Requested">Information Requested</option>
                                     <option value="Awaiting Your Review">Awaiting Your Review</option>
                                     <option value="Exception Review">Exception Review</option>
+                                    <option value="Rework Review">Rework Submitted</option>
                                     <option value="Complete">Complete</option>
                                 </select>
                                 <select className="po-filter-select" aria-label="Filter by category" value={dashboardFilterCategory} onChange={e => setDashboardFilterCategory(e.target.value)}>
@@ -525,7 +535,7 @@ export default function PortalOverview() {
                                     const excCtx = getExceptionContext(req);
                                     const extInfo = getExternalStatusInfo(toExternalStatusInput(req));
                                     const isClarResp = req._rawStatus === "Clarification Needed" && extInfo.status === "Under Review" && !!req._workNotes?.some(n => n.action === "Clarification Response") && !req._returnReason;
-                                    const isReworking = req._partnerDecision === "Rework Required" && extInfo.status === "Under Review";
+                                    const isReworking = req._partnerDecision === "Rework Required" && extInfo.status === "Rework Review";
                                     return (
                                     <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.5fr 2fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr" }} onClick={() => navigate(`/portal/requests/${req.id}`)} title={req.requestId}>
                                         <span className="po-requests-id">{shortId(req.requestId)}</span>

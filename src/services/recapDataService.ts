@@ -539,11 +539,33 @@ export function partnerApproveRequest(id: string, comment?: string): RecapReques
 
 export function partnerReworkRequest(id: string, reason: string): RecapRequest | undefined {
     const now = new Date().toISOString();
+    const DD_OPS_LEAD = "David Park";
+    let originalOwner: string | null = null;
+    let existingNotes: WorkNoteEntry[] = [];
+    if (isDemoLoaded()) {
+        const existing = Demo.getDemoRequestById(id);
+        if (existing) { originalOwner = existing.owner; existingNotes = existing._workNotes || []; }
+    }
+    if (originalOwner === null) {
+        const existing = Mock.getRequestById(id);
+        if (existing) { originalOwner = existing.owner; existingNotes = existing._workNotes || []; }
+    }
+    const originalContributor = originalOwner || "Unknown";
+    const wnEntry: WorkNoteEntry = {
+        id: `wn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text: `External partner requested rework. Reason: ${reason}. Original contributor: ${originalContributor}.`,
+        author: "External Partner",
+        timestamp: now,
+        action: "Partner Rework",
+    };
     const patch: Partial<RecapRequest> = {
         status: "Needs Rework" as RecapRequest["status"],
+        owner: DD_OPS_LEAD,
+        assignedTo: DD_OPS_LEAD,
         _partnerDecision: "Rework Required",
         _partnerNote: reason,
         _partnerActionAt: now,
+        _workNotes: [...existingNotes, wnEntry],
     };
     const desc = `Rework requested by partner. Reason: ${reason}`;
     if (isDemoLoaded()) {
