@@ -541,8 +541,6 @@ export function partnerReworkRequest(id: string, reason: string): RecapRequest |
     const now = new Date().toISOString();
     const patch: Partial<RecapRequest> = {
         status: "Needs Rework" as RecapRequest["status"],
-        _returnReason: reason,
-        _returnedBy: "External Partner",
         _partnerDecision: "Rework Required",
         _partnerNote: reason,
         _partnerActionAt: now,

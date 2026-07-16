@@ -126,7 +126,7 @@ export default function RecapitalizationDdOperations() {
     }
 
     function getRequestNote(req: RecapRequest): string | null {
-        return req._statusNotes || req._misassignedReason || req._returnReason || null;
+        return req._statusNotes || req._misassignedReason || req._returnReason || req._partnerNote || null;
     }
 
     function hasDocuments(req: RecapRequest): boolean {

@@ -171,7 +171,7 @@ function StatusTracker({ status }: { status: string }) {
 }
 
 function StatusBanners({ req, extInfo }: { req: { _partnerDecision?: string | null; _partnerNote?: string | null; _partnerActionAt?: string | null; _exceptionRecommendation?: string | null; _exceptionReason?: string | null; _publishedExternal?: boolean; _rawStatus?: string; _workNotes?: Array<{ action?: string | null; author?: string }> | null; _returnReason?: string | null }; extInfo: { status: string; label: string; description: string } }) {
-    const isReworked = req._partnerDecision === "Rework Required" && req._publishedExternal && extInfo.status === "Under Review";
+    const isReworked = req._partnerDecision === "Rework Required" && req._publishedExternal && extInfo.status === "Rework Review";
     const isInfoRequested = extInfo.status === "Information Requested";
     const isExceptionReview = extInfo.status === "Exception Review";
     const isClarificationResponse = req._rawStatus === "Clarification Needed" && extInfo.status === "Under Review" && !!req._workNotes?.some(n => n.action === "Clarification Response") && !req._returnReason;

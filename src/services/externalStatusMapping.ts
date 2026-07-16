@@ -1,6 +1,7 @@
 export type ExternalStatus =
   | "Submitted"
   | "Under Review"
+  | "Rework Review"
   | "Information Requested"
   | "Awaiting Your Review"
   | "Exception Review"
@@ -54,7 +55,7 @@ function getRecapStatus(req: { status: string; _exceptionRecommendation?: string
         return "under-review";
     }
     if (req._externalStatus === "Published External" || publishedExt) {
-        if (status === "Needs Rework") return "under-review";
+        if (status === "Needs Rework") return "rework-review";
         if (status === "Completed") return "terminal-complete";
         return "awaiting-your-review";
     }
@@ -81,6 +82,16 @@ const STATUS_INFO: Record<string, ExternalStatusInfo> = {
     status: "Under Review",
     label: "Under Review",
     description: "IntegraCare is reviewing and processing this request.",
+    nextActionOwner: "IntegraCare",
+    externalActionRequired: false,
+    externalActionLabel: null,
+    isTerminal: false,
+    completionMessage: null,
+  },
+  "rework-review": {
+    status: "Rework Review",
+    label: "Rework Requested — IntegraCare Review",
+    description: "IntegraCare is reviewing your requested revisions. No action is required from you right now.",
     nextActionOwner: "IntegraCare",
     externalActionRequired: false,
     externalActionLabel: null,
@@ -157,6 +168,7 @@ export function getExceptionContext(req: { _exceptionRecommendation?: string | n
 export const STATUS_PILL_STYLES: Record<string, { bg: string; text: string; border: string }> = {
   "Submitted": { bg: "#ffffff", text: "#0f172a", border: "#93c5fd" },
   "Under Review": { bg: "#ffffff", text: "#0f172a", border: "#67e8f9" },
+  "Rework Requested — IntegraCare Review": { bg: "#ffffff", text: "#0f172a", border: "#fed7aa" },
   "Information Requested": { bg: "#ffffff", text: "#0f172a", border: "#fcd34d" },
   "Awaiting Your Review": { bg: "#ffffff", text: "#0f172a", border: "#6ee7b7" },
   "Exception Review": { bg: "#ffffff", text: "#0f172a", border: "#c4b5fd" },
