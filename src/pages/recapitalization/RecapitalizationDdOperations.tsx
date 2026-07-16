@@ -348,11 +348,7 @@ export default function RecapitalizationDdOperations() {
                                         Return to Active Work
                                     </button>
                                 )}
-                                {req._partnerDecision === "Rework Required" && !req._exceptionDecision && (
-                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#fed7aa")}>
-                                        Open Rework
-                                    </button>
-                                )}
+
                             </td>
                         </tr>
                     ))}
@@ -617,29 +613,13 @@ export default function RecapitalizationDdOperations() {
                                     <td onClick={e => e.stopPropagation()} style={{ whiteSpace: "nowrap" }}>
                                         {req.owner && !req._needsReassignment && !req._misassignedReason ? (
                                             <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
-                                                {req.status === "Blocked" ? (
+                                                {req.status === "Blocked" && (
                                                     <button
                                                         onClick={() => setResolveModal({ req, note: "" })}
                                                         style={{ fontSize: 10, padding: "4px 12px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #5eead4", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
                                                         title="Review and resolve blocker"
                                                     >
                                                         Review Blocker
-                                                    </button>
-                                                ) : req._partnerDecision === "Rework Required" ? (
-                                                    <button
-                                                        onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })}
-                                                        style={{ fontSize: 10, padding: "4px 12px", borderRadius: 6, background: "#fff7ed", color: "#0f172a", border: "1px solid #fed7aa", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                                        title="Open rework — review partner's feedback and revise"
-                                                    >
-                                                        Open Rework
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })}
-                                                        style={{ fontSize: 10, padding: "4px 12px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #c7d2fe", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                                        title="Open request"
-                                                    >
-                                                        Open
                                                     </button>
                                                 )}
                                                 <button
