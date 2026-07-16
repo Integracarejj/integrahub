@@ -490,7 +490,7 @@ export function updateRequestNotMine(id: string, reason: string, userName: strin
 }
 
 export function updateRequestExternalStatus(id: string, publishedWithoutDocuments?: boolean, externalNote?: string): RecapRequest | undefined {
-    const patch: Partial<RecapRequest> = { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0], _externalStatus: "Published External", _publishedWithoutDocuments: publishedWithoutDocuments ?? false, _publishedExternalNote: externalNote, status: "Waiting Partner Review" as RecapRequest["status"] };
+    const patch: Partial<RecapRequest> = { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0], _externalStatus: "Published External", _publishedWithoutDocuments: publishedWithoutDocuments ?? false, _publishedExternalNote: externalNote, status: "Waiting Partner Review" as RecapRequest["status"], _partnerDecision: null, _partnerNote: null, _partnerActionAt: null };
     if (isDemoLoaded()) {
         const result = Demo.updateDemoRequest(id, patch);
         if (result) return result;

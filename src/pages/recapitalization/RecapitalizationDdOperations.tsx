@@ -39,7 +39,7 @@ export default function RecapitalizationDdOperations() {
     const kpiReadyToPublish = useMemo(() => workItems.filter(r => r.status === "Complete" && r._externalStatus !== "Published External").length, [workItems]);
     const kpiExceptions = useMemo(() => workItems.filter(r => (r.status === "Duplicate" || r.status === "Not Applicable") && !r._exceptionSentAt).length, [workItems]);
     const kpiPublishedExternal = useMemo(() => workItems.filter(r => r._externalStatus === "Published External" && !r._partnerDecision && !r._exceptionSentAt).length, [workItems]);
-    const kpiPartnerActionRequired = useMemo(() => workItems.filter(r => (r._externalStatus === "Published External" && r._partnerDecision) || r._exceptionDecision || (r._exceptionSentAt && !r._exceptionDecision)).length, [workItems]);
+    const kpiPartnerActionRequired = useMemo(() => workItems.filter(r => ((r._externalStatus === "Published External" && r._partnerDecision) || r._exceptionDecision || (r._exceptionSentAt && !r._exceptionDecision)) && r.status !== "Completed").length, [workItems]);
     const kpiUpdatedToday = useMemo(() => {
         const today = new Date().toISOString().split("T")[0];
         return workItems.filter(r => r.lastUpdated === today).length;
@@ -89,7 +89,7 @@ export default function RecapitalizationDdOperations() {
 
     const partnerActionItems = useMemo(() => {
         return workItems
-            .filter(r => (r._externalStatus === "Published External" && r._partnerDecision) || r._exceptionDecision || (r._exceptionSentAt && !r._exceptionDecision))
+            .filter(r => ((r._externalStatus === "Published External" && r._partnerDecision) || r._exceptionDecision || (r._exceptionSentAt && !r._exceptionDecision)) && r.status !== "Completed")
             .sort((a, b) => {
                 const aDate = a.lastUpdated || "";
                 const bDate = b.lastUpdated || "";
@@ -346,11 +346,6 @@ export default function RecapitalizationDdOperations() {
                                 {req._exceptionDecision === "Keep Request" && (
                                     <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#86efac")}>
                                         Return to Active Work
-                                    </button>
-                                )}
-                                {req._partnerDecision === "Approved" && !req._exceptionDecision && (
-                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#86efac")}>
-                                        Acknowledge Approval
                                     </button>
                                 )}
                                 {req._partnerDecision === "Rework Required" && !req._exceptionDecision && (

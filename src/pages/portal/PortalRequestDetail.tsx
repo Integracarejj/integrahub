@@ -123,45 +123,42 @@ const EXTERNAL_LIFECYCLE = [
     { step: 4, key: "Complete", label: "Complete" },
 ];
 
+function getStepForStatus(status: string): number {
+    switch (status) {
+        case "Submitted": return 1;
+        case "Under Review": return 2;
+        case "Information Requested": return 2;
+        case "Exception Review": return 2;
+        case "Awaiting Your Review": return 3;
+        case "Complete": return 4;
+        default: return 1;
+    }
+}
+
 function TrackerContent({ status, stacked }: { status: string; stacked?: boolean }) {
-    const isBranch = ["Information Requested", "Exception Review"].includes(status);
-    const current = EXTERNAL_LIFECYCLE.find(s => s.key === status);
+    const currentStep = getStepForStatus(status);
     const cls = stacked ? "po-tracker po-tracker--stacked" : "po-tracker";
 
     const steps = EXTERNAL_LIFECYCLE.map((s, idx) => {
         const stepNum = s.step;
-        const isDone = stepNum < (current?.step || 1);
-        const isActive = stepNum === (current?.step || 1);
-        const isBranchActive = isBranch && idx === 1;
-        const dotClass = isDone ? "po-tracker-dot--done" : isActive || isBranchActive ? "po-tracker-dot--active" : "";
-        const labelClass = isActive || isBranchActive ? "po-tracker-label--active" : "";
+        const isDone = stepNum < currentStep;
+        const isActive = stepNum === currentStep;
+        const dotClass = isDone ? "po-tracker-dot--done" : isActive ? "po-tracker-dot--active" : "";
+        const labelClass = isActive ? "po-tracker-label--active" : "";
         return (
             <div key={s.step} className="po-tracker-step">
                 {idx < EXTERNAL_LIFECYCLE.length - 1 && (
-                    <div className={`po-tracker-line${isDone ? " po-tracker-line--done" : ""}${isBranchActive && idx === 1 ? " po-tracker-line--done" : ""}`} />
+                    <div className={`po-tracker-line${isDone ? " po-tracker-line--done" : ""}`} />
                 )}
-                <div className={`po-tracker-dot ${dotClass}`} style={isBranchActive ? { background: "#ffffff", borderColor: "#7c3aed", color: "#7c3aed" } : {}}>
-                    {isDone ? "\u2713" : isActive ? "\u25CF" : isBranchActive ? "!" : s.step}
+                <div className={`po-tracker-dot ${dotClass}`}>
+                    {isDone ? "\u2713" : isActive ? "\u25CF" : s.step}
                 </div>
-                <span className={`po-tracker-label ${labelClass}`} style={isBranchActive ? { color: "#7c3aed", fontWeight: 700 } : {}}>{s.label}</span>
+                <span className={`po-tracker-label ${labelClass}`}>{s.label}</span>
             </div>
         );
     });
 
-    if (!isBranch) return <div className={cls} style={{ justifyContent: "center" }}>{steps}</div>;
-
-    return (
-        <div className={cls} style={{ justifyContent: "center" }}>
-            {steps}
-            <div className="po-tracker-step">
-                <div className="po-tracker-line po-tracker-line--done" />
-                <div className="po-tracker-dot po-tracker-dot--active" style={{ background: status === "Information Requested" ? "#ffffff" : "#ffffff", borderColor: status === "Information Requested" ? "#d97706" : "#7c3aed", color: status === "Information Requested" ? "#d97706" : "#7c3aed", width: 28, height: 28 }}>
-                    <span style={{ fontSize: 10 }}>{status === "Information Requested" ? "?" : "!"}</span>
-                </div>
-                <span className="po-tracker-label--active" style={{ fontSize: 11, color: status === "Information Requested" ? "#d97706" : "#7c3aed" }}>{status}</span>
-            </div>
-        </div>
-    );
+    return <div className={cls} style={{ justifyContent: "center" }}>{steps}</div>;
 }
 
 function StatusTracker({ status }: { status: string }) {
@@ -170,6 +167,55 @@ function StatusTracker({ status }: { status: string }) {
             <TrackerContent status={status} />
             <TrackerContent status={status} stacked />
         </div>
+    );
+}
+
+function StatusBanners({ req, extInfo }: { req: { _partnerDecision?: string | null; _partnerNote?: string | null; _partnerActionAt?: string | null; _exceptionRecommendation?: string | null; _exceptionReason?: string | null; _publishedExternal?: boolean }; extInfo: { status: string; label: string; description: string } }) {
+    const isReworked = req._partnerDecision === "Rework Required" && req._publishedExternal && extInfo.status === "Under Review";
+    const isInfoRequested = extInfo.status === "Information Requested";
+    const isExceptionReview = extInfo.status === "Exception Review";
+
+    return (
+        <>
+            {isReworked && (
+                <div style={{ marginBottom: 16, padding: "14px 18px", borderRadius: 10, border: "2px solid #fed7aa", background: "#fff7ed" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c2410c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /><polyline points="22 2 22 8 16 8" /></svg>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: "#c2410c" }}>Rework Requested</span>
+                    </div>
+                    <div style={{ fontSize: 13, color: "#7c2d12", lineHeight: 1.5 }}>
+                        You previously requested changes on {req._partnerActionAt ? new Date(req._partnerActionAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "an earlier date"}. IntegraCare is working on revisions and will republish when ready.
+                    </div>
+                    {req._partnerNote && (
+                        <div style={{ marginTop: 8, padding: "8px 10px", background: "#fff", border: "1px solid #fed7aa", borderRadius: 6, fontSize: 12, color: "#7c2d12" }}>
+                            <strong>Your reason:</strong> {req._partnerNote}
+                        </div>
+                    )}
+                </div>
+            )}
+            {isInfoRequested && (
+                <div style={{ marginBottom: 16, padding: "14px 18px", borderRadius: 10, border: "2px solid #fcd34d", background: "#fffbeb" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b45309" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: "#b45309" }}>Information Requested</span>
+                    </div>
+                    <div style={{ fontSize: 13, color: "#92400e", lineHeight: 1.5 }}>
+                        IntegraCare needs additional information from you to continue processing this request. Please respond using the form below.
+                    </div>
+                </div>
+            )}
+            {isExceptionReview && (
+                <div style={{ marginBottom: 16, padding: "14px 18px", borderRadius: 10, border: "2px solid #c4b5fd", background: "#f5f3ff" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: "#7c3aed" }}>Exception Review</span>
+                    </div>
+                    <div style={{ fontSize: 13, color: "#5b21b6", lineHeight: 1.5 }}>
+                        IntegraCare has identified a potential exception for this request. Review the recommendation and decision options below.
+                    </div>
+                </div>
+            )}
+        </>
     );
 }
 
@@ -248,6 +294,7 @@ export default function PortalRequestDetail() {
 
             {/* Tracker */}
             {extInfo && !isComplete && <StatusTracker status={extInfo.label} />}
+            {extInfo && !isComplete && <StatusBanners req={req} extInfo={extInfo} />}
 
             {/* Header */}
             <div style={{ marginBottom: 20 }}>

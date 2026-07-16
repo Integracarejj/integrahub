@@ -80,7 +80,8 @@ export default function PortalOverview() {
     const [dashboardFilterStatus, setDashboardFilterStatus] = useState("all");
     const [dashboardFilterCategory, setDashboardFilterCategory] = useState("all");
     const dashboardCategories = [...new Set(portalRequests.map(r => r.category))];
-    const dashboardFiltered = visibleRequests.filter(r => {
+    const dashboardBase = dashboardFilterStatus !== "all" ? portalRequests : visibleRequests;
+    const dashboardFiltered = dashboardBase.filter(r => {
         const ext = getExternalStatusInfo(toExternalStatusInput(r));
         if (dashboardFilterStatus !== "all") {
             if (dashboardFilterStatus === "Exception Review") {
