@@ -101,6 +101,8 @@ export default function PortalRequests() {
                     ) : filtered.map((req) => {
                         const extInfo = getExternalStatusInfo(toExternalStatusInput(req));
                         const excCtx = getExceptionContext(req);
+                        const isClarResp = req._rawStatus === "Clarification Needed" && extInfo.status === "Under Review" && !!req._workNotes?.some(n => n.action === "Clarification Response") && !req._returnReason;
+                        const isReworking = req._partnerDecision === "Rework Required" && extInfo.status === "Under Review";
                         return (
                             <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.5fr 2.5fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr 0.7fr" }} onClick={() => navigate(`/portal/requests/${req.id}`)} title={req.requestId}>
                                 <span className="po-requests-id">{req.requestId.split("-").length >= 3 ? req.requestId.split("-")[0] + "-" + req.requestId.split("-").slice(-1)[0] : req.requestId}</span>
@@ -114,6 +116,12 @@ export default function PortalRequests() {
                                     )}
                                     {extInfo.status === "Information Requested" && (
                                         <span style={{ fontSize: 11, color: "#92400e", fontWeight: 500 }}>IntegraCare needs additional information</span>
+                                    )}
+                                    {isClarResp && (
+                                        <span style={{ fontSize: 11, color: "#0e7490", fontWeight: 500 }}>Response received — no action required</span>
+                                    )}
+                                    {isReworking && (
+                                        <span style={{ fontSize: 11, color: "#c2410c", fontWeight: 500 }}>Rework requested — IntegraCare reviewing</span>
                                     )}
                                 </div>
                                 <span style={{ display: "flex", alignItems: "center", gap: 4 }}>

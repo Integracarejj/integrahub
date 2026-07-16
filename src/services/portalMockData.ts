@@ -109,6 +109,10 @@ export interface PortalRequest {
     _workNotes?: import("./recapMockData").WorkNoteEntry[];
     /** When the request was published internally */
     _publishedAt?: string | null;
+    /** Partner decision fields for rework/approval visibility */
+    _partnerDecision?: string | null;
+    _partnerNote?: string | null;
+    _partnerActionAt?: string | null;
 }
 
 export interface PortalQuestion {
@@ -276,6 +280,9 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
         _rawStatus: req.status,
         _workNotes: req._workNotes,
         _publishedAt: req._publishedAt ?? null,
+        _partnerDecision: req._partnerDecision ?? null,
+        _partnerNote: req._partnerNote ?? null,
+        _partnerActionAt: req._partnerActionAt ?? null,
     };
 }
 

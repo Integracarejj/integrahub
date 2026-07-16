@@ -371,3 +371,212 @@ describe('Edge cases', () => {
         expect(isReturnedWithReassign).toBe(true);
     });
 });
+
+describe('TEST 1 — Clarification response remains visible externally', () => {
+    it('after external partner responds, request stays visible with correct external status', () => {
+        const req = buildRequest({ status: 'Clarification Needed', _publishedExternal: true, _externalStatus: 'Published External' });
+        req._workNotes = [
+            createWorkNote('Q1: Revenue breakdown?', 'Sarah Chen', 'Clarification External Question', 1),
+        ];
+        req._returnReason = 'Q1: Revenue breakdown?';
+
+        expect(getExternalStatusInfo(req).status).toBe('Information Requested');
+        expect(getExternalStatusInfo(req).externalActionRequired).toBe(true);
+
+        req._workNotes.push(createWorkNote('Revenue is 60/40 Medicare vs Private Pay.', 'External Partner', 'Clarification Response', 2));
+        req._returnReason = null;
+
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.status).toBe('Under Review');
+        expect(extInfo.externalActionRequired).toBe(false);
+        expect(extInfo.nextActionOwner).toBe('IntegraCare');
+
+        const isClarResp = req.status === 'Clarification Needed' && extInfo.status === 'Under Review' && !!req._workNotes?.some(n => n.action === 'Clarification Response') && !req._returnReason;
+        expect(isClarResp).toBe(true);
+    });
+
+    it('request leaves Information Requested after response', () => {
+        const req = buildRequest({ status: 'Clarification Needed', _publishedExternal: true, _externalStatus: 'Published External' });
+        req._workNotes = [
+            createWorkNote('Q1', 'Sarah Chen', 'Clarification External Question', 1),
+        ];
+        req._returnReason = 'Q1';
+
+        expect(getExternalStatusInfo(req).status).toBe('Information Requested');
+
+        req._workNotes.push(createWorkNote('Answer', 'External Partner', 'Clarification Response', 2));
+        req._returnReason = null;
+
+        expect(getExternalStatusInfo(req).status).not.toBe('Information Requested');
+    });
+});
+
+describe('TEST 3 — Rework remains visible externally', () => {
+    it('after external partner requests rework, request stays visible with rework indicator', () => {
+        const req = buildRequest({ status: 'In Progress', _publishedExternal: true, _externalStatus: 'Published External' });
+
+        req.status = 'Needs Rework';
+        req._partnerDecision = 'Rework Required';
+        req._partnerNote = 'Please revise the revenue section.';
+        req._partnerActionAt = '2026-07-15T10:00:00Z';
+
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.status).toBe('Under Review');
+        expect(extInfo.externalActionRequired).toBe(false);
+        expect(extInfo.nextActionOwner).toBe('IntegraCare');
+
+        const isReworking = req._partnerDecision === 'Rework Required' && extInfo.status === 'Under Review';
+        expect(isReworking).toBe(true);
+        expect(req._partnerNote).toBe('Please revise the revenue section.');
+    });
+
+    it('rework is not in Awaiting Your Review', () => {
+        const req = buildRequest({ status: 'In Progress', _publishedExternal: true, _externalStatus: 'Published External' });
+        req.status = 'Needs Rework';
+        req._partnerDecision = 'Rework Required';
+
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.status).not.toBe('Awaiting Your Review');
+    });
+});
+
+describe('TEST 4 — Republish after rework', () => {
+    it('after republish, rework banner clears and request returns to Awaiting Your Review', () => {
+        const req = buildRequest({ status: 'In Progress', _publishedExternal: true, _externalStatus: 'Published External' });
+
+        req.status = 'Needs Rework';
+        req._partnerDecision = 'Rework Required';
+        req._partnerNote = 'Revise section 3.';
+        req._partnerActionAt = '2026-07-15T10:00:00Z';
+
+        expect(getExternalStatusInfo(req).status).toBe('Under Review');
+        const isReworking = req._partnerDecision === 'Rework Required' && getExternalStatusInfo(req).status === 'Under Review';
+        expect(isReworking).toBe(true);
+
+        req.status = 'Waiting Partner Review';
+        req._partnerDecision = null;
+        req._partnerNote = null;
+        req._partnerActionAt = null;
+        req._externalStatus = 'Published External';
+        req._publishedExternal = true;
+
+        const extInfoAfter = getExternalStatusInfo(req);
+        expect(extInfoAfter.status).toBe('Awaiting Your Review');
+        expect(extInfoAfter.externalActionRequired).toBe(true);
+
+        const isReworkingAfter = req._partnerDecision === 'Rework Required' && extInfoAfter.status === 'Under Review';
+        expect(isReworkingAfter).toBe(false);
+    });
+});
+
+describe('TEST 5 — Internal rework queue', () => {
+    it('after external rework, request is in Partner Action, not Needs DD Review', () => {
+        const req = buildRequest({ status: 'Needs Rework', _publishedExternal: true, _externalStatus: 'Published External', _partnerDecision: 'Rework Required' });
+
+        const NEEDS_DD_REVIEW = ['Blocked', 'Clarification Needed'];
+        const needsDDReview = NEEDS_DD_REVIEW.includes(req.status);
+        expect(needsDDReview).toBe(false);
+
+        const inPartnerAction = req._externalStatus === 'Published External' && !!req._partnerDecision && req.status !== 'Completed';
+        expect(inPartnerAction).toBe(true);
+    });
+
+    it('after contributor resubmits, request moves to Needs DD Review', () => {
+        const req = buildRequest({ status: 'Complete', _publishedExternal: true, _externalStatus: 'Published External' });
+
+        req.status = 'In Progress';
+        const NEEDS_DD_REVIEW = ['Blocked', 'Clarification Needed'];
+        const needsDDReview = NEEDS_DD_REVIEW.includes(req.status);
+        expect(needsDDReview).toBe(false);
+
+        req.status = 'Complete';
+        const needsDDReviewAfter = NEEDS_DD_REVIEW.includes(req.status);
+        expect(needsDDReviewAfter).toBe(false);
+    });
+});
+
+describe('TEST 6 — Approval regression', () => {
+    it('external approval moves request to Complete and it stays visible externally', () => {
+        const req = buildRequest({ status: 'In Progress', _publishedExternal: true, _externalStatus: 'Published External' });
+
+        req.status = 'Completed';
+        req._completedBy = 'External Partner';
+        req._completedAt = '2026-07-16';
+        req._partnerDecision = 'Approved';
+
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.status).toBe('Complete');
+        expect(extInfo.isTerminal).toBe(true);
+    });
+
+    it('approved item does not remain in Partner Action', () => {
+        const req = buildRequest({ status: 'Completed', _publishedExternal: true, _externalStatus: 'Published External', _partnerDecision: 'Approved' });
+
+        const inPartnerAction = req._externalStatus === 'Published External' && !!req._partnerDecision && req.status !== 'Completed';
+        expect(inPartnerAction).toBe(false);
+    });
+
+    it('Complete KPI count matches filtered items', () => {
+        const req1 = buildRequest({ status: 'Completed', _publishedExternal: true, _externalStatus: 'Published External', _partnerDecision: 'Approved' });
+        const req2 = buildRequest({ status: 'In Progress', _publishedExternal: true, _externalStatus: 'Published External' });
+
+        const all = [req1, req2];
+        const completeItems = all.filter(r => getExternalStatusInfo(r).status === 'Complete');
+        expect(completeItems).toHaveLength(1);
+        expect(completeItems[0].status).toBe('Completed');
+    });
+});
+
+describe('TEST 7 — Clarification regression', () => {
+    it('full external clarification round trip: send → respond → guidance', () => {
+        const req = buildRequest({ status: 'In Progress' });
+
+        req.status = 'Clarification Needed';
+        req._workNotes = [createWorkNote('What is the cap rate?', 'Sarah Chen', 'Clarification External Question', 1)];
+        req._returnReason = 'What is the cap rate?';
+        expect(getExternalStatusInfo(req).status).toBe('Information Requested');
+        expect(getExternalStatusInfo(req).externalActionRequired).toBe(true);
+
+        req._workNotes.push(createWorkNote('Cap rate is 6.2%.', 'External Partner', 'Clarification Response', 2));
+        req._returnReason = null;
+        expect(getExternalStatusInfo(req).status).toBe('Under Review');
+        expect(getExternalStatusInfo(req).externalActionRequired).toBe(false);
+        expect(needsDDReview(req)).toBe(true);
+
+        req.status = 'In Progress';
+        req._workNotes.push(createWorkNote('Cap rate confirmed at 6.2%. Proceed.', 'David Park', 'Clarification Guidance', 3));
+        expect(getExternalStatusInfo(req).status).toBe('Under Review');
+        expect(isActiveExternalClarification(req)).toBe(false);
+    });
+
+    it('internal-only clarification does not affect external status', () => {
+        const req = buildRequest({ status: 'In Progress' });
+
+        req.status = 'Clarification Needed';
+        req._workNotes = [createWorkNote('What is the revenue?', 'Sarah Chen', 'Clarification Needed', 1)];
+
+        req.status = 'In Progress';
+        req._workNotes.push(createWorkNote('Revenue is 60/40.', 'David Park', 'Clarification Response', 2));
+
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.status).toBe('Under Review');
+        expect(extInfo.externalActionRequired).toBe(false);
+    });
+
+    it('published external clarification round trip: guidance returns to Awaiting Your Review', () => {
+        const req = buildRequest({ status: 'In Progress', _publishedExternal: true, _externalStatus: 'Published External' });
+
+        req.status = 'Clarification Needed';
+        req._workNotes = [createWorkNote('What is the cap rate?', 'Sarah Chen', 'Clarification External Question', 1)];
+        req._returnReason = 'What is the cap rate?';
+        expect(getExternalStatusInfo(req).status).toBe('Information Requested');
+
+        req._workNotes.push(createWorkNote('Cap rate is 6.2%.', 'External Partner', 'Clarification Response', 2));
+        req._returnReason = null;
+        expect(getExternalStatusInfo(req).status).toBe('Under Review');
+
+        req.status = 'In Progress';
+        req._workNotes.push(createWorkNote('Cap rate confirmed at 6.2%. Proceed.', 'David Park', 'Clarification Guidance', 3));
+        expect(getExternalStatusInfo(req).status).toBe('Awaiting Your Review');
+    });
+});

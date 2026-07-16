@@ -170,21 +170,33 @@ function StatusTracker({ status }: { status: string }) {
     );
 }
 
-function StatusBanners({ req, extInfo }: { req: { _partnerDecision?: string | null; _partnerNote?: string | null; _partnerActionAt?: string | null; _exceptionRecommendation?: string | null; _exceptionReason?: string | null; _publishedExternal?: boolean }; extInfo: { status: string; label: string; description: string } }) {
+function StatusBanners({ req, extInfo }: { req: { _partnerDecision?: string | null; _partnerNote?: string | null; _partnerActionAt?: string | null; _exceptionRecommendation?: string | null; _exceptionReason?: string | null; _publishedExternal?: boolean; _rawStatus?: string; _workNotes?: Array<{ action?: string | null; author?: string }> | null; _returnReason?: string | null }; extInfo: { status: string; label: string; description: string } }) {
     const isReworked = req._partnerDecision === "Rework Required" && req._publishedExternal && extInfo.status === "Under Review";
     const isInfoRequested = extInfo.status === "Information Requested";
     const isExceptionReview = extInfo.status === "Exception Review";
+    const isClarificationResponse = req._rawStatus === "Clarification Needed" && extInfo.status === "Under Review" && !!req._workNotes?.some(n => n.action === "Clarification Response") && !req._returnReason;
 
     return (
         <>
+            {isClarificationResponse && (
+                <div style={{ marginBottom: 16, padding: "14px 18px", borderRadius: 10, border: "2px solid #67e8f9", background: "#f0fdfa" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0e7490" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: "#0e7490" }}>Response Submitted — IntegraCare Review</span>
+                    </div>
+                    <div style={{ fontSize: 13, color: "#155e75", lineHeight: 1.5 }}>
+                        Your response was received and is being reviewed by IntegraCare. No action is required from you right now.
+                    </div>
+                </div>
+            )}
             {isReworked && (
                 <div style={{ marginBottom: 16, padding: "14px 18px", borderRadius: 10, border: "2px solid #fed7aa", background: "#fff7ed" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c2410c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /><polyline points="22 2 22 8 16 8" /></svg>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: "#c2410c" }}>Rework Requested</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: "#c2410c" }}>Rework Requested — IntegraCare Review</span>
                     </div>
                     <div style={{ fontSize: 13, color: "#7c2d12", lineHeight: 1.5 }}>
-                        You previously requested changes on {req._partnerActionAt ? new Date(req._partnerActionAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "an earlier date"}. IntegraCare is working on revisions and will republish when ready.
+                        IntegraCare is reviewing your requested revisions. No action is required from you right now.
                     </div>
                     {req._partnerNote && (
                         <div style={{ marginTop: 8, padding: "8px 10px", background: "#fff", border: "1px solid #fed7aa", borderRadius: 6, fontSize: 12, color: "#7c2d12" }}>

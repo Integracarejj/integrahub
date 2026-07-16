@@ -523,11 +523,20 @@ export default function PortalOverview() {
                                 </div>
                                 {dashboardFiltered.slice(0, 10).map((req) => {
                                     const excCtx = getExceptionContext(req);
+                                    const extInfo = getExternalStatusInfo(toExternalStatusInput(req));
+                                    const isClarResp = req._rawStatus === "Clarification Needed" && extInfo.status === "Under Review" && !!req._workNotes?.some(n => n.action === "Clarification Response") && !req._returnReason;
+                                    const isReworking = req._partnerDecision === "Rework Required" && extInfo.status === "Under Review";
                                     return (
                                     <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.5fr 2fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr" }} onClick={() => navigate(`/portal/requests/${req.id}`)} title={req.requestId}>
                                         <span className="po-requests-id">{shortId(req.requestId)}</span>
                                         <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
                                             <span className="po-requests-title" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={req.title}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</span>
+                                            {isClarResp && (
+                                                <span style={{ fontSize: 11, color: "#0e7490", fontWeight: 500 }}>Response received — no action required</span>
+                                            )}
+                                            {isReworking && (
+                                                <span style={{ fontSize: 11, color: "#c2410c", fontWeight: 500 }}>Rework requested — IntegraCare reviewing</span>
+                                            )}
                                         </div>
                                         <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                             <StatusBadge status={req.status} />
