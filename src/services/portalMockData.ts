@@ -86,6 +86,7 @@ export interface PortalRequest {
     /** Internal field: whether this was published externally */
     _publishedExternal?: boolean;
     _publishedWithoutDocuments?: boolean;
+    _publishedArtifactIds?: string[];
     _publishedExternalNote?: string;
     /** Partner review fields */
     _completedBy?: string | null;
@@ -262,6 +263,7 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
         externalStatus: req._externalStatus,
         _publishedExternal: !!req._publishedExternal,
         _publishedWithoutDocuments: req._publishedWithoutDocuments,
+        _publishedArtifactIds: req._publishedArtifactIds,
         _publishedExternalNote: req._publishedExternalNote,
         _completedBy: req._completedBy,
         _completedAt: req._completedAt,

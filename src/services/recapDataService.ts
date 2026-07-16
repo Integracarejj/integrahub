@@ -489,8 +489,8 @@ export function updateRequestNotMine(id: string, reason: string, userName: strin
     return req;
 }
 
-export function updateRequestExternalStatus(id: string, publishedWithoutDocuments?: boolean, externalNote?: string): RecapRequest | undefined {
-    const patch: Partial<RecapRequest> = { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0], _externalStatus: "Published External", _publishedWithoutDocuments: publishedWithoutDocuments ?? false, _publishedExternalNote: externalNote, status: "Waiting Partner Review" as RecapRequest["status"], _partnerDecision: null, _partnerNote: null, _partnerActionAt: null };
+export function updateRequestExternalStatus(id: string, publishedWithoutDocuments?: boolean, externalNote?: string, publishedArtifactIds?: string[]): RecapRequest | undefined {
+    const patch: Partial<RecapRequest> = { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0], _externalStatus: "Published External", _publishedWithoutDocuments: publishedWithoutDocuments ?? false, _publishedExternalNote: externalNote, _publishedArtifactIds: publishedArtifactIds, status: "Waiting Partner Review" as RecapRequest["status"], _partnerDecision: null, _partnerNote: null, _partnerActionAt: null };
     if (isDemoLoaded()) {
         const result = Demo.updateDemoRequest(id, patch);
         if (result) return result;
@@ -1174,4 +1174,30 @@ export function setRecapWiped(): void {
 
 export function clearRecapWiped(): void {
     Demo.clearRecapWiped();
+}
+
+/* ── Centralized Predicates ───────────────────────────────── */
+
+/** Get artifacts currently published for a request (filtered by _publishedArtifactIds if set). */
+export function getCurrentPublishedArtifacts(req: RecapRequest): WorkArtifact[] {
+    const all = getWorkArtifactsByRequest(req.requestId || req.id);
+    if (req._publishedArtifactIds && req._publishedArtifactIds.length > 0) {
+        return all.filter(a => req._publishedArtifactIds!.includes(a.id));
+    }
+    if (req._publishedWithoutDocuments) return [];
+    return all;
+}
+
+/** True if the request has externally-visible published artifacts. */
+export function hasExternallyVisiblePublishedArtifacts(req: RecapRequest): boolean {
+    if (!req._publishedExternal) return false;
+    if (req._publishedWithoutDocuments) return false;
+    return getCurrentPublishedArtifacts(req).length > 0;
+}
+
+/** True if the request is in external rework awaiting DD review. */
+export function isExternalReworkAwaitingDDReview(req: RecapRequest): boolean {
+    return req._partnerDecision === "Rework Required"
+        && req._externalStatus === "Published External"
+        && req.status !== "Completed";
 }

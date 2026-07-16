@@ -35,11 +35,11 @@ export default function RecapitalizationDdOperations() {
 
     /* ── KPIs ── */
     const NEEDS_DD_REVIEW_STATUSES = ["Blocked", "Clarification Needed"];
-    const kpiNeedsDDReview = useMemo(() => workItems.filter(r => (NEEDS_DD_REVIEW_STATUSES.includes(r.status) || r._needsReassignment || r._misassignedReason) && !r._returnReason).length, [workItems]);
+    const kpiNeedsDDReview = useMemo(() => workItems.filter(r => (NEEDS_DD_REVIEW_STATUSES.includes(r.status) || r._needsReassignment || r._misassignedReason || r._partnerDecision === "Rework Required") && !r._returnReason).length, [workItems]);
     const kpiReadyToPublish = useMemo(() => workItems.filter(r => r.status === "Complete" && r._externalStatus !== "Published External").length, [workItems]);
     const kpiExceptions = useMemo(() => workItems.filter(r => (r.status === "Duplicate" || r.status === "Not Applicable") && !r._exceptionSentAt).length, [workItems]);
     const kpiPublishedExternal = useMemo(() => workItems.filter(r => r._externalStatus === "Published External" && !r._partnerDecision && !r._exceptionSentAt).length, [workItems]);
-    const kpiPartnerActionRequired = useMemo(() => workItems.filter(r => ((r._externalStatus === "Published External" && r._partnerDecision) || r._exceptionDecision || (r._exceptionSentAt && !r._exceptionDecision)) && r.status !== "Completed").length, [workItems]);
+    const kpiPartnerActionRequired = useMemo(() => workItems.filter(r => ((r._externalStatus === "Published External" && r._partnerDecision && r._partnerDecision !== "Rework Required") || r._exceptionDecision || (r._exceptionSentAt && !r._exceptionDecision)) && r.status !== "Completed").length, [workItems]);
     const kpiUpdatedToday = useMemo(() => {
         const today = new Date().toISOString().split("T")[0];
         return workItems.filter(r => r.lastUpdated === today).length;
@@ -47,7 +47,7 @@ export default function RecapitalizationDdOperations() {
 
     const needsDDReview = useMemo(() => {
         return workItems
-            .filter(r => (NEEDS_DD_REVIEW_STATUSES.includes(r.status) || r._needsReassignment || r._misassignedReason) && !r._returnReason)
+            .filter(r => (NEEDS_DD_REVIEW_STATUSES.includes(r.status) || r._needsReassignment || r._misassignedReason || r._partnerDecision === "Rework Required") && !r._returnReason)
             .sort((a, b) => {
                 const aDue = a.dueDate || "9999-99-99";
                 const bDue = b.dueDate || "9999-99-99";
@@ -89,7 +89,7 @@ export default function RecapitalizationDdOperations() {
 
     const partnerActionItems = useMemo(() => {
         return workItems
-            .filter(r => ((r._externalStatus === "Published External" && r._partnerDecision) || r._exceptionDecision || (r._exceptionSentAt && !r._exceptionDecision)) && r.status !== "Completed")
+            .filter(r => ((r._externalStatus === "Published External" && r._partnerDecision && r._partnerDecision !== "Rework Required") || r._exceptionDecision || (r._exceptionSentAt && !r._exceptionDecision)) && r.status !== "Completed")
             .sort((a, b) => {
                 const aDate = a.lastUpdated || "";
                 const bDate = b.lastUpdated || "";
@@ -507,6 +507,14 @@ export default function RecapitalizationDdOperations() {
                 </span>
             );
         }
+        if (req._partnerDecision === "Rework Required") {
+            return (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#fff7ed", color: "#0f172a", fontWeight: 600, border: "1px solid #fed7aa", whiteSpace: "nowrap", fontSize: 11 }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                    Rework Requested
+                </span>
+            );
+        }
         return (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", fontWeight: 600, border: "1px solid #86efac", whiteSpace: "nowrap", fontSize: 11 }}>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
@@ -616,6 +624,14 @@ export default function RecapitalizationDdOperations() {
                                                         title="Review and resolve blocker"
                                                     >
                                                         Review Blocker
+                                                    </button>
+                                                ) : req._partnerDecision === "Rework Required" ? (
+                                                    <button
+                                                        onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })}
+                                                        style={{ fontSize: 10, padding: "4px 12px", borderRadius: 6, background: "#fff7ed", color: "#0f172a", border: "1px solid #fed7aa", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                                        title="Open rework — review partner's feedback and revise"
+                                                    >
+                                                        Open Rework
                                                     </button>
                                                 ) : (
                                                     <button

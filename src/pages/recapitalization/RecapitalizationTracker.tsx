@@ -850,7 +850,10 @@ export default function RecapitalizationTracker() {
                                     )}
                                     {publishStep === 2 && (
                                         <button className="rc-btn rc-btn-primary" onClick={() => {
-                                            updateRequestExternalStatus(detailModalItem.id, publishSelectedArtifactNames.length === 0, publishExternalNote || undefined);
+                                            const artifactKey = getArtifactKey(detailModalItem);
+                                            const allArtifacts = getWorkArtifactsByRequest(artifactKey);
+                                            const selectedIds = allArtifacts.filter(a => publishSelectedArtifactNames.includes(a.name)).map(a => a.id);
+                                            updateRequestExternalStatus(detailModalItem.id, publishSelectedArtifactNames.length === 0, publishExternalNote || undefined, selectedIds);
                                             setRefreshKey(k => k + 1);
                                             setPublishStep(3);
                                         }}>Confirm Publish External</button>

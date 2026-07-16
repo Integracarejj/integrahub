@@ -287,7 +287,10 @@ export default function PortalRequestDetail() {
         setShowApprovedModal(true);
     };
 
-    const artifacts = getWorkArtifactsByRequest(req.id);
+    const allArtifacts = getWorkArtifactsByRequest(req.requestId);
+    const artifacts = req._publishedArtifactIds && req._publishedArtifactIds.length > 0
+        ? allArtifacts.filter(a => req._publishedArtifactIds!.includes(a.id))
+        : req._publishedWithoutDocuments ? [] : allArtifacts;
     const messages = getExternalMessages(req.id);
     const exceptionRec = req._exceptionRecommendation;
     const isComplete = !!extInfo?.isTerminal;
@@ -502,10 +505,10 @@ export default function PortalRequestDetail() {
                 <InformationRequestedSection req={req} onResponseSubmitted={() => setRefreshKey(k => k + 1)} />
             )}
 
-            {/* Supporting Artifacts */}
+            {/* Published Documents */}
             {artifacts.length > 0 && (
                 <div style={{ marginBottom: 24 }}>
-                    <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 10 }}>Supporting Documents</h3>
+                    <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 10 }}>Published Documents</h3>
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                         {artifacts.map(a => (
                             <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, border: "1px solid #e0e7ff", background: "#fff" }}>

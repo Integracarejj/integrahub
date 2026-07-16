@@ -2994,8 +2994,9 @@ function WorkflowStateCard({
                             {publishExternal.step === 2 && (
                                 <button className="rc-btn rc-btn-primary" onClick={() => {
                                     const extNote = publishExternal?.note || undefined;
+                                    const selectedIds = workArtifacts.filter(a => publishExternal.selectedArtifacts.includes(a.name)).map(a => a.id);
                                     setPublishExternal(prev => prev ? { ...prev, step: 3 } : null);
-                                    updateRequestExternalStatus(item.id || item.intakeId || "", workArtifacts.length === 0, extNote);
+                                    updateRequestExternalStatus(item.id || item.intakeId || "", workArtifacts.length === 0, extNote, selectedIds);
                                     const artCount = workArtifacts.length;
                                     addActivityEntry({
                                         type: "Status Change",

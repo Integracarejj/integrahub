@@ -68,6 +68,7 @@ export interface RecapRequest {
     _reusableKnowledgeCandidate?: boolean;
     _reusableKnowledgeStatus?: "Promoted" | "Skipped" | null;
     _reusableKnowledgeArtifactIds?: string[];
+    _publishedArtifactIds?: string[];
     _partnerDecision?: "Approved" | "Rework Required" | null;
     _partnerNote?: string | null;
     _partnerActionAt?: string | null;
