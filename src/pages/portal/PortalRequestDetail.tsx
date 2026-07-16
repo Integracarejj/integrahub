@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getPortalRequests, partnerApproveRequest, partnerReworkRequest, partnerExceptionDecision } from "../../services/portalMockData";
+import { getPortalRequests, partnerApproveRequest, partnerReworkRequest, partnerExceptionDecision, toExternalStatusInput } from "../../services/portalMockData";
 import type { PortalRequest } from "../../services/portalMockData";
 import { getExternalMessages, getWorkArtifactsByRequest, addWorkNote, addActivityEntry, updateRequestReturnReason } from "../../services/recapDataService";
 import { getExternalStatusInfo, getStatusPillStyle } from "../../services/externalStatusMapping";
@@ -189,7 +189,7 @@ export default function PortalRequestDetail() {
     const req = allRequests.find(r => r.id === id) || allRequests.find(r => r.requestId === id);
     const [showApprovedModal, setShowApprovedModal] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
-    const extInfo = req ? getExternalStatusInfo(req) : null;
+    const extInfo = req ? getExternalStatusInfo(toExternalStatusInput(req)) : null;
 
     // Re-fetch data when refreshKey changes
     useEffect(() => {
@@ -220,6 +220,7 @@ export default function PortalRequestDetail() {
         const reason = window.prompt("Please describe what needs to be revised:");
         if (reason) {
             partnerReworkRequest(req.id, reason);
+            setRefreshKey(k => k + 1);
         }
     };
 

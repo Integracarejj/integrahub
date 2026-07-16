@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getPortalRequests, getActivePersona, getPortalTransactions } from "../../services/portalMockData";
+import { getPortalRequests, getActivePersona, getPortalTransactions, toExternalStatusInput } from "../../services/portalMockData";
 import { getExternalStatusInfo, getStatusPillStyle, getExceptionContext } from "../../services/externalStatusMapping";
 import "./PortalOverview.css";
 
@@ -34,9 +34,9 @@ export default function PortalRequests() {
         }
         if (filterStatus !== "all") {
             if (filterStatus === "Action Needed") {
-                result = result.filter(r => getExternalStatusInfo(r).externalActionRequired);
+                result = result.filter(r => getExternalStatusInfo(toExternalStatusInput(r)).externalActionRequired);
             } else {
-                result = result.filter(r => getExternalStatusInfo(r).label === filterStatus);
+                result = result.filter(r => getExternalStatusInfo(toExternalStatusInput(r)).label === filterStatus);
             }
         }
         if (filterCategory !== "all") result = result.filter(r => r.category === filterCategory);
@@ -99,7 +99,7 @@ export default function PortalRequests() {
                             <p style={{ fontSize: 14, color: "#475569" }}>No requests match the selected filters.</p>
                         </div>
                     ) : filtered.map((req) => {
-                        const extInfo = getExternalStatusInfo(req);
+                        const extInfo = getExternalStatusInfo(toExternalStatusInput(req));
                         const excCtx = getExceptionContext(req);
                         return (
                             <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.5fr 2.5fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr 0.7fr" }} onClick={() => navigate(`/portal/requests/${req.id}`)} title={req.requestId}>

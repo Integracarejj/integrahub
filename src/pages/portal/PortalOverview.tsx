@@ -5,7 +5,7 @@ import {
     getActivePersona, submitBrokerUploadPackage, confirmBrokerPackage,
     getPortalSubmissionsList,
     parseUploadedXLSX, extractCategoriesFromParsedRows,
-    saveParsedRows,
+    saveParsedRows, toExternalStatusInput,
 } from "../../services/portalMockData";
 import { getExternalStatusInfo, getStatusPillStyle, getExceptionContext } from "../../services/externalStatusMapping";
 import "./PortalOverview.css";
@@ -67,21 +67,21 @@ export default function PortalOverview() {
     const [banner, setBanner] = useState<string | null>(null);
 
     /* ── Derived Stats using centralized external status mapping ── */
-    const portalStatuses = portalRequests.map(r => getExternalStatusInfo(r));
+    const portalStatuses = portalRequests.map(r => getExternalStatusInfo(toExternalStatusInput(r)));
     const submittedCount = portalStatuses.filter(s => s.status === "Submitted").length;
     const underReviewCount = portalStatuses.filter(s => s.status === "Under Review").length;
     const infoRequestedCount = portalStatuses.filter(s => s.status === "Information Requested").length;
     const awaitingReviewCount = portalStatuses.filter(s => s.status === "Awaiting Your Review").length;
     const exceptionReviewCount = portalStatuses.filter(s => s.status === "Exception Review").length;
     const completeCount = portalStatuses.filter(s => s.status === "Complete").length;
-    const visibleRequests = portalRequests.filter(r => getExternalStatusInfo(r).status !== "Complete");
+    const visibleRequests = portalRequests.filter(r => getExternalStatusInfo(toExternalStatusInput(r)).status !== "Complete");
 
     const [dashboardSearch, setDashboardSearch] = useState("");
     const [dashboardFilterStatus, setDashboardFilterStatus] = useState("all");
     const [dashboardFilterCategory, setDashboardFilterCategory] = useState("all");
     const dashboardCategories = [...new Set(portalRequests.map(r => r.category))];
     const dashboardFiltered = visibleRequests.filter(r => {
-        const ext = getExternalStatusInfo(r);
+        const ext = getExternalStatusInfo(toExternalStatusInput(r));
         if (dashboardFilterStatus !== "all") {
             if (dashboardFilterStatus === "Exception Review") {
                 if (ext.status !== "Exception Review") return false;

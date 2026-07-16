@@ -103,6 +103,12 @@ export interface PortalRequest {
     _archived?: boolean;
     _archiveReason?: "Duplicate" | "Not Applicable" | "Cancelled" | "Closed" | null;
     _archivedAt?: string | null;
+    /** Raw internal status before external label mapping — use this for getExternalStatusInfo() */
+    _rawStatus: string;
+    /** Work notes for clarification routing */
+    _workNotes?: import("./recapMockData").WorkNoteEntry[];
+    /** When the request was published internally */
+    _publishedAt?: string | null;
 }
 
 export interface PortalQuestion {
@@ -267,6 +273,24 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
         _archived: !!req._archived,
         _archiveReason: req._archiveReason ?? null,
         _archivedAt: req._archivedAt ?? null,
+        _rawStatus: req.status,
+        _workNotes: req._workNotes,
+        _publishedAt: req._publishedAt ?? null,
+    };
+}
+
+/** Convert a PortalRequest to the raw input shape expected by getExternalStatusInfo.
+ *  Uses _rawStatus (internal) instead of status (external label) to ensure correct state machine evaluation. */
+export function toExternalStatusInput(req: PortalRequest) {
+    return {
+        status: req._rawStatus || req.status,
+        _exceptionRecommendation: req._exceptionRecommendation,
+        _exceptionDecision: req._exceptionDecision,
+        _publishedExternal: req._publishedExternal,
+        _externalStatus: req.externalStatus,
+        _exceptionSentAt: req._exceptionSentAt,
+        _publishedAt: req._publishedAt,
+        _workNotes: req._workNotes,
     };
 }
 
@@ -431,6 +455,8 @@ export function submitPortalNewRequest(data: {
         owner: null,
         team: "DD Management",
         brokerBuyer: persona.companyName,
+        _rawStatus: "Intake Review",
+        _workNotes: [],
     };
     MOCK_REQUESTS.unshift(newReq);
 }
