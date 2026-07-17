@@ -631,31 +631,15 @@ export default function RecapitalizationDdOperations() {
                                     <td onClick={e => e.stopPropagation()} style={{ whiteSpace: "nowrap" }}>
                                         {req.owner && !req._needsReassignment && !req._misassignedReason ? (
                                             <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
-                                                {req.status === "Blocked" && (
-                                                    <>
-                                                        <button
-                                                            onClick={() => setBlockerResolveModal({ req, guidance: "" })}
-                                                            style={{ fontSize: 10, padding: "4px 12px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #5eead4", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                                            title="Resolve blocker — provide guidance to contributor"
-                                                        >
-                                                            Resolve Blocker
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setBlockerExternalHelpModal({ req, externalQuestion: "" })}
-                                                            style={{ fontSize: 10, padding: "4px 12px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #fed7aa", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                                            title="Request external partner help"
-                                                        >
-                                                            Request External Help
-                                                        </button>
-                                                    </>
+                                                {req.status !== "Blocked" && (
+                                                    <button
+                                                        onClick={() => setReturnToOwner({ req, reason: "" })}
+                                                        style={{ fontSize: 10, padding: "4px 12px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #fcd34d", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                                        title="Return this item to the original owner"
+                                                    >
+                                                        Return to Owner
+                                                    </button>
                                                 )}
-                                                <button
-                                                    onClick={() => setReturnToOwner({ req, reason: "" })}
-                                                    style={{ fontSize: 10, padding: "4px 12px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #fcd34d", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                                    title="Return this item to the original owner"
-                                                >
-                                                    Return to Owner
-                                                </button>
                                             </div>
                                         ) : (
                                             <select

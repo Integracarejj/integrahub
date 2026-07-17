@@ -15,6 +15,7 @@ const STAT_HELPERS: Record<string, string> = {
     "Under Review": "IntegraCare is processing this request",
     "Rework Review": "IntegraCare is reviewing your requested changes",
     "Information Requested": "IntegraCare needs additional information",
+    "Blocker Information Requested": "IntegraCare needs information to resolve a blocker",
     "Awaiting Your Review": "Documents ready for your review",
     "Exception Review": "Needs your decision on an exception recommendation",
     "Complete": "Review complete — no further action required",
@@ -76,6 +77,7 @@ export default function PortalOverview() {
     const exceptionReviewCount = portalStatuses.filter(s => s.status === "Exception Review").length;
     const completeCount = portalStatuses.filter(s => s.status === "Complete").length;
     const reworkSubmittedCount = portalStatuses.filter(s => s.status === "Rework Review").length;
+    const blockerInfoRequestedCount = portalStatuses.filter(s => s.status === "Blocker Information Requested").length;
     const visibleRequests = portalRequests.filter(r => getExternalStatusInfo(toExternalStatusInput(r)).status !== "Complete");
 
     const [dashboardSearch, setDashboardSearch] = useState("");
@@ -86,7 +88,7 @@ export default function PortalOverview() {
     const dashboardFiltered = dashboardBase.filter(r => {
         const ext = getExternalStatusInfo(toExternalStatusInput(r));
         if (dashboardFilterStatus !== "all") {
-            if (dashboardFilterStatus === "Exception Review" || dashboardFilterStatus === "Rework Review") {
+            if (dashboardFilterStatus === "Exception Review" || dashboardFilterStatus === "Rework Review" || dashboardFilterStatus === "Blocker Information Requested") {
                 if (ext.status !== dashboardFilterStatus) return false;
             }
             else if (ext.label !== dashboardFilterStatus) return false;
@@ -464,6 +466,13 @@ export default function PortalOverview() {
                         <span className="po-stat-value po-stat-value--amber">{reworkSubmittedCount}</span>
                         <span className="po-stat-label">Rework Submitted</span>
                         <span className="po-stat-helper">{STAT_HELPERS["Rework Review"]}</span>
+                    </div>
+                )}
+                {blockerInfoRequestedCount > 0 && (
+                    <div className={`po-stat-card${dashboardFilterStatus === "Blocker Information Requested" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer", border: "2px solid #fca5a5" }} onClick={() => { setDashboardFilterStatus("Blocker Information Requested"); setDashboardFilterCategory("all"); }}>
+                        <span className="po-stat-value" style={{ color: "#dc2626" }}>{blockerInfoRequestedCount}</span>
+                        <span className="po-stat-label">Blocker Info Needed</span>
+                        <span className="po-stat-helper">{STAT_HELPERS["Blocker Information Requested"]}</span>
                     </div>
                 )}
             </div>

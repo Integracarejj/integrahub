@@ -833,15 +833,21 @@ function WorkflowStateCard({
                           <div style={{ marginBottom: 14 }}>
                             <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 12 }}>Other Actions</div>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-                              <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0891b2" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>} label="Clarification Support" desc="Answer internally or request information" onClick={() => setClarificationSupportModalOpen(true)} />
+                              {displayStatus !== "Blocked" && (
+                                <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0891b2" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>} label="Clarification Support" desc="Answer internally or request information" onClick={() => setClarificationSupportModalOpen(true)} />
+                              )}
                               {(() => {
                                 const hasExtQ = item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification External Question");
                                 const isClarActive = displayStatus === "Clarification Needed" || (displayStatus === "In Progress" && hasExtQ);
-                                return !isClarActive;
+                                return !isClarActive && displayStatus !== "Blocked";
                               })() && <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>} label="Return to Owner" desc="Send back with feedback" onClick={() => setReturnToOwnerModal({ step: "input", reason: "" })} />}
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>} label="Reassign Owner" desc="Change the current owner" onClick={() => { const el = document.getElementById("ws-owner-select"); if (el) { (el as HTMLSelectElement).focus(); (el as HTMLSelectElement).click(); }}} />
-                              <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>} label="Recommend Duplicate to Partner" desc="Validate and send recommendation" onClick={() => setDdOpsRecommendModal({ type: "Duplicate", partnerNote: "" })} />
-                              <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>} label="Recommend Not Applicable to Partner" desc="Validate and send recommendation" onClick={() => setDdOpsRecommendModal({ type: "Not Applicable", partnerNote: "" })} />
+                              {displayStatus !== "Blocked" && (
+                                <>
+                                  <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>} label="Recommend Duplicate to Partner" desc="Validate and send recommendation" onClick={() => setDdOpsRecommendModal({ type: "Duplicate", partnerNote: "" })} />
+                                  <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>} label="Recommend Not Applicable to Partner" desc="Validate and send recommendation" onClick={() => setDdOpsRecommendModal({ type: "Not Applicable", partnerNote: "" })} />
+                                </>
+                              )}
                             </div>
                           </div>
 
@@ -900,7 +906,7 @@ function WorkflowStateCard({
                             </div>
                           )}
 
-                          {/* Blocked info panel */}
+                          {/* Blocked info panel — contributor view */}
                           {displayStatus === "Blocked" && !isDdOps && (
                             <div style={{ marginBottom: 24, padding: "16px 20px", borderRadius: 12, background: "#fef2f2", border: "2px solid #fecaca", boxShadow: "0 2px 8px rgba(220,38,38,0.06)" }}>
                               <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
@@ -908,39 +914,48 @@ function WorkflowStateCard({
                                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>
                                 </div>
                                 <div style={{ flex: 1 }}>
-                                  <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>Work Blocked</div>
+                                  <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>Blocker Submitted</div>
                                   <div style={{ fontSize: 13, color: "#475569", marginTop: 4, lineHeight: 1.5 }}>
                                     {item._blockerStatus === "Pending External"
-                                      ? "DD Operations has requested external help. Waiting for partner response."
-                                      : "DD Operations is reviewing your blocker."}
+                                      ? "DD Operations has requested external help from the partner. Waiting for response."
+                                      : item._blockerStatus === "External Response Received"
+                                        ? "The external partner has responded. DD Operations is reviewing."
+                                        : "Waiting for DD Operations to review your blocker."}
                                   </div>
                                   {item._blockerReason && (
                                     <div style={{ marginTop: 8, padding: "8px 12px", background: "rgba(255,255,255,0.7)", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b", lineHeight: 1.5 }}>
-                                      <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>Blocker reason:</span>
+                                      <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>Original blocker reason:</span>
                                       {item._blockerReason}
                                     </div>
                                   )}
-                                  {item._blockerResolution && (
-                                    <div style={{ marginTop: 8, padding: "8px 12px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 6, fontSize: 12, color: "#166534", lineHeight: 1.5 }}>
-                                      <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>DD Operations guidance:</span>
-                                      {item._blockerResolution}
-                                    </div>
-                                  )}
+                                  <div style={{ marginTop: 8, fontSize: 12, color: "#64748b" }}>
+                                    <span style={{ fontWeight: 600 }}>Next action owner:</span> DD Operations
+                                  </div>
                                 </div>
                               </div>
                             </div>
                           )}
 
-                          {/* Blocked info panel for DD Ops */}
-                          {displayStatus === "Blocked" && isDdOps && item._blockerStatus && item._blockerStatus !== "Raised" && (
+                          {/* Blocker Review panel — DD Ops */}
+                          {displayStatus === "Blocked" && isDdOps && (
                             <div style={{ marginBottom: 24, padding: "16px 20px", borderRadius: 12, background: "#f8fafc", border: "2px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-                              <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>Blocker Status</div>
+                              <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>Blocker Review</div>
+                              <div style={{ fontSize: 13, color: "#475569", marginBottom: 12, lineHeight: 1.5 }}>
+                                Review the blocker and choose how to move the work forward.
+                              </div>
                               {item._blockerReason && (
                                 <div style={{ marginBottom: 8, padding: "8px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b", lineHeight: 1.5 }}>
-                                  <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>Original blocker:</span>
+                                  <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>Blocker reason:</span>
                                   {item._blockerReason}
                                 </div>
                               )}
+                              <div style={{ marginBottom: 8, fontSize: 12, color: "#475569" }}>
+                                <span style={{ fontWeight: 600 }}>Raised by:</span> {item._blockerRaisedBy || "Unknown"}
+                                {item._blockerRaisedAt && <span style={{ marginLeft: 12 }}>{new Date(item._blockerRaisedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>}
+                              </div>
+                              <div style={{ marginBottom: 8, fontSize: 12, color: "#475569" }}>
+                                <span style={{ fontWeight: 600 }}>Current action owner:</span> DD Operations
+                              </div>
                               {item._blockerExternalQuestion && (
                                 <div style={{ marginBottom: 8, padding: "8px 12px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, fontSize: 12, color: "#92400e", lineHeight: 1.5 }}>
                                   <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>External question sent:</span>

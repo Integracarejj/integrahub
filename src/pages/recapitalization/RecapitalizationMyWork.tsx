@@ -5,7 +5,7 @@ import type { RecapRequest } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
 
-type ViewTab = "active-work" | "completed-work" | "my-team" | "returned";
+type ViewTab = "active-work" | "waiting-dd-ops" | "completed-work" | "my-team" | "returned";
 
 export default function RecapitalizationMyWork() {
     const navigate = useNavigate();
@@ -80,6 +80,21 @@ export default function RecapitalizationMyWork() {
         );
     }, [assignedToMe]);
 
+    const waitingOnDDOps = useMemo(() => {
+        return workItems
+            .filter(r => r.status === "Blocked" && r._blockerRaisedBy === activeUser)
+            .sort((a, b) => {
+                const aDate = a.lastUpdated || "";
+                const bDate = b.lastUpdated || "";
+                if (bDate !== aDate) return bDate.localeCompare(aDate);
+                const aDue = a.dueDate || "9999-99-99";
+                const bDue = b.dueDate || "9999-99-99";
+                if (aDue !== bDue) return aDue.localeCompare(bDue);
+                const pMap: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
+                return (pMap[a.priority] || 1) - (pMap[b.priority] || 1);
+            });
+    }, [workItems, activeUser]);
+
     const completedWork = useMemo(() => {
         return assignedToMe.filter(r =>
             r.status === "Complete" ||
@@ -109,14 +124,16 @@ export default function RecapitalizationMyWork() {
     const activeItems = useMemo(() => {
         switch (activeView) {
             case "active-work": return activeWork;
+            case "waiting-dd-ops": return waitingOnDDOps;
             case "completed-work": return completedWork;
             case "my-team": return myTeamItems;
             case "returned": return returnedItems;
         }
-    }, [activeView, activeWork, completedWork, myTeamItems, returnedItems]);
+    }, [activeView, activeWork, waitingOnDDOps, completedWork, myTeamItems, returnedItems]);
 
     const emptyMessages: Record<ViewTab, string> = {
         "active-work": "No active items assigned to you.",
+        "waiting-dd-ops": "No items waiting on DD Operations.",
         "completed-work": "No completed items.",
         "my-team": "No items for your team.",
         "returned": "No items need your attention.",
@@ -124,6 +141,7 @@ export default function RecapitalizationMyWork() {
 
     const tabLabels: Record<ViewTab, string> = {
         "active-work": "Active Work",
+        "waiting-dd-ops": "Waiting on DD Operations",
         "completed-work": "Completed Work",
         "my-team": "My Team",
         "returned": "Returned / Needs Attention",
@@ -186,7 +204,7 @@ export default function RecapitalizationMyWork() {
                                     onMouseEnter={e => { (e.target as HTMLElement).style.background = "#1e40af"; }}
                                     onMouseLeave={e => { (e.target as HTMLElement).style.background = "#1d4ed8"; }}
                                 >
-                                    {req.status === "In Progress" || req.status === "Needs Rework" ? "Resume" : "Open"}
+                                    {req.status === "In Progress" || req.status === "Needs Rework" ? "Resume" : req.status === "Blocked" ? "View" : "Open"}
                                 </button>
                             </td>
                         </tr>
@@ -219,7 +237,7 @@ export default function RecapitalizationMyWork() {
             </div>
 
             <div className="rc-view-tabs" style={{ display: "flex", gap: 0, marginBottom: 16, borderBottom: "2px solid #e2e8f0" }}>
-                {(["active-work", "completed-work", "my-team", "returned"] as const).map(view => (
+                {(["active-work", "waiting-dd-ops", "completed-work", "my-team", "returned"] as const).map(view => (
                     <button key={view} onClick={() => setActiveView(view)}
                         style={{ padding: "8px 16px", fontSize: 13, fontWeight: activeView === view ? 700 : 500, color: activeView === view ? "#1d4ed8" : "#475569", background: "none", border: "none", borderBottom: activeView === view ? "2px solid #1d4ed8" : "2px solid transparent", marginBottom: -2, cursor: "pointer", transition: "all 0.15s" }}>
                         {tabLabels[view]}

@@ -630,6 +630,11 @@ export function blockRequest(id: string, reason: string, raisedBy: string): Reca
         _blockerRaisedBy: originalContributor,
         _blockerRaisedAt: now,
         _blockerOwner: DD_OPS_LEAD,
+        _returnReason: null,
+        _returnedBy: null,
+        _blockerExternalQuestion: null,
+        _blockerExternalResponse: null,
+        _blockerResolution: null,
         _workNotes: [...prevNotes, wnEntry],
         lastUpdated: nowDate,
     };
@@ -670,6 +675,8 @@ export function resolveBlockerInternal(id: string, resolution: string, resolvedB
         _blockerResolution: resolution,
         _returnReason: `Blocker resolved: ${resolution}`,
         _returnedBy: resolvedBy,
+        _blockerExternalQuestion: null,
+        _blockerExternalResponse: null,
         _workNotes: [...prevNotes, wnEntry],
         lastUpdated: nowDate,
     };
@@ -780,6 +787,8 @@ export function returnBlockerGuidance(id: string, guidance: string, returnedBy: 
         _blockerResolution: guidance,
         _returnReason: `Blocker guidance: ${guidance}`,
         _returnedBy: returnedBy,
+        _blockerExternalQuestion: null,
+        _blockerExternalResponse: null,
         _workNotes: [...prevNotes, wnEntry],
         lastUpdated: nowDate,
     };

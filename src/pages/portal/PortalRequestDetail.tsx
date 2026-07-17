@@ -174,14 +174,6 @@ function BlockerInformationRequestedSection({ req, onResponseSubmitted }: { req:
                 </div>
             </div>
 
-            {/* Blocker Reason */}
-            {req._blockerReason && (
-                <div style={{ marginBottom: 12, padding: "10px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "#991b1b", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 4 }}>Blocker Reason</div>
-                    <div style={{ fontSize: 13, color: "#0f172a", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{req._blockerReason}</div>
-                </div>
-            )}
-
             {/* Question */}
             <div style={{ marginBottom: 16, padding: "12px 14px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6 }}>What's Needed</div>
