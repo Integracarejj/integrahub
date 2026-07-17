@@ -211,8 +211,8 @@ function BlockerInformationRequestedSection({ req, onResponseSubmitted }: { req:
                     <div style={{ fontSize: 12, color: "#334155", marginBottom: 10, lineHeight: 1.5 }}>
                         Your response will be sent to IntegraCare for review. They will then provide guidance to the contributor to resolve the blocker.
                     </div>
-                    <div style={{ padding: "8px 10px", background: "#fff", border: "1px solid #fed7aa", borderRadius: 6, fontSize: 12, color: "#92400e", marginBottom: 12 }}>
-                        <strong>Your Response:</strong><br />{response}
+                    <div style={{ padding: "8px 10px", background: "#fff", border: "1px solid #fed7aa", borderRadius: 6, fontSize: 12, color: "#0f172a", marginBottom: 12 }}>
+                        <strong style={{ color: "#92400e" }}>Your Response:</strong><br />{response}
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>
                         <button className="rc-btn rc-btn-ghost" onClick={() => setShowConfirm(false)}>Back</button>
@@ -342,7 +342,7 @@ function StatusBanners({ req, extInfo }: { req: { _partnerDecision?: string | nu
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                         <span style={{ fontSize: 14, fontWeight: 700, color: "#d97706" }}>Blocker — Information Needed</span>
                     </div>
-                    <div style={{ fontSize: 13, color: "#92400e", lineHeight: 1.5 }}>
+                    <div style={{ fontSize: 13, color: "#0f172a", lineHeight: 1.5 }}>
                         IntegraCare needs information from you to resolve a blocker on this request. Please respond using the form below.
                     </div>
                 </div>

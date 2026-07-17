@@ -1098,8 +1098,8 @@ export default function RecapitalizationDdOperations() {
                                     Provide guidance for <strong>{blockerResolveModal.req.requestId}</strong> &mdash; {blockerResolveModal.req.title.split(" - ").slice(1).join(" - ").trim() || blockerResolveModal.req.title}
                                 </div>
                                 {blockerResolveModal.req._blockerReason && (
-                                    <div style={{ padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b" }}>
-                                        <strong>Blocker reason:</strong> {blockerResolveModal.req._blockerReason}
+                                    <div style={{ padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#0f172a" }}>
+                                        <strong style={{ color: "#991b1b" }}>Blocker reason:</strong> {blockerResolveModal.req._blockerReason}
                                     </div>
                                 )}
                                 <div style={{ fontSize: 12, color: "#475569" }}>
@@ -1158,11 +1158,11 @@ export default function RecapitalizationDdOperations() {
                                     Request information from external partner for <strong>{blockerExternalHelpModal.req.requestId}</strong> &mdash; {blockerExternalHelpModal.req.title.split(" - ").slice(1).join(" - ").trim() || blockerExternalHelpModal.req.title}
                                 </div>
                                 {blockerExternalHelpModal.req._blockerReason && (
-                                    <div style={{ padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b" }}>
-                                        <strong>Blocker reason:</strong> {blockerExternalHelpModal.req._blockerReason}
+                                    <div style={{ padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#0f172a" }}>
+                                        <strong style={{ color: "#991b1b" }}>Blocker reason:</strong> {blockerExternalHelpModal.req._blockerReason}
                                     </div>
                                 )}
-                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#fffbeb", border: "1px solid #fed7aa", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#92400e" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#fffbeb", border: "1px solid #fed7aa", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#0f172a" }}>
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                                     This will send a request to the external partner and move the item to "Pending External" status.
                                 </div>

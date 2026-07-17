@@ -719,8 +719,8 @@ function WorkflowStateCard({
                             <div style={{ fontSize: 14, color: "#475569", marginBottom: 24 }}>Review the blocker and decide how to move the work forward.</div>
 
                             {item._blockerReason && (
-                              <div style={{ marginBottom: 8, padding: "8px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b", lineHeight: 1.5 }}>
-                                <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>Blocker reason:</span>
+                              <div style={{ marginBottom: 8, padding: "8px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#0f172a", lineHeight: 1.5 }}>
+                                <span style={{ fontWeight: 700, display: "block", marginBottom: 2, color: "#991b1b" }}>Blocker reason:</span>
                                 {item._blockerReason}
                               </div>
                             )}
@@ -732,14 +732,14 @@ function WorkflowStateCard({
                               <span style={{ fontWeight: 600 }}>Current action owner:</span> DD Operations
                             </div>
                             {item._blockerExternalQuestion && (
-                              <div style={{ marginBottom: 8, padding: "8px 12px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, fontSize: 12, color: "#92400e", lineHeight: 1.5 }}>
-                                <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>External question sent:</span>
+                              <div style={{ marginBottom: 8, padding: "8px 12px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, fontSize: 12, color: "#0f172a", lineHeight: 1.5 }}>
+                                <span style={{ fontWeight: 700, display: "block", marginBottom: 2, color: "#92400e" }}>External question sent:</span>
                                 {item._blockerExternalQuestion}
                               </div>
                             )}
                             {item._blockerExternalResponse && (
-                              <div style={{ marginBottom: 8, padding: "8px 12px", background: "#f0f7ff", border: "1px solid #bfdbfe", borderRadius: 6, fontSize: 12, color: "#1e40af", lineHeight: 1.5 }}>
-                                <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>External partner response:</span>
+                              <div style={{ marginBottom: 8, padding: "8px 12px", background: "#f0f7ff", border: "1px solid #bfdbfe", borderRadius: 6, fontSize: 12, color: "#0f172a", lineHeight: 1.5 }}>
+                                <span style={{ fontWeight: 700, display: "block", marginBottom: 2, color: "#1e40af" }}>External partner response:</span>
                                 {item._blockerExternalResponse}
                               </div>
                             )}
@@ -965,8 +965,8 @@ function WorkflowStateCard({
                                   <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>Returned with Feedback</div>
                                   <div style={{ fontSize: 13, color: "#475569", marginTop: 4, lineHeight: 1.5 }}>DD Operations has returned this request with feedback. Review their notes and make the requested changes.</div>
                                   {item._returnReason && (
-                                    <div style={{ marginTop: 8, padding: "8px 12px", background: "rgba(255,255,255,0.7)", border: "1px solid #fed7aa", borderRadius: 6, fontSize: 12, color: "#78350f", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
-                                      <span style={{ fontWeight: 700, display: "block", marginBottom: 2, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.03em" }}>Feedback from DD Operations:</span>
+                                    <div style={{ marginTop: 8, padding: "8px 12px", background: "rgba(255,255,255,0.7)", border: "1px solid #fed7aa", borderRadius: 6, fontSize: 12, color: "#0f172a", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                                      <span style={{ fontWeight: 700, display: "block", marginBottom: 2, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.03em", color: "#92400e" }}>Feedback from DD Operations:</span>
                                       {item._returnReason}
                                     </div>
                                   )}
@@ -992,12 +992,12 @@ function WorkflowStateCard({
                                         : "Waiting for DD Operations to review your blocker."}
                                   </div>
                                   {item._blockerReason && (
-                                    <div style={{ marginTop: 8, padding: "8px 12px", background: "rgba(255,255,255,0.7)", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b", lineHeight: 1.5 }}>
-                                      <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>Original blocker reason:</span>
+                                    <div style={{ marginTop: 8, padding: "8px 12px", background: "rgba(255,255,255,0.7)", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#0f172a", lineHeight: 1.5 }}>
+                                      <span style={{ fontWeight: 700, display: "block", marginBottom: 2, color: "#991b1b" }}>Original blocker reason:</span>
                                       {item._blockerReason}
                                     </div>
                                   )}
-                                  <div style={{ marginTop: 8, fontSize: 12, color: "#64748b" }}>
+                                  <div style={{ marginTop: 8, fontSize: 12, color: "#334155" }}>
                                     <span style={{ fontWeight: 600 }}>Next action owner:</span> DD Operations
                                   </div>
                                 </div>
@@ -2308,8 +2308,8 @@ function WorkflowStateCard({
                                 rows={3}
                                 style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
                             />
-                            <div style={{ marginTop: 10, display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#991b1b" }}>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                            <div style={{ marginTop: 10, display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#0f172a" }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#991b1b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                                 This will notify DD Operations and move the request to Returned / Needs Attention in My Work.
                             </div>
                         </div>
@@ -2412,8 +2412,8 @@ function WorkflowStateCard({
                                     The blocker is being resolved and the request will return to active work.
                                 </div>
                                 {item._statusNotes && (
-                                    <div style={{ padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b", lineHeight: 1.5 }}>
-                                        <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>Blocker reason:</span>
+                                    <div style={{ padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#0f172a", lineHeight: 1.5 }}>
+                                        <span style={{ fontWeight: 700, display: "block", marginBottom: 2, color: "#991b1b" }}>Blocker reason:</span>
                                         {item._statusNotes}
                                     </div>
                                 )}
@@ -2461,14 +2461,14 @@ function WorkflowStateCard({
                                     Provide the contributor with the information or direction needed to continue work.
                                 </div>
                                 {item._blockerReason && (
-                                    <div style={{ padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b", lineHeight: 1.5 }}>
-                                        <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>Blocker reason:</span>
+                                    <div style={{ padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#0f172a", lineHeight: 1.5 }}>
+                                        <span style={{ fontWeight: 700, display: "block", marginBottom: 2, color: "#991b1b" }}>Blocker reason:</span>
                                         {item._blockerReason}
                                     </div>
                                 )}
                                 {item._blockerExternalResponse && (
-                                    <div style={{ padding: "8px 10px", background: "#f0f7ff", border: "1px solid #bfdbfe", borderRadius: 6, fontSize: 12, color: "#1e40af", lineHeight: 1.5 }}>
-                                        <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>External partner response:</span>
+                                    <div style={{ padding: "8px 10px", background: "#f0f7ff", border: "1px solid #bfdbfe", borderRadius: 6, fontSize: 12, color: "#0f172a", lineHeight: 1.5 }}>
+                                        <span style={{ fontWeight: 700, display: "block", marginBottom: 2, color: "#1e40af" }}>External partner response:</span>
                                         {item._blockerExternalResponse}
                                     </div>
                                 )}
@@ -2518,8 +2518,8 @@ function WorkflowStateCard({
                                     Send an external-facing request to the partner for information needed to resolve this blocker.
                                 </div>
                                 {item._blockerReason && (
-                                    <div style={{ padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b", lineHeight: 1.5 }}>
-                                        <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>Internal blocker context (not exposed externally):</span>
+                                    <div style={{ padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#0f172a", lineHeight: 1.5 }}>
+                                        <span style={{ fontWeight: 700, display: "block", marginBottom: 2, color: "#991b1b" }}>Internal blocker context (not exposed externally):</span>
                                         {item._blockerReason}
                                     </div>
                                 )}
@@ -2536,8 +2536,8 @@ function WorkflowStateCard({
                                 <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
                                     The external partner will see this request and be asked to respond. The request will remain blocked internally until they respond.
                                 </div>
-                                <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#92400e" }}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#0f172a" }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                                     DD Operations will review the external response before returning anything to the contributor.
                                 </div>
                             </div>
