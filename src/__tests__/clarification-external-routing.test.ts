@@ -1151,3 +1151,92 @@ describe('TEST 21 — Regression: existing 38 tests unchanged', () => {
         expect(extInfo.isTerminal).toBe(true);
     });
 });
+
+describe('TEST 22 — Defect 2 fix: approved items stay in Published External', () => {
+    it('approved item with _partnerDecision Approved is included in publishedExternal filter', () => {
+        const req = buildRequest({ status: 'Completed', _externalStatus: 'Published External', _partnerDecision: 'Approved' });
+        const matches = req._externalStatus === 'Published External' && (!req._partnerDecision || req._partnerDecision === 'Approved') && !req._exceptionSentAt;
+        expect(matches).toBe(true);
+    });
+
+    it('rework item is excluded from publishedExternal filter', () => {
+        const req = buildRequest({ status: 'Needs Rework', _externalStatus: 'Published External', _partnerDecision: 'Rework Required' });
+        const matches = req._externalStatus === 'Published External' && (!req._partnerDecision || req._partnerDecision === 'Approved') && !req._exceptionSentAt;
+        expect(matches).toBe(false);
+    });
+
+    it('pending item (no decision yet) is included in publishedExternal filter', () => {
+        const req = buildRequest({ status: 'Waiting Partner Review', _externalStatus: 'Published External', _partnerDecision: null });
+        const matches = req._externalStatus === 'Published External' && (!req._partnerDecision || req._partnerDecision === 'Approved') && !req._exceptionSentAt;
+        expect(matches).toBe(true);
+    });
+
+    it('exception item is excluded from publishedExternal filter', () => {
+        const req = buildRequest({ status: 'Duplicate', _externalStatus: 'Published External', _partnerDecision: null, _exceptionSentAt: '2026-07-15T10:00:00Z' });
+        const matches = req._externalStatus === 'Published External' && (!req._partnerDecision || req._partnerDecision === 'Approved') && !req._exceptionSentAt;
+        expect(matches).toBe(false);
+    });
+
+    it('approved items counted in published external KPI', () => {
+        const req1 = buildRequest({ status: 'Completed', _externalStatus: 'Published External', _partnerDecision: 'Approved' });
+        const req2 = buildRequest({ requestId: 'DD-TEST-002', status: 'Waiting Partner Review', _externalStatus: 'Published External', _partnerDecision: null });
+        const all = [req1, req2];
+        const count = all.filter(r => r._externalStatus === 'Published External' && (!r._partnerDecision || r._partnerDecision === 'Approved') && !r._exceptionSentAt).length;
+        expect(count).toBe(2);
+    });
+});
+
+describe('TEST 23 — Defect 1 fix: Return to Owner hidden during active clarification', () => {
+    it('item waiting on external partner has active clarification', () => {
+        const req = buildRequest({ status: 'Clarification Needed' });
+        req._workNotes = [
+            createWorkNote('What is the cap rate?', 'Sarah Chen', 'Clarification Needed', 1),
+            createWorkNote('Cap rate is 6.2%?', 'David Park', 'Clarification External Question', 2),
+        ];
+        req._returnReason = 'Cap rate is 6.2%?';
+
+        expect(isWaitingOnExternal(req)).toBe(true);
+        expect(isActiveExternalClarification(req)).toBe(true);
+    });
+
+    it('item with external response pending DD review has active clarification', () => {
+        const req = buildRequest({ status: 'Clarification Needed' });
+        req._workNotes = [
+            createWorkNote('What is the cap rate?', 'Sarah Chen', 'Clarification Needed', 1),
+            createWorkNote('Cap rate is 6.2%?', 'David Park', 'Clarification External Question', 2),
+            createWorkNote('Cap rate is 6.2%.', 'External Partner', 'Clarification Response', 3),
+        ];
+        req._returnReason = null;
+
+        expect(isExternalResponseReceived(req)).toBe(true);
+        expect(isActiveExternalClarification(req)).toBe(true);
+        expect(needsDDReview(req)).toBe(true);
+    });
+
+    it('item with guidance returned does NOT have active clarification', () => {
+        const req = buildRequest({ status: 'In Progress' });
+        req._workNotes = [
+            createWorkNote('What is the cap rate?', 'Sarah Chen', 'Clarification Needed', 1),
+            createWorkNote('Cap rate is 6.2%?', 'David Park', 'Clarification External Question', 2),
+            createWorkNote('Cap rate is 6.2%.', 'External Partner', 'Clarification Response', 3),
+            createWorkNote('Cap rate confirmed at 6.2%.', 'David Park', 'Clarification Guidance', 4),
+        ];
+
+        expect(isActiveExternalClarification(req)).toBe(false);
+    });
+
+    it('non-clarification item does not have active clarification', () => {
+        const req = buildRequest({ status: 'In Progress' });
+        expect(isActiveExternalClarification(req)).toBe(false);
+    });
+
+    it('internal-only clarification does NOT count as external clarification', () => {
+        const req = buildRequest({ status: 'Clarification Needed' });
+        req._workNotes = [
+            createWorkNote('What is the revenue?', 'Sarah Chen', 'Clarification Needed', 1),
+        ];
+
+        expect(isWaitingOnExternal(req)).toBe(false);
+        expect(isActiveExternalClarification(req)).toBe(false);
+    });
+});

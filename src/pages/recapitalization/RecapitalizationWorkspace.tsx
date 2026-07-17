@@ -752,8 +752,10 @@ function WorkflowStateCard({
                               const hasGuidanceReturned = item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification Guidance");
                               const extCycleNeedsDdReview = hasExtQ && hasExtR && !hasGuidanceReturned;
                               const isClarActive = displayStatus === "Clarification Needed" || (displayStatus === "In Progress" && hasExtQ);
-                              return isClarActive && extCycleNeedsDdReview;
-                            })() ? (
+                              if (isClarActive && extCycleNeedsDdReview) return "guidance";
+                              if (isClarActive) return "waiting";
+                              return "default";
+                            })() === "guidance" ? (
                               <div
                                 onClick={() => setReturnGuidanceModal({ step: "input", guidance: "", internalNote: "" })}
                                 style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bbf7d0", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
@@ -768,22 +770,45 @@ function WorkflowStateCard({
                                   <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Share the external partner's answer with the contributor</div>
                                 </div>
                               </div>
-                            ) : (
-                              <div
-                                onClick={() => setReturnToOwnerModal({ step: "input", reason: "" })}
-                                style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #fed7aa", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
-                                onMouseEnter={e => { e.currentTarget.style.borderColor = "#f59e0b"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(245,158,11,0.1)"; }}
-                                onMouseLeave={e => { e.currentTarget.style.borderColor = "#fed7aa"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}
-                              >
-                                <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fffbeb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>
+                            ) : (() => {
+                              const hasExtQ = item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification External Question");
+                              const hasExtR = item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification Response" && n.author === "External Partner");
+                              const hasGuidanceReturned = item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification Guidance");
+                              const extCycleNeedsDdReview = hasExtQ && hasExtR && !hasGuidanceReturned;
+                              const isClarActive = displayStatus === "Clarification Needed" || (displayStatus === "In Progress" && hasExtQ);
+                              const clarReturnVal = isClarActive && extCycleNeedsDdReview ? "guidance" : isClarActive ? "waiting" : "default";
+                              if (clarReturnVal === "waiting") {
+                                return (
+                                  <div
+                                    style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #e2e8f0", borderRadius: 14, background: "#f8fafc", cursor: "not-allowed", boxShadow: "0 1px 4px rgba(0,0,0,0.02)", opacity: 0.6 }}
+                                  >
+                                    <div style={{ width: 44, height: 44, borderRadius: 12, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                                    </div>
+                                    <div>
+                                      <div style={{ fontSize: 16, fontWeight: 700, color: "#64748b" }}>Clarification in Progress</div>
+                                      <div style={{ fontSize: 13, color: "#94a3b8", marginTop: 2 }}>Waiting on external partner response</div>
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div
+                                  onClick={() => setReturnToOwnerModal({ step: "input", reason: "" })}
+                                  style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #fed7aa", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
+                                  onMouseEnter={e => { e.currentTarget.style.borderColor = "#f59e0b"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(245,158,11,0.1)"; }}
+                                  onMouseLeave={e => { e.currentTarget.style.borderColor = "#fed7aa"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}
+                                >
+                                  <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fffbeb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Return to Owner</div>
+                                    <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Send back with feedback</div>
+                                  </div>
                                 </div>
-                                <div>
-                                  <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Return to Owner</div>
-                                  <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Send back with feedback</div>
-                                </div>
-                              </div>
-                            )}
+                              );
+                            })()}
 
                             <div
                               onClick={(displayStatus === "Complete" || displayStatus === "Needs Rework") ? () => setPublishExternal({ step: 1, selectedArtifacts: workArtifacts.map(a => a.name), note: "" }) : undefined}
@@ -807,7 +832,11 @@ function WorkflowStateCard({
                             <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 12 }}>Other Actions</div>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0891b2" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>} label="Clarification Support" desc="Answer internally or request information" onClick={() => setClarificationSupportModalOpen(true)} />
-                              <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>} label="Return to Owner" desc="Send back with feedback" onClick={() => setReturnToOwnerModal({ step: "input", reason: "" })} />
+                              {(() => {
+                                const hasExtQ = item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification External Question");
+                                const isClarActive = displayStatus === "Clarification Needed" || (displayStatus === "In Progress" && hasExtQ);
+                                return !isClarActive;
+                              })() && <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>} label="Return to Owner" desc="Send back with feedback" onClick={() => setReturnToOwnerModal({ step: "input", reason: "" })} />}
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>} label="Reassign Owner" desc="Change the current owner" onClick={() => { const el = document.getElementById("ws-owner-select"); if (el) { (el as HTMLSelectElement).focus(); (el as HTMLSelectElement).click(); }}} />
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>} label="Recommend Duplicate to Partner" desc="Validate and send recommendation" onClick={() => setDdOpsRecommendModal({ type: "Duplicate", partnerNote: "" })} />
                               <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>} label="Recommend Not Applicable to Partner" desc="Validate and send recommendation" onClick={() => setDdOpsRecommendModal({ type: "Not Applicable", partnerNote: "" })} />
