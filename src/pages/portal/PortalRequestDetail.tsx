@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getPortalRequests, partnerApproveRequest, partnerReworkRequest, partnerExceptionDecision, toExternalStatusInput } from "../../services/portalMockData";
 import type { PortalRequest } from "../../services/portalMockData";
-import { getExternalMessages, getWorkArtifactsByRequest, addWorkNote, addActivityEntry, updateRequestReturnReason } from "../../services/recapDataService";
+import { getExternalMessages, getWorkArtifactsByRequest, addWorkNote, addActivityEntry, updateRequestReturnReason, submitBlockerExternalResponse } from "../../services/recapDataService";
 import { getExternalStatusInfo, getStatusPillStyle } from "../../services/externalStatusMapping";
 import "./PortalOverview.css";
 
@@ -116,6 +116,122 @@ function InformationRequestedSection({ req, onResponseSubmitted }: { req: Portal
     );
 }
 
+function BlockerInformationRequestedSection({ req, onResponseSubmitted }: { req: PortalRequest; onResponseSubmitted: () => void }) {
+    const [response, setResponse] = useState("");
+    const [submitted, setSubmitted] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
+
+    const externalQuestion = req._blockerExternalQuestion || "DD Operations needs additional information to resolve a blocker.";
+    const questionAuthor = req.owner || "DD Operations";
+
+    function handleSubmit() {
+        if (!response.trim()) return;
+        const reqId = req.id || req.intakeId || "";
+
+        submitBlockerExternalResponse(reqId, response.trim());
+
+        addActivityEntry({
+            type: "Status Change",
+            description: `${req.requestId}: External partner responded to blocker information request.`,
+            userId: "external-partner",
+            userName: "External Partner",
+            requestId: req.requestId || req.id,
+            requestTitle: req.title || req.category || "",
+            transactionId: req.transactionId,
+            transactionName: req.transactionName || req.transactionId,
+        });
+
+        setSubmitted(true);
+        setShowConfirm(false);
+        onResponseSubmitted();
+    }
+
+    if (submitted) {
+        return (
+            <div style={{ marginBottom: 24, padding: "20px 24px", borderRadius: 12, border: "2px solid #bbf7d0", background: "#f0fdf4" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                    </div>
+                    <div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: "#166534" }}>Response Submitted</div>
+                        <div style={{ fontSize: 13, color: "#334155" }}>Your response was sent to IntegraCare. They will review it and provide further guidance to the contributor.</div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{ marginBottom: 24, padding: "20px 24px", borderRadius: 12, border: "2px solid #fed7aa", background: "#fff" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#fff7ed", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                </div>
+                <div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>Blocker — Information Needed</div>
+                    <div style={{ fontSize: 12, color: "#475569" }}>IntegraCare needs information from you to resolve a blocker on this request.</div>
+                </div>
+            </div>
+
+            {/* Blocker Reason */}
+            {req._blockerReason && (
+                <div style={{ marginBottom: 12, padding: "10px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#991b1b", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 4 }}>Blocker Reason</div>
+                    <div style={{ fontSize: 13, color: "#0f172a", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{req._blockerReason}</div>
+                </div>
+            )}
+
+            {/* Question */}
+            <div style={{ marginBottom: 16, padding: "12px 14px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6 }}>What's Needed</div>
+                <div style={{ fontSize: 13, color: "#0f172a", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                    {externalQuestion}
+                </div>
+                <div style={{ fontSize: 11, color: "#64748b", marginTop: 6 }}>
+                    Asked by {questionAuthor}
+                </div>
+            </div>
+
+            {/* Response Area */}
+            {!showConfirm ? (
+                <>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: "#334155", marginBottom: 6, display: "block" }}>Your Response <span style={{ color: "#dc2626" }}>*</span></label>
+                    <textarea
+                        value={response}
+                        onChange={e => setResponse(e.target.value)}
+                        placeholder="Provide the information requested above..."
+                        rows={4}
+                        style={{ width: "100%", padding: "10px 12px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a", marginBottom: 12 }}
+                    />
+                    <button
+                        className="rc-btn rc-btn-primary"
+                        disabled={!response.trim()}
+                        onClick={() => setShowConfirm(true)}
+                        style={{ padding: "10px 24px", fontSize: 14, fontWeight: 700 }}
+                    >
+                        Submit Response
+                    </button>
+                </>
+            ) : (
+                <div style={{ padding: "14px 16px", background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>Confirm Submission</div>
+                    <div style={{ fontSize: 12, color: "#334155", marginBottom: 10, lineHeight: 1.5 }}>
+                        Your response will be sent to IntegraCare for review. They will then provide guidance to the contributor to resolve the blocker.
+                    </div>
+                    <div style={{ padding: "8px 10px", background: "#fff", border: "1px solid #fed7aa", borderRadius: 6, fontSize: 12, color: "#92400e", marginBottom: 12 }}>
+                        <strong>Your Response:</strong><br />{response}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                        <button className="rc-btn rc-btn-ghost" onClick={() => setShowConfirm(false)}>Back</button>
+                        <button className="rc-btn rc-btn-primary" onClick={handleSubmit}>Confirm & Submit</button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 const EXTERNAL_LIFECYCLE = [
     { step: 1, key: "Submitted", label: "Submitted" },
     { step: 2, key: "Under Review", label: "Under Review" },
@@ -131,6 +247,7 @@ function getStepForStatus(status: string): number {
         case "Exception Review": return 2;
         case "Awaiting Your Review": return 3;
         case "Complete": return 4;
+        case "Blocker Information Requested": return 2;
         default: return 1;
     }
 }
@@ -224,6 +341,17 @@ function StatusBanners({ req, extInfo }: { req: { _partnerDecision?: string | nu
                     </div>
                     <div style={{ fontSize: 13, color: "#5b21b6", lineHeight: 1.5 }}>
                         IntegraCare has identified a potential exception for this request. Review the recommendation and decision options below.
+                    </div>
+                </div>
+            )}
+            {extInfo.status === "Blocker Information Requested" && (
+                <div style={{ marginBottom: 16, padding: "14px 18px", borderRadius: 10, border: "2px solid #fed7aa", background: "#fff7ed" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: "#d97706" }}>Blocker — Information Needed</span>
+                    </div>
+                    <div style={{ fontSize: 13, color: "#92400e", lineHeight: 1.5 }}>
+                        IntegraCare needs information from you to resolve a blocker on this request. Please respond using the form below.
                     </div>
                 </div>
             )}
@@ -503,6 +631,11 @@ export default function PortalRequestDetail() {
             {/* Information Requested Section */}
             {extInfo?.status === "Information Requested" && !isComplete && (
                 <InformationRequestedSection req={req} onResponseSubmitted={() => setRefreshKey(k => k + 1)} />
+            )}
+
+            {/* Blocker Information Requested Section */}
+            {extInfo?.status === "Blocker Information Requested" && !isComplete && (
+                <BlockerInformationRequestedSection req={req} onResponseSubmitted={() => setRefreshKey(k => k + 1)} />
             )}
 
             {/* Published Documents */}

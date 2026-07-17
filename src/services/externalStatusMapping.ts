@@ -5,6 +5,7 @@ export type ExternalStatus =
   | "Information Requested"
   | "Awaiting Your Review"
   | "Exception Review"
+  | "Blocker Information Requested"
   | "Complete";
 
 export interface ExternalStatusInfo {
@@ -18,17 +19,23 @@ export interface ExternalStatusInfo {
   completionMessage: string | null;
 }
 
-function getRecapStatus(req: { status: string; _exceptionRecommendation?: string | null; _exceptionDecision?: string | null; _publishedExternal?: boolean; _externalStatus?: string | null; _exceptionSentAt?: string | null; _publishedAt?: string | null; _workNotes?: Array<{ action?: string | null }> | null }): string {
+function getRecapStatus(req: { status: string; _exceptionRecommendation?: string | null; _exceptionDecision?: string | null; _publishedExternal?: boolean; _externalStatus?: string | null; _exceptionSentAt?: string | null; _publishedAt?: string | null; _workNotes?: Array<{ action?: string | null }> | null; _blockerStatus?: string | null; _blockerExternalQuestion?: string | null; _blockerExternalResponse?: string | null }): string {
     const status = req.status;
     const exceptionRec = req._exceptionRecommendation;
     const exceptionDec = req._exceptionDecision;
     const exceptionSent = req._exceptionSentAt;
     const publishedExt = req._publishedExternal || req._externalStatus === "Published External";
     const publishedAt = req._publishedAt;
+    const blockerStatus = req._blockerStatus;
 
     if (status === "Completed" || status === "Rejected") return "terminal-complete";
     if (status === "Closed" || status === "Closed / Duplicate" || status === "Closed / Not Applicable") return "terminal-complete";
     if (exceptionDec) return "terminal-complete";
+
+    // Blocker external help: partner owns next action
+    if (status === "Pending External" && blockerStatus === "Pending External") return "blocker-information-requested";
+    if (blockerStatus === "External Response Received") return "under-review";
+
     if (status === "Duplicate" || status === "Not Applicable") {
         if (exceptionSent) return "exception-review";
         return "under-review";
@@ -128,6 +135,16 @@ const STATUS_INFO: Record<string, ExternalStatusInfo> = {
     isTerminal: false,
     completionMessage: null,
   },
+  "blocker-information-requested": {
+    status: "Blocker Information Requested",
+    label: "Blocker Information Requested",
+    description: "IntegraCare needs additional information to resolve a blocker on this request.",
+    nextActionOwner: "External Partner",
+    externalActionRequired: true,
+    externalActionLabel: "Respond",
+    isTerminal: false,
+    completionMessage: null,
+  },
   "terminal-complete": {
     status: "Complete",
     label: "Complete",
@@ -140,7 +157,7 @@ const STATUS_INFO: Record<string, ExternalStatusInfo> = {
   },
 };
 
-export function getExternalStatusInfo(req: { status: string; _exceptionRecommendation?: string | null; _exceptionDecision?: string | null; _publishedExternal?: boolean; _externalStatus?: string | null; _exceptionSentAt?: string | null; _publishedAt?: string | null; _workNotes?: Array<{ action?: string | null }> | null }): ExternalStatusInfo {
+export function getExternalStatusInfo(req: { status: string; _exceptionRecommendation?: string | null; _exceptionDecision?: string | null; _publishedExternal?: boolean; _externalStatus?: string | null; _exceptionSentAt?: string | null; _publishedAt?: string | null; _workNotes?: Array<{ action?: string | null }> | null; _blockerStatus?: string | null; _blockerExternalQuestion?: string | null; _blockerExternalResponse?: string | null }): ExternalStatusInfo {
   const key = getRecapStatus(req);
   return STATUS_INFO[key] || STATUS_INFO["submitted"];
 }
@@ -174,6 +191,7 @@ export const STATUS_PILL_STYLES: Record<string, { bg: string; text: string; bord
   "Exception Review": { bg: "#ffffff", text: "#0f172a", border: "#c4b5fd" },
   "Complete": { bg: "#ffffff", text: "#0f172a", border: "#86efac" },
   "Blocked": { bg: "#ffffff", text: "#0f172a", border: "#fca5a5" },
+  "Blocker Information Requested": { bg: "#ffffff", text: "#0f172a", border: "#fca5a5" },
   "Duplicate": { bg: "#ffffff", text: "#0f172a", border: "#c4b5fd" },
   "Not Applicable": { bg: "#ffffff", text: "#0f172a", border: "#fcd34d" },
 };

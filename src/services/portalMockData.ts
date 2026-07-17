@@ -114,6 +114,10 @@ export interface PortalRequest {
     _partnerDecision?: string | null;
     _partnerNote?: string | null;
     _partnerActionAt?: string | null;
+    /** Blocker workflow fields */
+    _blockerReason?: string | null;
+    _blockerExternalQuestion?: string | null;
+    _blockerExternalResponse?: string | null;
 }
 
 export interface PortalQuestion {
@@ -285,6 +289,9 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
         _partnerDecision: req._partnerDecision ?? null,
         _partnerNote: req._partnerNote ?? null,
         _partnerActionAt: req._partnerActionAt ?? null,
+        _blockerReason: req._blockerReason ?? null,
+        _blockerExternalQuestion: req._blockerExternalQuestion ?? null,
+        _blockerExternalResponse: req._blockerExternalResponse ?? null,
     };
 }
 
@@ -300,6 +307,9 @@ export function toExternalStatusInput(req: PortalRequest) {
         _exceptionSentAt: req._exceptionSentAt,
         _publishedAt: req._publishedAt,
         _workNotes: req._workNotes,
+        _blockerStatus: req._rawStatus === "Pending External" ? "Pending External" : null,
+        _blockerExternalQuestion: req._blockerExternalQuestion,
+        _blockerExternalResponse: req._blockerExternalResponse,
     };
 }
 

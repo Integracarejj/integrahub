@@ -589,6 +589,216 @@ export function partnerReworkRequest(id: string, reason: string): RecapRequest |
     return pr;
 }
 
+/* ── Blocker Workflow ─────────────────────────────────────── */
+
+const DD_OPS_LEAD = "David Park";
+
+function patchRequest(id: string, patch: Partial<RecapRequest>): RecapRequest | undefined {
+    if (isDemoLoaded()) {
+        const result = Demo.updateDemoRequest(id, patch);
+        if (result) return result;
+        return updatePortalRequestById(id, patch);
+    }
+    const mockReq = Mock.getRequestById(id);
+    if (mockReq) {
+        Object.assign(mockReq, patch);
+        mockReq.lastUpdated = new Date().toISOString().split("T")[0];
+        return mockReq;
+    }
+    return updatePortalRequestById(id, patch);
+}
+
+export function blockRequest(id: string, reason: string, raisedBy: string): RecapRequest | undefined {
+    const now = new Date().toISOString();
+    const nowDate = now.split("T")[0];
+    const existing = getRequestById(id);
+    const prevNotes = existing?._workNotes || [];
+    const originalContributor = existing?.owner || raisedBy;
+    const wnEntry: WorkNoteEntry = {
+        id: `wn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text: `Blocker raised by ${raisedBy}. Reason: ${reason}`,
+        author: raisedBy,
+        timestamp: now,
+        action: "Blocked",
+    };
+    const patch: Partial<RecapRequest> = {
+        status: "Blocked" as RecapRequest["status"],
+        owner: DD_OPS_LEAD,
+        assignedTo: DD_OPS_LEAD,
+        _blockerReason: reason,
+        _blockerStatus: "Raised",
+        _blockerRaisedBy: originalContributor,
+        _blockerRaisedAt: now,
+        _blockerOwner: DD_OPS_LEAD,
+        _workNotes: [...prevNotes, wnEntry],
+        lastUpdated: nowDate,
+    };
+    const req = patchRequest(id, patch);
+    if (req) {
+        addActivityEntry({
+            type: "Status Change",
+            description: `${req.requestId}: Blocked by ${raisedBy}. Reason: ${reason}`,
+            userId: raisedBy,
+            userName: raisedBy,
+            requestId: req.id,
+            requestTitle: req.title,
+            transactionId: req.transactionId,
+            transactionName: req.transactionName,
+        });
+    }
+    return req;
+}
+
+export function resolveBlockerInternal(id: string, resolution: string, resolvedBy: string): RecapRequest | undefined {
+    const now = new Date().toISOString();
+    const nowDate = now.split("T")[0];
+    const existing = getRequestById(id);
+    const prevNotes = existing?._workNotes || [];
+    const wnEntry: WorkNoteEntry = {
+        id: `wn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text: resolution,
+        author: resolvedBy,
+        timestamp: now,
+        action: "Blocker Resolution",
+    };
+    const returnTo = existing?._blockerRaisedBy || existing?.owner || "Unknown";
+    const patch: Partial<RecapRequest> = {
+        status: "Needs Rework" as RecapRequest["status"],
+        owner: returnTo,
+        assignedTo: returnTo,
+        _blockerStatus: "Resolved",
+        _blockerResolution: resolution,
+        _returnReason: `Blocker resolved: ${resolution}`,
+        _returnedBy: resolvedBy,
+        _workNotes: [...prevNotes, wnEntry],
+        lastUpdated: nowDate,
+    };
+    const req = patchRequest(id, patch);
+    if (req) {
+        addActivityEntry({
+            type: "Status Change",
+            description: `${req.requestId}: Blocker resolved by ${resolvedBy}. Resolution: ${resolution}`,
+            userId: resolvedBy,
+            userName: resolvedBy,
+            requestId: req.id,
+            requestTitle: req.title,
+            transactionId: req.transactionId,
+            transactionName: req.transactionName,
+        });
+    }
+    return req;
+}
+
+export function requestExternalBlockerHelp(id: string, externalQuestion: string, requestedBy: string): RecapRequest | undefined {
+    const now = new Date().toISOString();
+    const nowDate = now.split("T")[0];
+    const existing = getRequestById(id);
+    const prevNotes = existing?._workNotes || [];
+    const wnEntry: WorkNoteEntry = {
+        id: `wn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text: `External blocker assistance requested: ${externalQuestion}`,
+        author: requestedBy,
+        timestamp: now,
+        action: "Blocker External Request",
+    };
+    const patch: Partial<RecapRequest> = {
+        status: "Pending External" as RecapRequest["status"],
+        _blockerStatus: "Pending External",
+        _blockerExternalQuestion: externalQuestion,
+        _workNotes: [...prevNotes, wnEntry],
+        lastUpdated: nowDate,
+    };
+    const req = patchRequest(id, patch);
+    if (req) {
+        addActivityEntry({
+            type: "Status Change",
+            description: `${req.requestId}: External blocker assistance requested by ${requestedBy}.`,
+            userId: requestedBy,
+            userName: requestedBy,
+            requestId: req.id,
+            requestTitle: req.title,
+            transactionId: req.transactionId,
+            transactionName: req.transactionName,
+        });
+    }
+    return req;
+}
+
+export function submitBlockerExternalResponse(id: string, response: string): RecapRequest | undefined {
+    const now = new Date().toISOString();
+    const nowDate = now.split("T")[0];
+    const existing = getRequestById(id);
+    const prevNotes = existing?._workNotes || [];
+    const wnEntry: WorkNoteEntry = {
+        id: `wn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text: response,
+        author: "External Partner",
+        timestamp: now,
+        action: "Blocker External Response",
+    };
+    const patch: Partial<RecapRequest> = {
+        status: "Blocked" as RecapRequest["status"],
+        _blockerStatus: "External Response Received",
+        _blockerExternalResponse: response,
+        _workNotes: [...prevNotes, wnEntry],
+        lastUpdated: nowDate,
+    };
+    const req = patchRequest(id, patch);
+    if (req) {
+        addActivityEntry({
+            type: "Status Change",
+            description: `${req.requestId}: External partner submitted blocker response.`,
+            userId: "portal",
+            userName: "External Partner",
+            requestId: req.id,
+            requestTitle: req.title,
+            transactionId: req.transactionId,
+            transactionName: req.transactionName,
+        });
+    }
+    return req;
+}
+
+export function returnBlockerGuidance(id: string, guidance: string, returnedBy: string): RecapRequest | undefined {
+    const now = new Date().toISOString();
+    const nowDate = now.split("T")[0];
+    const existing = getRequestById(id);
+    const prevNotes = existing?._workNotes || [];
+    const returnTo = existing?._blockerRaisedBy || existing?.owner || "Unknown";
+    const wnEntry: WorkNoteEntry = {
+        id: `wn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text: guidance,
+        author: returnedBy,
+        timestamp: now,
+        action: "Blocker Guidance",
+    };
+    const patch: Partial<RecapRequest> = {
+        status: "Needs Rework" as RecapRequest["status"],
+        owner: returnTo,
+        assignedTo: returnTo,
+        _blockerStatus: "Resolved",
+        _blockerResolution: guidance,
+        _returnReason: `Blocker guidance: ${guidance}`,
+        _returnedBy: returnedBy,
+        _workNotes: [...prevNotes, wnEntry],
+        lastUpdated: nowDate,
+    };
+    const req = patchRequest(id, patch);
+    if (req) {
+        addActivityEntry({
+            type: "Status Change",
+            description: `${req.requestId}: Blocker guidance returned to ${returnTo} by ${returnedBy}.`,
+            userId: returnedBy,
+            userName: returnedBy,
+            requestId: req.id,
+            requestTitle: req.title,
+            transactionId: req.transactionId,
+            transactionName: req.transactionName,
+        });
+    }
+    return req;
+}
+
 export function toggleExternalVisibility(id: string): RecapRequest | undefined {
     if (isDemoLoaded()) {
         const req = Demo.getDemoRequestById(id);

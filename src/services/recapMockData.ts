@@ -84,6 +84,15 @@ export interface RecapRequest {
     _archiveReason?: "Duplicate" | "Not Applicable" | "Cancelled" | "Closed" | null;
     _archivedAt?: string | null;
     _archivedBy?: string | null;
+    /** Blocker workflow fields */
+    _blockerReason?: string | null;
+    _blockerStatus?: "Raised" | "Pending External" | "External Response Received" | "Resolved" | null;
+    _blockerExternalQuestion?: string | null;
+    _blockerExternalResponse?: string | null;
+    _blockerRaisedBy?: string | null;
+    _blockerRaisedAt?: string | null;
+    _blockerResolution?: string | null;
+    _blockerOwner?: string | null;
 }
 
 export interface WorkNoteEntry {

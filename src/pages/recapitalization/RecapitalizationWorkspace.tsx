@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive, addExternalMessage, getExternalMessages, updateRequestNotMine, updateRequestReturnToOwner, updateRequestReturnReason, sendExceptionRecommendation } from "../../services/recapDataService";
+import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive, addExternalMessage, getExternalMessages, updateRequestNotMine, updateRequestReturnToOwner, updateRequestReturnReason, sendExceptionRecommendation, blockRequest, resolveBlockerInternal, requestExternalBlockerHelp } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact, WorkNoteEntry } from "../../services/recapDataService";
 import ClarificationThread, { getClarificationSummary } from "../../components/common/ClarificationThread";
 import RecapSubNav from "./RecapSubNav";
@@ -135,6 +135,8 @@ export default function RecapitalizationWorkspace() {
     const [clarifyResponseModal, setClarifyResponseModal] = useState<{ response: string } | null>(null);
     const [showClarificationHistory, setShowClarificationHistory] = useState(false);
     const [clarificationSupportModalOpen, setClarificationSupportModalOpen] = useState(false);
+    const [blockerExternalHelpModal, setBlockerExternalHelpModal] = useState<{ step: "input" | "confirm" | "completed"; externalQuestion: string } | null>(null);
+    const [blockerResolveModal, setBlockerResolveModal] = useState<{ step: "input" | "completed"; guidance: string } | null>(null);
     const [clarificationPath, setClarificationPath] = useState<"A" | "B" | null>(null);
     const [clarificationInternalResponse, setClarificationInternalResponse] = useState("");
     const [clarificationInternalNote, setClarificationInternalNote] = useState("");
@@ -907,15 +909,56 @@ function WorkflowStateCard({
                                 </div>
                                 <div style={{ flex: 1 }}>
                                   <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>Work Blocked</div>
-                                  <div style={{ fontSize: 13, color: "#475569", marginTop: 4, lineHeight: 1.5 }}>Waiting for DD Operations to review your blocker.</div>
-                                  {item._statusNotes && (
+                                  <div style={{ fontSize: 13, color: "#475569", marginTop: 4, lineHeight: 1.5 }}>
+                                    {item._blockerStatus === "Pending External"
+                                      ? "DD Operations has requested external help. Waiting for partner response."
+                                      : "DD Operations is reviewing your blocker."}
+                                  </div>
+                                  {item._blockerReason && (
                                     <div style={{ marginTop: 8, padding: "8px 12px", background: "rgba(255,255,255,0.7)", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b", lineHeight: 1.5 }}>
                                       <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>Blocker reason:</span>
-                                      {item._statusNotes}
+                                      {item._blockerReason}
+                                    </div>
+                                  )}
+                                  {item._blockerResolution && (
+                                    <div style={{ marginTop: 8, padding: "8px 12px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 6, fontSize: 12, color: "#166534", lineHeight: 1.5 }}>
+                                      <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>DD Operations guidance:</span>
+                                      {item._blockerResolution}
                                     </div>
                                   )}
                                 </div>
                               </div>
+                            </div>
+                          )}
+
+                          {/* Blocked info panel for DD Ops */}
+                          {displayStatus === "Blocked" && isDdOps && item._blockerStatus && item._blockerStatus !== "Raised" && (
+                            <div style={{ marginBottom: 24, padding: "16px 20px", borderRadius: 12, background: "#f8fafc", border: "2px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+                              <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>Blocker Status</div>
+                              {item._blockerReason && (
+                                <div style={{ marginBottom: 8, padding: "8px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b", lineHeight: 1.5 }}>
+                                  <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>Original blocker:</span>
+                                  {item._blockerReason}
+                                </div>
+                              )}
+                              {item._blockerExternalQuestion && (
+                                <div style={{ marginBottom: 8, padding: "8px 12px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, fontSize: 12, color: "#92400e", lineHeight: 1.5 }}>
+                                  <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>External question sent:</span>
+                                  {item._blockerExternalQuestion}
+                                </div>
+                              )}
+                              {item._blockerExternalResponse && (
+                                <div style={{ marginBottom: 8, padding: "8px 12px", background: "#f0f7ff", border: "1px solid #bfdbfe", borderRadius: 6, fontSize: 12, color: "#1e40af", lineHeight: 1.5 }}>
+                                  <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>External partner response:</span>
+                                  {item._blockerExternalResponse}
+                                </div>
+                              )}
+                              {item._blockerResolution && (
+                                <div style={{ padding: "8px 12px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 6, fontSize: 12, color: "#166534", lineHeight: 1.5 }}>
+                                  <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>Resolution:</span>
+                                  {item._blockerResolution}
+                                </div>
+                              )}
                             </div>
                           )}
 
@@ -1031,13 +1074,22 @@ function WorkflowStateCard({
                                 <div><div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Accept Work</div><div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Start working on this item</div></div>
                               </div>
                             )}
-                            {displayStatus === "Blocked" && (
-                              <div onClick={() => setResolutionPrompt({ note: "" })} style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bfdbfe", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
+                            {displayStatus === "Blocked" && isDdOps && (
+                              <div onClick={() => setBlockerResolveModal({ step: "input", guidance: "" })} style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bfdbfe", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
                                 onMouseEnter={e => { e.currentTarget.style.borderColor = "#3b82f6"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(37,99,235,0.1)"; }}
                                 onMouseLeave={e => { e.currentTarget.style.borderColor = "#bfdbfe"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}>
                                 <div style={{ width: 44, height: 44, borderRadius: 12, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg></div>
-                                <div><div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Resolve</div><div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Mark as resolved</div></div>
+                                <div><div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Resolve Blocker</div><div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Provide guidance to the contributor</div></div>
+                              </div>
+                            )}
+                            {displayStatus === "Blocked" && isDdOps && (
+                              <div onClick={() => setBlockerExternalHelpModal({ step: "input", externalQuestion: "" })} style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #fed7aa", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
+                                onMouseEnter={e => { e.currentTarget.style.borderColor = "#f59e0b"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(245,158,11,0.1)"; }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = "#fed7aa"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}>
+                                <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fffbeb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg></div>
+                                <div><div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Request External Help</div><div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Ask the external partner for information</div></div>
                               </div>
                             )}
                             {displayStatus === "In Progress" && (
@@ -2242,19 +2294,7 @@ function WorkflowStateCard({
                                 const reason = blockModal.reason.trim();
                                 if (!reason) return;
                                 const reqId = item.id || item.intakeId || "";
-                                updateRequestStatus(reqId, "Blocked" as RecapRequest["status"]);
-                                updateRequestStatusNotes(reqId, reason);
-                                addWorkNote(reqId, reason, currentUser, "Blocked");
-                                addActivityEntry({
-                                    type: "Status Change",
-                                    description: `${displayId}: Blocked. Reason: ${reason}`,
-                                    userId: "current-user",
-                                    userName: currentUser,
-                                    requestId: item.requestId || item.id,
-                                    requestTitle: displayTitle || item.category || "",
-                                    transactionId: item.transactionId,
-                                    transactionName: item.transactionName || item.transactionId,
-                                });
+                                blockRequest(reqId, reason, currentUser);
                                 setWsRefreshKey(k => k + 1);
                                 setBlockModal(null);
                                 setCompletionDialog("blocked");
@@ -2376,6 +2416,118 @@ function WorkflowStateCard({
                                 setResolutionPrompt(null);
                                 setCompletionDialog("resolved");
                             }}>Resolve Blocker</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* DD Ops: Resolve Blocker (Path A) */}
+            {blockerResolveModal && blockerResolveModal.step === "input" && (
+                <div className="rc-modal-overlay" onClick={() => setBlockerResolveModal(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+                        <div className="rc-modal-header">
+                            <h2>Resolve Blocker</h2>
+                            <button className="rc-modal-close" onClick={() => setBlockerResolveModal(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                <RequestIdentityBlock displayId={displayId} displayTitle={displayTitle || item.category || ""} />
+                                <div style={{ fontSize: 13, color: "#334155" }}>
+                                    Provide the contributor with the information or direction needed to continue work.
+                                </div>
+                                {item._blockerReason && (
+                                    <div style={{ padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b", lineHeight: 1.5 }}>
+                                        <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>Blocker reason:</span>
+                                        {item._blockerReason}
+                                    </div>
+                                )}
+                                {item._blockerExternalResponse && (
+                                    <div style={{ padding: "8px 10px", background: "#f0f7ff", border: "1px solid #bfdbfe", borderRadius: 6, fontSize: 12, color: "#1e40af", lineHeight: 1.5 }}>
+                                        <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>External partner response:</span>
+                                        {item._blockerExternalResponse}
+                                    </div>
+                                )}
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                                    Resolution / Guidance <span style={{ color: "#dc2626" }}>*</span>
+                                </label>
+                                <textarea
+                                    value={blockerResolveModal.guidance}
+                                    onChange={e => setBlockerResolveModal(prev => prev ? { ...prev, guidance: e.target.value } : null)}
+                                    placeholder="What information or direction does the contributor need to continue?"
+                                    rows={4}
+                                    style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
+                                />
+                                <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
+                                    This will send the request back to the contributor with your guidance. The request will leave Needs DD Review.
+                                </div>
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setBlockerResolveModal(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!blockerResolveModal.guidance.trim()} onClick={() => {
+                                const guidance = blockerResolveModal.guidance.trim();
+                                if (!guidance) return;
+                                const reqId = item.id || item.intakeId || "";
+                                resolveBlockerInternal(reqId, guidance, currentUser);
+                                setWsRefreshKey(k => k + 1);
+                                setBlockerResolveModal(null);
+                                setCompletionDialog("blocked");
+                            }}>Send to Contributor</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* DD Ops: Request External Help (Path B) */}
+            {blockerExternalHelpModal && blockerExternalHelpModal.step === "input" && (
+                <div className="rc-modal-overlay" onClick={() => setBlockerExternalHelpModal(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+                        <div className="rc-modal-header">
+                            <h2>Request External Help</h2>
+                            <button className="rc-modal-close" onClick={() => setBlockerExternalHelpModal(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                <RequestIdentityBlock displayId={displayId} displayTitle={displayTitle || item.category || ""} />
+                                <div style={{ fontSize: 13, color: "#334155" }}>
+                                    Send an external-facing request to the partner for information needed to resolve this blocker.
+                                </div>
+                                {item._blockerReason && (
+                                    <div style={{ padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b", lineHeight: 1.5 }}>
+                                        <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>Internal blocker context (not exposed externally):</span>
+                                        {item._blockerReason}
+                                    </div>
+                                )}
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                                    External-Facing Request <span style={{ color: "#dc2626" }}>*</span>
+                                </label>
+                                <textarea
+                                    value={blockerExternalHelpModal.externalQuestion}
+                                    onChange={e => setBlockerExternalHelpModal(prev => prev ? { ...prev, externalQuestion: e.target.value } : null)}
+                                    placeholder="What information do you need from the external partner?"
+                                    rows={4}
+                                    style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
+                                />
+                                <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
+                                    The external partner will see this request and be asked to respond. The request will remain blocked internally until they respond.
+                                </div>
+                                <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#92400e" }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                    DD Operations will review the external response before returning anything to the contributor.
+                                </div>
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setBlockerExternalHelpModal(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!blockerExternalHelpModal.externalQuestion.trim()} onClick={() => {
+                                const question = blockerExternalHelpModal.externalQuestion.trim();
+                                if (!question) return;
+                                const reqId = item.id || item.intakeId || "";
+                                requestExternalBlockerHelp(reqId, question, currentUser);
+                                setWsRefreshKey(k => k + 1);
+                                setBlockerExternalHelpModal(null);
+                                setCompletionDialog("blocked");
+                            }}>Send to External Partner</button>
                         </div>
                     </div>
                 </div>

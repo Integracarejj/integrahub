@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { getRequests, getTeamMembers, updateRequestStatus, updateRequestOwner, getDocuments, updateRequestReturnToOwner, getActivity, addActivityEntry, getWorkArtifactsByRequest, updateRequestStatusNotes, isDemoActive, sendExceptionRecommendation, clearExceptionFields } from "../../services/recapDataService";
+import { getRequests, getTeamMembers, updateRequestStatus, updateRequestOwner, getDocuments, updateRequestReturnToOwner, getActivity, addActivityEntry, getWorkArtifactsByRequest, updateRequestStatusNotes, isDemoActive, sendExceptionRecommendation, clearExceptionFields, resolveBlockerInternal, requestExternalBlockerHelp } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import "./Recapitalization.css";
@@ -20,7 +20,8 @@ export default function RecapitalizationDdOperations() {
     const [notePopup, setNotePopup] = useState<{ req: RecapRequest; note: string } | null>(null);
     const [artifactListModal, setArtifactListModal] = useState<{ req: RecapRequest; artifacts: WorkArtifact[] } | null>(null);
     const [archiveConfirm, setArchiveConfirm] = useState<{ req: RecapRequest } | null>(null);
-    const [resolveModal, setResolveModal] = useState<{ req: RecapRequest; note: string } | null>(null);
+    const [blockerResolveModal, setBlockerResolveModal] = useState<{ req: RecapRequest; guidance: string } | null>(null);
+    const [blockerExternalHelpModal, setBlockerExternalHelpModal] = useState<{ req: RecapRequest; externalQuestion: string } | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
     const [returnToTeam, setReturnToTeam] = useState<{ req: RecapRequest; reason: string } | null>(null);
     const members = getTeamMembers();
@@ -480,6 +481,23 @@ export default function RecapitalizationDdOperations() {
     /* ── Issue/Exception Badge ── */
     function IssueExceptionBadge({ req }: { req: RecapRequest }) {
         if (req.status === "Blocked") {
+            const blockerStatus = req._blockerStatus;
+            if (blockerStatus === "Pending External") {
+                return (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#fff7ed", color: "#0f172a", fontWeight: 600, border: "1px solid #fed7aa", whiteSpace: "nowrap", fontSize: 11 }}>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                        Blocked &mdash; Pending External
+                    </span>
+                );
+            }
+            if (blockerStatus === "External Response Received") {
+                return (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#eff6ff", color: "#0f172a", fontWeight: 600, border: "1px solid #bfdbfe", whiteSpace: "nowrap", fontSize: 11 }}>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
+                        Blocked &mdash; External Response
+                    </span>
+                );
+            }
             return (
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#fff", color: "#0f172a", fontWeight: 600, border: "1px solid #fca5a5", whiteSpace: "nowrap", fontSize: 11 }}>
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
@@ -614,13 +632,22 @@ export default function RecapitalizationDdOperations() {
                                         {req.owner && !req._needsReassignment && !req._misassignedReason ? (
                                             <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
                                                 {req.status === "Blocked" && (
-                                                    <button
-                                                        onClick={() => setResolveModal({ req, note: "" })}
-                                                        style={{ fontSize: 10, padding: "4px 12px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #5eead4", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                                                        title="Review and resolve blocker"
-                                                    >
-                                                        Review Blocker
-                                                    </button>
+                                                    <>
+                                                        <button
+                                                            onClick={() => setBlockerResolveModal({ req, guidance: "" })}
+                                                            style={{ fontSize: 10, padding: "4px 12px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #5eead4", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                                            title="Resolve blocker — provide guidance to contributor"
+                                                        >
+                                                            Resolve Blocker
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setBlockerExternalHelpModal({ req, externalQuestion: "" })}
+                                                            style={{ fontSize: 10, padding: "4px 12px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #fed7aa", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                                                            title="Request external partner help"
+                                                        >
+                                                            Request External Help
+                                                        </button>
+                                                    </>
                                                 )}
                                                 <button
                                                     onClick={() => setReturnToOwner({ req, reason: "" })}
@@ -1055,59 +1082,122 @@ export default function RecapitalizationDdOperations() {
                 </div>
             )}
 
-            {resolveModal && (
-                <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label="Resolve blocker" onClick={() => setResolveModal(null)}>
+            {blockerResolveModal && (
+                <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label="Resolve blocker" onClick={() => setBlockerResolveModal(null)}>
                     <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
                         <div className="rc-modal-header">
                             <h2>Resolve Blocker</h2>
-                            <button className="rc-modal-close" onClick={() => setResolveModal(null)} aria-label="Close">&times;</button>
+                            <button className="rc-modal-close" onClick={() => setBlockerResolveModal(null)} aria-label="Close">&times;</button>
                         </div>
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
                             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                                 <div style={{ fontSize: 14, color: "#1e293b", fontWeight: 500 }}>
-                                    Resolve blocker for <strong>{resolveModal.req.requestId}</strong> &mdash; {resolveModal.req.title.split(" - ").slice(1).join(" - ").trim() || resolveModal.req.title}
+                                    Provide guidance for <strong>{blockerResolveModal.req.requestId}</strong> &mdash; {blockerResolveModal.req.title.split(" - ").slice(1).join(" - ").trim() || blockerResolveModal.req.title}
                                 </div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#fff", border: "1px solid #fca5a5", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#991b1b" }}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
-                                    This will move the item to "In Progress" status.
+                                {blockerResolveModal.req._blockerReason && (
+                                    <div style={{ padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b" }}>
+                                        <strong>Blocker reason:</strong> {blockerResolveModal.req._blockerReason}
+                                    </div>
+                                )}
+                                <div style={{ fontSize: 12, color: "#475569" }}>
+                                    This will resolve the blocker and return the item to the contributor with your guidance.
                                 </div>
                                 <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
-                                    Resolution Note
+                                    Guidance for Contributor <span style={{ color: "#dc2626" }}>*</span>
                                 </label>
                                 <textarea
-                                    value={resolveModal.note}
-                                    onChange={e => setResolveModal(prev => prev ? { ...prev, note: e.target.value } : null)}
-                                    placeholder="Describe how the blocker was resolved..."
+                                    value={blockerResolveModal.guidance}
+                                    onChange={e => setBlockerResolveModal(prev => prev ? { ...prev, guidance: e.target.value } : null)}
+                                    placeholder="Explain how the blocker was resolved or what the contributor should do next..."
                                     rows={3}
                                     style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
                                 />
                             </div>
                         </div>
                         <div className="rc-modal-footer">
-                            <button className="rc-btn rc-btn-ghost" onClick={() => setResolveModal(null)}>Cancel</button>
-                            <button className="rc-btn rc-btn-primary" onClick={() => {
-                                const note = resolveModal.note.trim();
-                                updateRequestStatus(resolveModal.req.id, "In Progress" as RecapRequest["status"]);
-                                if (note) {
-                                    updateRequestStatusNotes(resolveModal.req.id, note);
-                                }
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setBlockerResolveModal(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!blockerResolveModal.guidance.trim()} onClick={() => {
+                                const guidance = blockerResolveModal.guidance.trim();
+                                if (!guidance) return;
+                                resolveBlockerInternal(blockerResolveModal.req.id, guidance, activeUser);
                                 addActivityEntry({
                                     type: "Status Change",
-                                    description: `${resolveModal.req.requestId}: Blocker resolved by ${activeUser}.${note ? ` Note: ${note}` : ""}`,
+                                    description: `${blockerResolveModal.req.requestId}: Blocker resolved by ${activeUser}. Guidance: ${guidance}`,
                                     userId: activeUser,
                                     userName: activeUser,
-                                    requestId: resolveModal.req.id,
-                                    requestTitle: resolveModal.req.title,
-                                    transactionId: resolveModal.req.transactionId,
-                                    transactionName: resolveModal.req.transactionName,
+                                    requestId: blockerResolveModal.req.id,
+                                    requestTitle: blockerResolveModal.req.title,
+                                    transactionId: blockerResolveModal.req.transactionId,
+                                    transactionName: blockerResolveModal.req.transactionName,
                                 });
                                 setSuccessMsg({
                                     title: "Blocker Resolved",
-                                    body: `${resolveModal.req.requestId} has been moved to In Progress.`,
+                                    body: `${blockerResolveModal.req.requestId} has been returned to the contributor with your guidance.`,
                                 });
-                                setResolveModal(null);
+                                setBlockerResolveModal(null);
                                 setRefreshKey(k => k + 1);
-                            }}>Resolve</button>
+                            }}>Resolve &amp; Return</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {blockerExternalHelpModal && (
+                <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label="Request external help" onClick={() => setBlockerExternalHelpModal(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+                        <div className="rc-modal-header">
+                            <h2>Request External Help</h2>
+                            <button className="rc-modal-close" onClick={() => setBlockerExternalHelpModal(null)} aria-label="Close">&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                <div style={{ fontSize: 14, color: "#1e293b", fontWeight: 500 }}>
+                                    Request information from external partner for <strong>{blockerExternalHelpModal.req.requestId}</strong> &mdash; {blockerExternalHelpModal.req.title.split(" - ").slice(1).join(" - ").trim() || blockerExternalHelpModal.req.title}
+                                </div>
+                                {blockerExternalHelpModal.req._blockerReason && (
+                                    <div style={{ padding: "8px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b" }}>
+                                        <strong>Blocker reason:</strong> {blockerExternalHelpModal.req._blockerReason}
+                                    </div>
+                                )}
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#fffbeb", border: "1px solid #fed7aa", borderRadius: 6, fontSize: 12, fontWeight: 500, color: "#92400e" }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                    This will send a request to the external partner and move the item to "Pending External" status.
+                                </div>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                                    Request to External Partner <span style={{ color: "#dc2626" }}>*</span>
+                                </label>
+                                <textarea
+                                    value={blockerExternalHelpModal.externalQuestion}
+                                    onChange={e => setBlockerExternalHelpModal(prev => prev ? { ...prev, externalQuestion: e.target.value } : null)}
+                                    placeholder="Describe what information you need from the external partner..."
+                                    rows={3}
+                                    style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", outline: "none", color: "#0f172a" }}
+                                />
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setBlockerExternalHelpModal(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!blockerExternalHelpModal.externalQuestion.trim()} onClick={() => {
+                                const question = blockerExternalHelpModal.externalQuestion.trim();
+                                if (!question) return;
+                                requestExternalBlockerHelp(blockerExternalHelpModal.req.id, question, activeUser);
+                                addActivityEntry({
+                                    type: "Status Change",
+                                    description: `${blockerExternalHelpModal.req.requestId}: External help requested by ${activeUser}. Question: ${question}`,
+                                    userId: activeUser,
+                                    userName: activeUser,
+                                    requestId: blockerExternalHelpModal.req.id,
+                                    requestTitle: blockerExternalHelpModal.req.title,
+                                    transactionId: blockerExternalHelpModal.req.transactionId,
+                                    transactionName: blockerExternalHelpModal.req.transactionName,
+                                });
+                                setSuccessMsg({
+                                    title: "External Help Requested",
+                                    body: `${blockerExternalHelpModal.req.requestId} has been sent to the external partner.`,
+                                });
+                                setBlockerExternalHelpModal(null);
+                                setRefreshKey(k => k + 1);
+                            }}>Send to External Partner</button>
                         </div>
                     </div>
                 </div>
