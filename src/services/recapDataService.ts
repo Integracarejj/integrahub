@@ -374,6 +374,10 @@ export function updateRequestCompletion(id: string, data: { completedBy: string;
 }
 
 export function updateRequestReturnToOwner(id: string, reason: string, returnedBy: string): RecapRequest | undefined {
+    const existing = getRequestById(id);
+    if (existing && existing._blockerStatus && existing._blockerStatus !== "Resolved" && existing.status === "Blocked") {
+        return existing;
+    }
     const wnEntry: WorkNoteEntry = {
         id: `wn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         text: reason,
@@ -382,7 +386,6 @@ export function updateRequestReturnToOwner(id: string, reason: string, returnedB
         action: "Returned to Owner",
     };
     let req: RecapRequest | undefined;
-    const existing = getRequestById(id);
     const prevNotes = existing?._workNotes || [];
     if (isDemoLoaded()) {
         req = Demo.updateDemoRequest(id, {

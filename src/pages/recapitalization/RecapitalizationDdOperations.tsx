@@ -40,7 +40,7 @@ export default function RecapitalizationDdOperations() {
     const kpiReadyToPublish = useMemo(() => workItems.filter(r => r.status === "Complete" && r._externalStatus !== "Published External").length, [workItems]);
     const kpiExceptions = useMemo(() => workItems.filter(r => (r.status === "Duplicate" || r.status === "Not Applicable") && !r._exceptionSentAt).length, [workItems]);
     const kpiPublishedExternal = useMemo(() => workItems.filter(r => r._externalStatus === "Published External" && (!r._partnerDecision || r._partnerDecision === "Approved") && !r._exceptionSentAt).length, [workItems]);
-    const kpiPartnerActionRequired = useMemo(() => workItems.filter(r => ((r._externalStatus === "Published External" && r._partnerDecision && r._partnerDecision !== "Rework Required") || r._exceptionDecision || (r._exceptionSentAt && !r._exceptionDecision)) && r.status !== "Completed").length, [workItems]);
+    const kpiPartnerActionRequired = useMemo(() => workItems.filter(r => ((r._externalStatus === "Published External" && r._partnerDecision && r._partnerDecision !== "Rework Required") || r._exceptionDecision || (r._exceptionSentAt && !r._exceptionDecision) || r._blockerStatus === "Pending External") && r.status !== "Completed").length, [workItems]);
     const kpiUpdatedToday = useMemo(() => {
         const today = new Date().toISOString().split("T")[0];
         return workItems.filter(r => r.lastUpdated === today).length;
@@ -90,7 +90,7 @@ export default function RecapitalizationDdOperations() {
 
     const partnerActionItems = useMemo(() => {
         return workItems
-            .filter(r => ((r._externalStatus === "Published External" && r._partnerDecision && r._partnerDecision !== "Rework Required") || r._exceptionDecision || (r._exceptionSentAt && !r._exceptionDecision)) && r.status !== "Completed")
+            .filter(r => ((r._externalStatus === "Published External" && r._partnerDecision && r._partnerDecision !== "Rework Required") || r._exceptionDecision || (r._exceptionSentAt && !r._exceptionDecision) || r._blockerStatus === "Pending External") && r.status !== "Completed")
             .sort((a, b) => {
                 const aDate = a.lastUpdated || "";
                 const bDate = b.lastUpdated || "";
@@ -599,27 +599,35 @@ export default function RecapitalizationDdOperations() {
                                     <td><PriorityBadge priority={req.priority} /></td>
                                     <td onClick={e => e.stopPropagation()}>
                                         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                                <select
-                                                    aria-label={`Status for ${req.requestId}`}
-                                                    value={req.status}
-                                                    onChange={e => {
-                                                        const newStatus = e.target.value;
-                                                        if (newStatus !== req.status) {
-                                                            if (newStatus === "Complete" && !hasDocuments(req)) {
-                                                                setArtifactWarning({ req, newStatus });
-                                                            } else {
-                                                                setStatusConfirm({ req, newStatus });
+                                            {req.status === "Blocked" ? (
+                                                <div><IssueExceptionBadge req={req} /></div>
+                                            ) : (
+                                                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                                    <select
+                                                        aria-label={`Status for ${req.requestId}`}
+                                                        value={req.status}
+                                                        onChange={e => {
+                                                            const newStatus = e.target.value;
+                                                            if (newStatus !== req.status) {
+                                                                if (newStatus === "Complete" && !hasDocuments(req)) {
+                                                                    setArtifactWarning({ req, newStatus });
+                                                                } else {
+                                                                    setStatusConfirm({ req, newStatus });
+                                                                }
                                                             }
-                                                        }
-                                                    }}
-                                                    style={{ fontSize: 10, padding: "2px 14px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 85, cursor: "pointer", border: "1px solid #d1d5db" }}
-                                                >
-                                                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                                                </select>
-                                            </div>
-                                            <div><IssueExceptionBadge req={req} /></div>
-                                            {getRequestNote(req) && (
+                                                        }}
+                                                        style={{ fontSize: 10, padding: "2px 14px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 85, cursor: "pointer", border: "1px solid #d1d5db" }}
+                                                    >
+                                                        {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                                                    </select>
+                                                </div>
+                                            )}
+                                            {req.status === "Blocked" && req._blockerReason && (
+                                                <span style={{ fontSize: 9, color: "#64748b", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={req._blockerReason}>
+                                                    &ldquo;{req._blockerReason.length > 60 ? req._blockerReason.slice(0, 60) + "..." : req._blockerReason}&rdquo;
+                                                </span>
+                                            )}
+                                            {req.status !== "Blocked" && getRequestNote(req) && (
                                                 <span style={{ fontSize: 9, color: "#64748b", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={getRequestNote(req) || ""}>
                                                     {getRequestNote(req)!.slice(0, 80)}{getRequestNote(req)!.length > 80 ? "..." : ""}
                                                 </span>
@@ -684,24 +692,35 @@ export default function RecapitalizationDdOperations() {
                                     <td style={{ fontSize: 12, color: "#475569" }}>{req.communityNames[0] || "\u2014"}</td>
                                     <td><PriorityBadge priority={req.priority} /></td>
                                     <td onClick={e => e.stopPropagation()}>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                            <select
-                                                aria-label={`Status for ${req.requestId}`}
-                                                value={req.status}
-                                                onChange={e => {
-                                                    const newStatus = e.target.value;
-                                                    if (newStatus !== req.status) {
-                                                        if (newStatus === "Complete" && !hasDocuments(req)) {
-                                                            setArtifactWarning({ req, newStatus });
-                                                        } else {
-                                                            setStatusConfirm({ req, newStatus });
-                                                        }
-                                                    }
-                                                }}
-                                                style={{ fontSize: 10, padding: "2px 14px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 85, cursor: "pointer", border: "1px solid #d1d5db", width: "100%" }}
-                                            >
-                                                {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                                            </select>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                            {req.status === "Blocked" ? (
+                                                <div><IssueExceptionBadge req={req} /></div>
+                                            ) : (
+                                                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                                    <select
+                                                        aria-label={`Status for ${req.requestId}`}
+                                                        value={req.status}
+                                                        onChange={e => {
+                                                            const newStatus = e.target.value;
+                                                            if (newStatus !== req.status) {
+                                                                if (newStatus === "Complete" && !hasDocuments(req)) {
+                                                                    setArtifactWarning({ req, newStatus });
+                                                                } else {
+                                                                    setStatusConfirm({ req, newStatus });
+                                                                }
+                                                            }
+                                                        }}
+                                                        style={{ fontSize: 10, padding: "2px 14px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 85, cursor: "pointer", border: "1px solid #d1d5db", width: "100%" }}
+                                                    >
+                                                        {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                                                    </select>
+                                                </div>
+                                            )}
+                                            {req.status === "Blocked" && req._blockerReason && (
+                                                <span style={{ fontSize: 9, color: "#64748b", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={req._blockerReason}>
+                                                    &ldquo;{req._blockerReason.length > 60 ? req._blockerReason.slice(0, 60) + "..." : req._blockerReason}&rdquo;
+                                                </span>
+                                            )}
                                         </div>
                                     </td>
                                     <td><ExternalStatus req={req} /></td>

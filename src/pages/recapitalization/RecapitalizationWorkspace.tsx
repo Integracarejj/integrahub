@@ -712,6 +712,74 @@ function WorkflowStateCard({
                     {(!isTerminal || (!isDdOps && displayStatus === "Complete")) && !exceptionSentToPartner && (
                     <>
                     {isDdOps ? (
+                      displayStatus === "Blocked" ? (
+                        <div style={{ padding: "0 32px 24px" }}>
+                          <div style={{ border: "2px solid #e2e8f0", borderRadius: 16, padding: 28, background: "linear-gradient(135deg, #fef2f2 0%, #f8fafc 100%)", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>Blocker Review</div>
+                            <div style={{ fontSize: 14, color: "#475569", marginBottom: 24 }}>Review the blocker and decide how to move the work forward.</div>
+
+                            {item._blockerReason && (
+                              <div style={{ marginBottom: 8, padding: "8px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b", lineHeight: 1.5 }}>
+                                <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>Blocker reason:</span>
+                                {item._blockerReason}
+                              </div>
+                            )}
+                            <div style={{ marginBottom: 8, fontSize: 12, color: "#475569" }}>
+                              <span style={{ fontWeight: 600 }}>Raised by:</span> {item._blockerRaisedBy || "Unknown"}
+                              {item._blockerRaisedAt && <span style={{ marginLeft: 12 }}>{new Date(item._blockerRaisedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>}
+                            </div>
+                            <div style={{ marginBottom: 12, fontSize: 12, color: "#475569" }}>
+                              <span style={{ fontWeight: 600 }}>Current action owner:</span> DD Operations
+                            </div>
+                            {item._blockerExternalQuestion && (
+                              <div style={{ marginBottom: 8, padding: "8px 12px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, fontSize: 12, color: "#92400e", lineHeight: 1.5 }}>
+                                <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>External question sent:</span>
+                                {item._blockerExternalQuestion}
+                              </div>
+                            )}
+                            {item._blockerExternalResponse && (
+                              <div style={{ marginBottom: 8, padding: "8px 12px", background: "#f0f7ff", border: "1px solid #bfdbfe", borderRadius: 6, fontSize: 12, color: "#1e40af", lineHeight: 1.5 }}>
+                                <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>External partner response:</span>
+                                {item._blockerExternalResponse}
+                              </div>
+                            )}
+
+                            <div style={{ display: "flex", gap: 16, marginBottom: 28 }}>
+                              <div onClick={() => setBlockerResolveModal({ step: "input", guidance: "" })} style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bfdbfe", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
+                                onMouseEnter={e => { e.currentTarget.style.borderColor = "#3b82f6"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(37,99,235,0.1)"; }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = "#bfdbfe"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}>
+                                <div style={{ width: 44, height: 44, borderRadius: 12, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                                </div>
+                                <div><div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Resolve Blocker</div><div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Provide guidance to the contributor</div></div>
+                              </div>
+                              <div onClick={() => setBlockerExternalHelpModal({ step: "input", externalQuestion: "" })} style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #fed7aa", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
+                                onMouseEnter={e => { e.currentTarget.style.borderColor = "#f59e0b"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(245,158,11,0.1)"; }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = "#fed7aa"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}>
+                                <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fffbeb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                </div>
+                                <div><div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Request External Help</div><div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Ask the external partner for information</div></div>
+                              </div>
+                            </div>
+
+                            <div style={{ marginBottom: 14 }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 12 }}>Other Actions</div>
+                              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                                <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>} label="Reassign Owner" desc="Change the current owner" onClick={() => { const el = document.getElementById("ws-owner-select"); if (el) { (el as HTMLSelectElement).focus(); (el as HTMLSelectElement).click(); }}} />
+                              </div>
+                            </div>
+
+                          {actionFeedback && (
+                            <div style={{ padding: "8px 12px", marginTop: 8, borderRadius: 8, background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                              <span style={{ flex: 1 }}>{actionFeedback}</span>
+                              <button style={{ background: "none", border: "none", color: "#166534", cursor: "pointer", fontSize: 16, fontWeight: 700, padding: 0, lineHeight: 1 }} onClick={() => setActionFeedback(null)}>&times;</button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      ) : (
                       <div style={{ padding: "0 32px 24px" }}>
                         <div style={{ border: "2px solid #dbeafe", borderRadius: 16, padding: 28, background: "linear-gradient(135deg, #faf5ff 0%, #f0f7ff 100%)", boxShadow: "0 2px 12px rgba(37,99,235,0.06)" }}>
                           <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>DD Operations Review</div>
@@ -860,6 +928,7 @@ function WorkflowStateCard({
                           )}
                         </div>
                       </div>
+                      )
                     ) : (
                       <div style={{ padding: "0 32px 24px" }}>
                         <div style={{ border: "2px solid #dbeafe", borderRadius: 16, padding: 28, background: "linear-gradient(135deg, #f8faff 0%, #f0f7ff 100%)", boxShadow: "0 2px 12px rgba(37,99,235,0.06)" }}>
@@ -933,47 +1002,6 @@ function WorkflowStateCard({
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                          )}
-
-                          {/* Blocker Review panel — DD Ops */}
-                          {displayStatus === "Blocked" && isDdOps && (
-                            <div style={{ marginBottom: 24, padding: "16px 20px", borderRadius: 12, background: "#f8fafc", border: "2px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-                              <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>Blocker Review</div>
-                              <div style={{ fontSize: 13, color: "#475569", marginBottom: 12, lineHeight: 1.5 }}>
-                                Review the blocker and choose how to move the work forward.
-                              </div>
-                              {item._blockerReason && (
-                                <div style={{ marginBottom: 8, padding: "8px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#991b1b", lineHeight: 1.5 }}>
-                                  <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>Blocker reason:</span>
-                                  {item._blockerReason}
-                                </div>
-                              )}
-                              <div style={{ marginBottom: 8, fontSize: 12, color: "#475569" }}>
-                                <span style={{ fontWeight: 600 }}>Raised by:</span> {item._blockerRaisedBy || "Unknown"}
-                                {item._blockerRaisedAt && <span style={{ marginLeft: 12 }}>{new Date(item._blockerRaisedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>}
-                              </div>
-                              <div style={{ marginBottom: 8, fontSize: 12, color: "#475569" }}>
-                                <span style={{ fontWeight: 600 }}>Current action owner:</span> DD Operations
-                              </div>
-                              {item._blockerExternalQuestion && (
-                                <div style={{ marginBottom: 8, padding: "8px 12px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, fontSize: 12, color: "#92400e", lineHeight: 1.5 }}>
-                                  <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>External question sent:</span>
-                                  {item._blockerExternalQuestion}
-                                </div>
-                              )}
-                              {item._blockerExternalResponse && (
-                                <div style={{ marginBottom: 8, padding: "8px 12px", background: "#f0f7ff", border: "1px solid #bfdbfe", borderRadius: 6, fontSize: 12, color: "#1e40af", lineHeight: 1.5 }}>
-                                  <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>External partner response:</span>
-                                  {item._blockerExternalResponse}
-                                </div>
-                              )}
-                              {item._blockerResolution && (
-                                <div style={{ padding: "8px 12px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 6, fontSize: 12, color: "#166534", lineHeight: 1.5 }}>
-                                  <span style={{ fontWeight: 700, display: "block", marginBottom: 2 }}>Resolution:</span>
-                                  {item._blockerResolution}
-                                </div>
-                              )}
                             </div>
                           )}
 
@@ -1087,24 +1115,6 @@ function WorkflowStateCard({
                                 <div style={{ width: 44, height: 44, borderRadius: 12, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3" /></svg></div>
                                 <div><div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Accept Work</div><div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Start working on this item</div></div>
-                              </div>
-                            )}
-                            {displayStatus === "Blocked" && isDdOps && (
-                              <div onClick={() => setBlockerResolveModal({ step: "input", guidance: "" })} style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bfdbfe", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
-                                onMouseEnter={e => { e.currentTarget.style.borderColor = "#3b82f6"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(37,99,235,0.1)"; }}
-                                onMouseLeave={e => { e.currentTarget.style.borderColor = "#bfdbfe"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}>
-                                <div style={{ width: 44, height: 44, borderRadius: 12, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg></div>
-                                <div><div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Resolve Blocker</div><div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Provide guidance to the contributor</div></div>
-                              </div>
-                            )}
-                            {displayStatus === "Blocked" && isDdOps && (
-                              <div onClick={() => setBlockerExternalHelpModal({ step: "input", externalQuestion: "" })} style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #fed7aa", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
-                                onMouseEnter={e => { e.currentTarget.style.borderColor = "#f59e0b"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(245,158,11,0.1)"; }}
-                                onMouseLeave={e => { e.currentTarget.style.borderColor = "#fed7aa"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}>
-                                <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fffbeb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg></div>
-                                <div><div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Request External Help</div><div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Ask the external partner for information</div></div>
                               </div>
                             )}
                             {displayStatus === "In Progress" && (

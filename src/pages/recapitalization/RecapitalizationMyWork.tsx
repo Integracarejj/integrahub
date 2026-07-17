@@ -82,7 +82,7 @@ export default function RecapitalizationMyWork() {
 
     const waitingOnDDOps = useMemo(() => {
         return workItems
-            .filter(r => r.status === "Blocked" && r._blockerRaisedBy === activeUser)
+            .filter(r => (r.status === "Blocked" || r.status === "Pending External") && r._blockerRaisedBy === activeUser)
             .sort((a, b) => {
                 const aDate = a.lastUpdated || "";
                 const bDate = b.lastUpdated || "";
