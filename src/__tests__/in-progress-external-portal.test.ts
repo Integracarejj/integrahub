@@ -184,13 +184,13 @@ describe('In Progress external portal', () => {
         expect(extInfo.status).toBe('Information Requested');
     });
 
-    it('13: External blocker mapping remains unchanged', () => {
+    it('13: External blocker response returns to In Progress', () => {
         const req = buildRequest({
             status: 'Pending External',
             _blockerStatus: 'External Response Received',
         });
         const extInfo = getExternalStatusInfo(req);
-        expect(extInfo.status).toBe('Under Review');
+        expect(extInfo.status).toBe('In Progress');
     });
 
     it('14: Approval and Complete mapping remain unchanged', () => {
@@ -245,8 +245,150 @@ describe('In Progress external portal', () => {
         expect(visibleCount).toBe(2);
     });
 
-    it('20: In Progress appears in status pill styles', () => {
+    it('20: In Progress appears in status pill styles with gold treatment', () => {
         expect(STATUS_PILL_STYLES).toHaveProperty('In Progress');
-        expect(STATUS_PILL_STYLES['In Progress'].border).toBe('#93c5fd');
+        expect(STATUS_PILL_STYLES['In Progress'].border).toBe('#d4a937');
+        expect(STATUS_PILL_STYLES['In Progress'].bg).toBe('#fffbeb');
+        expect(STATUS_PILL_STYLES['In Progress'].text).toBe('#92400e');
+    });
+
+    // ── Sticky In Progress: internal blocker does NOT revert external status ──
+
+    it('21: internal Blocked status stays In Progress externally', () => {
+        const req = buildRequest({
+            status: 'Blocked',
+            _blockerStatus: 'Raised',
+            _blockerReason: 'Need clarification on lease terms',
+            _blockerRaisedBy: 'Sarah Chen',
+        });
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.status).toBe('In Progress');
+    });
+
+    it('22: Blocked without explicit blocker fields stays In Progress', () => {
+        const req = buildRequest({ status: 'Blocked' });
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.status).toBe('In Progress');
+    });
+
+    it('23: external blocker response returns to In Progress (not Under Review)', () => {
+        const req = buildRequest({
+            status: 'Pending External',
+            _blockerStatus: 'External Response Received',
+        });
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.status).toBe('In Progress');
+    });
+
+    it('24: In Progress → Blocked → External Response → In Progress cycle', () => {
+        const step1 = buildRequest({ status: 'In Progress' });
+        expect(getExternalStatusInfo(step1).status).toBe('In Progress');
+
+        const step2 = buildRequest({ status: 'Blocked', _blockerStatus: 'Raised' });
+        expect(getExternalStatusInfo(step2).status).toBe('In Progress');
+
+        const step3 = buildRequest({ status: 'Pending External', _blockerStatus: 'Pending External' });
+        expect(getExternalStatusInfo(step3).status).toBe('Blocker Information Requested');
+
+        const step4 = buildRequest({ status: 'Pending External', _blockerStatus: 'External Response Received' });
+        expect(getExternalStatusInfo(step4).status).toBe('In Progress');
+
+        const step5 = buildRequest({ status: 'In Progress' });
+        expect(getExternalStatusInfo(step5).status).toBe('In Progress');
+    });
+
+    it('25: clarification requested supersedes In Progress', () => {
+        const req = buildRequest({
+            status: 'Clarification Needed',
+            _workNotes: [{
+                id: 'wn-1',
+                text: 'What is the revenue?',
+                author: 'David Park',
+                timestamp: new Date().toISOString(),
+                action: 'Clarification External Question',
+            }],
+        });
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.status).toBe('Information Requested');
+    });
+
+    it('26: published + rework required supersedes In Progress', () => {
+        const req = buildRequest({
+            status: 'Needs Rework',
+            _publishedExternal: true,
+        });
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.status).toBe('Rework Review');
+    });
+
+    it('27: published + awaiting review supersedes In Progress', () => {
+        const req = buildRequest({
+            status: 'In Progress',
+            _publishedExternal: true,
+        });
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.status).toBe('Awaiting Your Review');
+    });
+
+    it('28: completed supersedes In Progress', () => {
+        const req = buildRequest({ status: 'Completed' });
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.status).toBe('Complete');
+    });
+
+    it('29: Blocker Information Requested supersedes In Progress', () => {
+        const req = buildRequest({
+            status: 'Pending External',
+            _blockerStatus: 'Pending External',
+            _blockerExternalQuestion: 'What documents are needed?',
+        });
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.status).toBe('Blocker Information Requested');
+    });
+
+    it('30: Open status remains Under Review (never accepted)', () => {
+        const req = buildRequest({ status: 'Open' });
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.status).toBe('Under Review');
+    });
+
+    it('31: Assigned status remains Under Review (never accepted)', () => {
+        const req = buildRequest({ status: 'Assigned' });
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.status).toBe('Under Review');
+    });
+
+    it('32: In Progress count includes Blocked requests (sticky rule)', () => {
+        const requests = [
+            buildRequest({ id: 'r1', status: 'In Progress' }),
+            buildRequest({ id: 'r2', status: 'Blocked', _blockerStatus: 'Raised' }),
+            buildRequest({ id: 'r3', status: 'Open' }),
+        ];
+        const statuses = requests.map(r => getExternalStatusInfo(r));
+        const inProgressCount = statuses.filter(s => s.status === 'In Progress').length;
+        expect(inProgressCount).toBe(2);
+    });
+
+    it('33: Under Review count excludes Blocked requests (sticky rule)', () => {
+        const requests = [
+            buildRequest({ id: 'r1', status: 'In Progress' }),
+            buildRequest({ id: 'r2', status: 'Blocked', _blockerStatus: 'Raised' }),
+            buildRequest({ id: 'r3', status: 'Open' }),
+        ];
+        const statuses = requests.map(r => getExternalStatusInfo(r));
+        const underReviewCount = statuses.filter(s => s.status === 'Under Review').length;
+        expect(underReviewCount).toBe(1);
+    });
+
+    it('34: External partner response after blocker is In Progress, not Under Review', () => {
+        const req = buildRequest({
+            status: 'Pending External',
+            _blockerStatus: 'External Response Received',
+            _blockerExternalResponse: 'Attached the requested documents.',
+        });
+        const extInfo = getExternalStatusInfo(req);
+        expect(extInfo.status).toBe('In Progress');
+        expect(extInfo.nextActionOwner).toBe('IntegraCare');
+        expect(extInfo.externalActionRequired).toBe(false);
     });
 });

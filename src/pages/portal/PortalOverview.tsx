@@ -436,8 +436,8 @@ export default function PortalOverview() {
                     </div>
                 )}
                 {inProgressCount > 0 && (
-                    <div className={`po-stat-card${dashboardFilterStatus === "In Progress" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer", border: "2px solid #93c5fd" }} onClick={() => { setDashboardFilterStatus("In Progress"); setDashboardFilterCategory("all"); }}>
-                        <span className="po-stat-value" style={{ color: "#1e40af" }}>{inProgressCount}</span>
+                    <div className={`po-stat-card${dashboardFilterStatus === "In Progress" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer", border: "2px solid #d4a937" }} onClick={() => { setDashboardFilterStatus("In Progress"); setDashboardFilterCategory("all"); }}>
+                        <span className="po-stat-value" style={{ color: "#a16207" }}>{inProgressCount}</span>
                         <span className="po-stat-label">In Progress</span>
                         <span className="po-stat-helper">{STAT_HELPERS["In Progress"]}</span>
                     </div>

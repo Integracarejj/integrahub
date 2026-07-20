@@ -134,7 +134,7 @@ describe('Grid / Action Gating', () => {
         expect(req.status).toBe('Blocked');
         expect(req._blockerStatus).toBe('Raised');
         const info = getExternalStatusInfo(toExternalInput(req));
-        expect(info.status).toBe('Under Review');
+        expect(info.status).toBe('In Progress');
     });
 
     it('2: active blocked row does not expose inline Resolve Blocker', () => {

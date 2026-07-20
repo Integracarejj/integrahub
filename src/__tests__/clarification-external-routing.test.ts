@@ -342,7 +342,7 @@ describe('TEST 6 — Other workflows unchanged', () => {
         expect(isReturnedToContributor(req)).toBe(true);
 
         const extInfo = getExternalStatusInfo(req);
-        expect(extInfo.status).toBe('Under Review');
+        expect(extInfo.status).toBe('In Progress');
     });
 
     it('Duplicate status works independently', () => {
