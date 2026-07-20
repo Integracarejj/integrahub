@@ -73,6 +73,7 @@ export default function PortalOverview() {
     const portalStatuses = portalRequests.map(r => getExternalStatusInfo(toExternalStatusInput(r)));
     const submittedCount = portalStatuses.filter(s => s.status === "Submitted").length;
     const underReviewCount = portalStatuses.filter(s => s.status === "Under Review").length;
+    const inProgressCount = portalStatuses.filter(s => s.status === "In Progress").length;
     const infoRequestedCount = portalStatuses.filter(s => s.status === "Information Requested").length;
     const awaitingReviewCount = portalStatuses.filter(s => s.status === "Awaiting Your Review").length;
     const exceptionReviewCount = portalStatuses.filter(s => s.status === "Exception Review").length;
@@ -434,6 +435,13 @@ export default function PortalOverview() {
                         <span className="po-stat-helper">{STAT_HELPERS["Under Review"]}</span>
                     </div>
                 )}
+                {inProgressCount > 0 && (
+                    <div className={`po-stat-card${dashboardFilterStatus === "In Progress" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer", border: "2px solid #93c5fd" }} onClick={() => { setDashboardFilterStatus("In Progress"); setDashboardFilterCategory("all"); }}>
+                        <span className="po-stat-value" style={{ color: "#1e40af" }}>{inProgressCount}</span>
+                        <span className="po-stat-label">In Progress</span>
+                        <span className="po-stat-helper">{STAT_HELPERS["In Progress"]}</span>
+                    </div>
+                )}
                 {infoRequestedCount > 0 && (
                     <div className={`po-stat-card${dashboardFilterStatus === "Information Requested" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Information Requested"); setDashboardFilterCategory("all"); }}>
                         <span className="po-stat-value po-stat-value--amber">{infoRequestedCount}</span>
@@ -526,6 +534,7 @@ export default function PortalOverview() {
                                     <option value="all">All Statuses</option>
                                     <option value="Submitted">Submitted</option>
                                     <option value="Under Review">Under Review</option>
+                                    <option value="In Progress">In Progress</option>
                                     <option value="Information Requested">Information Requested</option>
                                     <option value="Awaiting Your Review">Awaiting Your Review</option>
                                     <option value="Exception Review">Exception Review</option>
