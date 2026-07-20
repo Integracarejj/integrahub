@@ -235,6 +235,7 @@ function getStepForStatus(status: string): number {
     switch (status) {
         case "Submitted": return 1;
         case "Under Review": return 2;
+        case "In Progress": return 2;
         case "Information Requested": return 2;
         case "Exception Review": return 2;
         case "Awaiting Your Review": return 3;

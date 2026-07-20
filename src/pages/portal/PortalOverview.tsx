@@ -13,6 +13,7 @@ import "./PortalOverview.css";
 const STAT_HELPERS: Record<string, string> = {
     "Submitted": "Package received, awaiting initial review",
     "Under Review": "IntegraCare is processing this request",
+    "In Progress": "IntegraCare is actively working on this request",
     "Rework Review": "IntegraCare is reviewing your requested changes",
     "Information Requested": "IntegraCare needs additional information",
     "Blocker Information Requested": "IntegraCare needs information to resolve a blocker",

@@ -964,9 +964,21 @@ function WorkflowStateCard({
                                 <div style={{ flex: 1 }}>
                                   <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>Returned with Feedback</div>
                                   <div style={{ fontSize: 13, color: "#475569", marginTop: 4, lineHeight: 1.5 }}>DD Operations has returned this request with feedback. Review their notes and make the requested changes.</div>
+                                  {item._blockerReason && (
+                                    <div style={{ marginTop: 8, padding: "8px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, color: "#0f172a", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                                      <span style={{ fontWeight: 700, display: "block", marginBottom: 2, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.03em", color: "#991b1b" }}>Your Blocker</span>
+                                      {item._blockerReason}
+                                    </div>
+                                  )}
+                                  {item._blockerExternalResponse && (
+                                    <div style={{ marginTop: 8, padding: "8px 12px", background: "#f0f7ff", border: "1px solid #bfdbfe", borderRadius: 6, fontSize: 12, color: "#0f172a", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                                      <span style={{ fontWeight: 700, display: "block", marginBottom: 2, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.03em", color: "#1e40af" }}>External Partner Response</span>
+                                      {item._blockerExternalResponse}
+                                    </div>
+                                  )}
                                   {item._returnReason && (
                                     <div style={{ marginTop: 8, padding: "8px 12px", background: "rgba(255,255,255,0.7)", border: "1px solid #fed7aa", borderRadius: 6, fontSize: 12, color: "#0f172a", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
-                                      <span style={{ fontWeight: 700, display: "block", marginBottom: 2, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.03em", color: "#92400e" }}>Feedback from DD Operations:</span>
+                                      <span style={{ fontWeight: 700, display: "block", marginBottom: 2, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.03em", color: "#92400e" }}>DD Operations Guidance</span>
                                       {item._returnReason}
                                     </div>
                                   )}

@@ -165,7 +165,7 @@ describe('TEST 5 — Internal happy path regression', () => {
         expect(req._workNotes).toHaveLength(2);
 
         const extInfo = getExternalStatusInfo(req);
-        expect(extInfo.status).toBe('Under Review');
+        expect(extInfo.status).toBe('In Progress');
         expect(extInfo.externalActionRequired).toBe(false);
     });
 });
@@ -268,7 +268,7 @@ describe('TEST 3 — Final return', () => {
         expect(isReturnedToContributor(req)).toBe(false);
 
         const extInfo = getExternalStatusInfo(req);
-        expect(extInfo.status).toBe('Under Review');
+        expect(extInfo.status).toBe('In Progress');
 
         const clNotes = req._workNotes.filter(n => ['Clarification Needed', 'Clarification External Question', 'Clarification Response', 'Clarification Guidance'].includes(n.action || ''));
         const latestNeeded = clNotes.filter(n => n.action === 'Clarification Needed');
@@ -604,7 +604,7 @@ describe('TEST 7 — Clarification regression', () => {
 
         req.status = 'In Progress';
         req._workNotes.push(createWorkNote('Cap rate confirmed at 6.2%. Proceed.', 'David Park', 'Clarification Guidance', 3));
-        expect(getExternalStatusInfo(req).status).toBe('Under Review');
+        expect(getExternalStatusInfo(req).status).toBe('In Progress');
         expect(isActiveExternalClarification(req)).toBe(false);
     });
 
@@ -618,7 +618,7 @@ describe('TEST 7 — Clarification regression', () => {
         req._workNotes.push(createWorkNote('Revenue is 60/40.', 'David Park', 'Clarification Response', 2));
 
         const extInfo = getExternalStatusInfo(req);
-        expect(extInfo.status).toBe('Under Review');
+        expect(extInfo.status).toBe('In Progress');
         expect(extInfo.externalActionRequired).toBe(false);
     });
 
@@ -744,7 +744,7 @@ describe('TEST 9 — External rework regression (Defect 2: internal routing)', (
         req._workNotes.push(createWorkNote('Revenue is 60/40.', 'David Park', 'Clarification Guidance', 2));
         req._returnReason = null;
 
-        expect(getExternalStatusInfo(req).status).toBe('Under Review');
+        expect(getExternalStatusInfo(req).status).toBe('In Progress');
     });
 });
 
@@ -1063,7 +1063,7 @@ describe('TEST 19 — Internal clarification unaffected by external rework routi
         req._workNotes.push(createWorkNote('Revenue is 60/40.', 'David Park', 'Clarification Guidance', 2));
         req._returnReason = null;
 
-        expect(getExternalStatusInfo(req).status).toBe('Under Review');
+        expect(getExternalStatusInfo(req).status).toBe('In Progress');
         expect(isActiveExternalClarification(req)).toBe(false);
     });
 

@@ -1,6 +1,7 @@
 export type ExternalStatus =
   | "Submitted"
   | "Under Review"
+  | "In Progress"
   | "Rework Review"
   | "Information Requested"
   | "Awaiting Your Review"
@@ -67,7 +68,8 @@ function getRecapStatus(req: { status: string; _exceptionRecommendation?: string
         return "awaiting-your-review";
     }
     if (status === "Complete") return "under-review";
-    if (status === "In Progress" || status === "Open" || status === "Assigned") return "under-review";
+    if (status === "In Progress") return "in-progress";
+    if (status === "Open" || status === "Assigned") return "under-review";
     if (status === "Needs Rework") return "under-review";
     if (status === "Blocked") return "under-review";
     if (publishedAt && !publishedExt) return "under-review";
@@ -89,6 +91,16 @@ const STATUS_INFO: Record<string, ExternalStatusInfo> = {
     status: "Under Review",
     label: "Under Review",
     description: "IntegraCare is reviewing and processing this request.",
+    nextActionOwner: "IntegraCare",
+    externalActionRequired: false,
+    externalActionLabel: null,
+    isTerminal: false,
+    completionMessage: null,
+  },
+  "in-progress": {
+    status: "In Progress",
+    label: "In Progress",
+    description: "IntegraCare is actively working on this request.",
     nextActionOwner: "IntegraCare",
     externalActionRequired: false,
     externalActionLabel: null,
@@ -185,6 +197,7 @@ export function getExceptionContext(req: { _exceptionRecommendation?: string | n
 export const STATUS_PILL_STYLES: Record<string, { bg: string; text: string; border: string }> = {
   "Submitted": { bg: "#ffffff", text: "#0f172a", border: "#93c5fd" },
   "Under Review": { bg: "#ffffff", text: "#0f172a", border: "#67e8f9" },
+  "In Progress": { bg: "#eff6ff", text: "#1e40af", border: "#93c5fd" },
   "Rework Requested — IntegraCare Review": { bg: "#ffffff", text: "#0f172a", border: "#fed7aa" },
   "Information Requested": { bg: "#ffffff", text: "#0f172a", border: "#fcd34d" },
   "Awaiting Your Review": { bg: "#ffffff", text: "#0f172a", border: "#6ee7b7" },
