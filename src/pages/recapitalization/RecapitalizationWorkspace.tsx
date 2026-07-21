@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive, addExternalMessage, getExternalMessages, updateRequestNotMine, updateRequestReturnToOwner, updateRequestReturnReason, sendExceptionRecommendation, blockRequest, resolveBlockerInternal, requestExternalBlockerHelp } from "../../services/recapDataService";
+import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive, addExternalMessage, getExternalMessages, updateRequestNotMine, updateRequestReturnToOwner, updateRequestReturnReason, sendExceptionRecommendation, blockRequest, resolveBlockerInternal, requestExternalBlockerHelp, updateRequestClarificationRaisedBy, returnClarificationToContributor } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact, WorkNoteEntry } from "../../services/recapDataService";
 import ClarificationThread, { getClarificationSummary } from "../../components/common/ClarificationThread";
 import RecapSubNav from "./RecapSubNav";
@@ -439,6 +439,7 @@ function WorkflowStateCard({
         
         // Save the clarification question
         updateRequestStatus(reqId, "Clarification Needed" as RecapRequest["status"]);
+        updateRequestClarificationRaisedBy(reqId, currentUser);
         updateRequestStatusNotes(reqId, clarificationText.trim());
         addWorkNote(reqId, clarificationText.trim(), currentUser, "Clarification Needed");
         
@@ -468,9 +469,8 @@ function WorkflowStateCard({
         if (!clarifyResponseModal?.response.trim()) return;
         const resp = clarifyResponseModal.response.trim();
         const reqId = item.id || item.intakeId || "";
-        updateRequestStatus(reqId, "In Progress" as RecapRequest["status"]);
+        returnClarificationToContributor(reqId, resp, currentUser);
         updateRequestStatusNotes(reqId, resp);
-        addWorkNote(reqId, resp, currentUser, "Clarification Response");
         addActivityEntry({
             type: "Status Change",
             description: `${displayId}: DD Ops responded to clarification request. Response: ${resp}`,
@@ -483,15 +483,14 @@ function WorkflowStateCard({
         });
         setClarifyResponseModal(null);
         setWsRefreshKey(k => k + 1);
-        setActionFeedback("Clarification response sent. Request returned to Active Work.");
+        setActionFeedback("Clarification response sent. Request returned to contributor.");
     }
 
     function submitClarificationSupport() {
         const reqId = item.id || item.intakeId || "";
         if (clarificationPath === "A") {
             // Path A: Answer contributor internally and return
-            updateRequestStatus(reqId, "In Progress" as RecapRequest["status"]);
-            addWorkNote(reqId, clarificationInternalResponse.trim(), currentUser, "Clarification Response");
+            returnClarificationToContributor(reqId, clarificationInternalResponse.trim(), currentUser);
             if (clarificationInternalNote.trim()) {
                 addWorkNote(reqId, clarificationInternalNote.trim(), currentUser, "Work Note");
             }
@@ -568,12 +567,10 @@ function WorkflowStateCard({
     function doReturnGuidance() {
         if (!returnGuidanceModal?.guidance.trim()) return;
         const reqId = item.id || item.intakeId || "";
-        updateRequestStatus(reqId, "In Progress" as RecapRequest["status"]);
-        addWorkNote(reqId, returnGuidanceModal.guidance.trim(), currentUser, "Clarification Guidance");
+        returnClarificationToContributor(reqId, returnGuidanceModal.guidance.trim(), currentUser);
         if (returnGuidanceModal.internalNote.trim()) {
             addWorkNote(reqId, returnGuidanceModal.internalNote.trim(), currentUser, "Work Note");
         }
-        updateRequestReturnReason(reqId, null);
         addActivityEntry({
             type: "Status Change",
             description: `${displayId}: External clarification response returned to contributor by ${currentUser} with guidance.`,

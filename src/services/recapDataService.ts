@@ -993,6 +993,46 @@ export function returnBlockerGuidance(id: string, guidance: string, returnedBy: 
     return req;
 }
 
+export function returnClarificationToContributor(id: string, response: string, returnedBy: string): RecapRequest | undefined {
+    const now = new Date().toISOString();
+    const nowDate = now.split("T")[0];
+    const existing = getRequestById(id);
+    const prevNotes = existing?._workNotes || [];
+    const returnTo = existing?._clarificationRaisedBy || existing?.owner || "Unknown";
+    const wnEntry: WorkNoteEntry = {
+        id: `wn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text: response,
+        author: returnedBy,
+        timestamp: now,
+        action: "Clarification Response",
+    };
+    const patch: Partial<RecapRequest> = {
+        ...clearIncompatibleActiveState("Needs Rework"),
+        status: "Needs Rework" as RecapRequest["status"],
+        owner: returnTo,
+        assignedTo: returnTo,
+        _returnReason: `Clarification response: ${response}`,
+        _returnedBy: returnedBy,
+        _clarificationRaisedBy: null,
+        _workNotes: [...prevNotes, wnEntry],
+        lastUpdated: nowDate,
+    };
+    const req = patchRequest(id, patch);
+    if (req) {
+        addActivityEntry({
+            type: "Status Change",
+            description: `${req.requestId}: Clarification response returned to ${returnTo} by ${returnedBy}. Response: ${response}`,
+            userId: returnedBy,
+            userName: returnedBy,
+            requestId: req.id,
+            requestTitle: req.title,
+            transactionId: req.transactionId,
+            transactionName: req.transactionName,
+        });
+    }
+    return req;
+}
+
 export function toggleExternalVisibility(id: string): RecapRequest | undefined {
     if (isDemoLoaded()) {
         const req = Demo.getDemoRequestById(id);
@@ -1026,6 +1066,19 @@ export function updateRequestReturnReason(id: string, reason: string | null): Re
         return req;
     }
     return updatePortalRequestById(id, { _returnReason: reason });
+}
+
+export function updateRequestClarificationRaisedBy(id: string, raisedBy: string | null): RecapRequest | undefined {
+    if (isDemoLoaded()) {
+        return Demo.updateDemoRequest(id, { _clarificationRaisedBy: raisedBy });
+    }
+    const req = Mock.getRequestById(id);
+    if (req) {
+        req._clarificationRaisedBy = raisedBy;
+        req.lastUpdated = new Date().toISOString().split("T")[0];
+        return req;
+    }
+    return updatePortalRequestById(id, { _clarificationRaisedBy: raisedBy });
 }
 
 export function clearExceptionFields(id: string): RecapRequest | undefined {

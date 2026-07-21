@@ -599,29 +599,7 @@ export default function RecapitalizationDdOperations() {
                                     <td><PriorityBadge priority={req.priority} /></td>
                                     <td onClick={e => e.stopPropagation()}>
                                         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                            {req.status === "Blocked" ? (
-                                                <div><IssueExceptionBadge req={req} /></div>
-                                            ) : (
-                                                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                                    <select
-                                                        aria-label={`Status for ${req.requestId}`}
-                                                        value={req.status}
-                                                        onChange={e => {
-                                                            const newStatus = e.target.value;
-                                                            if (newStatus !== req.status) {
-                                                                if (newStatus === "Complete" && !hasDocuments(req)) {
-                                                                    setArtifactWarning({ req, newStatus });
-                                                                } else {
-                                                                    setStatusConfirm({ req, newStatus });
-                                                                }
-                                                            }
-                                                        }}
-                                                        style={{ fontSize: 10, padding: "2px 14px 2px 4px", borderRadius: 4, background: "#fff", color: "#111827", fontWeight: 600, minWidth: 85, cursor: "pointer", border: "1px solid #d1d5db" }}
-                                                    >
-                                                        {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                                                    </select>
-                                                </div>
-                                            )}
+                                            <div><IssueExceptionBadge req={req} /></div>
                                             {req.status === "Blocked" && req._blockerReason && (
                                                 <span style={{ fontSize: 9, color: "#64748b", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={req._blockerReason}>
                                                     &ldquo;{req._blockerReason.length > 60 ? req._blockerReason.slice(0, 60) + "..." : req._blockerReason}&rdquo;
