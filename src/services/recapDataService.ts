@@ -11,6 +11,8 @@ export type {
     RecapDocument, RecapActivity, RecapTeamMember, RecapCategory, RecapDeliverable, WorkNoteEntry, ExternalMessageEntry,
 };
 
+const DD_OPS_LEAD = "David Park";
+
 export function isRecapDataWiped(): boolean {
     return isRecapWiped();
 }
@@ -290,6 +292,22 @@ export function updateRequestStatus(id: string, status: RecapRequest["status"]):
     const patch: Partial<RecapRequest> = { status };
     if (status === "In Progress") {
         patch._processingStartedAt = now;
+        patch._returnReason = null;
+        patch._returnedBy = null;
+        patch._blockerStatus = null;
+        patch._blockerResolution = null;
+        patch._needsReassignment = false;
+        patch._misassignedReason = null;
+    }
+    if (status === "Clarification Needed") {
+        patch.owner = DD_OPS_LEAD;
+        patch.assignedTo = DD_OPS_LEAD;
+        patch._returnReason = null;
+        patch._returnedBy = null;
+        patch._blockerStatus = null;
+        patch._blockerResolution = null;
+        patch._needsReassignment = false;
+        patch._misassignedReason = null;
     }
     if (isDemoLoaded()) {
         const result = Demo.updateDemoRequest(id, patch);
@@ -598,8 +616,6 @@ export function partnerReworkRequest(id: string, reason: string): RecapRequest |
 }
 
 /* ── Blocker Workflow ─────────────────────────────────────── */
-
-const DD_OPS_LEAD = "David Park";
 
 function patchRequest(id: string, patch: Partial<RecapRequest>): RecapRequest | undefined {
     if (isDemoLoaded()) {
