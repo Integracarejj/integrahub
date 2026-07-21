@@ -122,7 +122,7 @@ export default function RecapitalizationWorkspace() {
     const [extMsgConfirm, setExtMsgConfirm] = useState(false);
     const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
     const [editingNoteText, setEditingNoteText] = useState("");
-    const workspaceUserKey = "integrasource.recap.workspaceUser";
+    const workspaceUserKey = "integrasource.recap.myWorkUser";
     const [currentUser] = useState(() => localStorage.getItem(workspaceUserKey) || TEAM_MEMBERS[0]);
     const [actionFeedback, setActionFeedback] = useState<string | null>(null);
     const [completionDialog, setCompletionDialog] = useState<"blocked" | "clarification" | "dd-review" | "return-to-owner" | "duplicate" | "not-applicable" | "not-mine" | "resolved" | null>(null);
@@ -454,9 +454,19 @@ function WorkflowStateCard({
 
     function submitClarifyResponse() {
         if (!clarifyResponseModal?.response.trim()) return;
+        if (!item._clarificationRaisedBy || item._clarificationRaisedBy === "David Park") {
+            setActionFeedback("A valid contributor return target could not be found. The request has not been changed.");
+            setClarifyResponseModal(null);
+            return;
+        }
         const resp = clarifyResponseModal.response.trim();
         const reqId = item.id || item.intakeId || "";
-        returnClarificationToContributor(reqId, resp, currentUser);
+        const result = returnClarificationToContributor(reqId, resp, currentUser);
+        if (!result) {
+            setActionFeedback("Return failed. The request has not been changed.");
+            setClarifyResponseModal(null);
+            return;
+        }
         updateRequestStatusNotes(reqId, resp);
         addActivityEntry({
             type: "Status Change",
@@ -477,7 +487,15 @@ function WorkflowStateCard({
         const reqId = item.id || item.intakeId || "";
         if (clarificationPath === "A") {
             // Path A: Answer contributor internally and return
-            returnClarificationToContributor(reqId, clarificationInternalResponse.trim(), currentUser);
+            if (!item._clarificationRaisedBy || item._clarificationRaisedBy === "David Park") {
+                setActionFeedback("A valid contributor return target could not be found. The request has not been changed.");
+                return;
+            }
+            const result = returnClarificationToContributor(reqId, clarificationInternalResponse.trim(), currentUser);
+            if (!result) {
+                setActionFeedback("Return failed. The request has not been changed.");
+                return;
+            }
             if (clarificationInternalNote.trim()) {
                 addWorkNote(reqId, clarificationInternalNote.trim(), currentUser, "Work Note");
             }
@@ -553,8 +571,16 @@ function WorkflowStateCard({
 
     function doReturnGuidance() {
         if (!returnGuidanceModal?.guidance.trim()) return;
+        if (!item._clarificationRaisedBy || item._clarificationRaisedBy === "David Park") {
+            setActionFeedback("A valid contributor return target could not be found. The request has not been changed.");
+            return;
+        }
         const reqId = item.id || item.intakeId || "";
-        returnClarificationToContributor(reqId, returnGuidanceModal.guidance.trim(), currentUser);
+        const result = returnClarificationToContributor(reqId, returnGuidanceModal.guidance.trim(), currentUser);
+        if (!result) {
+            setActionFeedback("Return failed. The request has not been changed.");
+            return;
+        }
         if (returnGuidanceModal.internalNote.trim()) {
             addWorkNote(reqId, returnGuidanceModal.internalNote.trim(), currentUser, "Work Note");
         }
@@ -1018,7 +1044,7 @@ function WorkflowStateCard({
 
                           {displayStatus === "In Progress" && !isDdOps && item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification Response") && (
                             (() => {
-                                const clSum = getClarificationSummary({ workNotes: item._workNotes || [], statusNotes: item._statusNotes, questionAuthor: item.owner });
+                                const clSum = getClarificationSummary({ workNotes: item._workNotes || [], statusNotes: item._statusNotes, questionAuthor: item._clarificationRaisedBy || item.owner });
                                 const responseText = clSum.finalGuidance || clSum.ddOpsResponse || null;
                                 const hasExternalFlow = !!clSum.externalQuestion;
                                 return (
@@ -1850,7 +1876,7 @@ function WorkflowStateCard({
                             <div style={{ fontSize: 12, color: "#334155", marginBottom: 14, display: "flex", flexDirection: "column", gap: 8 }}>
                                 <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Request ID</span> {displayId}</div>
                                 <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Deliverable</span> {displayTitle || item.category || "\u2014"}</div>
-                                <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Asked by</span> {item.owner || "Contributor"}</div>
+                                <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Asked by</span> {item._clarificationRaisedBy || "Contributor"}</div>
                             </div>
                             <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6, display: "block" }}>Original Question</label>
                             <div style={{ padding: "8px 10px", fontSize: 13, background: "#f8faff", border: "1px solid #dbeafe", borderRadius: 6, color: "#0f172a", marginBottom: 14, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
@@ -1867,7 +1893,7 @@ function WorkflowStateCard({
                         </div>
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-ghost" onClick={() => setClarifyResponseModal(null)}>Cancel</button>
-                            <button className="rc-btn rc-btn-primary" disabled={!clarifyResponseModal.response.trim()} onClick={submitClarifyResponse}>Send Response</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!clarifyResponseModal.response.trim() || !item._clarificationRaisedBy || item._clarificationRaisedBy === "David Park"} onClick={submitClarifyResponse}>Send Response</button>
                         </div>
                     </div>
                 </div>
@@ -1875,7 +1901,7 @@ function WorkflowStateCard({
 
             {/* Clarification Support Modal */}
             {clarificationSupportModalOpen && (() => {
-                const clSummary = getClarificationSummary({ workNotes: item._workNotes || [], statusNotes: item._statusNotes, questionAuthor: item.owner });
+                const clSummary = getClarificationSummary({ workNotes: item._workNotes || [], statusNotes: item._statusNotes, questionAuthor: item._clarificationRaisedBy || item.owner });
                 const hasHistory = item._workNotes && item._workNotes.length > 0 && (clSummary.ddOpsResponse || clSummary.externalQuestion || clSummary.externalResponse || clSummary.finalGuidance);
                 return (
                 <div className="rc-modal-overlay" onClick={() => { setClarificationSupportModalOpen(false); setClarificationPath(null); setClarificationInternalResponse(""); setClarificationInternalNote(""); setClarificationExternalQuestion(""); setClarificationExternalInstructions(""); setClarificationSubmitStep("select"); setShowClarificationHistory(false); }}>
@@ -2029,7 +2055,13 @@ function WorkflowStateCard({
                                     <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 10 }}>Confirm {clarificationPath === "A" ? "Internal Answer" : "External Request"}</div>
                                     <div style={{ fontSize: 12, color: "#334155", marginBottom: 10, lineHeight: 1.5 }}>
                                         {clarificationPath === "A" ? (
-                                            <>This will save your response and return the request to <strong>{item.owner}</strong>. The request will move out of DD Operations review.</>
+                                            <>
+                                                {item._clarificationRaisedBy && item._clarificationRaisedBy !== "David Park" ? (
+                                                    <>This will save your response and return the request to <strong>{item._clarificationRaisedBy}</strong>. The request will move out of DD Operations review.</>
+                                                ) : (
+                                                    <span style={{ color: "#dc2626", fontWeight: 600 }}>A valid contributor return target could not be found. The request has not been changed.</span>
+                                                )}
+                                            </>
                                         ) : (
                                             <>This will send the question to the external partner. The request will be paused internally until they respond.</>
                                         )}
@@ -2087,7 +2119,7 @@ function WorkflowStateCard({
                             {clarificationSubmitStep === "confirm" && (
                                 <>
                                     <button className="rc-btn rc-btn-ghost" onClick={() => setClarificationSubmitStep("message")}>Back</button>
-                                    <button className="rc-btn rc-btn-primary" style={{ background: "#0891b2" }} onClick={submitClarificationSupport}>Confirm & {clarificationPath === "A" ? "Return to Contributor" : "Send to Partner"}</button>
+                                    <button className="rc-btn rc-btn-primary" style={{ background: "#0891b2" }} disabled={clarificationPath === "A" && (!item._clarificationRaisedBy || item._clarificationRaisedBy === "David Park")} onClick={submitClarificationSupport}>Confirm & {clarificationPath === "A" ? "Return to Contributor" : "Send to Partner"}</button>
                                 </>
                             )}
                             {clarificationSubmitStep === "done" && (
@@ -2632,7 +2664,7 @@ function WorkflowStateCard({
             )}
 
             {returnGuidanceModal && (() => {
-                const clSummary = getClarificationSummary({ workNotes: item._workNotes || [], statusNotes: item._statusNotes, questionAuthor: item.owner });
+                const clSummary = getClarificationSummary({ workNotes: item._workNotes || [], statusNotes: item._statusNotes, questionAuthor: item._clarificationRaisedBy || item.owner });
                 const externalResponseText = item._workNotes?.filter((n: WorkNoteEntry) => n.action === "Clarification Response" && n.author === "External Partner").map((n: WorkNoteEntry) => n.text).join("\n\n") || null;
                 return (
                 <div className="rc-modal-overlay" onClick={() => { setReturnGuidanceModal(null); setShowClarificationHistory(false); }}>
@@ -2712,7 +2744,11 @@ function WorkflowStateCard({
                             {returnGuidanceModal.step === "confirm" && (
                                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                                     <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.5 }}>
-                                        This will return the request to <strong>{item.owner}</strong> with your guidance. The request will move out of DD Operations review.
+                                        {item._clarificationRaisedBy && item._clarificationRaisedBy !== "David Park" ? (
+                                            <>This will return the request to <strong>{item._clarificationRaisedBy}</strong> with your guidance. The request will move out of DD Operations review.</>
+                                        ) : (
+                                            <span style={{ color: "#dc2626", fontWeight: 600 }}>A valid contributor return target could not be found. The request has not been changed.</span>
+                                        )}
                                     </div>
                                     {clSummary.originalQuestion && (
                                         <div>
@@ -2744,7 +2780,7 @@ function WorkflowStateCard({
                                 <div style={{ padding: "14px 16px", border: "1px solid #bbf7d0", borderRadius: 10, background: "#f0fdf4", textAlign: "center" }}>
                                     <div style={{ fontSize: 16, fontWeight: 700, color: "#166534", marginBottom: 8 }}>✓ Guidance Sent</div>
                                     <div style={{ fontSize: 13, color: "#334155" }}>
-                                        The request has been returned to {item.owner} with your guidance.
+                                        The request has been returned to {item._clarificationRaisedBy || "the contributor"} with your guidance.
                                     </div>
                                 </div>
                             )}
@@ -2766,7 +2802,7 @@ function WorkflowStateCard({
                             {returnGuidanceModal.step === "confirm" && (
                                 <>
                                     <button className="rc-btn rc-btn-ghost" onClick={() => setReturnGuidanceModal(prev => prev ? { ...prev, step: "input" } : null)}>Back</button>
-                                    <button className="rc-btn rc-btn-primary" style={{ background: "#16a34a" }} onClick={doReturnGuidance}>Confirm & Send</button>
+                                    <button className="rc-btn rc-btn-primary" style={{ background: "#16a34a" }} disabled={!item._clarificationRaisedBy || item._clarificationRaisedBy === "David Park"} onClick={doReturnGuidance}>Confirm & Send</button>
                                 </>
                             )}
                             {returnGuidanceModal.step === "completed" && (

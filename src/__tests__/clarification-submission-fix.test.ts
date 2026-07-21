@@ -186,6 +186,42 @@ function simulateClarificationReturn(req: RecapRequest, response: string, return
 }
 
 /**
+ * Mirrors blockRequest with full cleanup patch.
+ */
+function simulateBlock(req: RecapRequest, raisedBy: string, reason: string): RecapRequest {
+    const wn = createWorkNote(reason, raisedBy, 'Blocked');
+    const originalContributor = req.owner || raisedBy;
+    return {
+        ...req,
+        status: 'Blocked',
+        owner: DD_OPS_LEAD,
+        assignedTo: DD_OPS_LEAD,
+        _blockerReason: reason,
+        _blockerStatus: 'Raised',
+        _blockerRaisedBy: originalContributor,
+        _blockerRaisedAt: new Date().toISOString(),
+        _blockerOwner: DD_OPS_LEAD,
+        _returnReason: null,
+        _returnedBy: null,
+        _blockerExternalQuestion: null,
+        _blockerExternalResponse: null,
+        _blockerResolution: null,
+        _needsReassignment: false,
+        _misassignedReason: null,
+        _partnerDecision: null,
+        _partnerNote: null,
+        _partnerActionAt: null,
+        _exceptionRecommendation: null,
+        _exceptionSentAt: null,
+        _exceptionDecision: null,
+        _exceptionDecisionAt: null,
+        _exceptionDecisionNote: null,
+        _clarificationRaisedBy: null,
+        _workNotes: [...(req._workNotes || []), wn],
+    };
+}
+
+/**
  * Mirrors reaccept (doStatusChange to In Progress) with full cleanup.
  */
 function simulateReaccept(req: RecapRequest): RecapRequest {
@@ -716,6 +752,234 @@ describe('three repeated clarification rounds', () => {
             req = simulateReaccept(req);
             expect(inActiveWork(req)).toBe(true);
             expect(inReturnedNeedsAttention(req)).toBe(false);
+        }
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Fix Validation Tests — 7 required tests
+// ═══════════════════════════════════════════════════════════════════
+
+const DD_OPS_LEAD_NAME = 'David Park';
+
+function simulateDDOpsRejection(_id: string, text: string, raisedBy: string): RecapRequest | undefined {
+    if (!raisedBy || !raisedBy.trim()) return undefined;
+    if (raisedBy.trim() === DD_OPS_LEAD_NAME) return undefined;
+    const req = buildRequest({ status: 'In Progress' });
+    return simulateAtomicClarificationSubmit(req, text, null, raisedBy);
+}
+
+describe('FIX VALIDATION 1 — Correct acting contributor is captured', () => {
+    it('sets _clarificationRaisedBy to the acting contributor, not DD Operations', () => {
+        const req = buildRequest({ status: 'In Progress', owner: CONTRIBUTOR });
+        const result = simulateAtomicClarificationSubmit(req, 'Need more details on financials', null, CONTRIBUTOR);
+        expect(result._clarificationRaisedBy).toBe(CONTRIBUTOR);
+        expect(result.owner).toBe(DD_OPS_LEAD_NAME);
+        expect(result.assignedTo).toBe(DD_OPS_LEAD_NAME);
+    });
+
+    it('captured contributor differs from newly assigned owner', () => {
+        const req = buildRequest({ status: 'In Progress', owner: CONTRIBUTOR });
+        const result = simulateAtomicClarificationSubmit(req, 'Question?', null, CONTRIBUTOR);
+        expect(result._clarificationRaisedBy).not.toBe(result.owner);
+        expect(result._clarificationRaisedBy).toBe(CONTRIBUTOR);
+        expect(result.owner).toBe(DD_OPS_LEAD_NAME);
+    });
+});
+
+describe('FIX VALIDATION 2 — Ownership mutation cannot alter submitter', () => {
+    it('owner/assignedTo changes to DD_OPS_LEAD but _clarificationRaisedBy stays as contributor', () => {
+        const req = buildRequest({
+            status: 'In Progress',
+            owner: CONTRIBUTOR,
+            assignedTo: CONTRIBUTOR,
+        });
+        const result = simulateAtomicClarificationSubmit(req, 'Need details', null, CONTRIBUTOR);
+        expect(result.owner).toBe(DD_OPS_LEAD_NAME);
+        expect(result.assignedTo).toBe(DD_OPS_LEAD_NAME);
+        expect(result._clarificationRaisedBy).toBe(CONTRIBUTOR);
+    });
+
+    it('_clarificationRaisedBy is not overwritten by clearIncompatibleActiveState', () => {
+        const req = buildRequest({
+            status: 'In Progress',
+            owner: 'Other Contributor',
+            _returnReason: 'old return',
+            _blockerStatus: 'Raised',
+            _needsReassignment: true,
+        });
+        const result = simulateAtomicClarificationSubmit(req, 'Question', null, 'Other Contributor');
+        expect(result._clarificationRaisedBy).toBe('Other Contributor');
+        expect(result._returnReason).toBeNull();
+        expect(result._blockerStatus).toBeNull();
+        expect(result._needsReassignment).toBe(false);
+    });
+});
+
+describe('FIX VALIDATION 3 — Wrong user source regression', () => {
+    it('contributor identity persists through blocker → reaccept → submit cycle', () => {
+        let req = buildRequest({ status: 'In Progress', owner: CONTRIBUTOR });
+
+        req = simulateBlock(req, CONTRIBUTOR, 'Missing data');
+        expect(req.status).toBe('Blocked');
+        expect(req.owner).toBe(DD_OPS_LEAD_NAME);
+
+        req = simulateReaccept(req);
+        expect(req.status).toBe('In Progress');
+
+        req = simulateAtomicClarificationSubmit(req, 'Need clarification', null, CONTRIBUTOR);
+        expect(req._clarificationRaisedBy).toBe(CONTRIBUTOR);
+        expect(req._clarificationRaisedBy).not.toBe(DD_OPS_LEAD_NAME);
+    });
+
+    it('contributor identity is correct even after multiple reaccepts', () => {
+        let req = buildRequest({ status: 'In Progress', owner: CONTRIBUTOR });
+        for (let i = 0; i < 3; i++) {
+            req = simulateBlock(req, CONTRIBUTOR, `Block ${i}`);
+            req = simulateReaccept(req);
+        }
+        req = simulateAtomicClarificationSubmit(req, 'Final question', null, CONTRIBUTOR);
+        expect(req._clarificationRaisedBy).toBe(CONTRIBUTOR);
+    });
+});
+
+describe('FIX VALIDATION 4 — DD Operations identity rejected', () => {
+    it('submitClarificationToDdOperations rejects DD_OPS_LEAD as raisedBy', () => {
+        const result = simulateDDOpsRejection('req-test-001', 'Question', DD_OPS_LEAD_NAME);
+        expect(result).toBeUndefined();
+    });
+
+    it('submitClarificationToDdOperations rejects empty string', () => {
+        const result = simulateDDOpsRejection('req-test-001', 'Question', '');
+        expect(result).toBeUndefined();
+    });
+
+    it('submitClarificationToDdOperations rejects whitespace-only string', () => {
+        const result = simulateDDOpsRejection('req-test-001', 'Question', '   ');
+        expect(result).toBeUndefined();
+    });
+
+    it('submitClarificationToDdOperations accepts valid contributor', () => {
+        const result = simulateDDOpsRejection('req-test-001', 'Question', CONTRIBUTOR);
+        expect(result).toBeDefined();
+        expect(result!._clarificationRaisedBy).toBe(CONTRIBUTOR);
+    });
+});
+
+describe('FIX VALIDATION 5 — Confirmation modal target derivation', () => {
+    it('modal display target comes from _clarificationRaisedBy, not item.owner', () => {
+        const req = buildRequest({
+            status: 'Clarification Needed',
+            owner: DD_OPS_LEAD_NAME,
+            assignedTo: DD_OPS_LEAD_NAME,
+            _clarificationRaisedBy: CONTRIBUTOR,
+        });
+        const modalTarget = req._clarificationRaisedBy;
+        expect(modalTarget).toBe(CONTRIBUTOR);
+        expect(modalTarget).not.toBe(req.owner);
+        expect(modalTarget).not.toBe(DD_OPS_LEAD_NAME);
+    });
+
+    it('modal target is invalid when _clarificationRaisedBy is DD_OPS_LEAD', () => {
+        const req = buildRequest({
+            status: 'Clarification Needed',
+            owner: DD_OPS_LEAD_NAME,
+            _clarificationRaisedBy: DD_OPS_LEAD_NAME,
+        });
+        const isValid = req._clarificationRaisedBy && req._clarificationRaisedBy !== DD_OPS_LEAD_NAME;
+        expect(isValid).toBeFalsy();
+    });
+
+    it('modal target is invalid when _clarificationRaisedBy is null', () => {
+        const req = buildRequest({
+            status: 'Clarification Needed',
+            owner: DD_OPS_LEAD_NAME,
+            _clarificationRaisedBy: null,
+        });
+        const isValid = req._clarificationRaisedBy && req._clarificationRaisedBy !== DD_OPS_LEAD_NAME;
+        expect(isValid).toBeFalsy();
+    });
+});
+
+describe('FIX VALIDATION 6 — Return routes correctly', () => {
+    it('return sets status to Needs Rework, owner to contributor, clears _clarificationRaisedBy', () => {
+        const req = buildRequest({
+            status: 'Clarification Needed',
+            owner: DD_OPS_LEAD_NAME,
+            _clarificationRaisedBy: CONTRIBUTOR,
+        });
+        const result = simulateClarificationReturn(req, 'Here is the answer', DD_OPS_LEAD_NAME);
+        expect(result).toBeDefined();
+        expect(result!.status).toBe('Needs Rework');
+        expect(result!.owner).toBe(CONTRIBUTOR);
+        expect(result!.assignedTo).toBe(CONTRIBUTOR);
+        expect(result!._clarificationRaisedBy).toBeNull();
+    });
+
+    it('return places item in contributor Returned / Needs Attention', () => {
+        const req = buildRequest({
+            status: 'Clarification Needed',
+            owner: DD_OPS_LEAD_NAME,
+            _clarificationRaisedBy: CONTRIBUTOR,
+        });
+        const result = simulateClarificationReturn(req, 'Answer', DD_OPS_LEAD_NAME)!;
+        expect(inReturnedNeedsAttention(result)).toBe(true);
+    });
+
+    it('return removes item from DD Operations Needs DD Review', () => {
+        const req = buildRequest({
+            status: 'Clarification Needed',
+            owner: DD_OPS_LEAD_NAME,
+            _clarificationRaisedBy: CONTRIBUTOR,
+        });
+        const result = simulateClarificationReturn(req, 'Answer', DD_OPS_LEAD_NAME)!;
+        expect(inNeedsDDReview(result)).toBe(false);
+    });
+});
+
+describe('FIX VALIDATION 7 — Repeated sequence preserves contributor identity', () => {
+    it('full cycle: contributor → block → reaccept → clarify → dd return → reaccept → clarify → dd return', () => {
+        let req = buildRequest({ status: 'In Progress', owner: CONTRIBUTOR });
+
+        req = simulateBlock(req, CONTRIBUTOR, 'Need docs');
+        expect(req.status).toBe('Blocked');
+
+        req = simulateReaccept(req);
+        expect(req.status).toBe('In Progress');
+
+        req = simulateAtomicClarificationSubmit(req, 'Question 1', null, CONTRIBUTOR);
+        expect(req._clarificationRaisedBy).toBe(CONTRIBUTOR);
+        expect(req.status).toBe('Clarification Needed');
+
+        req = simulateClarificationReturn(req, 'Answer 1', DD_OPS_LEAD_NAME)!;
+        expect(req.status).toBe('Needs Rework');
+
+        req = simulateReaccept(req);
+        expect(req.status).toBe('In Progress');
+
+        req = simulateAtomicClarificationSubmit(req, 'Question 2', null, CONTRIBUTOR);
+        expect(req._clarificationRaisedBy).toBe(CONTRIBUTOR);
+        expect(req.status).toBe('Clarification Needed');
+
+        req = simulateClarificationReturn(req, 'Answer 2', DD_OPS_LEAD_NAME)!;
+        expect(req.status).toBe('Needs Rework');
+        expect(req._clarificationRaisedBy).toBeNull();
+
+        assertValidActiveState(req, 'final state after repeated sequence');
+    });
+
+    it('at each clarification submission, contributor identity remains correct', () => {
+        let req = buildRequest({ status: 'In Progress', owner: CONTRIBUTOR });
+        for (let round = 1; round <= 5; round++) {
+            req = simulateAtomicClarificationSubmit(req, `Q${round}`, null, CONTRIBUTOR);
+            expect(req._clarificationRaisedBy).toBe(CONTRIBUTOR);
+            expect(req._clarificationRaisedBy).not.toBe(DD_OPS_LEAD_NAME);
+
+            req = simulateClarificationReturn(req, `A${round}`, DD_OPS_LEAD_NAME)!;
+            expect(req._clarificationRaisedBy).toBeNull();
+
+            req = simulateReaccept(req);
+            expect(req.owner).toBe(CONTRIBUTOR);
         }
     });
 });

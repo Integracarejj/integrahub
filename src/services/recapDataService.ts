@@ -987,6 +987,15 @@ export function returnBlockerGuidance(id: string, guidance: string, returnedBy: 
 }
 
 export function submitClarificationToDdOperations(id: string, questionText: string, additionalContext: string | null, raisedBy: string): RecapRequest | undefined {
+    if (!raisedBy || !raisedBy.trim()) {
+        console.error(`[submitClarificationToDdOperations] No contributor identity provided. request=${id}, raisedBy=${raisedBy}. Aborting.`);
+        return undefined;
+    }
+    if (raisedBy.trim() === DD_OPS_LEAD) {
+        const existingForLog = getRequestById(id);
+        console.error(`[submitClarificationToDdOperations] DD Operations identity rejected as clarification submitter. request=${id}, requestId=${existingForLog?.requestId}, raisedBy=${raisedBy}, owner=${existingForLog?.owner}. Aborting without mutation.`);
+        return undefined;
+    }
     const now = new Date().toISOString();
     const nowDate = now.split("T")[0];
     const existing = getRequestById(id);
@@ -1072,6 +1081,48 @@ export function returnClarificationToContributor(id: string, response: string, r
             description: `${req.requestId}: Clarification response returned to ${returnTo} by ${returnedBy}. Response: ${response}`,
             userId: returnedBy,
             userName: returnedBy,
+            requestId: req.id,
+            requestTitle: req.title,
+            transactionId: req.transactionId,
+            transactionName: req.transactionName,
+        });
+    }
+    return req;
+}
+
+export function repairMalformedClarificationRaisedBy(id: string): RecapRequest | undefined {
+    const existing = getRequestById(id);
+    if (!existing) return undefined;
+    if (existing.status !== "Clarification Needed") return undefined;
+    if (existing._clarificationRaisedBy && existing._clarificationRaisedBy !== DD_OPS_LEAD && existing._clarificationRaisedBy.trim()) {
+        return existing;
+    }
+    const prevNotes = existing._workNotes || [];
+    const clarNotes = prevNotes.filter(n => n.action === "Clarification Needed");
+    let derivedContributor: string | null = null;
+    if (clarNotes.length > 0) {
+        const lastClarNote = clarNotes[clarNotes.length - 1];
+        if (lastClarNote.author && lastClarNote.author !== DD_OPS_LEAD && lastClarNote.author.trim()) {
+            derivedContributor = lastClarNote.author;
+        }
+    }
+    if (!derivedContributor && existing.owner && existing.owner !== DD_OPS_LEAD && existing.owner.trim()) {
+        derivedContributor = existing.owner;
+    }
+    if (!derivedContributor) {
+        console.warn(`[repairMalformedClarificationRaisedBy] No reliable contributor found for request ${id} (${existing.requestId}). _clarificationRaisedBy=${existing._clarificationRaisedBy}. Leaving in DD Operations for explicit reassignment.`);
+        return existing;
+    }
+    const patch: Partial<RecapRequest> = {
+        _clarificationRaisedBy: derivedContributor,
+    };
+    const req = patchRequest(id, patch);
+    if (req) {
+        addActivityEntry({
+            type: "Status Change",
+            description: `${req.requestId}: Repair — _clarificationRaisedBy corrected from "${existing._clarificationRaisedBy}" to "${derivedContributor}" based on workflow history.`,
+            userId: "system",
+            userName: "System Repair",
             requestId: req.id,
             requestTitle: req.title,
             transactionId: req.transactionId,
