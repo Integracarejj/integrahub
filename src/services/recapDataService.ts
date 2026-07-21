@@ -286,8 +286,13 @@ export function partnerExceptionDecision(id: string, decision: "Approve Removal"
 }
 
 export function updateRequestStatus(id: string, status: RecapRequest["status"]): RecapRequest | undefined {
+    const now = new Date().toISOString();
+    const patch: Partial<RecapRequest> = { status };
+    if (status === "In Progress") {
+        patch._processingStartedAt = now;
+    }
     if (isDemoLoaded()) {
-        const result = Demo.updateDemoRequest(id, { status });
+        const result = Demo.updateDemoRequest(id, patch);
         if (result) return result;
         return updatePortalRequestStatus(id, status);
     }
@@ -1314,7 +1319,12 @@ export function updatePortalRequestStatus(reqId: string, status: string): RecapR
     const all = getPortalCreatedRequests();
     const idx = all.findIndex(r => r.id === reqId || r.requestId === reqId || r.intakeId === reqId);
     if (idx === -1) return;
-    all[idx] = { ...all[idx], status: status as RecapRequest["status"], lastUpdated: new Date().toISOString().split("T")[0] };
+    const now = new Date().toISOString();
+    const patch: Partial<RecapRequest> = { status: status as RecapRequest["status"], lastUpdated: now.split("T")[0] };
+    if (status === "In Progress" && !all[idx]._processingStartedAt) {
+        patch._processingStartedAt = now;
+    }
+    all[idx] = { ...all[idx], ...patch };
     localStorage.setItem(PORTAL_REQUESTS_KEY, JSON.stringify(all));
     return all[idx];
 }

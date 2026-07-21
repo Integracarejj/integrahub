@@ -20,7 +20,7 @@ export interface ExternalStatusInfo {
   completionMessage: string | null;
 }
 
-function getRecapStatus(req: { status: string; _exceptionRecommendation?: string | null; _exceptionDecision?: string | null; _publishedExternal?: boolean; _externalStatus?: string | null; _exceptionSentAt?: string | null; _publishedAt?: string | null; _workNotes?: Array<{ action?: string | null }> | null; _blockerStatus?: string | null; _blockerExternalQuestion?: string | null; _blockerExternalResponse?: string | null }): string {
+function getRecapStatus(req: { status: string; _exceptionRecommendation?: string | null; _exceptionDecision?: string | null; _publishedExternal?: boolean; _externalStatus?: string | null; _exceptionSentAt?: string | null; _publishedAt?: string | null; _workNotes?: Array<{ action?: string | null }> | null; _blockerStatus?: string | null; _blockerExternalQuestion?: string | null; _blockerExternalResponse?: string | null; _processingStartedAt?: string | null }): string {
     const status = req.status;
     const exceptionRec = req._exceptionRecommendation;
     const exceptionDec = req._exceptionDecision;
@@ -28,22 +28,28 @@ function getRecapStatus(req: { status: string; _exceptionRecommendation?: string
     const publishedExt = req._publishedExternal || req._externalStatus === "Published External";
     const publishedAt = req._publishedAt;
     const blockerStatus = req._blockerStatus;
+    const processingStarted = !!req._processingStartedAt;
 
+    // ── Terminal states (always win) ──
     if (status === "Completed" || status === "Rejected") return "terminal-complete";
     if (status === "Closed" || status === "Closed / Duplicate" || status === "Closed / Not Applicable") return "terminal-complete";
     if (exceptionDec) return "terminal-complete";
 
+    // ── External-facing states that supersede In Progress ──
     // Blocker external help: partner owns next action
     if (status === "Pending External" && blockerStatus === "Pending External") return "blocker-information-requested";
     if (blockerStatus === "External Response Received") return "in-progress";
 
+    // Exception states exposed to partner
     if (status === "Duplicate" || status === "Not Applicable") {
         if (exceptionSent) return "exception-review";
-        return "under-review";
+        return processingStarted ? "in-progress" : "under-review";
     }
     if (exceptionRec && !exceptionDec && status !== "Clarification Needed") {
-        return exceptionSent ? "exception-review" : "under-review";
+        return exceptionSent ? "exception-review" : (processingStarted ? "in-progress" : "under-review");
     }
+
+    // Clarification / Information Requested
     if (status === "Clarification Needed") {
         const notes = req._workNotes;
         if (notes && notes.length > 0) {
@@ -54,24 +60,32 @@ function getRecapStatus(req: { status: string; _exceptionRecommendation?: string
                 if (clarNotes.length > 0) {
                     const lastAction = clarNotes[clarNotes.length - 1].action;
                     if (lastAction === "Clarification External Question") return "information-requested";
-                    if (lastAction === "Clarification Response") return "under-review";
+                    if (lastAction === "Clarification Response") return processingStarted ? "in-progress" : "under-review";
+                    if (lastAction === "Clarification Guidance") return processingStarted ? "in-progress" : "under-review";
                 }
                 return "information-requested";
             }
         }
-        if (notes?.some((n: { action?: string | null }) => n.action === "Clarification Response")) return "under-review";
-        return "under-review";
+        if (notes?.some((n: { action?: string | null }) => n.action === "Clarification Response")) return processingStarted ? "in-progress" : "under-review";
+        return processingStarted ? "in-progress" : "under-review";
     }
+
+    // Publication / Rework / Awaiting Your Review
     if (req._externalStatus === "Published External" || publishedExt) {
         if (status === "Needs Rework") return "rework-review";
         if (status === "Completed") return "terminal-complete";
         return "awaiting-your-review";
     }
-    if (status === "Complete") return "under-review";
+
+    // ── Milestone-based states: once processing starts, In Progress sticks ──
+    if (processingStarted) return "in-progress";
+
+    // ── States before processing has started ──
     if (status === "In Progress") return "in-progress";
     if (status === "Open" || status === "Assigned") return "under-review";
     if (status === "Needs Rework") return "under-review";
     if (status === "Blocked") return "in-progress";
+    if (status === "Complete") return "under-review";
     if (publishedAt && !publishedExt) return "under-review";
     return "submitted";
 }
@@ -169,7 +183,7 @@ const STATUS_INFO: Record<string, ExternalStatusInfo> = {
   },
 };
 
-export function getExternalStatusInfo(req: { status: string; _exceptionRecommendation?: string | null; _exceptionDecision?: string | null; _publishedExternal?: boolean; _externalStatus?: string | null; _exceptionSentAt?: string | null; _publishedAt?: string | null; _workNotes?: Array<{ action?: string | null }> | null; _blockerStatus?: string | null; _blockerExternalQuestion?: string | null; _blockerExternalResponse?: string | null }): ExternalStatusInfo {
+export function getExternalStatusInfo(req: { status: string; _exceptionRecommendation?: string | null; _exceptionDecision?: string | null; _publishedExternal?: boolean; _externalStatus?: string | null; _exceptionSentAt?: string | null; _publishedAt?: string | null; _workNotes?: Array<{ action?: string | null }> | null; _blockerStatus?: string | null; _blockerExternalQuestion?: string | null; _blockerExternalResponse?: string | null; _processingStartedAt?: string | null }): ExternalStatusInfo {
   const key = getRecapStatus(req);
   return STATUS_INFO[key] || STATUS_INFO["submitted"];
 }

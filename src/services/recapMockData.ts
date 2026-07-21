@@ -93,6 +93,10 @@ export interface RecapRequest {
     _blockerRaisedAt?: string | null;
     _blockerResolution?: string | null;
     _blockerOwner?: string | null;
+    /** External lifecycle milestone: timestamp when processing first started (Accept Work).
+     *  Once set, this field is NEVER cleared. It preserves the external "In Progress" state
+     *  across internal status changes (blocker, return, reassignment, DD review, etc.). */
+    _processingStartedAt?: string | null;
 }
 
 export interface WorkNoteEntry {
@@ -746,6 +750,9 @@ export function updateRequestStatus(id: string, status: RecapRequest["status"]):
     if (req) {
         req.status = status;
         req.lastUpdated = new Date().toISOString().split("T")[0];
+        if (status === "In Progress" && !req._processingStartedAt) {
+            req._processingStartedAt = new Date().toISOString();
+        }
     }
     return req;
 }

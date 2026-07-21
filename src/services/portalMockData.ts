@@ -119,6 +119,9 @@ export interface PortalRequest {
     _blockerStatus?: string | null;
     _blockerExternalQuestion?: string | null;
     _blockerExternalResponse?: string | null;
+    /** External lifecycle milestone: timestamp when processing first started.
+     *  Preserves "In Progress" externally across internal status changes. */
+    _processingStartedAt?: string | null;
 }
 
 export interface PortalQuestion {
@@ -294,6 +297,7 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
         _blockerStatus: req._blockerStatus ?? null,
         _blockerExternalQuestion: req._blockerExternalQuestion ?? null,
         _blockerExternalResponse: req._blockerExternalResponse ?? null,
+        _processingStartedAt: req._processingStartedAt ?? null,
     };
 }
 
@@ -312,6 +316,7 @@ export function toExternalStatusInput(req: PortalRequest) {
         _blockerStatus: req._blockerStatus || (req._rawStatus === "Pending External" ? "Pending External" : null),
         _blockerExternalQuestion: req._blockerExternalQuestion,
         _blockerExternalResponse: req._blockerExternalResponse,
+        _processingStartedAt: req._processingStartedAt,
     };
 }
 
