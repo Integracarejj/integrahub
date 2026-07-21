@@ -13,6 +13,162 @@ export type {
 
 const DD_OPS_LEAD = "David Park";
 
+/**
+ * Returns fields to clear when a new active workflow begins.
+ * Preserves all historical records (work notes, activity entries, etc.)
+ * Only clears active/current routing and workflow discriminator fields.
+ *
+ * Must be applied atomically with the new workflow state in the same patch.
+ */
+function clearIncompatibleActiveState(targetStatus: RecapRequest["status"]): Partial<RecapRequest> {
+    const patch: Partial<RecapRequest> = {};
+
+    switch (targetStatus) {
+        case "In Progress":
+            patch._returnReason = null;
+            patch._returnedBy = null;
+            patch._blockerStatus = null;
+            patch._blockerResolution = null;
+            patch._needsReassignment = false;
+            patch._misassignedReason = null;
+            patch._partnerDecision = null;
+            patch._partnerNote = null;
+            patch._partnerActionAt = null;
+            patch._exceptionRecommendation = null;
+            patch._exceptionSentAt = null;
+            patch._exceptionDecision = null;
+            patch._exceptionDecisionAt = null;
+            patch._exceptionDecisionNote = null;
+            break;
+        case "Clarification Needed":
+            patch._returnReason = null;
+            patch._returnedBy = null;
+            patch._blockerStatus = null;
+            patch._blockerResolution = null;
+            patch._needsReassignment = false;
+            patch._misassignedReason = null;
+            patch._partnerDecision = null;
+            patch._partnerNote = null;
+            patch._partnerActionAt = null;
+            patch._exceptionRecommendation = null;
+            patch._exceptionSentAt = null;
+            patch._exceptionDecision = null;
+            patch._exceptionDecisionAt = null;
+            patch._exceptionDecisionNote = null;
+            patch.owner = DD_OPS_LEAD;
+            patch.assignedTo = DD_OPS_LEAD;
+            break;
+        case "Blocked":
+            patch._returnReason = null;
+            patch._returnedBy = null;
+            patch._blockerExternalQuestion = null;
+            patch._blockerExternalResponse = null;
+            patch._blockerResolution = null;
+            patch._needsReassignment = false;
+            patch._misassignedReason = null;
+            patch._partnerDecision = null;
+            patch._partnerNote = null;
+            patch._partnerActionAt = null;
+            patch._exceptionRecommendation = null;
+            patch._exceptionSentAt = null;
+            patch._exceptionDecision = null;
+            patch._exceptionDecisionAt = null;
+            patch._exceptionDecisionNote = null;
+            break;
+        case "Needs Rework":
+            patch._blockerExternalQuestion = null;
+            patch._blockerExternalResponse = null;
+            break;
+        case "Open":
+            patch._returnReason = null;
+            patch._returnedBy = null;
+            patch._blockerStatus = null;
+            patch._blockerResolution = null;
+            patch._needsReassignment = false;
+            patch._misassignedReason = null;
+            patch._partnerDecision = null;
+            patch._partnerNote = null;
+            patch._partnerActionAt = null;
+            patch._exceptionRecommendation = null;
+            patch._exceptionSentAt = null;
+            patch._exceptionDecision = null;
+            patch._exceptionDecisionAt = null;
+            patch._exceptionDecisionNote = null;
+            break;
+        case "Complete":
+            patch._returnReason = null;
+            patch._returnedBy = null;
+            patch._blockerStatus = null;
+            patch._blockerResolution = null;
+            patch._needsReassignment = false;
+            patch._misassignedReason = null;
+            break;
+    }
+    return patch;
+}
+
+/**
+ * Invariant validator: checks a request for conflicting active-state fields.
+ * Returns an array of violation descriptions (empty = valid).
+ * Can be used for diagnostics, logging, and the repair script.
+ */
+export function validateActiveState(req: RecapRequest): string[] {
+    const violations: string[] = [];
+
+    if (req.status === "In Progress") {
+        if (req._blockerStatus && req._blockerStatus !== "Resolved") {
+            violations.push(`In Progress with active blocker status: ${req._blockerStatus}`);
+        }
+        if (req._returnReason) {
+            violations.push(`In Progress with stale _returnReason: ${req._returnReason}`);
+        }
+        if (req._partnerDecision === "Rework Required") {
+            violations.push(`In Progress with stale _partnerDecision=Rework Required`);
+        }
+    }
+
+    if (req.status === "Clarification Needed") {
+        if (req._returnReason) {
+            violations.push(`Clarification Needed with stale _returnReason: ${req._returnReason}`);
+        }
+        if (req._blockerStatus && req._blockerStatus !== "Resolved") {
+            violations.push(`Clarification Needed with active blocker: ${req._blockerStatus}`);
+        }
+        if (req._partnerDecision === "Rework Required") {
+            violations.push(`Clarification Needed with stale _partnerDecision=Rework Required`);
+        }
+    }
+
+    if (req.status === "Blocked") {
+        if (req._returnReason) {
+            violations.push(`Blocked with stale _returnReason: ${req._returnReason}`);
+        }
+        if (req._partnerDecision === "Rework Required") {
+            violations.push(`Blocked with stale _partnerDecision=Rework Required`);
+        }
+    }
+
+    if (req.status === "Complete") {
+        if (req._returnReason) {
+            violations.push(`Complete with stale _returnReason: ${req._returnReason}`);
+        }
+        if (req._blockerStatus && req._blockerStatus !== "Resolved") {
+            violations.push(`Complete with active blocker: ${req._blockerStatus}`);
+        }
+    }
+
+    if (req.status === "Open") {
+        if (req._returnReason) {
+            violations.push(`Open with stale _returnReason`);
+        }
+        if (req._blockerStatus && req._blockerStatus !== "Resolved") {
+            violations.push(`Open with active blocker: ${req._blockerStatus}`);
+        }
+    }
+
+    return violations;
+}
+
 export function isRecapDataWiped(): boolean {
     return isRecapWiped();
 }
@@ -289,25 +445,9 @@ export function partnerExceptionDecision(id: string, decision: "Approve Removal"
 
 export function updateRequestStatus(id: string, status: RecapRequest["status"]): RecapRequest | undefined {
     const now = new Date().toISOString();
-    const patch: Partial<RecapRequest> = { status };
+    const patch: Partial<RecapRequest> = { status, ...clearIncompatibleActiveState(status) };
     if (status === "In Progress") {
         patch._processingStartedAt = now;
-        patch._returnReason = null;
-        patch._returnedBy = null;
-        patch._blockerStatus = null;
-        patch._blockerResolution = null;
-        patch._needsReassignment = false;
-        patch._misassignedReason = null;
-    }
-    if (status === "Clarification Needed") {
-        patch.owner = DD_OPS_LEAD;
-        patch.assignedTo = DD_OPS_LEAD;
-        patch._returnReason = null;
-        patch._returnedBy = null;
-        patch._blockerStatus = null;
-        patch._blockerResolution = null;
-        patch._needsReassignment = false;
-        patch._misassignedReason = null;
     }
     if (isDemoLoaded()) {
         const result = Demo.updateDemoRequest(id, patch);
@@ -420,6 +560,11 @@ export function updateRequestReturnToOwner(id: string, reason: string, returnedB
             _exceptionDecision: null,
             _exceptionDecisionAt: null,
             _exceptionDecisionNote: null,
+            _blockerStatus: null,
+            _blockerResolution: null,
+            _partnerDecision: null,
+            _partnerNote: null,
+            _partnerActionAt: null,
             _workNotes: [...prevNotes, wnEntry],
         });
     } else {
@@ -433,6 +578,11 @@ export function updateRequestReturnToOwner(id: string, reason: string, returnedB
             req._exceptionDecision = null;
             req._exceptionDecisionAt = null;
             req._exceptionDecisionNote = null;
+            req._blockerStatus = null;
+            req._blockerResolution = null;
+            req._partnerDecision = null;
+            req._partnerNote = null;
+            req._partnerActionAt = null;
             req._workNotes = [...prevNotes, wnEntry];
             req.lastUpdated = new Date().toISOString().split("T")[0];
         } else {
@@ -440,6 +590,11 @@ export function updateRequestReturnToOwner(id: string, reason: string, returnedB
                 status: "Needs Rework",
                 _returnReason: reason,
                 _returnedBy: returnedBy,
+                _blockerStatus: null,
+                _blockerResolution: null,
+                _partnerDecision: null,
+                _partnerNote: null,
+                _partnerActionAt: null,
                 _workNotes: [...prevNotes, wnEntry],
             });
         }
@@ -477,6 +632,10 @@ export function updateRequestNotMine(id: string, reason: string, userName: strin
             assignedTo: null,
             _misassignedReason: reason,
             _needsReassignment: true,
+            _returnReason: null,
+            _returnedBy: null,
+            _blockerStatus: null,
+            _blockerResolution: null,
             _workNotes: [...prevNotes, wnEntry],
         });
     } else {
@@ -487,6 +646,10 @@ export function updateRequestNotMine(id: string, reason: string, userName: strin
             req.assignedTo = null;
             req._misassignedReason = reason;
             req._needsReassignment = true;
+            req._returnReason = null;
+            req._returnedBy = null;
+            req._blockerStatus = null;
+            req._blockerResolution = null;
             req._workNotes = [...prevNotes, wnEntry];
             req.lastUpdated = new Date().toISOString().split("T")[0];
         } else {
@@ -496,6 +659,10 @@ export function updateRequestNotMine(id: string, reason: string, userName: strin
                 assignedTo: null,
                 _misassignedReason: reason,
                 _needsReassignment: true,
+                _returnReason: null,
+                _returnedBy: null,
+                _blockerStatus: null,
+                _blockerResolution: null,
                 _workNotes: [...prevNotes, wnEntry],
             });
         }
@@ -646,6 +813,7 @@ export function blockRequest(id: string, reason: string, raisedBy: string): Reca
         action: "Blocked",
     };
     const patch: Partial<RecapRequest> = {
+        ...clearIncompatibleActiveState("Blocked"),
         status: "Blocked" as RecapRequest["status"],
         owner: DD_OPS_LEAD,
         assignedTo: DD_OPS_LEAD,
@@ -654,11 +822,6 @@ export function blockRequest(id: string, reason: string, raisedBy: string): Reca
         _blockerRaisedBy: originalContributor,
         _blockerRaisedAt: now,
         _blockerOwner: DD_OPS_LEAD,
-        _returnReason: null,
-        _returnedBy: null,
-        _blockerExternalQuestion: null,
-        _blockerExternalResponse: null,
-        _blockerResolution: null,
         _workNotes: [...prevNotes, wnEntry],
         lastUpdated: nowDate,
     };
@@ -692,6 +855,7 @@ export function resolveBlockerInternal(id: string, resolution: string, resolvedB
     };
     const returnTo = existing?._blockerRaisedBy || existing?.owner || "Unknown";
     const patch: Partial<RecapRequest> = {
+        ...clearIncompatibleActiveState("Needs Rework"),
         status: "Needs Rework" as RecapRequest["status"],
         owner: returnTo,
         assignedTo: returnTo,
@@ -699,8 +863,6 @@ export function resolveBlockerInternal(id: string, resolution: string, resolvedB
         _blockerResolution: resolution,
         _returnReason: `Blocker resolved: ${resolution}`,
         _returnedBy: resolvedBy,
-        _blockerExternalQuestion: null,
-        _blockerExternalResponse: null,
         _workNotes: [...prevNotes, wnEntry],
         lastUpdated: nowDate,
     };
@@ -804,6 +966,7 @@ export function returnBlockerGuidance(id: string, guidance: string, returnedBy: 
         action: "Blocker Guidance",
     };
     const patch: Partial<RecapRequest> = {
+        ...clearIncompatibleActiveState("Needs Rework"),
         status: "Needs Rework" as RecapRequest["status"],
         owner: returnTo,
         assignedTo: returnTo,
@@ -811,8 +974,6 @@ export function returnBlockerGuidance(id: string, guidance: string, returnedBy: 
         _blockerResolution: guidance,
         _returnReason: `Blocker guidance: ${guidance}`,
         _returnedBy: returnedBy,
-        _blockerExternalQuestion: null,
-        _blockerExternalResponse: null,
         _workNotes: [...prevNotes, wnEntry],
         lastUpdated: nowDate,
     };
@@ -1336,7 +1497,8 @@ export function updatePortalRequestStatus(reqId: string, status: string): RecapR
     const idx = all.findIndex(r => r.id === reqId || r.requestId === reqId || r.intakeId === reqId);
     if (idx === -1) return;
     const now = new Date().toISOString();
-    const patch: Partial<RecapRequest> = { status: status as RecapRequest["status"], lastUpdated: now.split("T")[0] };
+    const cleanupFields = clearIncompatibleActiveState(status as RecapRequest["status"]);
+    const patch: Partial<RecapRequest> = { status: status as RecapRequest["status"], ...cleanupFields, lastUpdated: now.split("T")[0] };
     if (status === "In Progress" && !all[idx]._processingStartedAt) {
         patch._processingStartedAt = now;
     }

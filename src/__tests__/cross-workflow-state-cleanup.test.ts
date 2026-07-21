@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { getExternalStatusInfo } from '../services/externalStatusMapping';
 import type { RecapRequest, WorkNoteEntry } from '../services/recapMockData';
 
 const DD_OPS_LEAD = 'David Park';
 const CONTRIBUTOR = 'Sarah Chen';
+const OTHER_CONTRIBUTOR = 'Mike Wilson';
 
 function createWorkNote(text: string, author: string, action: string | null, tsOffset = 0): WorkNoteEntry {
     return {
@@ -76,7 +76,12 @@ function inNeedsDDReview(req: RecapRequest): boolean {
     return (NEEDS_DD_REVIEW_STATUSES.includes(req.status) || !!req._needsReassignment || !!req._misassignedReason || req._partnerDecision === 'Rework Required') && !req._returnReason;
 }
 
+function inWaitingOnDDOps(req: RecapRequest, activeUser: string): boolean {
+    return (req.status === 'Blocked' || req.status === 'Pending External') && req._blockerRaisedBy === activeUser;
+}
+
 function simulateBlock(req: RecapRequest, raisedBy: string, reason: string): RecapRequest {
+    const wn = createWorkNote(reason, raisedBy, 'Blocked');
     return {
         ...req,
         status: 'Blocked',
@@ -92,10 +97,14 @@ function simulateBlock(req: RecapRequest, raisedBy: string, reason: string): Rec
         _blockerExternalQuestion: null,
         _blockerExternalResponse: null,
         _blockerResolution: null,
+        _needsReassignment: false,
+        _misassignedReason: null,
+        _workNotes: [...(req._workNotes || []), wn],
     };
 }
 
 function simulateResolveBlocker(req: RecapRequest, resolution: string, resolvedBy: string): RecapRequest {
+    const wn = createWorkNote(`Blocker resolved: ${resolution}`, resolvedBy, 'Blocker Resolution');
     return {
         ...req,
         status: 'Needs Rework',
@@ -107,6 +116,7 @@ function simulateResolveBlocker(req: RecapRequest, resolution: string, resolvedB
         _returnedBy: resolvedBy,
         _blockerExternalQuestion: null,
         _blockerExternalResponse: null,
+        _workNotes: [...(req._workNotes || []), wn],
     };
 }
 
@@ -121,6 +131,14 @@ function simulateReacceptWithCleanup(req: RecapRequest): RecapRequest {
         _blockerResolution: null,
         _needsReassignment: false,
         _misassignedReason: null,
+        _partnerDecision: null,
+        _partnerNote: null,
+        _partnerActionAt: null,
+        _exceptionRecommendation: null,
+        _exceptionSentAt: null,
+        _exceptionDecision: null,
+        _exceptionDecisionAt: null,
+        _exceptionDecisionNote: null,
     };
 }
 
@@ -141,446 +159,618 @@ function simulateStartClarification(req: RecapRequest, questionText: string): Re
     };
 }
 
-describe('Cross-Workflow Active-State Contamination', () => {
+function simulateClarificationResponse(req: RecapRequest, response: string, respondedBy: string): RecapRequest {
+    return {
+        ...req,
+        status: 'In Progress',
+        _returnReason: null,
+        _returnedBy: null,
+        _workNotes: [...(req._workNotes || []), createWorkNote(response, respondedBy, 'Clarification Response')],
+    };
+}
 
-    describe('Primary Reproduction Sequence: Blocker → Resolve → Reaccept → Clarification', () => {
+function simulateReturnToOwner(req: RecapRequest, reason: string, returnedBy: string): RecapRequest {
+    return {
+        ...req,
+        status: 'Needs Rework',
+        _returnReason: reason,
+        _returnedBy: returnedBy,
+        _exceptionRecommendation: null,
+        _exceptionSentAt: null,
+        _exceptionDecision: null,
+        _exceptionDecisionAt: null,
+        _exceptionDecisionNote: null,
+        _blockerStatus: null,
+        _blockerResolution: null,
+    };
+}
 
-        it('should route clarification to DD Operations after blocker → resolve → reaccept → clarification', () => {
-            let req = buildRequest();
+function simulateNotMine(req: RecapRequest, reason: string, _userName: string): RecapRequest {
+    return {
+        ...req,
+        status: 'Open',
+        owner: null,
+        assignedTo: null,
+        _misassignedReason: reason,
+        _needsReassignment: true,
+        _returnReason: null,
+        _returnedBy: null,
+        _blockerStatus: null,
+        _blockerResolution: null,
+    };
+}
 
+function simulateComplete(req: RecapRequest, completedBy: string): RecapRequest {
+    return {
+        ...req,
+        status: 'Complete',
+        _completedBy: completedBy,
+        _completedAt: new Date().toISOString(),
+        _returnReason: null,
+        _returnedBy: null,
+        _blockerStatus: null,
+        _blockerResolution: null,
+        _needsReassignment: false,
+        _misassignedReason: null,
+    };
+}
+
+function simulatePublishExternal(req: RecapRequest): RecapRequest {
+    return {
+        ...req,
+        status: 'Waiting Partner Review',
+        _externalStatus: 'Published External',
+        _publishedExternal: true,
+        _publishedExternalAt: new Date().toISOString(),
+        _partnerDecision: null,
+        _partnerNote: null,
+        _partnerActionAt: null,
+    };
+}
+
+function simulatePartnerApprove(req: RecapRequest): RecapRequest {
+    return {
+        ...req,
+        status: 'Completed',
+        _partnerDecision: 'Approved',
+        _partnerNote: null,
+        _partnerActionAt: new Date().toISOString(),
+        _completedBy: 'External Partner',
+        _completedAt: new Date().toISOString(),
+    };
+}
+
+function simulatePartnerRework(req: RecapRequest, reason: string): RecapRequest {
+    return {
+        ...req,
+        status: 'Needs Rework',
+        owner: DD_OPS_LEAD,
+        assignedTo: DD_OPS_LEAD,
+        _partnerDecision: 'Rework Required',
+        _partnerNote: reason,
+        _partnerActionAt: new Date().toISOString(),
+    };
+}
+
+/** Invariant validator: asserts a request has valid active state after a transition */
+function assertValidActiveState(req: RecapRequest, context: string) {
+    const msgs: string[] = [];
+
+    if (req.status === 'Clarification Needed' && req.owner !== DD_OPS_LEAD && req.assignedTo !== DD_OPS_LEAD) {
+        msgs.push(`Clarification Needed but owner/assignedTo is not DD_OPS_LEAD (owner=${req.owner}, assignedTo=${req.assignedTo})`);
+    }
+    if (req.status === 'Blocked' && req.owner !== DD_OPS_LEAD) {
+        msgs.push(`Blocked but owner is not DD_OPS_LEAD (owner=${req.owner})`);
+    }
+    if (req.status === 'In Progress' && req._blockerStatus && req._blockerStatus !== 'Resolved') {
+        msgs.push(`In Progress with active blocker status: ${req._blockerStatus}`);
+    }
+    if (req.status === 'Clarification Needed' && req._returnReason) {
+        msgs.push(`Clarification Needed with stale _returnReason: ${req._returnReason}`);
+    }
+    if (req.status === 'Clarification Needed' && req._blockerStatus && req._blockerStatus !== 'Resolved') {
+        msgs.push(`Clarification Needed with active blocker: ${req._blockerStatus}`);
+    }
+
+    if (msgs.length > 0) {
+        throw new Error(`Invariant violation [${context}]:\n  ${msgs.join('\n  ')}`);
+    }
+}
+
+/** Queue-level assertion: verifies the request appears in exactly the right queues */
+function assertQueueRouting(req: RecapRequest, expected: {
+    activeWork?: boolean;
+    needsDDReview?: boolean;
+    returnedNeedsAttention?: boolean;
+    waitingOnDDOps?: boolean;
+    inAnyQueue?: boolean;
+}, _context?: string) {
+    const active = inActiveWork(req);
+    const ddReview = inNeedsDDReview(req);
+    const returned = inReturnedNeedsAttention(req);
+
+    if (expected.activeWork !== undefined) {
+        expect(active).toBe(expected.activeWork);
+    }
+    if (expected.needsDDReview !== undefined) {
+        expect(ddReview).toBe(expected.needsDDReview);
+    }
+    if (expected.returnedNeedsAttention !== undefined) {
+        expect(returned).toBe(expected.returnedNeedsAttention);
+    }
+    if (expected.waitingOnDDOps !== undefined) {
+        expect(inWaitingOnDDOps(req, CONTRIBUTOR)).toBe(expected.waitingOnDDOps);
+    }
+    if (expected.inAnyQueue !== undefined) {
+        const inAny = active || ddReview || returned;
+        expect(inAny).toBe(expected.inAnyQueue);
+    }
+}
+
+describe('Cross-Workflow Active-State Transition Defect', () => {
+
+    describe('Test A — Primary Regression: Blocker → Resolve → Reaccept → Clarification', () => {
+
+        it('should route clarification to DD Ops after blocker → resolve → reaccept → clarification', () => {
+            let req = buildRequest({ _processingStartedAt: '2026-07-01T10:00:00Z' });
+
+            // Step 1: Accept Work
+            expect(req.status).toBe('In Progress');
+            assertValidActiveState(req, 'accept');
+
+            // Step 2: Raise Blocker
             req = simulateBlock(req, CONTRIBUTOR, 'Missing documents');
             expect(req.status).toBe('Blocked');
             expect(req._blockerStatus).toBe('Raised');
             expect(req.owner).toBe(DD_OPS_LEAD);
+            assertValidActiveState(req, 'block');
+            assertQueueRouting(req, { activeWork: false, needsDDReview: true, waitingOnDDOps: true });
 
+            // Step 3: Resolve Blocker
             req = simulateResolveBlocker(req, 'Documents found', DD_OPS_LEAD);
             expect(req.status).toBe('Needs Rework');
             expect(req._blockerStatus).toBe('Resolved');
             expect(req._returnReason).toBe('Blocker resolved: Documents found');
+            assertValidActiveState(req, 'resolve');
+            assertQueueRouting(req, { activeWork: false, needsDDReview: false, returnedNeedsAttention: true });
 
+            // Step 4: Reaccept
             req = simulateReacceptWithCleanup(req);
             expect(req.status).toBe('In Progress');
             expect(req._returnReason).toBeNull();
-            expect(req._returnedBy).toBeNull();
             expect(req._blockerStatus).toBeNull();
-            expect(req._blockerResolution).toBeNull();
+            expect(req._processingStartedAt).toBe('2026-07-01T10:00:00Z');
+            assertValidActiveState(req, 'reaccept');
+            assertQueueRouting(req, { activeWork: true, needsDDReview: false, returnedNeedsAttention: false });
 
-            req = simulateStartClarification(req, 'Can you provide more details on the financials?');
+            // Step 5: Clarification
+            req = simulateStartClarification(req, 'Can you provide more details?');
             expect(req.status).toBe('Clarification Needed');
             expect(req.owner).toBe(DD_OPS_LEAD);
             expect(req.assignedTo).toBe(DD_OPS_LEAD);
-
-            // Clarification with no stale _returnReason appears in both DD Ops "Needs DD Review"
-            // and My Work "Returned / Needs Attention" — that is correct routing
-            expect(inNeedsDDReview(req)).toBe(true);
-            expect(inActiveWork(req)).toBe(false);
-        });
-
-        it('should have stale _returnReason AFTER resolve but BEFORE reaccept', () => {
-            let req = buildRequest();
-            req = simulateBlock(req, CONTRIBUTOR, 'Missing docs');
-            req = simulateResolveBlocker(req, 'Found', DD_OPS_LEAD);
-            expect(req._returnReason).toBe('Blocker resolved: Found');
-            // Needs Rework with _returnReason → "Returned / Needs Attention" only
-            expect(inNeedsDDReview(req)).toBe(false);
-            expect(inReturnedNeedsAttention(req)).toBe(true);
-        });
-
-        it('should have clean state AFTER reaccept (stale fields cleared)', () => {
-            let req = buildRequest();
-            req = simulateBlock(req, CONTRIBUTOR, 'Missing docs');
-            req = simulateResolveBlocker(req, 'Found', DD_OPS_LEAD);
-            req = simulateReacceptWithCleanup(req);
             expect(req._returnReason).toBeNull();
             expect(req._blockerStatus).toBeNull();
-            expect(req._blockerResolution).toBeNull();
-            expect(inActiveWork(req)).toBe(true);
+            assertValidActiveState(req, 'clarification');
+            assertQueueRouting(req, { activeWork: false, needsDDReview: true, returnedNeedsAttention: true, inAnyQueue: true });
         });
 
-        it('should include clarification in both Needs DD Review and Returned after clean reaccept', () => {
+        it('should retain blocker history through the full sequence', () => {
+            let req = buildRequest();
+            req = simulateBlock(req, CONTRIBUTOR, 'Issue');
+            const blockNotes = req._workNotes?.filter(n => n.action === 'Blocked') || [];
+            expect(blockNotes.length).toBe(1);
+
+            req = simulateResolveBlocker(req, 'Fixed', DD_OPS_LEAD);
+            const resolveNotes = req._workNotes?.filter(n => n.action === 'Blocker Resolution') || [];
+            expect(resolveNotes.length).toBe(1);
+            expect(blockNotes.length).toBe(1); // still present
+
+            req = simulateReacceptWithCleanup(req);
+            expect(req._workNotes?.filter(n => n.action === 'Blocked').length).toBe(1);
+            expect(req._workNotes?.filter(n => n.action === 'Blocker Resolution').length).toBe(1);
+
+            req = simulateStartClarification(req, 'Question?');
+            const clarNotes = req._workNotes?.filter(n => n.action === 'Clarification Needed') || [];
+            expect(clarNotes.length).toBe(1);
+            expect(req._workNotes?.filter(n => n.action === 'Blocked').length).toBe(1);
+            expect(req._workNotes?.filter(n => n.action === 'Blocker Resolution').length).toBe(1);
+        });
+
+        it('should have only one active workflow (clarification) after the sequence', () => {
             let req = buildRequest();
             req = simulateBlock(req, CONTRIBUTOR, 'Issue');
             req = simulateResolveBlocker(req, 'Fixed', DD_OPS_LEAD);
             req = simulateReacceptWithCleanup(req);
             req = simulateStartClarification(req, 'Question?');
-            expect(inNeedsDDReview(req)).toBe(true);
-            expect(inReturnedNeedsAttention(req)).toBe(true);
-        });
-    });
 
-    describe('Sequential Cross-Workflow Actions', () => {
-
-        it('should handle Blocker → Resolve → Reaccept → Clarification → Response → Blocker again', () => {
-            let req = buildRequest();
-            req = simulateBlock(req, CONTRIBUTOR, 'Issue 1');
-            req = simulateResolveBlocker(req, 'Fixed 1', DD_OPS_LEAD);
-            req = simulateReacceptWithCleanup(req);
-            req = simulateStartClarification(req, 'Clarification 1');
-            expect(req.status).toBe('Clarification Needed');
-
-            req = { ...req, status: 'In Progress' as RecapRequest['status'] };
-            expect(req.status).toBe('In Progress');
-            expect(inActiveWork(req)).toBe(true);
-
-            req = simulateBlock(req, CONTRIBUTOR, 'Issue 2');
-            expect(req.status).toBe('Blocked');
-            expect(req._blockerStatus).toBe('Raised');
-        });
-
-        it('should handle Return-to-Owner → Reaccept → Clarification without stale return fields', () => {
-            let req = buildRequest();
-            req = {
-                ...req,
-                status: 'Needs Rework',
-                _returnReason: 'Needs additional documentation',
-                _returnedBy: DD_OPS_LEAD,
-            };
-
-            req = simulateReacceptWithCleanup(req);
-            expect(req._returnReason).toBeNull();
-            expect(req._returnedBy).toBeNull();
-
-            req = simulateStartClarification(req, 'Question?');
-            expect(req.status).toBe('Clarification Needed');
-            expect(inNeedsDDReview(req)).toBe(true);
-        });
-
-        it('should handle Blocker → External Request → External Response → Resolve → Reaccept → Clarification', () => {
-            let req = buildRequest();
-            req = simulateBlock(req, CONTRIBUTOR, 'Need info');
-
-            req = {
-                ...req,
-                status: 'Pending External' as RecapRequest['status'],
-                _blockerStatus: 'Pending External',
-                _blockerExternalQuestion: 'Can you provide X?',
-            };
-
-            req = {
-                ...req,
-                status: 'Blocked',
-                _blockerStatus: 'External Response Received',
-                _blockerExternalResponse: 'Here is X',
-            };
-
-            req = simulateResolveBlocker(req, 'Resolved with external info', DD_OPS_LEAD);
-            expect(req._blockerStatus).toBe('Resolved');
-
-            req = simulateReacceptWithCleanup(req);
-            expect(req._blockerStatus).toBeNull();
-            expect(req._returnReason).toBeNull();
-
-            req = simulateStartClarification(req, 'One more thing?');
-            expect(inNeedsDDReview(req)).toBe(true);
-        });
-    });
-
-    describe('State Cleanup Verification', () => {
-
-        it('should clear _returnReason when transitioning to In Progress', () => {
-            let req = buildRequest({ _returnReason: 'Stale return', _returnedBy: 'Old' });
-            req = simulateReacceptWithCleanup(req);
-            expect(req._returnReason).toBeNull();
-            expect(req._returnedBy).toBeNull();
-        });
-
-        it('should clear _blockerStatus when transitioning to In Progress', () => {
-            let req = buildRequest({ _blockerStatus: 'Resolved' as RecapRequest['_blockerStatus'], _blockerResolution: 'Old resolution' });
-            req = simulateReacceptWithCleanup(req);
+            // Active workflow indicators should only reflect clarification
             expect(req._blockerStatus).toBeNull();
             expect(req._blockerResolution).toBeNull();
-        });
-
-        it('should clear _needsReassignment when transitioning to In Progress', () => {
-            let req = buildRequest({ _needsReassignment: true, _misassignedReason: 'Wrong team' });
-            req = simulateReacceptWithCleanup(req);
-            expect(req._needsReassignment).toBe(false);
-            expect(req._misassignedReason).toBeNull();
-        });
-
-        it('should clear all stale fields when transitioning to In Progress in one step', () => {
-            let req = buildRequest({
-                _returnReason: 'Stale',
-                _returnedBy: 'Someone',
-                _blockerStatus: 'Resolved' as RecapRequest['_blockerStatus'],
-                _blockerResolution: 'Old',
-                _needsReassignment: true,
-                _misassignedReason: 'Wrong',
-            });
-            req = simulateReacceptWithCleanup(req);
             expect(req._returnReason).toBeNull();
-            expect(req._returnedBy).toBeNull();
-            expect(req._blockerStatus).toBeNull();
-            expect(req._blockerResolution).toBeNull();
             expect(req._needsReassignment).toBe(false);
-            expect(req._misassignedReason).toBeNull();
-        });
-
-        it('should set owner and assignedTo to DD_OPS_LEAD when starting clarification', () => {
-            let req = buildRequest({ owner: CONTRIBUTOR, assignedTo: CONTRIBUTOR });
-            req = simulateStartClarification(req, 'Question?');
+            expect(req.status).toBe('Clarification Needed');
             expect(req.owner).toBe(DD_OPS_LEAD);
-            expect(req.assignedTo).toBe(DD_OPS_LEAD);
         });
 
-        it('should clear _returnReason when starting clarification', () => {
-            let req = buildRequest({ _returnReason: 'Stale return' });
+        it('should preserve external lifecycle milestone', () => {
+            let req = buildRequest({ _processingStartedAt: '2026-07-01T10:00:00Z' });
+            req = simulateBlock(req, CONTRIBUTOR, 'Issue');
+            req = simulateResolveBlocker(req, 'Fixed', DD_OPS_LEAD);
+            req = simulateReacceptWithCleanup(req);
             req = simulateStartClarification(req, 'Question?');
-            expect(req._returnReason).toBeNull();
-        });
-
-        it('should clear _blockerStatus when starting clarification', () => {
-            let req = buildRequest({ _blockerStatus: 'Resolved' as RecapRequest['_blockerStatus'] });
-            req = simulateStartClarification(req, 'Question?');
-            expect(req._blockerStatus).toBeNull();
+            expect(req._processingStartedAt).toBe('2026-07-01T10:00:00Z');
         });
     });
 
-    describe('Fresh Workflow Regression (No Prior Blocker)', () => {
+    describe('Test B — Reverse Order: Clarification → Resolve → Reaccept → Blocker', () => {
 
-        it('should route fresh clarification to DD Operations and My Work Returned', () => {
-            let req = buildRequest();
+        it('should route blocker correctly after clarification → resolve → reaccept → blocker', () => {
+            let req = buildRequest({ _processingStartedAt: '2026-07-01T10:00:00Z' });
+
+            // Step 1: Start Clarification
             req = simulateStartClarification(req, 'Need more info on financials');
             expect(req.status).toBe('Clarification Needed');
             expect(req.owner).toBe(DD_OPS_LEAD);
-            expect(inNeedsDDReview(req)).toBe(true);
-            expect(inReturnedNeedsAttention(req)).toBe(true);
-        });
+            assertValidActiveState(req, 'start clarification');
+            assertQueueRouting(req, { activeWork: false, needsDDReview: true });
 
-        it('should not set _returnReason for fresh clarification', () => {
-            let req = buildRequest();
-            req = simulateStartClarification(req, 'Question?');
-            expect(req._returnReason).toBeNull();
-        });
+            // Step 2: Clarification Response (DD Ops answers)
+            req = simulateClarificationResponse(req, 'Here is the info', DD_OPS_LEAD);
+            expect(req.status).toBe('In Progress');
+            assertValidActiveState(req, 'clarification response');
+            assertQueueRouting(req, { activeWork: true });
 
-        it('should keep fresh clarification routed to DD Operations', () => {
-            let req = buildRequest({ owner: DD_OPS_LEAD, assignedTo: DD_OPS_LEAD });
-            req = simulateStartClarification(req, 'Question?');
-            expect(req.status).toBe('Clarification Needed');
-            expect(inNeedsDDReview(req)).toBe(true);
-        });
-    });
+            // Step 3: Return to Contributor
+            req = simulateReturnToOwner(req, 'Need additional analysis', DD_OPS_LEAD);
+            expect(req.status).toBe('Needs Rework');
+            expect(req._returnReason).toBe('Need additional analysis');
+            assertValidActiveState(req, 'return to owner');
+            assertQueueRouting(req, { activeWork: false, returnedNeedsAttention: true });
 
-    describe('Locked Workflow Regression (External Lifecycle Milestone)', () => {
-
-        it('should preserve _processingStartedAt through blocker → resolve → reaccept → clarification', () => {
-            let req = buildRequest({ _processingStartedAt: '2026-07-01T10:00:00Z' });
-            req = simulateBlock(req, CONTRIBUTOR, 'Issue');
-            req = simulateResolveBlocker(req, 'Fixed', DD_OPS_LEAD);
-            req = simulateReacceptWithCleanup(req);
-            expect(req._processingStartedAt).toBe('2026-07-01T10:00:00Z');
-            req = simulateStartClarification(req, 'Question?');
-            expect(req._processingStartedAt).toBe('2026-07-01T10:00:00Z');
-        });
-
-        it('should preserve external visibility through blocker → resolve → reaccept', () => {
-            let req = buildRequest({ externalVisible: true, _externalStatus: 'Published External' });
-            req = simulateBlock(req, CONTRIBUTOR, 'Issue');
-            req = simulateResolveBlocker(req, 'Fixed', DD_OPS_LEAD);
-            req = simulateReacceptWithCleanup(req);
-            expect(req.externalVisible).toBe(true);
-            expect(req._externalStatus).toBe('Published External');
-        });
-
-        it('should preserve _publishedAt through cross-workflow transitions', () => {
-            let req = buildRequest({ _publishedAt: '2026-06-01' });
-            req = simulateBlock(req, CONTRIBUTOR, 'Issue');
-            req = simulateResolveBlocker(req, 'Fixed', DD_OPS_LEAD);
-            req = simulateReacceptWithCleanup(req);
-            expect(req._publishedAt).toBe('2026-06-01');
-            req = simulateStartClarification(req, 'Question?');
-            expect(req._publishedAt).toBe('2026-06-01');
-        });
-    });
-
-    describe('External Status Mapping After Cross-Workflow', () => {
-
-        it('should map to correct external status after blocker → resolve → reaccept → clarification', () => {
-            let req = buildRequest({ _processingStartedAt: '2026-07-01T10:00:00Z' });
-            req = simulateBlock(req, CONTRIBUTOR, 'Issue');
-            req = simulateResolveBlocker(req, 'Fixed', DD_OPS_LEAD);
-            req = simulateReacceptWithCleanup(req);
-            req = simulateStartClarification(req, 'Question?');
-
-            const extStatus = getExternalStatusInfo({
-                status: req.status,
-                _exceptionRecommendation: req._exceptionRecommendation,
-                _exceptionDecision: req._exceptionDecision,
-                _publishedExternal: req._externalStatus === 'Published External',
-                _externalStatus: req._externalStatus,
-                _exceptionSentAt: req._exceptionSentAt,
-                _publishedAt: req._publishedAt,
-                _workNotes: req._workNotes,
-                _blockerStatus: req._blockerStatus,
-                _blockerExternalQuestion: req._blockerExternalQuestion,
-                _blockerExternalResponse: req._blockerExternalResponse,
-                _processingStartedAt: req._processingStartedAt,
-            });
-            expect(extStatus.status).not.toBe('stale');
-        });
-
-        it('should not show stale "Resolved" blocker status after reaccept', () => {
-            let req = buildRequest();
-            req = simulateBlock(req, CONTRIBUTOR, 'Issue');
-            req = simulateResolveBlocker(req, 'Fixed', DD_OPS_LEAD);
-            req = simulateReacceptWithCleanup(req);
-            expect(req._blockerStatus).toBeNull();
-        });
-    });
-
-    describe('Edge Cases', () => {
-
-        it('should handle multiple rapid status transitions without accumulating stale state', () => {
-            let req = buildRequest();
-
-            for (let i = 0; i < 3; i++) {
-                req = simulateBlock(req, CONTRIBUTOR, `Issue ${i}`);
-                req = simulateResolveBlocker(req, `Fixed ${i}`, DD_OPS_LEAD);
-                req = simulateReacceptWithCleanup(req);
-                expect(req._returnReason).toBeNull();
-                expect(req._blockerStatus).toBeNull();
-            }
-
-            req = simulateStartClarification(req, 'Final question');
-            expect(inNeedsDDReview(req)).toBe(true);
-        });
-
-        it('should handle Blocker → Resolve → Clarification directly (skip reaccept)', () => {
-            let req = buildRequest();
-            req = simulateBlock(req, CONTRIBUTOR, 'Issue');
-            req = simulateResolveBlocker(req, 'Fixed', DD_OPS_LEAD);
-            req = simulateStartClarification(req, 'Question?');
-            expect(req.status).toBe('Clarification Needed');
-            expect(req._returnReason).toBeNull();
-            expect(inNeedsDDReview(req)).toBe(true);
-        });
-
-        it('should handle Return-to-Owner → Blocker → Resolve → Reaccept → Clarification', () => {
-            let req = buildRequest();
-            req = { ...req, status: 'Needs Rework', _returnReason: 'Needs more docs', _returnedBy: DD_OPS_LEAD };
-            req = simulateBlock(req, CONTRIBUTOR, 'New blocker');
-            req = simulateResolveBlocker(req, 'Fixed', DD_OPS_LEAD);
-            req = simulateReacceptWithCleanup(req);
-            req = simulateStartClarification(req, 'Question?');
-            expect(inNeedsDDReview(req)).toBe(true);
-        });
-
-        it('should handle Clarification → Response → Reaccept → Blocker → Resolve → Clarification', () => {
-            let req = buildRequest();
-            req = simulateStartClarification(req, 'First question');
-            expect(req.status).toBe('Clarification Needed');
-
-            req = { ...req, status: 'In Progress' as RecapRequest['status'] };
-            expect(inActiveWork(req)).toBe(true);
-
-            req = simulateBlock(req, CONTRIBUTOR, 'Blocker after clarification');
-            expect(req.status).toBe('Blocked');
-
-            req = simulateResolveBlocker(req, 'Fixed', DD_OPS_LEAD);
-            req = simulateReacceptWithCleanup(req);
-            expect(req._returnReason).toBeNull();
-
-            req = simulateStartClarification(req, 'Second question');
-            expect(inNeedsDDReview(req)).toBe(true);
-        });
-
-        it('should NOT preserve _processingStartedAt if it was never set', () => {
-            let req = buildRequest({ _processingStartedAt: undefined });
-            req = simulateBlock(req, CONTRIBUTOR, 'Issue');
-            req = simulateResolveBlocker(req, 'Fixed', DD_OPS_LEAD);
+            // Step 4: Reaccept
             req = simulateReacceptWithCleanup(req);
             expect(req.status).toBe('In Progress');
+            expect(req._returnReason).toBeNull();
+            expect(req._blockerStatus).toBeNull();
+            assertValidActiveState(req, 'reaccept');
+            assertQueueRouting(req, { activeWork: true });
+
+            // Step 5: Raise Blocker
+            req = simulateBlock(req, CONTRIBUTOR, 'Still missing docs');
+            expect(req.status).toBe('Blocked');
+            expect(req._blockerStatus).toBe('Raised');
+            expect(req.owner).toBe(DD_OPS_LEAD);
+            assertValidActiveState(req, 'block after clarification');
+            assertQueueRouting(req, { activeWork: false, needsDDReview: true });
+        });
+
+        it('should retain clarification history through the full sequence', () => {
+            let req = buildRequest();
+            req = simulateStartClarification(req, 'Question?');
+            req = simulateClarificationResponse(req, 'Answer', DD_OPS_LEAD);
+            req = simulateReturnToOwner(req, 'More work needed', DD_OPS_LEAD);
+            req = simulateReacceptWithCleanup(req);
+            req = simulateBlock(req, CONTRIBUTOR, 'Blocker');
+
+            const clarNotes = req._workNotes?.filter(n => n.action === 'Clarification Needed') || [];
+            const respNotes = req._workNotes?.filter(n => n.action === 'Clarification Response') || [];
+            expect(clarNotes.length).toBe(1);
+            expect(respNotes.length).toBe(1);
         });
     });
 
-    describe('Queue Selector State Machine', () => {
+    describe('Test C — Repeated Workflow: Blocker → Resolve → Reaccept → Blocker Again', () => {
 
-        it('should track queue membership through full lifecycle: Active → Block → Resolve → Reaccept → Clarify', () => {
+        it('should route second blocker identically to first', () => {
             let req = buildRequest();
 
-            // Active Work: In Progress with no RETURNED_STATUSES
-            expect(inActiveWork(req)).toBe(true);
-            expect(inNeedsDDReview(req)).toBe(false);
-            expect(inReturnedNeedsAttention(req)).toBe(false);
+            // First blocker cycle
+            req = simulateBlock(req, CONTRIBUTOR, 'Issue 1');
+            expect(req._blockerStatus).toBe('Raised');
+            expect(req.status).toBe('Blocked');
 
-            // Blocked → DD Operations "Needs DD Review" + My Work "Returned / Needs Attention"
-            req = simulateBlock(req, CONTRIBUTOR, 'Issue');
-            expect(inActiveWork(req)).toBe(false);
-            expect(inNeedsDDReview(req)).toBe(true);
-            expect(inReturnedNeedsAttention(req)).toBe(true);
-
-            // Resolved → "Returned / Needs Attention" only (Needs Rework with _returnReason blocks DD Ops)
-            req = simulateResolveBlocker(req, 'Fixed', DD_OPS_LEAD);
-            expect(inActiveWork(req)).toBe(false);
-            expect(inNeedsDDReview(req)).toBe(false);
-            expect(inReturnedNeedsAttention(req)).toBe(true);
-
-            // Reaccept → Active Work only (stale fields cleared, status: In Progress)
+            req = simulateResolveBlocker(req, 'Fixed 1', DD_OPS_LEAD);
             req = simulateReacceptWithCleanup(req);
-            expect(inActiveWork(req)).toBe(true);
-            expect(inNeedsDDReview(req)).toBe(false);
-            expect(inReturnedNeedsAttention(req)).toBe(false);
+            expect(req._blockerStatus).toBeNull();
+            expect(req._returnReason).toBeNull();
 
-            // Clarification → DD Ops "Needs DD Review" + My Work "Returned / Needs Attention"
-            // (no stale _returnReason, so both queues include it)
-            req = simulateStartClarification(req, 'Question?');
-            expect(inActiveWork(req)).toBe(false);
-            expect(inNeedsDDReview(req)).toBe(true);
-            expect(inReturnedNeedsAttention(req)).toBe(true);
+            // Second blocker cycle
+            req = simulateBlock(req, CONTRIBUTOR, 'Issue 2');
+            expect(req._blockerStatus).toBe('Raised');
+            expect(req.status).toBe('Blocked');
+            expect(req.owner).toBe(DD_OPS_LEAD);
+            assertValidActiveState(req, 'second blocker');
+            assertQueueRouting(req, { activeWork: false, needsDDReview: true, waitingOnDDOps: true });
+
+            // Both blocker notes retained
+            const blockNotes = req._workNotes?.filter(n => n.action === 'Blocked') || [];
+            expect(blockNotes.length).toBe(2);
+        });
+    });
+
+    describe('Test D — Repeated Clarification: Clarification → Resolve → Reaccept → Clarification Again', () => {
+
+        it('should route second clarification correctly', () => {
+            let req = buildRequest();
+
+            // First clarification cycle
+            req = simulateStartClarification(req, 'First question');
+            expect(req.status).toBe('Clarification Needed');
+            req = simulateClarificationResponse(req, 'First answer', DD_OPS_LEAD);
+            req = simulateReturnToOwner(req, 'Need more work', DD_OPS_LEAD);
+            req = simulateReacceptWithCleanup(req);
+            expect(req.status).toBe('In Progress');
+
+            // Second clarification cycle
+            req = simulateStartClarification(req, 'Second question');
+            expect(req.status).toBe('Clarification Needed');
+            expect(req.owner).toBe(DD_OPS_LEAD);
+            expect(req._returnReason).toBeNull();
+            assertValidActiveState(req, 'second clarification');
+            assertQueueRouting(req, { activeWork: false, needsDDReview: true });
+
+            // Both clarification notes retained
+            const clarNotes = req._workNotes?.filter(n => n.action === 'Clarification Needed') || [];
+            expect(clarNotes.length).toBe(2);
+        });
+    });
+
+    describe('Test E — Publish and Rework Protection', () => {
+
+        it('should not regress: Complete → Publish → Rework → Return → Reaccept → Complete → Republish → Approve', () => {
+            let req = buildRequest({ _processingStartedAt: '2026-07-01T10:00:00Z' });
+
+            // Complete
+            req = simulateComplete(req, CONTRIBUTOR);
+            expect(req.status).toBe('Complete');
+            assertValidActiveState(req, 'complete');
+
+            // Publish External
+            req = simulatePublishExternal(req);
+            expect(req.status).toBe('Waiting Partner Review');
+            expect(req._externalStatus).toBe('Published External');
+            assertValidActiveState(req, 'publish');
+
+            // Partner Requests Rework
+            req = simulatePartnerRework(req, 'Please revise financials');
+            expect(req.status).toBe('Needs Rework');
+            expect(req._partnerDecision).toBe('Rework Required');
+            expect(req.owner).toBe(DD_OPS_LEAD);
+            assertValidActiveState(req, 'partner rework');
+            assertQueueRouting(req, { activeWork: false, needsDDReview: true }); // _partnerDecision === 'Rework Required'
+
+            // Return to Contributor
+            req = simulateReturnToOwner(req, 'Revise the financials section', DD_OPS_LEAD);
+            expect(req.status).toBe('Needs Rework');
+            expect(req._returnReason).toBe('Revise the financials section');
+            assertQueueRouting(req, { activeWork: false, returnedNeedsAttention: true });
+
+            // Reaccept
+            req = simulateReacceptWithCleanup(req);
+            expect(req.status).toBe('In Progress');
+            expect(req._returnReason).toBeNull();
+            expect(req._partnerDecision).toBeNull();
+            assertValidActiveState(req, 'reaccept after rework');
+            assertQueueRouting(req, { activeWork: true });
+
+            // Complete Again
+            req = simulateComplete(req, CONTRIBUTOR);
+            expect(req.status).toBe('Complete');
+
+            // Republish
+            req = simulatePublishExternal(req);
+            expect(req._externalStatus).toBe('Published External');
+            expect(req.status).toBe('Waiting Partner Review');
+
+            // Partner Approves
+            req = simulatePartnerApprove(req);
+            expect(req.status).toBe('Completed');
+            expect(req._partnerDecision).toBe('Approved');
+            assertValidActiveState(req, 'partner approve');
         });
 
-        it('should correctly route to "Waiting on DD Operations" when contributor raised blocker', () => {
-            let req = buildRequest();
-            req = simulateBlock(req, CONTRIBUTOR, 'Issue');
-            expect(req._blockerRaisedBy).toBe(CONTRIBUTOR);
-            expect(req.status === 'Blocked' && req._blockerRaisedBy === CONTRIBUTOR).toBe(true);
-        });
-
-        it('should exclude clarification from Needs DD Review AND Returned when stale _returnReason persists (the bug)', () => {
-            let req = buildRequest();
+        it('should preserve external visibility through blocker → publish → rework → approve', () => {
+            let req = buildRequest({ _processingStartedAt: '2026-07-01T10:00:00Z' });
             req = simulateBlock(req, CONTRIBUTOR, 'Issue');
             req = simulateResolveBlocker(req, 'Fixed', DD_OPS_LEAD);
+            req = simulateReacceptWithCleanup(req);
+            req = simulateComplete(req, CONTRIBUTOR);
+            req = simulatePublishExternal(req);
+            req = simulatePartnerApprove(req);
+            expect(req._processingStartedAt).toBe('2026-07-01T10:00:00Z');
+            expect(req._externalStatus).toBe('Published External');
+        });
+    });
 
-            // Old behavior: reaccept does NOT clear _returnReason
-            const oldReq: RecapRequest = {
-                ...req,
-                status: 'In Progress',
-                // _returnReason is NOT cleared (stale from blocker resolution)
-            };
-            // Old behavior: clarification does NOT clear _returnReason or set owner
-            const oldClarReq: RecapRequest = {
-                ...oldReq,
-                status: 'Clarification Needed',
-                // _returnReason still set from blocker resolution
-                _workNotes: [...(oldReq._workNotes || []), createWorkNote('Question?', CONTRIBUTOR, 'Clarification Needed')],
-            };
+    describe('Test F — Sticky External Status', () => {
 
-            // With stale _returnReason set from blocker resolution:
-            expect(oldClarReq._returnReason).toBeTruthy();
-            // Needs DD Review: status is Clarification Needed but _returnReason blocks it
-            expect(inNeedsDDReview(oldClarReq)).toBe(false);
-            // Returned/Needs Attention: status is Clarification Needed AND _returnReason is set → excluded
-            expect(inReturnedNeedsAttention(oldClarReq)).toBe(false);
-            // Active Work: Clarification Needed is in RETURNED_STATUSES → excluded
-            expect(inActiveWork(oldClarReq)).toBe(false);
-            // Request disappears from ALL queues — the zero-home state
+        it('should preserve In Progress external status through internal blocker transitions', () => {
+            let req = buildRequest({ _processingStartedAt: '2026-07-01T10:00:00Z' });
+
+            req = simulateBlock(req, CONTRIBUTOR, 'Issue');
+            expect(req._processingStartedAt).toBe('2026-07-01T10:00:00Z');
+
+            req = simulateResolveBlocker(req, 'Fixed', DD_OPS_LEAD);
+            expect(req._processingStartedAt).toBe('2026-07-01T10:00:00Z');
+
+            req = simulateReacceptWithCleanup(req);
+            expect(req._processingStartedAt).toBe('2026-07-01T10:00:00Z');
+
+            req = simulateStartClarification(req, 'Question?');
+            expect(req._processingStartedAt).toBe('2026-07-01T10:00:00Z');
+        });
+    });
+
+    describe('Alternating Workflows: Blocker → Clarification → Blocker → Clarification', () => {
+
+        it('should handle alternating blocker and clarification workflows', () => {
+            let req = buildRequest({ _processingStartedAt: '2026-07-01T10:00:00Z' });
+
+            // Blocker round 1
+            req = simulateBlock(req, CONTRIBUTOR, 'Blocker 1');
+            expect(req.status).toBe('Blocked');
+            assertValidActiveState(req, 'blocker 1');
+
+            req = simulateResolveBlocker(req, 'Fixed 1', DD_OPS_LEAD);
+            req = simulateReacceptWithCleanup(req);
+            expect(req.status).toBe('In Progress');
+
+            // Clarification round 1
+            req = simulateStartClarification(req, 'Clarification 1');
+            expect(req.status).toBe('Clarification Needed');
+            expect(req.owner).toBe(DD_OPS_LEAD);
+            assertValidActiveState(req, 'clarification 1');
+
+            req = simulateClarificationResponse(req, 'Answer 1', DD_OPS_LEAD);
+            req = simulateReturnToOwner(req, 'More work', DD_OPS_LEAD);
+            req = simulateReacceptWithCleanup(req);
+            expect(req.status).toBe('In Progress');
+
+            // Blocker round 2
+            req = simulateBlock(req, CONTRIBUTOR, 'Blocker 2');
+            expect(req.status).toBe('Blocked');
+            expect(req._blockerStatus).toBe('Raised');
+            assertValidActiveState(req, 'blocker 2');
+            assertQueueRouting(req, { activeWork: false, needsDDReview: true });
+
+            req = simulateResolveBlocker(req, 'Fixed 2', DD_OPS_LEAD);
+            req = simulateReacceptWithCleanup(req);
+
+            // Clarification round 2
+            req = simulateStartClarification(req, 'Clarification 2');
+            expect(req.status).toBe('Clarification Needed');
+            expect(req.owner).toBe(DD_OPS_LEAD);
+            expect(req._returnReason).toBeNull();
+            expect(req._blockerStatus).toBeNull();
+            assertValidActiveState(req, 'clarification 2');
+            assertQueueRouting(req, { activeWork: false, needsDDReview: true, inAnyQueue: true });
+        });
+    });
+
+    describe('Not Mine → Reassign → Clarification', () => {
+
+        it('should handle Not Mine → reassign → clarification', () => {
+            let req = buildRequest();
+
+            // Not Mine
+            req = simulateNotMine(req, 'Wrong team', CONTRIBUTOR);
+            expect(req.status).toBe('Open');
+            expect(req.owner).toBeNull();
+            expect(req._needsReassignment).toBe(true);
+
+            // Reassign
+            req = { ...req, owner: OTHER_CONTRIBUTOR, assignedTo: OTHER_CONTRIBUTOR, status: 'In Progress', _needsReassignment: false, _misassignedReason: null, _processingStartedAt: new Date().toISOString() };
+            assertValidActiveState(req, 'reassign');
+
+            // Clarification
+            req = simulateStartClarification(req, 'Question?');
+            expect(req.status).toBe('Clarification Needed');
+            expect(req.owner).toBe(DD_OPS_LEAD);
+            assertValidActiveState(req, 'clarification after not-mine');
+            assertQueueRouting(req, { activeWork: false, needsDDReview: true });
+        });
+    });
+
+    describe('Queue-Level Routing Invariants', () => {
+
+        it('should never leave a request with zero active queues after any transition', () => {
+            let req = buildRequest();
+            assertQueueRouting(req, { activeWork: true, inAnyQueue: true }, 'initial');
+
+            req = simulateBlock(req, CONTRIBUTOR, 'Issue');
+            assertQueueRouting(req, { inAnyQueue: true }, 'blocked');
+
+            req = simulateResolveBlocker(req, 'Fixed', DD_OPS_LEAD);
+            assertQueueRouting(req, { inAnyQueue: true }, 'resolved');
+
+            req = simulateReacceptWithCleanup(req);
+            assertQueueRouting(req, { activeWork: true, inAnyQueue: true }, 'reaccepted');
+
+            req = simulateStartClarification(req, 'Question?');
+            assertQueueRouting(req, { needsDDReview: true, inAnyQueue: true }, 'clarification');
+
+            req = simulateClarificationResponse(req, 'Answer', DD_OPS_LEAD);
+            assertQueueRouting(req, { activeWork: true, inAnyQueue: true }, 'clarification response');
+
+            req = simulateReturnToOwner(req, 'Needs work', DD_OPS_LEAD);
+            assertQueueRouting(req, { inAnyQueue: true }, 'returned');
+
+            req = simulateReacceptWithCleanup(req);
+            assertQueueRouting(req, { activeWork: true, inAnyQueue: true }, 'reaccepted 2');
+
+            req = simulateComplete(req, CONTRIBUTOR);
+            // Complete is not in any active queue, but that's expected
         });
 
-        it('should NOT be in zero-home state after the fix: clarification appears in Needs DD Review', () => {
+        it('should have exactly one primary queue destination for each active state', () => {
+            // Clarification Needed: should be in Needs DD Review (DD Ops view)
+            const clarReq = buildRequest({ status: 'Clarification Needed', owner: DD_OPS_LEAD, assignedTo: DD_OPS_LEAD });
+            expect(inNeedsDDReview(clarReq)).toBe(true);
+
+            // Blocked: should be in Needs DD Review AND Waiting on DD Ops
+            const blockedReq = buildRequest({ status: 'Blocked', _blockerStatus: 'Raised', _blockerRaisedBy: CONTRIBUTOR, owner: DD_OPS_LEAD });
+            expect(inNeedsDDReview(blockedReq)).toBe(true);
+            expect(inWaitingOnDDOps(blockedReq, CONTRIBUTOR)).toBe(true);
+
+            // In Progress: should be in Active Work
+            const inProgressReq = buildRequest({ status: 'In Progress', owner: CONTRIBUTOR });
+            expect(inActiveWork(inProgressReq)).toBe(true);
+
+            // Needs Rework (with _returnReason): should be in Returned / Needs Attention
+            const reworkReq = buildRequest({ status: 'Needs Rework', _returnReason: 'Needs more work', owner: CONTRIBUTOR });
+            expect(inReturnedNeedsAttention(reworkReq)).toBe(true);
+        });
+    });
+
+    describe('Defensive: No Zero-Home State After Any Transition', () => {
+
+        it('should not disappear after Blocker → Resolve → Reaccept → Clarification (the original bug)', () => {
             let req = buildRequest();
             req = simulateBlock(req, CONTRIBUTOR, 'Issue');
             req = simulateResolveBlocker(req, 'Fixed', DD_OPS_LEAD);
             req = simulateReacceptWithCleanup(req);
             req = simulateStartClarification(req, 'Question?');
-
-            // After the fix: _returnReason is null, so Needs DD Review includes it
             expect(inNeedsDDReview(req)).toBe(true);
-            // It may also appear in Returned/Needs Attention (that's correct for contributor's view)
-            expect(inReturnedNeedsAttention(req)).toBe(true);
-            // But NOT in Active Work (Correct: Clarification Needed is a returned status)
             expect(inActiveWork(req)).toBe(false);
-            // Key assertion: request is NOT in zero-home state
+            // Key: at least one queue claims it (the bug was zero queues)
             expect(inNeedsDDReview(req) || inReturnedNeedsAttention(req) || inActiveWork(req)).toBe(true);
+        });
+
+        it('should not disappear after Return → Reaccept → Clarification', () => {
+            let req = buildRequest();
+            req = simulateReturnToOwner(req, 'Needs work', DD_OPS_LEAD);
+            req = simulateReacceptWithCleanup(req);
+            req = simulateStartClarification(req, 'Question?');
+            expect(inNeedsDDReview(req)).toBe(true);
+        });
+
+        it('should not disappear after Not Mine → Reassign → Blocker', () => {
+            let req = buildRequest();
+            req = simulateNotMine(req, 'Wrong', CONTRIBUTOR);
+            req = { ...req, owner: OTHER_CONTRIBUTOR, assignedTo: OTHER_CONTRIBUTOR, status: 'In Progress', _needsReassignment: false, _misassignedReason: null };
+            req = simulateBlock(req, CONTRIBUTOR, 'Issue');
+            expect(inNeedsDDReview(req)).toBe(true);
+            expect(inWaitingOnDDOps(req, CONTRIBUTOR)).toBe(true);
+        });
+
+        it('should not disappear after Partner Rework → Return → Reaccept → Blocker', () => {
+            let req = buildRequest({ _externalStatus: 'Published External', _partnerDecision: 'Approved' });
+            req = simulatePartnerRework(req, 'Revise');
+            req = simulateReturnToOwner(req, 'Revise now', DD_OPS_LEAD);
+            req = simulateReacceptWithCleanup(req);
+            req = simulateBlock(req, CONTRIBUTOR, 'Blocker');
+            expect(inNeedsDDReview(req)).toBe(true);
+        });
+
+        it('should not have stale _returnReason blocking DD Ops routing after reaccept', () => {
+            let req = buildRequest();
+            req = simulateBlock(req, CONTRIBUTOR, 'Issue');
+            req = simulateResolveBlocker(req, 'Fixed', DD_OPS_LEAD);
+            req = simulateReacceptWithCleanup(req);
+            expect(req._returnReason).toBeNull();
+            req = simulateStartClarification(req, 'Question?');
+            // The original bug: _returnReason was stale, blocking Needs DD Review
+            expect(inNeedsDDReview(req)).toBe(true);
         });
     });
 });
