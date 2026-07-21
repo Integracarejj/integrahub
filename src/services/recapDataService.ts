@@ -449,14 +449,7 @@ export function updateRequestStatus(id: string, status: RecapRequest["status"]):
     if (status === "In Progress") {
         patch._processingStartedAt = now;
     }
-    if (isDemoLoaded()) {
-        const result = Demo.updateDemoRequest(id, patch);
-        if (result) return result;
-        return updatePortalRequestStatus(id, status);
-    }
-    const result = Mock.updateRequestStatus(id, status);
-    if (result) return result;
-    return updatePortalRequestStatus(id, status);
+    return patchRequest(id, patch);
 }
 
 export function updateRequestOwner(id: string, owner: string | null): RecapRequest | undefined {
@@ -993,12 +986,67 @@ export function returnBlockerGuidance(id: string, guidance: string, returnedBy: 
     return req;
 }
 
-export function returnClarificationToContributor(id: string, response: string, returnedBy: string): RecapRequest | undefined {
+export function submitClarificationToDdOperations(id: string, questionText: string, additionalContext: string | null, raisedBy: string): RecapRequest | undefined {
     const now = new Date().toISOString();
     const nowDate = now.split("T")[0];
     const existing = getRequestById(id);
     const prevNotes = existing?._workNotes || [];
-    const returnTo = existing?._clarificationRaisedBy || existing?.owner || "Unknown";
+    const wnEntries: WorkNoteEntry[] = [];
+    wnEntries.push({
+        id: `wn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text: questionText,
+        author: raisedBy,
+        timestamp: now,
+        action: "Clarification Needed",
+    });
+    if (additionalContext?.trim()) {
+        wnEntries.push({
+            id: `wn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            text: additionalContext.trim(),
+            author: raisedBy,
+            timestamp: now,
+            action: "Clarification Context",
+        });
+    }
+    const patch: Partial<RecapRequest> = {
+        ...clearIncompatibleActiveState("Clarification Needed"),
+        status: "Clarification Needed" as RecapRequest["status"],
+        _clarificationRaisedBy: raisedBy,
+        _statusNotes: questionText,
+        _workNotes: [...prevNotes, ...wnEntries],
+        lastUpdated: nowDate,
+    };
+    const req = patchRequest(id, patch);
+    if (req) {
+        addActivityEntry({
+            type: "Status Change",
+            description: `${req.requestId}: Clarification requested by ${raisedBy} and sent to DD Operations. Question: ${questionText}`,
+            userId: raisedBy,
+            userName: raisedBy,
+            requestId: req.id,
+            requestTitle: req.title,
+            transactionId: req.transactionId,
+            transactionName: req.transactionName,
+        });
+    }
+    return req;
+}
+
+export function returnClarificationToContributor(id: string, response: string, returnedBy: string): RecapRequest | undefined {
+    const now = new Date().toISOString();
+    const nowDate = now.split("T")[0];
+    const existing = getRequestById(id);
+    if (!existing) {
+        console.error(`[returnClarificationToContributor] Request ${id} not found. Aborting return.`);
+        return undefined;
+    }
+    const prevNotes = existing._workNotes || [];
+    const returnTarget = existing._clarificationRaisedBy;
+    if (!returnTarget || !returnTarget.trim() || returnTarget === DD_OPS_LEAD) {
+        console.error(`[returnClarificationToContributor] No valid contributor return target for request ${id}. _clarificationRaisedBy=${existing._clarificationRaisedBy}, owner=${existing.owner}. Aborting return without mutation.`);
+        return undefined;
+    }
+    const returnTo = returnTarget;
     const wnEntry: WorkNoteEntry = {
         id: `wn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         text: response,

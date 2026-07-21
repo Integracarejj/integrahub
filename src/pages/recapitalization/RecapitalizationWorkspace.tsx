@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive, addExternalMessage, getExternalMessages, updateRequestNotMine, updateRequestReturnToOwner, updateRequestReturnReason, sendExceptionRecommendation, blockRequest, resolveBlockerInternal, requestExternalBlockerHelp, updateRequestClarificationRaisedBy, returnClarificationToContributor } from "../../services/recapDataService";
+import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive, addExternalMessage, getExternalMessages, updateRequestNotMine, updateRequestReturnToOwner, updateRequestReturnReason, sendExceptionRecommendation, blockRequest, resolveBlockerInternal, requestExternalBlockerHelp, submitClarificationToDdOperations, returnClarificationToContributor } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact, WorkNoteEntry } from "../../services/recapDataService";
 import ClarificationThread, { getClarificationSummary } from "../../components/common/ClarificationThread";
 import RecapSubNav from "./RecapSubNav";
@@ -437,30 +437,17 @@ function WorkflowStateCard({
         if (!clarificationText.trim()) return;
         const reqId = item.id || item.intakeId || "";
         
-        // Save the clarification question
-        updateRequestStatus(reqId, "Clarification Needed" as RecapRequest["status"]);
-        updateRequestClarificationRaisedBy(reqId, currentUser);
-        updateRequestStatusNotes(reqId, clarificationText.trim());
-        addWorkNote(reqId, clarificationText.trim(), currentUser, "Clarification Needed");
-        
-        // Save additional context if provided
-        if (clarificationAdditionalContext.trim()) {
-            addWorkNote(reqId, clarificationAdditionalContext.trim(), currentUser, "Clarification Context");
+        const result = submitClarificationToDdOperations(
+            reqId,
+            clarificationText.trim(),
+            clarificationAdditionalContext.trim() || null,
+            currentUser,
+        );
+        if (!result) {
+            setActionFeedback("Failed to submit clarification. Request unchanged.");
+            return;
         }
         
-        // Add activity entry
-        addActivityEntry({
-            type: "Status Change",
-            description: `${displayId}: Clarification requested by ${currentUser} and sent to DD Operations. Question: ${clarificationText.trim()}`,
-            userId: "current-user",
-            userName: currentUser,
-            requestId: item.requestId || item.id,
-            requestTitle: displayTitle || item.category || "",
-            transactionId: item.transactionId,
-            transactionName: item.transactionName || item.transactionId,
-        });
-        
-        // Show success state
         setClarificationSubmitStep("done");
         setWsRefreshKey(k => k + 1);
     }

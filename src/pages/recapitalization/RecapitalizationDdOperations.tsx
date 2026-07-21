@@ -521,6 +521,22 @@ export default function RecapitalizationDdOperations() {
                 </span>
             );
         }
+        if (req._exceptionRecommendation === "Not Applicable") {
+            return (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#f5f5f4", color: "#78716c", fontWeight: 600, border: "1px solid #e7e5e4", whiteSpace: "nowrap", fontSize: 11 }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#78716c" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>
+                    Not Applicable
+                </span>
+            );
+        }
+        if (req._exceptionRecommendation === "Duplicate") {
+            return (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#ede9fe", color: "#6d28d9", fontWeight: 600, border: "1px solid #ddd6fe", whiteSpace: "nowrap", fontSize: 11 }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+                    Duplicate
+                </span>
+            );
+        }
         if (req._partnerDecision === "Rework Required") {
             return (
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, background: "#fff7ed", color: "#0f172a", fontWeight: 600, border: "1px solid #fed7aa", whiteSpace: "nowrap", fontSize: 11 }}>
