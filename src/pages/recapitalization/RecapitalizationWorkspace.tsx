@@ -1286,7 +1286,6 @@ function WorkflowStateCard({
                         <div style={{ flex: 1 }}>
                           {(() => {
                             const wasPreviouslyPublished = !!item._publishedAt || !!item._publishedExternal;
-                            const isReturnedByDD = !!item._returnReason && displayStatus === "Needs Rework";
                             const publishLabel = wasPreviouslyPublished ? "Re-Publish External" : "Publish External";
                             return (
                               <>

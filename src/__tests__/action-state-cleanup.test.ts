@@ -420,7 +420,7 @@ describe('Action State Cleanup — Four Issues', () => {
             const req = buildRequest({ status: 'Completed' });
             // The outer terminal check (isTerminal) hides the entire action center for completed/closed requests.
             // The inner isReturnToOwnerVisible only models the action center's button-level logic.
-            const isTerminal = req.status === 'Completed' || req.status === 'Closed' || req.status === 'Closed / Duplicate' || req.status === 'Closed / Not Applicable' || ['Duplicate', 'Not Applicable'].includes(req.status);
+            const isTerminal = req.status === 'Completed' || req.status === 'Rejected' || ['Duplicate', 'Not Applicable'].includes(req.status);
             expect(isTerminal).toBe(true);
         });
 
