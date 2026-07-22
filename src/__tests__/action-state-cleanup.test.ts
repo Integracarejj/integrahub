@@ -285,7 +285,7 @@ describe('Action State Cleanup — Four Issues', () => {
         });
 
         it('should use "Publish External" label for DD Ops when request was never published', () => {
-            let req = buildRequest({ status: 'Complete', _publishedAt: null, _publishedExternal: null });
+            let req = buildRequest({ status: 'Complete', _publishedAt: undefined, _publishedExternal: undefined });
             const config = getDdOpsPublishConfig(req);
 
             expect(config.visible).toBe(true);
@@ -339,7 +339,7 @@ describe('Action State Cleanup — Four Issues', () => {
         });
 
         it('should enable contributor publish when status is Complete (never published)', () => {
-            const req = buildRequest({ status: 'Complete', _publishedAt: null, _publishedExternal: null });
+            const req = buildRequest({ status: 'Complete', _publishedAt: undefined, _publishedExternal: undefined });
             const config = getContributorPublishConfig(req);
 
             expect(config.visible).toBe(true);
@@ -349,7 +349,7 @@ describe('Action State Cleanup — Four Issues', () => {
 
         it('should show "Re-Publish" for previously-published request on partner rework, but not for never-published', () => {
             // Previously published → partner rework: should allow Re-Publish
-            let reqPreviouslyPublished = buildRequest({ _publishedAt: '2026-06-01', _publishedExternal: null });
+            let reqPreviouslyPublished = buildRequest({ _publishedAt: '2026-06-01', _publishedExternal: undefined });
             reqPreviouslyPublished = simulatePublishExternal(reqPreviouslyPublished);
             reqPreviouslyPublished = simulatePartnerRework(reqPreviouslyPublished, 'Revise');
             const configPreviouslyPublished = getContributorPublishConfig(reqPreviouslyPublished);
@@ -357,7 +357,7 @@ describe('Action State Cleanup — Four Issues', () => {
             expect(configPreviouslyPublished.label).toBe('Re-Publish');
 
             // Never published (no _publishedAt, no _publishedExternal): partner rework → cannot publish
-            let reqNeverPublished = buildRequest({ _publishedAt: null, _publishedExternal: null });
+            let reqNeverPublished = buildRequest({ _publishedAt: undefined, _publishedExternal: undefined });
             reqNeverPublished = {
                 ...reqNeverPublished,
                 status: 'Needs Rework',
