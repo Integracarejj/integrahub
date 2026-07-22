@@ -873,7 +873,7 @@ function WorkflowStateCard({
                                     </div>
                                     <div>
                                       <div style={{ fontSize: 16, fontWeight: 700, color: "#64748b" }}>Clarification in Progress</div>
-                                      <div style={{ fontSize: 13, color: "#94a3b8", marginTop: 2 }}>Waiting on external partner response</div>
+                                      <div style={{ fontSize: 13, color: "#94a3b8", marginTop: 2 }}>{hasExtQ ? "Waiting on external partner response" : "Waiting for DD Operations response"}</div>
                                     </div>
                                   </div>
                                 );

@@ -599,4 +599,67 @@ describe('Action State Cleanup — Four Issues', () => {
             expect(respNotes[0].author).not.toBe(CONTRIBUTOR);
         });
     });
+
+    describe('Clarification status copy — internal vs external wording', () => {
+
+        function isClarificationWaitingExternal(item: RecapRequest): boolean {
+            const hasExtQ = item._workNotes?.some((n: WorkNoteEntry) => n.action === 'Clarification External Question') ?? false;
+            const hasExtR = item._workNotes?.some((n: WorkNoteEntry) => n.action === 'Clarification Response' && n.author === 'External Partner') ?? false;
+            const hasGuidanceReturned = item._workNotes?.some((n: WorkNoteEntry) => n.action === 'Clarification Guidance') ?? false;
+            const extCycleNeedsDdReview = hasExtQ && hasExtR && !hasGuidanceReturned;
+            const isClarActive = item.status === 'Clarification Needed' || (item.status === 'In Progress' && hasExtQ);
+            return isClarActive && !extCycleNeedsDdReview && hasExtQ;
+        }
+
+        function isClarificationWaitingDdOps(item: RecapRequest): boolean {
+            const hasExtQ = item._workNotes?.some((n: WorkNoteEntry) => n.action === 'Clarification External Question') ?? false;
+            const hasExtR = item._workNotes?.some((n: WorkNoteEntry) => n.action === 'Clarification Response' && n.author === 'External Partner') ?? false;
+            const hasGuidanceReturned = item._workNotes?.some((n: WorkNoteEntry) => n.action === 'Clarification Guidance') ?? false;
+            const extCycleNeedsDdReview = hasExtQ && hasExtR && !hasGuidanceReturned;
+            const isClarActive = item.status === 'Clarification Needed' || (item.status === 'In Progress' && hasExtQ);
+            return isClarActive && !extCycleNeedsDdReview && !hasExtQ;
+        }
+
+        it('internal clarification → Waiting for DD Operations response (not external partner)', () => {
+            let req = buildRequest();
+            req = simulateStartClarification(req, 'Need help with rent rolls', CONTRIBUTOR);
+
+            expect(req.status).toBe('Clarification Needed');
+            expect(isClarificationWaitingDdOps(req)).toBe(true);
+            expect(isClarificationWaitingExternal(req)).toBe(false);
+
+            const hasExtQ = req._workNotes?.some(n => n.action === 'Clarification External Question') ?? false;
+            expect(hasExtQ).toBe(false);
+        });
+
+        it('external clarification → Waiting on external partner response', () => {
+            let req = buildRequest();
+            req = simulateStartClarification(req, 'Contributor question', CONTRIBUTOR);
+
+            req = {
+                ...req,
+                status: 'In Progress',
+                _workNotes: [
+                    ...(req._workNotes || []),
+                    createWorkNote('Please clarify with partner', DD_OPS_LEAD, 'Clarification External Question'),
+                ],
+            };
+
+            expect(isClarificationWaitingExternal(req)).toBe(true);
+            expect(isClarificationWaitingDdOps(req)).toBe(false);
+
+            const hasExtQ = req._workNotes?.some(n => n.action === 'Clarification External Question') ?? false;
+            expect(hasExtQ).toBe(true);
+        });
+
+        it('returned clarification → neither waiting message remains active', () => {
+            let req = buildRequest();
+            req = simulateStartClarification(req, 'Need clarification', CONTRIBUTOR);
+            req = simulateClarificationResponse(req, 'DD Ops guidance', DD_OPS_LEAD);
+
+            expect(req.status).toBe('In Progress');
+            expect(isClarificationWaitingExternal(req)).toBe(false);
+            expect(isClarificationWaitingDdOps(req)).toBe(false);
+        });
+    });
 });
