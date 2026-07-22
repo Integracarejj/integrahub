@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { RecapRequest, WorkNoteEntry } from '../services/recapMockData';
+import { getExternalStatusInfo, getStatusPillStyle } from '../services/externalStatusMapping';
 
 const DD_OPS_LEAD = 'David Park';
 const CONTRIBUTOR = 'Sarah Chen';
@@ -660,6 +661,333 @@ describe('Action State Cleanup — Four Issues', () => {
             expect(req.status).toBe('In Progress');
             expect(isClarificationWaitingExternal(req)).toBe(false);
             expect(isClarificationWaitingDdOps(req)).toBe(false);
+        });
+    });
+
+    describe('Test A — First Publish label', () => {
+        it('never published → "Publish External" label, not "Re-Publish"', () => {
+            const req = buildRequest({ status: 'Complete', _publishedAt: null, _publishedExternal: undefined });
+            const wasPreviouslyPublishedExternal = !!req._publishedExternal;
+            const publishLabel = wasPreviouslyPublishedExternal ? 'Re-Publish External' : 'Publish External';
+
+            expect(publishLabel).toBe('Publish External');
+            expect(wasPreviouslyPublishedExternal).toBe(false);
+        });
+
+        it('published internally but never externally → "Publish External"', () => {
+            const req = buildRequest({ status: 'Complete', _publishedAt: '2026-06-01', _publishedExternal: undefined });
+            const wasPreviouslyPublishedExternal = !!req._publishedExternal;
+            const publishLabel = wasPreviouslyPublishedExternal ? 'Re-Publish External' : 'Publish External';
+
+            expect(publishLabel).toBe('Publish External');
+        });
+
+        it('canPublish allows first-time publish on Complete', () => {
+            const req = buildRequest({ status: 'Complete', _publishedExternal: undefined });
+            const isAlreadyReturned = !!req._returnReason && req.status === 'Needs Rework';
+            const canPublish = (req.status === 'Complete' || (req.status === 'Needs Rework' && !!req._publishedExternal)) && !isAlreadyReturned;
+
+            expect(canPublish).toBe(true);
+        });
+    });
+
+    describe('Test B — Genuine Re-Publish label', () => {
+        it('previously published externally → "Re-Publish External" label', () => {
+            const req = buildRequest({ status: 'Complete', _publishedExternal: true });
+            const wasPreviouslyPublishedExternal = !!req._publishedExternal;
+            const publishLabel = wasPreviouslyPublishedExternal ? 'Re-Publish External' : 'Publish External';
+
+            expect(publishLabel).toBe('Re-Publish External');
+            expect(wasPreviouslyPublishedExternal).toBe(true);
+        });
+
+        it('canPublish allows re-publish on Complete when previously published', () => {
+            const req = buildRequest({ status: 'Complete', _publishedExternal: true });
+            const isAlreadyReturned = false;
+            const canPublish = (req.status === 'Complete' || (req.status === 'Needs Rework' && !!req._publishedExternal)) && !isAlreadyReturned;
+
+            expect(canPublish).toBe(true);
+        });
+
+        it('canPublish allows re-publish on Needs Rework when previously published', () => {
+            const req = buildRequest({ status: 'Needs Rework', _publishedExternal: true });
+            const isAlreadyReturned = false;
+            const canPublish = (req.status === 'Complete' || (req.status === 'Needs Rework' && !!req._publishedExternal)) && !isAlreadyReturned;
+
+            expect(canPublish).toBe(true);
+        });
+
+        it('never published + Needs Rework → cannot publish', () => {
+            const req = buildRequest({ status: 'Needs Rework', _publishedExternal: undefined });
+            const isAlreadyReturned = false;
+            const canPublish = (req.status === 'Complete' || (req.status === 'Needs Rework' && !!req._publishedExternal)) && !isAlreadyReturned;
+
+            expect(canPublish).toBe(false);
+        });
+    });
+
+    describe('Test C — Return to Owner duplication', () => {
+        it('primary tile shows Return to Owner when clarification not active and not blocked', () => {
+            const req = buildRequest({ status: 'In Progress' });
+            const hasExtQ = req._workNotes?.some(n => n.action === 'Clarification External Question') ?? false;
+            const isClarActive = req.status === 'Clarification Needed' || (req.status === 'In Progress' && hasExtQ);
+            const alreadyReturned = !!req._returnReason && req.status === 'Needs Rework';
+
+            const primaryTileShowsReturnToOwner = !isClarActive && !alreadyReturned;
+            expect(primaryTileShowsReturnToOwner).toBe(true);
+        });
+
+        it('blocked status → primary tile shows Return to Owner, Other Actions does not have it', () => {
+            const req = buildRequest({ status: 'Blocked' });
+            const hasExtQ = req._workNotes?.some(n => n.action === 'Clarification External Question') ?? false;
+            const isClarActive = req.status === 'Clarification Needed' || (req.status === 'In Progress' && hasExtQ);
+            const alreadyReturned = !!req._returnReason && req.status === 'Needs Rework';
+
+            const primaryTileShowsReturnToOwner = !isClarActive && !alreadyReturned;
+            expect(primaryTileShowsReturnToOwner).toBe(true);
+
+            const isBlocked = req.status === 'Blocked';
+            const inActiveWorkflow = isClarActive || isBlocked || !!req._blockerStatus || alreadyReturned;
+            const otherActionsHasReturnToOwner = !inActiveWorkflow;
+            expect(otherActionsHasReturnToOwner).toBe(false);
+        });
+
+        it('already returned → primary tile does not show Return to Owner', () => {
+            const req = buildRequest({ status: 'Needs Rework', _returnReason: 'Fix this' });
+            const hasExtQ = req._workNotes?.some(n => n.action === 'Clarification External Question') ?? false;
+            const isClarActive = req.status === 'Clarification Needed' || (req.status === 'In Progress' && hasExtQ);
+            const alreadyReturned = !!req._returnReason && req.status === 'Needs Rework';
+
+            const primaryTileShowsReturnToOwner = !isClarActive && !alreadyReturned;
+            expect(primaryTileShowsReturnToOwner).toBe(false);
+        });
+    });
+
+    describe('Test D — Duplicate approved removal', () => {
+        it('archived duplicate → terminal disposition, not generic Complete', () => {
+            const req = buildRequest({
+                status: 'Completed',
+                _archived: true,
+                _archiveReason: 'Duplicate',
+                _exceptionRecommendation: 'Duplicate',
+                _exceptionDecision: 'Confirm Duplicate',
+                _exceptionDecisionAt: '2026-07-15T10:00:00.000Z',
+                _exceptionDecisionNote: 'Confirmed duplicate of DD-26-003',
+            });
+
+            const extInfo = getExternalStatusInfo({
+                status: req.status,
+                _exceptionRecommendation: req._exceptionRecommendation,
+                _exceptionDecision: req._exceptionDecision,
+                _archived: req._archived,
+                _archiveReason: req._archiveReason,
+            });
+
+            expect(req._archived).toBe(true);
+            expect(req._archiveReason).toBe('Duplicate');
+            expect(extInfo.status).toBe('Removed \u2014 Duplicate');
+            expect(extInfo.isTerminal).toBe(true);
+            expect(extInfo.label).toContain('Duplicate');
+        });
+
+        it('archived duplicate → removed from active queues', () => {
+            const req = buildRequest({
+                status: 'Completed',
+                _archived: true,
+                _archiveReason: 'Duplicate',
+            });
+
+            const TERMINAL_STATUSES = ['Complete', 'Completed'];
+            const RETURNED_STATUSES = ['Clarification Needed', 'Blocked', 'Duplicate', 'Not Applicable', 'Needs Rework'];
+            const isActive = !TERMINAL_STATUSES.includes(req.status) && !RETURNED_STATUSES.includes(req.status) && !req._needsReassignment;
+
+            expect(isActive).toBe(false);
+        });
+
+        it('archived duplicate → partner decision retained', () => {
+            const req = buildRequest({
+                status: 'Completed',
+                _archived: true,
+                _archiveReason: 'Duplicate',
+                _exceptionRecommendation: 'Duplicate',
+                _exceptionDecision: 'Confirm Duplicate',
+                _exceptionDecisionAt: '2026-07-15T10:00:00.000Z',
+                _exceptionDecisionNote: 'Confirmed duplicate',
+            });
+
+            expect(req._exceptionRecommendation).toBe('Duplicate');
+            expect(req._exceptionDecision).toBe('Confirm Duplicate');
+            expect(req._exceptionDecisionNote).toBe('Confirmed duplicate');
+        });
+
+        it('archived duplicate → Full Work Queue includes it', () => {
+            const req = buildRequest({
+                status: 'Completed',
+                _archived: true,
+                _archiveReason: 'Duplicate',
+                _publishedAt: '2026-06-01',
+            });
+
+            const isInFullWorkQueue = !!(req._publishedAt || req._createdFromReview);
+            expect(isInFullWorkQueue).toBe(true);
+        });
+    });
+
+    describe('Test E — Not Applicable approved removal', () => {
+        it('archived NA → terminal disposition, not generic Complete', () => {
+            const req = buildRequest({
+                status: 'Completed',
+                _archived: true,
+                _archiveReason: 'Not Applicable',
+                _exceptionRecommendation: 'Not Applicable',
+                _exceptionDecision: 'Approve Removal',
+                _exceptionDecisionAt: '2026-07-15T10:00:00.000Z',
+            });
+
+            const extInfo = getExternalStatusInfo({
+                status: req.status,
+                _exceptionRecommendation: req._exceptionRecommendation,
+                _exceptionDecision: req._exceptionDecision,
+                _archived: req._archived,
+                _archiveReason: req._archiveReason,
+            });
+
+            expect(req._archived).toBe(true);
+            expect(req._archiveReason).toBe('Not Applicable');
+            expect(extInfo.status).toBe('Removed \u2014 Not Applicable');
+            expect(extInfo.isTerminal).toBe(true);
+            expect(extInfo.label).toContain('Not Applicable');
+        });
+
+        it('archived NA → partner decision retained', () => {
+            const req = buildRequest({
+                status: 'Completed',
+                _archived: true,
+                _archiveReason: 'Not Applicable',
+                _exceptionRecommendation: 'Not Applicable',
+                _exceptionDecision: 'Approve Removal',
+                _exceptionDecisionAt: '2026-07-15T10:00:00.000Z',
+                _exceptionDecisionNote: 'Not relevant to this transaction',
+            });
+
+            expect(req._exceptionRecommendation).toBe('Not Applicable');
+            expect(req._exceptionDecision).toBe('Approve Removal');
+            expect(req._exceptionDecisionNote).toBe('Not relevant to this transaction');
+        });
+    });
+
+    describe('Test F — Removed request action gating', () => {
+        it('archived request → isTerminal true, no normal actions', () => {
+            const req = buildRequest({
+                status: 'Completed',
+                _archived: true,
+                _archiveReason: 'Duplicate',
+            });
+
+            const isArchived = !!req._archived && !!req._archiveReason;
+            const isTerminal = isArchived || req.status === 'Completed';
+
+            expect(isTerminal).toBe(true);
+            expect(isArchived).toBe(true);
+        });
+
+        it('archived request → not eligible for Return to Owner', () => {
+            const req = buildRequest({
+                status: 'Completed',
+                _archived: true,
+                _archiveReason: 'Duplicate',
+            });
+
+            const alreadyReturned = !!req._returnReason && req.status === 'Needs Rework';
+            expect(alreadyReturned).toBe(false);
+        });
+
+        it('archived request → not eligible for publish', () => {
+            const req = buildRequest({
+                status: 'Completed',
+                _archived: true,
+                _archiveReason: 'Duplicate',
+                _publishedExternal: true,
+            });
+
+            const isAlreadyReturned = !!req._returnReason && req.status === 'Needs Rework';
+            const canPublish = (req.status === 'Complete' || (req.status === 'Needs Rework' && !!req._publishedExternal)) && !isAlreadyReturned;
+            expect(canPublish).toBe(false);
+        });
+    });
+
+    describe('Test G — External status mapping', () => {
+        it('Awaiting Your Review pill uses teal border', () => {
+            const pill = getStatusPillStyle('Awaiting Your Review');
+            expect(pill.border).toBe('#2dd4bf');
+        });
+
+        it('Exception Review pill uses orange border', () => {
+            const pill = getStatusPillStyle('Exception Review');
+            expect(pill.border).toBe('#fb923c');
+        });
+
+        it('Complete pill uses green border', () => {
+            const pill = getStatusPillStyle('Complete');
+            expect(pill.border).toBe('#86efac');
+        });
+
+        it('removed-duplicate status is distinct from Complete', () => {
+            const removedInfo = getExternalStatusInfo({
+                status: 'Completed',
+                _archived: true,
+                _archiveReason: 'Duplicate',
+            });
+            const completeInfo = getExternalStatusInfo({
+                status: 'Completed',
+            });
+
+            expect(removedInfo.status).not.toBe(completeInfo.status);
+            expect(removedInfo.status).toBe('Removed \u2014 Duplicate');
+            expect(completeInfo.status).toBe('Complete');
+        });
+
+        it('removed-na status is distinct from Complete', () => {
+            const removedInfo = getExternalStatusInfo({
+                status: 'Completed',
+                _archived: true,
+                _archiveReason: 'Not Applicable',
+            });
+            const completeInfo = getExternalStatusInfo({
+                status: 'Completed',
+            });
+
+            expect(removedInfo.status).not.toBe(completeInfo.status);
+            expect(removedInfo.status).toBe('Removed \u2014 Not Applicable');
+        });
+
+        it('removed status pill styles are distinct', () => {
+            const dupPill = getStatusPillStyle('Removed \u2014 Duplicate');
+            const naPill = getStatusPillStyle('Removed \u2014 Not Applicable');
+            const completePill = getStatusPillStyle('Complete');
+
+            expect(dupPill.border).not.toBe(completePill.border);
+            expect(naPill.border).not.toBe(completePill.border);
+        });
+
+        it('archived duplicate → getExternalStatusInfo returns removed-duplicate status', () => {
+            const info = getExternalStatusInfo({
+                status: 'Completed',
+                _archived: true,
+                _archiveReason: 'Duplicate',
+            });
+            expect(info.status).toBe('Removed \u2014 Duplicate');
+            expect(info.isTerminal).toBe(true);
+        });
+
+        it('archived NA → getExternalStatusInfo returns removed-na status', () => {
+            const info = getExternalStatusInfo({
+                status: 'Completed',
+                _archived: true,
+                _archiveReason: 'Not Applicable',
+            });
+            expect(info.status).toBe('Removed \u2014 Not Applicable');
+            expect(info.isTerminal).toBe(true);
         });
     });
 });

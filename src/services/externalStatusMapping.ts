@@ -7,20 +7,22 @@ export type ExternalStatus =
   | "Awaiting Your Review"
   | "Exception Review"
   | "Blocker Information Requested"
-  | "Complete";
+  | "Complete"
+  | "Removed \u2014 Duplicate"
+  | "Removed \u2014 Not Applicable";
 
 export interface ExternalStatusInfo {
   status: ExternalStatus;
   label: string;
   description: string;
-  nextActionOwner: "IntegraCare" | "External Partner" | "None — Complete";
+  nextActionOwner: "IntegraCare" | "External Partner" | "None \u2014 Complete" | "None \u2014 Removed";
   externalActionRequired: boolean;
   externalActionLabel: string | null;
   isTerminal: boolean;
   completionMessage: string | null;
 }
 
-function getRecapStatus(req: { status: string; _exceptionRecommendation?: string | null; _exceptionDecision?: string | null; _publishedExternal?: boolean; _externalStatus?: string | null; _exceptionSentAt?: string | null; _publishedAt?: string | null; _workNotes?: Array<{ action?: string | null }> | null; _blockerStatus?: string | null; _blockerExternalQuestion?: string | null; _blockerExternalResponse?: string | null; _processingStartedAt?: string | null }): string {
+function getRecapStatus(req: { status: string; _exceptionRecommendation?: string | null; _exceptionDecision?: string | null; _publishedExternal?: boolean; _externalStatus?: string | null; _exceptionSentAt?: string | null; _publishedAt?: string | null; _workNotes?: Array<{ action?: string | null }> | null; _blockerStatus?: string | null; _blockerExternalQuestion?: string | null; _blockerExternalResponse?: string | null; _processingStartedAt?: string | null; _archived?: boolean; _archiveReason?: string | null }): string {
     const status = req.status;
     const exceptionRec = req._exceptionRecommendation;
     const exceptionDec = req._exceptionDecision;
@@ -29,6 +31,13 @@ function getRecapStatus(req: { status: string; _exceptionRecommendation?: string
     const publishedAt = req._publishedAt;
     const blockerStatus = req._blockerStatus;
     const processingStarted = !!req._processingStartedAt;
+
+    // ── Archived / Removed (highest priority) ──
+    if (req._archived) {
+        if (req._archiveReason === "Duplicate") return "removed-duplicate";
+        if (req._archiveReason === "Not Applicable") return "removed-na";
+        return "terminal-complete";
+    }
 
     // ── Terminal states (always win) ──
     if (status === "Completed" || status === "Rejected") return "terminal-complete";
@@ -181,9 +190,29 @@ const STATUS_INFO: Record<string, ExternalStatusInfo> = {
     isTerminal: true,
     completionMessage: "You approved this request. The IntegraCare team has been notified of your decision. No further action is required. This request will remain available in your request history for future reference.",
   },
+  "removed-duplicate": {
+    status: "Removed \u2014 Duplicate",
+    label: "Removed \u2014 Duplicate",
+    description: "This request was identified as a duplicate and has been removed from active scope.",
+    nextActionOwner: "None \u2014 Removed",
+    externalActionRequired: false,
+    externalActionLabel: null,
+    isTerminal: true,
+    completionMessage: "This request was confirmed as a duplicate and removed from scope. It will remain in your request history for reference.",
+  },
+  "removed-na": {
+    status: "Removed \u2014 Not Applicable",
+    label: "Removed \u2014 Not Applicable",
+    description: "This request was determined to be not applicable and has been removed from active scope.",
+    nextActionOwner: "None \u2014 Removed",
+    externalActionRequired: false,
+    externalActionLabel: null,
+    isTerminal: true,
+    completionMessage: "This request was confirmed as not applicable and removed from scope. It will remain in your request history for reference.",
+  },
 };
 
-export function getExternalStatusInfo(req: { status: string; _exceptionRecommendation?: string | null; _exceptionDecision?: string | null; _publishedExternal?: boolean; _externalStatus?: string | null; _exceptionSentAt?: string | null; _publishedAt?: string | null; _workNotes?: Array<{ action?: string | null }> | null; _blockerStatus?: string | null; _blockerExternalQuestion?: string | null; _blockerExternalResponse?: string | null; _processingStartedAt?: string | null }): ExternalStatusInfo {
+export function getExternalStatusInfo(req: { status: string; _exceptionRecommendation?: string | null; _exceptionDecision?: string | null; _publishedExternal?: boolean; _externalStatus?: string | null; _exceptionSentAt?: string | null; _publishedAt?: string | null; _workNotes?: Array<{ action?: string | null }> | null; _blockerStatus?: string | null; _blockerExternalQuestion?: string | null; _blockerExternalResponse?: string | null; _processingStartedAt?: string | null; _archived?: boolean; _archiveReason?: string | null }): ExternalStatusInfo {
   const key = getRecapStatus(req);
   return STATUS_INFO[key] || STATUS_INFO["submitted"];
 }
@@ -214,13 +243,15 @@ export const STATUS_PILL_STYLES: Record<string, { bg: string; text: string; bord
   "In Progress": { bg: "#fffbeb", text: "#92400e", border: "#d4a937" },
   "Rework Requested — IntegraCare Review": { bg: "#ffffff", text: "#0f172a", border: "#fed7aa" },
   "Information Requested": { bg: "#ffffff", text: "#0f172a", border: "#fcd34d" },
-  "Awaiting Your Review": { bg: "#ffffff", text: "#0f172a", border: "#6ee7b7" },
-  "Exception Review": { bg: "#ffffff", text: "#0f172a", border: "#c4b5fd" },
+  "Awaiting Your Review": { bg: "#ffffff", text: "#0f172a", border: "#2dd4bf" },
+  "Exception Review": { bg: "#ffffff", text: "#0f172a", border: "#fb923c" },
   "Complete": { bg: "#ffffff", text: "#0f172a", border: "#86efac" },
   "Blocked": { bg: "#ffffff", text: "#0f172a", border: "#fca5a5" },
   "Blocker Information Requested": { bg: "#ffffff", text: "#0f172a", border: "#fca5a5" },
   "Duplicate": { bg: "#ffffff", text: "#0f172a", border: "#c4b5fd" },
   "Not Applicable": { bg: "#ffffff", text: "#0f172a", border: "#fcd34d" },
+  "Removed \u2014 Duplicate": { bg: "#faf5ff", text: "#6d28d9", border: "#c4b5fd" },
+  "Removed \u2014 Not Applicable": { bg: "#fffbeb", text: "#92400e", border: "#fcd34d" },
 };
 
 export function getStatusPillStyle(label: string): { bg: string; text: string; border: string } {

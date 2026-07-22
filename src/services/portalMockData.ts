@@ -317,6 +317,8 @@ export function toExternalStatusInput(req: PortalRequest) {
         _blockerExternalQuestion: req._blockerExternalQuestion,
         _blockerExternalResponse: req._blockerExternalResponse,
         _processingStartedAt: req._processingStartedAt,
+        _archived: (req as any)._archived,
+        _archiveReason: (req as any)._archiveReason,
     };
 }
 

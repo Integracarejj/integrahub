@@ -20,6 +20,7 @@ const STAT_HELPERS: Record<string, string> = {
     "Awaiting Your Review": "Documents ready for your review",
     "Exception Review": "Needs your decision on an exception recommendation",
     "Complete": "Review complete — no further action required",
+    "Removed": "Confirmed duplicate or not applicable — removed from scope",
     "Total Requests": "All active requests",
 };
 
@@ -78,9 +79,10 @@ export default function PortalOverview() {
     const awaitingReviewCount = portalStatuses.filter(s => s.status === "Awaiting Your Review").length;
     const exceptionReviewCount = portalStatuses.filter(s => s.status === "Exception Review").length;
     const completeCount = portalStatuses.filter(s => s.status === "Complete").length;
+    const removedCount = portalStatuses.filter(s => s.status.startsWith("Removed")).length;
     const reworkSubmittedCount = portalStatuses.filter(s => s.status === "Rework Review").length;
     const blockerInfoRequestedCount = portalStatuses.filter(s => s.status === "Blocker Information Requested").length;
-    const visibleRequests = portalRequests.filter(r => getExternalStatusInfo(toExternalStatusInput(r)).status !== "Complete");
+    const visibleRequests = portalRequests.filter(r => { const st = getExternalStatusInfo(toExternalStatusInput(r)).status; return st !== "Complete" && !st.startsWith("Removed"); });
 
     const [dashboardSearch, setDashboardSearch] = useState("");
     const [dashboardFilterStatus, setDashboardFilterStatus] = useState("all");
@@ -92,6 +94,9 @@ export default function PortalOverview() {
         if (dashboardFilterStatus !== "all") {
             if (dashboardFilterStatus === "Exception Review" || dashboardFilterStatus === "Rework Review" || dashboardFilterStatus === "Blocker Information Requested") {
                 if (ext.status !== dashboardFilterStatus) return false;
+            }
+            else if (dashboardFilterStatus === "Removed") {
+                if (!ext.status.startsWith("Removed")) return false;
             }
             else if (ext.label !== dashboardFilterStatus) return false;
         }
@@ -450,15 +455,15 @@ export default function PortalOverview() {
                     </div>
                 )}
                 {awaitingReviewCount > 0 && (
-                    <div className={`po-stat-card${dashboardFilterStatus === "Awaiting Your Review" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Awaiting Your Review"); setDashboardFilterCategory("all"); }}>
-                        <span className="po-stat-value po-stat-value--green">{awaitingReviewCount}</span>
+                    <div className={`po-stat-card${dashboardFilterStatus === "Awaiting Your Review" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer", border: "2px solid #2dd4bf" }} onClick={() => { setDashboardFilterStatus("Awaiting Your Review"); setDashboardFilterCategory("all"); }}>
+                        <span className="po-stat-value po-stat-value--teal">{awaitingReviewCount}</span>
                         <span className="po-stat-label">Awaiting Your Review</span>
                         <span className="po-stat-helper">{STAT_HELPERS["Awaiting Your Review"]}</span>
                     </div>
                 )}
                 {exceptionReviewCount > 0 && (
-                    <div className={`po-stat-card${dashboardFilterStatus === "Exception Review" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("Exception Review"); setDashboardFilterCategory("all"); }}>
-                        <span className="po-stat-value po-stat-value--indigo">{exceptionReviewCount}</span>
+                    <div className={`po-stat-card${dashboardFilterStatus === "Exception Review" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer", border: "2px solid #fb923c" }} onClick={() => { setDashboardFilterStatus("Exception Review"); setDashboardFilterCategory("all"); }}>
+                        <span className="po-stat-value po-stat-value--orange">{exceptionReviewCount}</span>
                         <span className="po-stat-label">Exception Review</span>
                         <span className="po-stat-helper">{STAT_HELPERS["Exception Review"]}</span>
                     </div>
@@ -482,6 +487,13 @@ export default function PortalOverview() {
                         <span className="po-stat-value" style={{ color: "#dc2626" }}>{blockerInfoRequestedCount}</span>
                         <span className="po-stat-label">Blocker Info Needed</span>
                         <span className="po-stat-helper">{STAT_HELPERS["Blocker Information Requested"]}</span>
+                    </div>
+                )}
+                {removedCount > 0 && (
+                    <div className={`po-stat-card${dashboardFilterStatus === "Removed" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer", border: "2px solid #c4b5fd" }} onClick={() => { setDashboardFilterStatus("Removed"); setDashboardFilterCategory("all"); }}>
+                        <span className="po-stat-value" style={{ color: "#6d28d9" }}>{removedCount}</span>
+                        <span className="po-stat-label">Removed from Scope</span>
+                        <span className="po-stat-helper">Duplicate or Not Applicable</span>
                     </div>
                 )}
             </div>
@@ -540,6 +552,7 @@ export default function PortalOverview() {
                                     <option value="Exception Review">Exception Review</option>
                                     <option value="Rework Review">Rework Submitted</option>
                                     <option value="Complete">Complete</option>
+                                    <option value="Removed">Removed from Scope</option>
                                 </select>
                                 <select className="po-filter-select" aria-label="Filter by category" value={dashboardFilterCategory} onChange={e => setDashboardFilterCategory(e.target.value)}>
                                     <option value="all">All Categories</option>

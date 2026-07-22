@@ -255,7 +255,11 @@ function WorkflowStateCard({
     const isBulkUpload = item.type === "Broker Upload";
     const isDuplicate = displayStatus === "Duplicate";
     const statusColor = STATUS_COLORS[displayStatus] || "#64748b";
-    const isTerminal = displayStatus === "Completed" || displayStatus === "Closed" || displayStatus === "Closed / Duplicate" || displayStatus === "Closed / Not Applicable" || (!isDdOps && displayStatus === "Complete") || (["Duplicate", "Not Applicable"].includes(displayStatus) && !!(item as any)._exceptionDecision);
+    const isArchived = !!(item as any)._archived && !!(item as any)._archiveReason;
+    const terminalDisposition = isArchived
+        ? ((item as any)._archiveReason === "Duplicate" ? "Removed \u2014 Duplicate" : (item as any)._archiveReason === "Not Applicable" ? "Removed \u2014 Not Applicable" : "Removed \u2014 " + (item as any)._archiveReason)
+        : null;
+    const isTerminal = isArchived || displayStatus === "Completed" || displayStatus === "Closed" || displayStatus === "Closed / Duplicate" || displayStatus === "Closed / Not Applicable" || (!isDdOps && displayStatus === "Complete") || (["Duplicate", "Not Applicable"].includes(displayStatus) && !!(item as any)._exceptionDecision);
     const exceptionSentToPartner = ["Duplicate", "Not Applicable"].includes(displayStatus) && !!(item as any)._exceptionSentAt && !(item as any)._exceptionDecision;
 
     const completionSummary = useMemo(() => {
@@ -668,8 +672,8 @@ function WorkflowStateCard({
                             <div>
                                 <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 5 }}>Status</div>
                                 <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 10px", fontSize: 13, fontWeight: 600, borderRadius: 6, border: "1px solid #d1d5db", background: "#fff", color: "#0f172a" }}>
-                                    {statusDot(statusColor)}
-                                    <span>{displayStatus}</span>
+                                    {statusDot(terminalDisposition ? "#7c3aed" : statusColor)}
+                                    <span>{terminalDisposition || displayStatus}</span>
                                 </div>
                             </div>
 
@@ -901,10 +905,10 @@ function WorkflowStateCard({
                             })()}
 
                             {(() => {
+                              const wasPreviouslyPublishedExternal = !!item._publishedExternal;
                               const isAlreadyReturned = !!item._returnReason && displayStatus === "Needs Rework";
-                              const wasPreviouslyPublished = !!item._publishedAt || !!item._publishedExternal;
-                              const canPublish = (displayStatus === "Complete" || (displayStatus === "Needs Rework" && wasPreviouslyPublished)) && !isAlreadyReturned;
-                              const publishLabel = wasPreviouslyPublished ? "Re-Publish External" : "Publish External";
+                              const canPublish = (displayStatus === "Complete" || (displayStatus === "Needs Rework" && wasPreviouslyPublishedExternal)) && !isAlreadyReturned;
+                              const publishLabel = wasPreviouslyPublishedExternal ? "Re-Publish External" : "Publish External";
                               return canPublish ? (
                                 <div
                                   onClick={() => setPublishExternal({ step: 1, selectedArtifacts: workArtifacts.map(a => a.name), note: "" })}
@@ -930,7 +934,7 @@ function WorkflowStateCard({
                                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a3 3 0 1 0 3.99 3.98m-9.19-1.17L2 21l2.44-2.44m5.57-5.57L18 5l3 3L13.01 13.01" /></svg>
                                   </div>
                                   <div>
-                                    <div style={{ fontSize: 16, fontWeight: 700, color: "#64748b" }}>Publish External</div>
+                                    <div style={{ fontSize: 16, fontWeight: 700, color: "#64748b" }}>{wasPreviouslyPublishedExternal ? "Re-Publish External" : "Publish External"}</div>
                                     <div style={{ fontSize: 13, color: "#94a3b8", marginTop: 2 }}>
                                       {isAlreadyReturned ? "Waiting for contributor to re-submit" : "Item must be submitted for DD Review first"}
                                     </div>
@@ -946,12 +950,6 @@ function WorkflowStateCard({
                               {displayStatus !== "Blocked" && (
                                 <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0891b2" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>} label="Clarification Support" desc="Answer internally or request information" onClick={() => setClarificationSupportModalOpen(true)} />
                               )}
-                              {(() => {
-                                const hasExtQ = item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification External Question");
-                                const isClarActive = displayStatus === "Clarification Needed" || (displayStatus === "In Progress" && hasExtQ);
-                                const alreadyReturned = !!item._returnReason && displayStatus === "Needs Rework";
-                                return !isClarActive && displayStatus !== "Blocked" && !alreadyReturned;
-                              })() && <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>} label="Return to Owner" desc="Send back with feedback" onClick={() => setReturnToOwnerModal({ step: "input", reason: "" })} />}
                               {(() => {
                                 const hasExtQ = item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification External Question");
                                 const isClarActive = displayStatus === "Clarification Needed" || (displayStatus === "In Progress" && hasExtQ);
@@ -1235,6 +1233,42 @@ function WorkflowStateCard({
                     )}
                     </>)}
 
+                    {isTerminal && isArchived && (
+                      <div style={{ padding: "0 32px 24px" }}>
+                        <div style={{ border: "2px solid #ddd6fe", borderRadius: 16, padding: 28, background: "linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%)", boxShadow: "0 2px 12px rgba(109,40,217,0.06)" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
+                            <div style={{ width: 44, height: 44, borderRadius: 12, background: "#ede9fe", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a" }}>Removed from Scope</div>
+                              <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>{terminalDisposition}</div>
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                            {(item as any)._exceptionRecommendation && (
+                              <div style={{ padding: "10px 14px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, lineHeight: 1.5 }}>
+                                <span style={{ fontWeight: 700, color: "#475569", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.03em" }}>Recommendation:</span>{" "}
+                                <span style={{ color: "#0f172a" }}>{(item as any)._exceptionRecommendation}</span>
+                                {(item as any)._statusNotes && <div style={{ marginTop: 4, color: "#475569", fontSize: 12 }}>{(item as any)._statusNotes}</div>}
+                              </div>
+                            )}
+                            {(item as any)._exceptionDecision && (
+                              <div style={{ padding: "10px 14px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, fontSize: 13, lineHeight: 1.5 }}>
+                                <span style={{ fontWeight: 700, color: "#166534", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.03em" }}>Partner Decision:</span>{" "}
+                                <span style={{ color: "#0f172a" }}>{(item as any)._exceptionDecision}</span>
+                                {(item as any)._exceptionDecisionNote && <div style={{ marginTop: 4, color: "#475569", fontSize: 12 }}>{(item as any)._exceptionDecisionNote}</div>}
+                                {(item as any)._exceptionDecisionAt && <div style={{ marginTop: 4, color: "#94a3b8", fontSize: 11 }}>{new Date((item as any)._exceptionDecisionAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>}
+                              </div>
+                            )}
+                            {!isDdOps && (
+                              <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>No further action required. This request has been removed from active scope.</div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {exceptionSentToPartner && isDdOps && (
                         <div style={{ padding: "0 32px 24px" }}>
                             <div style={{ marginBottom: 24, padding: "16px 20px", borderRadius: 12, background: "#f5f3ff", border: "2px solid #ddd6fe", boxShadow: "0 2px 8px rgba(109,40,217,0.06)" }}>
@@ -1285,8 +1319,8 @@ function WorkflowStateCard({
                         </div>
                         <div style={{ flex: 1 }}>
                           {(() => {
-                            const wasPreviouslyPublished = !!item._publishedAt || !!item._publishedExternal;
-                            const publishLabel = wasPreviouslyPublished ? "Re-Publish External" : "Publish External";
+                            const wasPreviouslyPublishedExternal = !!item._publishedExternal;
+                            const publishLabel = wasPreviouslyPublishedExternal ? "Re-Publish External" : "Publish External";
                             return (
                               <>
                                 <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>{item._publishedExternal ? "Published External" : publishLabel}</div>
@@ -1296,11 +1330,11 @@ function WorkflowStateCard({
                           })()}
                         </div>
                         {(() => {
-                          const wasPreviouslyPublished = !!item._publishedAt || !!item._publishedExternal;
+                          const wasPreviouslyPublishedExternal = !!item._publishedExternal;
                           const isReturnedByDD = !!item._returnReason && displayStatus === "Needs Rework";
                           const isReworkFromPartner = item._partnerDecision === "Rework Required";
-                          const canPublish = (displayStatus === "Complete" || (isReworkFromPartner && wasPreviouslyPublished)) && !isReturnedByDD;
-                          const buttonLabel = wasPreviouslyPublished ? "Re-Publish" : "Publish";
+                          const canPublish = (displayStatus === "Complete" || (isReworkFromPartner && wasPreviouslyPublishedExternal)) && !isReturnedByDD;
+                          const buttonLabel = wasPreviouslyPublishedExternal ? "Re-Publish" : "Publish";
                           if (item._publishedExternal && !isReturnedByDD && displayStatus !== "Needs Rework") {
                             return (
                               <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "6px 14px", fontSize: 12, fontWeight: 700, borderRadius: 6, background: "#f0fdf4", color: "#166534", border: "1px solid #86efac" }}>
