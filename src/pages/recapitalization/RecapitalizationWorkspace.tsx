@@ -123,7 +123,11 @@ export default function RecapitalizationWorkspace() {
     const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
     const [editingNoteText, setEditingNoteText] = useState("");
     const workspaceUserKey = "integrasource.recap.myWorkUser";
-    const [currentUser] = useState(() => localStorage.getItem(workspaceUserKey) || TEAM_MEMBERS[0]);
+    const [currentUser] = useState(() => {
+        const navUser = (location.state as any)?.actingUser;
+        if (navUser) return navUser;
+        return localStorage.getItem(workspaceUserKey) || TEAM_MEMBERS[0];
+    });
     const [actionFeedback, setActionFeedback] = useState<string | null>(null);
     const [completionDialog, setCompletionDialog] = useState<"blocked" | "clarification" | "dd-review" | "return-to-owner" | "duplicate" | "not-applicable" | "not-mine" | "resolved" | null>(null);
     const [publishExternal, setPublishExternal] = useState<{ step: number; selectedArtifacts: string[]; note: string } | null>(null);
@@ -776,7 +780,9 @@ function WorkflowStateCard({
                             <div style={{ marginBottom: 14 }}>
                               <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 12 }}>Other Actions</div>
                               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-                                <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>} label="Reassign Owner" desc="Change the current owner" onClick={() => { const el = document.getElementById("ws-owner-select"); if (el) { (el as HTMLSelectElement).focus(); (el as HTMLSelectElement).click(); }}} />
+                                {!item._blockerStatus && (
+                                  <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>} label="Reassign Owner" desc="Change the current owner" onClick={() => { const el = document.getElementById("ws-owner-select"); if (el) { (el as HTMLSelectElement).focus(); (el as HTMLSelectElement).click(); }}} />
+                                )}
                               </div>
                             </div>
 
@@ -872,40 +878,66 @@ function WorkflowStateCard({
                                   </div>
                                 );
                               }
-                              return (
+                              return (() => {
+                                const alreadyReturned = !!item._returnReason && displayStatus === "Needs Rework";
+                                if (alreadyReturned) return null;
+                                return (
+                                  <div
+                                    onClick={() => setReturnToOwnerModal({ step: "input", reason: "" })}
+                                    style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #fed7aa", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
+                                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#f59e0b"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(245,158,11,0.1)"; }}
+                                    onMouseLeave={e => { e.currentTarget.style.borderColor = "#fed7aa"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}
+                                  >
+                                    <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fffbeb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>
+                                    </div>
+                                    <div>
+                                      <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Return to Owner</div>
+                                      <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Send back with feedback</div>
+                                    </div>
+                                  </div>
+                                );
+                              })();
+                            })()}
+
+                            {(() => {
+                              const isAlreadyReturned = !!item._returnReason && displayStatus === "Needs Rework";
+                              const wasPreviouslyPublished = !!item._publishedAt || !!item._publishedExternal;
+                              const canPublish = (displayStatus === "Complete" || (displayStatus === "Needs Rework" && wasPreviouslyPublished)) && !isAlreadyReturned;
+                              const publishLabel = wasPreviouslyPublished ? "Re-Publish External" : "Publish External";
+                              return canPublish ? (
                                 <div
-                                  onClick={() => setReturnToOwnerModal({ step: "input", reason: "" })}
-                                  style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #fed7aa", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
-                                  onMouseEnter={e => { e.currentTarget.style.borderColor = "#f59e0b"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(245,158,11,0.1)"; }}
-                                  onMouseLeave={e => { e.currentTarget.style.borderColor = "#fed7aa"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}
+                                  onClick={() => setPublishExternal({ step: 1, selectedArtifacts: workArtifacts.map(a => a.name), note: "" })}
+                                  style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bbf7d0", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
+                                  onMouseEnter={e => { e.currentTarget.style.borderColor = "#22c55e"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(34,197,94,0.1)"; }}
+                                  onMouseLeave={e => { e.currentTarget.style.borderColor = "#bbf7d0"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}
                                 >
-                                  <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fffbeb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>
+                                  <div style={{ width: 44, height: 44, borderRadius: 12, background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a3 3 0 1 0 3.99 3.98m-9.19-1.17L2 21l2.44-2.44m5.57-5.57L18 5l3 3L13.01 13.01" /></svg>
                                   </div>
                                   <div>
-                                    <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Return to Owner</div>
-                                    <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Send back with feedback</div>
+                                    <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{publishLabel}</div>
+                                    <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>
+                                      Share approved artifacts with the external partner
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div
+                                  style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #e2e8f0", borderRadius: 14, background: "#f8fafc", cursor: "not-allowed", boxShadow: "0 1px 4px rgba(0,0,0,0.02)", opacity: 0.5 }}
+                                >
+                                  <div style={{ width: 44, height: 44, borderRadius: 12, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a3 3 0 1 0 3.99 3.98m-9.19-1.17L2 21l2.44-2.44m5.57-5.57L18 5l3 3L13.01 13.01" /></svg>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 16, fontWeight: 700, color: "#64748b" }}>Publish External</div>
+                                    <div style={{ fontSize: 13, color: "#94a3b8", marginTop: 2 }}>
+                                      {isAlreadyReturned ? "Waiting for contributor to re-submit" : "Item must be submitted for DD Review first"}
+                                    </div>
                                   </div>
                                 </div>
                               );
                             })()}
-
-                            <div
-                              onClick={(displayStatus === "Complete" || displayStatus === "Needs Rework") ? () => setPublishExternal({ step: 1, selectedArtifacts: workArtifacts.map(a => a.name), note: "" }) : undefined}
-                              style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bbf7d0", borderRadius: 14, background: "#fff", cursor: (displayStatus === "Complete" || displayStatus === "Needs Rework") ? "pointer" : "not-allowed", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)", opacity: (displayStatus === "Complete" || displayStatus === "Needs Rework") ? 1 : 0.5 }}
-                              onMouseEnter={e => { if (displayStatus === "Complete" || displayStatus === "Needs Rework") { e.currentTarget.style.borderColor = "#22c55e"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(34,197,94,0.1)"; }}}
-                              onMouseLeave={e => { e.currentTarget.style.borderColor = "#bbf7d0"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}
-                            >
-                              <div style={{ width: 44, height: 44, borderRadius: 12, background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a3 3 0 1 0 3.99 3.98m-9.19-1.17L2 21l2.44-2.44m5.57-5.57L18 5l3 3L13.01 13.01" /></svg>
-                              </div>
-                              <div>
-                                <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{displayStatus === "Needs Rework" ? "Re-Publish External" : "Publish External"}</div>
-                                <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>
-                                  Share approved artifacts with the external partner
-                                </div>
-                              </div>
-                            </div>
                           </div>
 
                           <div style={{ marginBottom: 14 }}>
@@ -917,9 +949,17 @@ function WorkflowStateCard({
                               {(() => {
                                 const hasExtQ = item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification External Question");
                                 const isClarActive = displayStatus === "Clarification Needed" || (displayStatus === "In Progress" && hasExtQ);
-                                return !isClarActive && displayStatus !== "Blocked";
+                                const alreadyReturned = !!item._returnReason && displayStatus === "Needs Rework";
+                                return !isClarActive && displayStatus !== "Blocked" && !alreadyReturned;
                               })() && <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>} label="Return to Owner" desc="Send back with feedback" onClick={() => setReturnToOwnerModal({ step: "input", reason: "" })} />}
-                              <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>} label="Reassign Owner" desc="Change the current owner" onClick={() => { const el = document.getElementById("ws-owner-select"); if (el) { (el as HTMLSelectElement).focus(); (el as HTMLSelectElement).click(); }}} />
+                              {(() => {
+                                const hasExtQ = item._workNotes?.some((n: WorkNoteEntry) => n.action === "Clarification External Question");
+                                const isClarActive = displayStatus === "Clarification Needed" || (displayStatus === "In Progress" && hasExtQ);
+                                const isBlocked = displayStatus === "Blocked";
+                                const alreadyReturned = !!item._returnReason && displayStatus === "Needs Rework";
+                                const inActiveWorkflow = isClarActive || isBlocked || !!item._blockerStatus || alreadyReturned;
+                                return !inActiveWorkflow;
+                              })() && <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>} label="Reassign Owner" desc="Change the current owner" onClick={() => { const el = document.getElementById("ws-owner-select"); if (el) { (el as HTMLSelectElement).focus(); (el as HTMLSelectElement).click(); }}} />}
                               {displayStatus !== "Blocked" && (
                                 <>
                                   <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>} label="Recommend Duplicate to Partner" desc="Validate and send recommendation" onClick={() => setDdOpsRecommendModal({ type: "Duplicate", partnerNote: "" })} />
@@ -1244,25 +1284,44 @@ function WorkflowStateCard({
                           )}
                         </div>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>{item._publishedExternal ? "Published External" : "Publish External"}</div>
-                          <div style={{ fontSize: 12, color: "#475569", marginTop: 2 }}>{item._publishedExternal ? "This deliverable is visible on the external portal" : "Share deliverable with the external broker/buyer portal"}</div>
+                          {(() => {
+                            const wasPreviouslyPublished = !!item._publishedAt || !!item._publishedExternal;
+                            const isReturnedByDD = !!item._returnReason && displayStatus === "Needs Rework";
+                            const publishLabel = wasPreviouslyPublished ? "Re-Publish External" : "Publish External";
+                            return (
+                              <>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>{item._publishedExternal ? "Published External" : publishLabel}</div>
+                                <div style={{ fontSize: 12, color: "#475569", marginTop: 2 }}>{item._publishedExternal ? "This deliverable is visible on the external portal" : "Share deliverable with the external broker/buyer portal"}</div>
+                              </>
+                            );
+                          })()}
                         </div>
-                        {item._publishedExternal && displayStatus !== "Needs Rework" ? (
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "6px 14px", fontSize: 12, fontWeight: 700, borderRadius: 6, background: "#f0fdf4", color: "#166534", border: "1px solid #86efac" }}>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
-                            Published
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => setPublishExternal({ step: 1, selectedArtifacts: workArtifacts.map(a => a.name), note: "" })}
-                            disabled={displayStatus !== "Complete" && displayStatus !== "Needs Rework"}
-                            title={displayStatus !== "Complete" && displayStatus !== "Needs Rework" ? "Publishing requires the item to be submitted for DD Review first" : "Publish this deliverable"}
-                            style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "6px 14px", fontSize: 12, fontWeight: 600, borderRadius: 6, background: displayStatus === "Complete" || displayStatus === "Needs Rework" ? "#1d4ed8" : "#f1f5f9", color: displayStatus === "Complete" || displayStatus === "Needs Rework" ? "#fff" : "#94a3b8", border: "none", cursor: displayStatus === "Complete" || displayStatus === "Needs Rework" ? "pointer" : "not-allowed" }}
-                          >
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a3 3 0 1 0 3.99 3.98m-9.19-1.17L2 21l2.44-2.44m5.57-5.57L18 5l3 3L13.01 13.01" /></svg>
-                            {displayStatus === "Needs Rework" ? "Re-Publish" : "Publish"}
-                          </button>
-                        )}
+                        {(() => {
+                          const wasPreviouslyPublished = !!item._publishedAt || !!item._publishedExternal;
+                          const isReturnedByDD = !!item._returnReason && displayStatus === "Needs Rework";
+                          const isReworkFromPartner = item._partnerDecision === "Rework Required";
+                          const canPublish = (displayStatus === "Complete" || (isReworkFromPartner && wasPreviouslyPublished)) && !isReturnedByDD;
+                          const buttonLabel = wasPreviouslyPublished ? "Re-Publish" : "Publish";
+                          if (item._publishedExternal && !isReturnedByDD && displayStatus !== "Needs Rework") {
+                            return (
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "6px 14px", fontSize: 12, fontWeight: 700, borderRadius: 6, background: "#f0fdf4", color: "#166534", border: "1px solid #86efac" }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                                Published
+                              </span>
+                            );
+                          }
+                          return (
+                            <button
+                              onClick={() => canPublish ? setPublishExternal({ step: 1, selectedArtifacts: workArtifacts.map(a => a.name), note: "" }) : undefined}
+                              disabled={!canPublish}
+                              title={!canPublish ? (isReturnedByDD ? "Waiting for contributor to re-submit" : "Publishing requires the item to be submitted for DD Review first") : "Publish this deliverable"}
+                              style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "6px 14px", fontSize: 12, fontWeight: 600, borderRadius: 6, background: canPublish ? "#1d4ed8" : "#f1f5f9", color: canPublish ? "#fff" : "#94a3b8", border: "none", cursor: canPublish ? "pointer" : "not-allowed" }}
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a3 3 0 1 0 3.99 3.98m-9.19-1.17L2 21l2.44-2.44m5.57-5.57L18 5l3 3L13.01 13.01" /></svg>
+                              {buttonLabel}
+                            </button>
+                          );
+                        })()}
                       </div>
                     </div>
                     )}

@@ -330,22 +330,22 @@ export default function RecapitalizationDdOperations() {
                             <td style={{ fontSize: 12, color: "#475569" }} onClick={e => e.stopPropagation()}>{req.owner || "\u2014"}</td>
                             <td onClick={e => e.stopPropagation()}>
                                 {req._exceptionDecision === "Approve Removal" && (
-                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#c4b5fd")}>
+                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations", actingUser: activeUser } })} style={partnerBtnStyle("#c4b5fd")}>
                                         Finalize Removal
                                     </button>
                                 )}
                                 {req._exceptionDecision === "Confirm Duplicate" && (
-                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#c4b5fd")}>
+                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations", actingUser: activeUser } })} style={partnerBtnStyle("#c4b5fd")}>
                                         Finalize Duplicate
                                     </button>
                                 )}
                                 {req._exceptionDecision === "Keep Separate" && (
-                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#86efac")}>
+                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations", actingUser: activeUser } })} style={partnerBtnStyle("#86efac")}>
                                         Return to Active Work
                                     </button>
                                 )}
                                 {req._exceptionDecision === "Keep Request" && (
-                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={partnerBtnStyle("#86efac")}>
+                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations", actingUser: activeUser } })} style={partnerBtnStyle("#86efac")}>
                                         Return to Active Work
                                     </button>
                                 )}
@@ -447,7 +447,7 @@ export default function RecapitalizationDdOperations() {
     }
 
     function openWorkspace(req: RecapRequest) {
-        navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } });
+        navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations", actingUser: activeUser } });
     }
 
     /* ── Activity Feed View ── */
