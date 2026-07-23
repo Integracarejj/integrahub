@@ -230,6 +230,32 @@ export function addTransactionAccess(access: ExternalTransactionAccess): void {
     writeJsonArray(TXN_ACCESS_KEY, accesses);
 }
 
+/** Create a new portal transaction and grant access to the active persona's user.
+ *  Returns the new transaction ID for use in package/request linkage. */
+export function createPortalTransaction(name: string, description?: string): string {
+    const txnId = `txn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const persona = getActivePersona();
+    const users = getExternalUsers();
+    const identityUser = users.find(u => u.email === persona.email);
+    const txn: ExternalTransaction = {
+        id: txnId,
+        orgId: identityUser?.organizationId || "org-atlas",
+        name,
+        description: description || `Transaction: ${name}`,
+        status: "Active",
+        createdAt: new Date().toISOString(),
+    };
+    addTransaction(txn);
+    if (identityUser) {
+        addTransactionAccess({
+            transactionId: txnId,
+            orgId: identityUser.organizationId,
+            userId: identityUser.id,
+        });
+    }
+    return txnId;
+}
+
 export function getAuthorizedTransactions(userId: string): ExternalTransactionAccess[] {
     return getTransactionAccessList().filter(a => a.userId === userId);
 }
@@ -765,6 +791,8 @@ export interface PortalPackageSubmission {
     orgName?: string;
     userId?: string;
     userName?: string;
+    /** Stable transaction ID linking this package to an ExternalTransaction */
+    transactionId?: string;
 }
 
 /* ── XLSX Parsing ───────────────────────────────────────────── */
@@ -1235,6 +1263,7 @@ export function mapParsedRowToRecapRequest(
     orgName?: string,
     userId?: string,
     userName?: string,
+    transactionId?: string,
 ): RecapRequest {
     const prefix = fileBaseName.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5) || "PKG";
     const subHash = submissionId.replace('sub-', '').slice(-4);
@@ -1258,7 +1287,7 @@ export function mapParsedRowToRecapRequest(
         id: `${submissionId}-req-${index}`,
         requestId: `DD-${prefix}-${subHash}-${String(index).padStart(3, "0")}`,
         intakeId: `INT-${prefix}-${index}`,
-        transactionId: `txn-portal-${submissionId}`,
+        transactionId: transactionId || `txn-portal-${submissionId}`,
         transactionName: packageName,
         brokerBuyer: "External",
         communityIds: [],
@@ -1303,7 +1332,7 @@ export function clearParsedRows(): void {
 
 /* ── Portal Package Submission Helpers ────────────────────────── */
 
-function generatePortalRequests(submissionId: string, packageName: string, fileBaseName: string, count: number, orgId?: string, orgName?: string, userId?: string, userName?: string): RecapRequest[] {
+function generatePortalRequests(submissionId: string, packageName: string, fileBaseName: string, count: number, orgId?: string, orgName?: string, userId?: string, userName?: string, transactionId?: string): RecapRequest[] {
     const communityNames = ["Cedar Ridge", "Magnolia Place", "Harbor View", "Prairie Oaks", "Summit Springs"];
     const categories = ["Financial Statements", "Licenses", "Environmental", "Insurance", "Legal", "HR / Staffing", "Physical Plant", "Regulatory", "Operations", "Marketing"];
     const teams = ["Financial Analysis", "Regulatory", "Environmental", "Risk Management", "HR & Operations", "DD Management"];
@@ -1323,7 +1352,7 @@ function generatePortalRequests(submissionId: string, packageName: string, fileB
             id: `${submissionId}-req-${i}`,
             requestId: `DD-${prefix}-${subHash}-${String(i).padStart(3, "0")}`,
             intakeId: `INT-${prefix}-${i}`,
-            transactionId: `txn-portal-${submissionId}`,
+            transactionId: transactionId || `txn-portal-${submissionId}`,
             transactionName: packageName,
             brokerBuyer: "External",
             communityIds: [],
@@ -1372,7 +1401,8 @@ function createPortalIntakeItem(submissionId: string, packageName: string, fileN
 export function submitBrokerUploadPackage(
     fileName?: string,
     parsedCount?: number,
-    parsedCategories?: string[]
+    parsedCategories?: string[],
+    transactionId?: string,
 ): {
     submissionId: string;
     detected: number;
@@ -1434,6 +1464,7 @@ export function submitBrokerUploadPackage(
         orgName: identityUser?.organizationName,
         userId: identityUser?.id,
         userName: identityUser?.displayName,
+        transactionId,
     };
     addPortalSubmission(submission);
 
@@ -1485,15 +1516,18 @@ export function confirmBrokerPackage(submissionId?: string): void {
     // Custom package: create intake item + review item (not tracker) records
     const fileBaseName = sub.fileName.replace(/\.[^.]+$/, "").trim();
     const parsedRows = getParsedRows();
+    const txnId = sub.transactionId; // Stable transaction ID from package creation
     let reviewItems: RecapRequest[];
     if (parsedRows.length > 0) {
         reviewItems = parsedRows.map((row, i) => mapParsedRowToRecapRequest(
             row, submissionId, i + 1, fileBaseName, sub.packageName,
             identityUser?.organizationId, identityUser?.organizationName, identityUser?.id, identityUser?.displayName,
+            txnId,
         ));
     } else {
         reviewItems = generatePortalRequests(submissionId, sub.packageName, fileBaseName, sub.requestCount,
-            identityUser?.organizationId, identityUser?.organizationName, identityUser?.id, identityUser?.displayName);
+            identityUser?.organizationId, identityUser?.organizationName, identityUser?.id, identityUser?.displayName,
+            txnId);
     }
     clearParsedRows();
     // Review items are kept for the intake review grid but have _publishedAt: null so they don't appear in tracker
@@ -1509,7 +1543,7 @@ export function confirmBrokerPackage(submissionId?: string): void {
         userName: "Portal User",
         requestId: null,
         requestTitle: null,
-        transactionId: `txn-portal-${submissionId}`,
+        transactionId: txnId || `txn-portal-${submissionId}`,
         transactionName: sub.packageName,
     });
 }

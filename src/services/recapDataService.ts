@@ -1709,7 +1709,7 @@ export function getPortalCreatedRequests(): RecapRequest[] {
     } catch { return []; }
 }
 
-export function getPortalSubmissions(): { id: string; fileName: string; packageName: string; submittedAt: string; requestCount: number; status: "Draft" | "Analyzed" | "Submitted"; transactionName: string; isABCDemo: boolean }[] {
+export function getPortalSubmissions(): { id: string; fileName: string; packageName: string; submittedAt: string; requestCount: number; status: "Draft" | "Analyzed" | "Submitted"; transactionName: string; isABCDemo: boolean; orgId?: string; orgName?: string; userId?: string; userName?: string; transactionId?: string }[] {
     try {
         const raw = localStorage.getItem(PORTAL_SUBMISSIONS_KEY);
         return raw ? JSON.parse(raw) : [];
@@ -1728,7 +1728,7 @@ export function addPortalCreatedRequests(requests: RecapRequest[]): void {
     localStorage.setItem(PORTAL_REQUESTS_KEY, JSON.stringify(merged));
 }
 
-export function addPortalSubmission(submission: { id: string; fileName: string; packageName: string; submittedAt: string; requestCount: number; status: "Draft" | "Analyzed" | "Submitted"; transactionName: string; isABCDemo: boolean }): void {
+export function addPortalSubmission(submission: { id: string; fileName: string; packageName: string; submittedAt: string; requestCount: number; status: "Draft" | "Analyzed" | "Submitted"; transactionName: string; isABCDemo: boolean; orgId?: string; orgName?: string; userId?: string; userName?: string; transactionId?: string }): void {
     const existing = getPortalSubmissions();
     existing.push(submission);
     localStorage.setItem(PORTAL_SUBMISSIONS_KEY, JSON.stringify(existing));

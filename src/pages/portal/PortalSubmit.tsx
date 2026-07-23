@@ -16,6 +16,8 @@ import {
     parseUploadedXLSX,
     extractCategoriesFromParsedRows,
     saveParsedRows,
+    createPortalTransaction,
+    getPersonaIdentity,
 } from "../../services/portalMockData";
 import "./PortalSubmit.css";
 
@@ -272,6 +274,15 @@ function BrokerUploadForm() {
     const [analysis, setAnalysis] = useState<{ submissionId: string; detected: number; needsReview: number; duplicates: number; followUp: number; categories: string[]; packageName: string; isABCDemo: boolean } | null>(null);
     const [banner, setBanner] = useState<string | null>(null);
 
+    const identity = getPersonaIdentity();
+    const authorizedTxns = identity?.authorizedTransactions || [];
+    const allPortalTxns = identity?.allTransactions || [];
+    const authorizedTxnIds = new Set(authorizedTxns.map(a => a.transactionId));
+    const personaTxns = allPortalTxns.filter(t => authorizedTxnIds.has(t.id));
+    const [selectedTxnId, setSelectedTxnId] = useState<string>(personaTxns[0]?.id || "");
+    const [newTxnName, setNewTxnName] = useState("");
+    const [showNewTxn, setShowNewTxn] = useState(false);
+
     const submissions = getPortalSubmissionsList();
 
     const resetUpload = useCallback(() => {
@@ -358,10 +369,15 @@ function BrokerUploadForm() {
         setUploadState("analyzing");
         setBanner(null);
         try {
+            // Resolve transaction ID: use selected or create new
+            let txnId = selectedTxnId;
+            if (showNewTxn && newTxnName.trim()) {
+                txnId = createPortalTransaction(newTxnName.trim());
+            }
             const parsed = await parseUploadedXLSX(selectedFile);
             saveParsedRows(parsed.rows);
             const cats = extractCategoriesFromParsedRows(parsed.rows);
-            const result = submitBrokerUploadPackage(selectedFile.name, parsed.count, cats);
+            const result = submitBrokerUploadPackage(selectedFile.name, parsed.count, cats, txnId);
             setAnalysis(result);
             setUploadState("complete");
         } catch (err) {
@@ -415,6 +431,37 @@ function BrokerUploadForm() {
             <p style={{ fontSize: 13, color: "#475569", marginBottom: 16, lineHeight: 1.5 }}>
                 Upload an Excel DD request list or ZIP package containing requests and supporting documents. The classification engine will analyze the content and prepare it for the IntegraCare DD team.
             </p>
+
+            <div className="ps-field" style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: "#1e293b", marginBottom: 4, display: "block" }}>Transaction</label>
+                {showNewTxn ? (
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <input
+                            type="text"
+                            value={newTxnName}
+                            onChange={e => setNewTxnName(e.target.value)}
+                            placeholder="New transaction name"
+                            className="ps-input"
+                            style={{ flex: 1 }}
+                        />
+                        <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => { setShowNewTxn(false); setNewTxnName(""); }}>Cancel</button>
+                    </div>
+                ) : (
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <select
+                            value={selectedTxnId}
+                            onChange={e => setSelectedTxnId(e.target.value)}
+                            className="ps-select"
+                            style={{ flex: 1 }}
+                        >
+                            {personaTxns.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                        </select>
+                        <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => setShowNewTxn(true)}>New Transaction</button>
+                    </div>
+                )}
+            </div>
 
             <input
                 ref={fileInputRef}
