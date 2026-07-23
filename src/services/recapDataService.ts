@@ -177,13 +177,28 @@ export function getTransactions(): RecapTransaction[] {
     if (isRecapWiped()) {
         const portalReqs = getPortalCreatedRequests();
         const seen = new Set<string>();
-        return portalReqs.reduce<RecapTransaction[]>((acc, r) => {
+        const result = portalReqs.reduce<RecapTransaction[]>((acc, r) => {
             if (!seen.has(r.transactionId)) {
                 seen.add(r.transactionId);
                 acc.push(makePortalTransaction(r.transactionId, r.transactionName));
             }
             return acc;
         }, []);
+        // Also include ExternalTransactions created via createPortalTransaction()
+        // (they exist before any package is submitted, so no RecapTransaction yet)
+        try {
+            const extTxnsRaw = localStorage.getItem("integrasource.recap.portalTransactions");
+            if (extTxnsRaw) {
+                const extTxns = JSON.parse(extTxnsRaw) as { id: string; name: string }[];
+                for (const et of extTxns) {
+                    if (!seen.has(et.id)) {
+                        seen.add(et.id);
+                        result.push(makePortalTransaction(et.id, et.name));
+                    }
+                }
+            }
+        } catch { /* ignore parse errors */ }
+        return result;
     }
     if (isDemoLoaded()) {
         const txn = Demo.getDemoTransaction();

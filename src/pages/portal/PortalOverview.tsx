@@ -61,7 +61,7 @@ export default function PortalOverview() {
     const persona = getActivePersona();
     const identity = getPersonaIdentity();
     const transactions = getPortalTransactions();
-    const txn = transactions[0];
+    const txn = transactions.find(t => t.id === selectedTxnId) || transactions[0];
     const portalRequests = getPortalRequests();
     const submissions = getPortalSubmissionsList();
 
@@ -213,7 +213,7 @@ export default function PortalOverview() {
             }
             saveParsedRows(parsed.rows);
             const cats = extractCategoriesFromParsedRows(parsed.rows);
-            const result = submitBrokerUploadPackage(file.name, parsed.count, cats);
+            const result = submitBrokerUploadPackage(file.name, parsed.count, cats, selectedTxnId || undefined);
             setAnalysis(result);
             setUploadState("complete");
         } catch (err) {
@@ -230,8 +230,10 @@ export default function PortalOverview() {
         setUploadState("submitted");
     };
 
-    const hasSubmitted = submissions.length > 0 || uploadState === "submitted";
-    const showOnlyUpload = submissions.length === 0 && uploadState !== "submitted";
+    const hasSubmitted = selectedTxnId
+        ? submissions.some(s => s.transactionId === selectedTxnId) || uploadState === "submitted"
+        : submissions.length > 0 || uploadState === "submitted";
+    const showOnlyUpload = !hasSubmitted && uploadState !== "submitted";
 
     /* ── Scroll ref and state ── */
     const requestsRef = useRef<HTMLDivElement>(null);
@@ -447,6 +449,20 @@ export default function PortalOverview() {
                 </div>
             )}
 
+            {/* ── Persistent "Submit Another Package" entry when requests exist ── */}
+            {hasSubmitted && uploadState === "idle" && (
+                <div style={{ textAlign: "center", padding: "12px 0", marginBottom: 0 }}>
+                    <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleFileSelected} />
+                    <button
+                        className="rc-btn rc-btn-secondary"
+                        onClick={handleBrowseClick}
+                        style={{ padding: "10px 24px", fontSize: 13, fontWeight: 700, borderRadius: 8, border: "1px solid #d1d5db" }}
+                    >
+                        Submit Another Package
+                    </button>
+                </div>
+            )}
+
             {hasSubmitted && (
             <>
             <div className="po-stats-row">
@@ -562,7 +578,7 @@ export default function PortalOverview() {
                                 </svg>
                             </div>
                             <p style={{ fontSize: 16, color: "#334155", margin: "0 0 6px", fontWeight: 600 }}>No requests have been submitted yet.</p>
-                            <p style={{ fontSize: 14, color: "#475569", margin: 0, lineHeight: 1.5 }}>Select <strong>Submit Package</strong> above to begin processing your due diligence package.</p>
+                            <p style={{ fontSize: 14, color: "#475569", margin: 0, lineHeight: 1.5 }}>Upload your first due diligence package to begin.</p>
                         </div>
                     ) : (
                         <>
