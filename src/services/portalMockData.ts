@@ -784,27 +784,133 @@ export interface ParseDiagnostics {
     firstTenSkipped: { rowIndex: number; values: Record<string, string>; reason: string }[];
 }
 
-function isSectionHeader(text: string): boolean {
-    const trimmed = text.trim();
-    if (!trimmed) return false;
-    if (/^[IVXLCDM]+\.?\s*$/i.test(trimmed)) return true;
-    if (/^[A-Z]\s*\.?\s*$/.test(trimmed)) return true;
-    if (/^(SECTION|PART|EXHIBIT|ATTACHMENT|SCHEDULE)\b/i.test(trimmed)) return true;
-    if (trimmed.length < 3) return true;
-    if (/^[A-Z\s]{4,}$/.test(trimmed) && trimmed.length < 30) return true;
-    return false;
+
+
+/* ── Worksheet Selection ─────────────────────────────────────── */
+
+function evaluateWorksheet(rows: any[][]): { nonEmptyRows: number; hasRequestHeader: boolean; requestLikeContent: number } {
+    let nonEmptyRows = 0;
+    let hasRequestHeader = false;
+    let requestLikeContent = 0;
+    const REQUEST_HEADER_PATTERNS = /request|deliverable|diligence|requirement|item|information|document|description|question|detail|material/i;
+
+    for (let i = 0; i < Math.min(rows.length, 30); i++) {
+        const row = rows[i];
+        if (!row) continue;
+        const cells = row.map((c: any) => (c !== null && c !== undefined ? String(c).trim() : ""));
+        if (cells.some(c => c.length > 0)) nonEmptyRows++;
+
+        if (i === 0 || i === 1) {
+            for (const cell of cells) {
+                if (cell && REQUEST_HEADER_PATTERNS.test(cell)) { hasRequestHeader = true; break; }
+            }
+        }
+
+        for (const cell of cells) {
+            if (cell.length >= 20 && !/^\d+$/.test(cell)) { requestLikeContent++; break; }
+        }
+    }
+    return { nonEmptyRows, hasRequestHeader, requestLikeContent };
 }
 
-function isMeaningfulRequestText(text: string): boolean {
-    const trimmed = text.trim();
-    if (!trimmed) return false;
-    if (trimmed.length < 5) return false;
-    if (isSectionHeader(trimmed)) return false;
-    const lower = trimmed.toLowerCase();
-    if (lower.startsWith("note:") || lower.startsWith("notes:") || lower.startsWith("reference:") || lower.startsWith("source:")) return false;
-    if (/^(instructions|directions|overview|background|introduction|summary|conclusion)/i.test(trimmed)) return false;
-    return true;
+/* ── Header Row Detection ────────────────────────────────────── */
+
+function detectHeaderRow(rows: any[][]): number {
+    const HEADER_KEYWORDS = /request|deliverable|diligence|requirement|item|description|document|information|question|detail|category|community|priority|owner|seller|buyer|broker|status|note|comment|title|number|name|property|facility|department|team|date|due|license|insurance|contract|type|material/i;
+    const STRONG_HEADER_KEYWORDS = /request|deliverable|diligence|requirement|document|information/i;
+
+    const MAX_SCAN = Math.min(rows.length, 20);
+    let bestRow = -1;
+    let bestScore = -1;
+
+    for (let i = 0; i < MAX_SCAN; i++) {
+        const row = rows[i];
+        if (!row) continue;
+        const cells = row.map((c: any) => (c !== null && c !== undefined ? String(c).trim() : "").toLowerCase());
+        if (cells.filter(c => c.length > 0).length < 1) continue;
+
+        let score = 0;
+        let strongHits = 0;
+        for (const cell of cells) {
+            if (!cell) continue;
+            if (HEADER_KEYWORDS.test(cell)) { score += 2; if (STRONG_HEADER_KEYWORDS.test(cell)) strongHits++; }
+            if (cell.length < 15 && !/^\d+$/.test(cell)) score += 1;
+            if (cell.length > 40) score -= 1;
+        }
+        if (strongHits >= 1) score += 5;
+        if (score > bestScore) { bestScore = score; bestRow = i; }
+    }
+    return bestRow;
 }
+
+/* ── Column Classification ───────────────────────────────────── */
+
+type ColumnClass = "REQUEST" | "SEQUENCE" | "METADATA" | "EMPTY";
+
+function classifyColumn(
+    header: string,
+    values: string[],
+): { classification: ColumnClass; score: number } {
+    const h = header.toLowerCase().replace(/[\/\s\-_]+/g, " ").trim();
+
+    const REQUEST_HEADER_PATTERNS = /^(due diligence|dd)\s+(request|item|deliverable|list)|request|deliverable|diligence|requirement|information|documentation|requested|question|detail/i;
+    const SEQUENCE_HEADERS = /^(#|no\.?|num|number|item\s*#|row|id|seq|sequence|index)$/i;
+    const METADATA_HEADERS = /^(category|subcategory|community|property|facility|owner|department|priority|due\s*date|description|notes?|comment|status|transaction|package|entity|seller|buyer|broker|time\s*period|date\s*range|document\s*type|type|team|assigned|source|reference|phase|sub\s*phase)/i;
+
+    if (SEQUENCE_HEADERS.test(h)) {
+        const numericCount = values.filter(v => /^\d+$/.test(v)).length;
+        if (numericCount > values.length * 0.8 && values.length > 3) return { classification: "SEQUENCE", score: 0.9 };
+    }
+
+    if (REQUEST_HEADER_PATTERNS.test(h)) {
+        const textCount = values.filter(v => v.length >= 5 && /\D/.test(v)).length;
+        if (textCount > values.length * 0.5 && values.length > 2) return { classification: "REQUEST", score: 0.95 };
+        if (textCount > 0) return { classification: "REQUEST", score: 0.8 };
+    }
+
+    if (METADATA_HEADERS.test(h)) return { classification: "METADATA", score: 0.7 };
+
+    const populated = values.filter(v => v.length > 0);
+    if (populated.length < 2) return { classification: "EMPTY", score: 0 };
+
+    const longTextCount = values.filter(v => v.length >= 15 && /\D/.test(v)).length;
+    const numericCount = values.filter(v => /^\d+$/.test(v)).length;
+    const uniqueValues = new Set(populated);
+    const uniquenessRatio = populated.length > 0 ? uniqueValues.size / populated.length : 0;
+    const avgLength = populated.length > 0 ? populated.reduce((s, v) => s + v.length, 0) / populated.length : 0;
+
+    if (longTextCount > values.length * 0.3 && uniquenessRatio > 0.7 && avgLength > 12) return { classification: "REQUEST", score: 0.85 };
+    if (numericCount > values.length * 0.8 && uniquenessRatio > 0.6) return { classification: "SEQUENCE", score: 0.7 };
+    if (longTextCount > values.length * 0.2) return { classification: "REQUEST", score: 0.65 };
+
+    return { classification: "METADATA", score: 0.3 };
+}
+
+/* ── Metadata Column Mapping ──────────────────────────────────── */
+
+function mapMetadataColumn(header: string): string | null {
+    const h = header.toLowerCase().replace(/[\/\s\-_]+/g, " ").trim();
+    if (/category|type of|classification/.test(h)) return "Category";
+    if (/communit|neighbourhood|neighborhood/.test(h)) return "Community";
+    if (/propert|facilit|address|site/.test(h)) return "Property";
+    if (/owner|seller/.test(h)) return "Owner / Seller";
+    if (/buyer/.test(h)) return "Buyer";
+    if (/broker/.test(h)) return "Broker";
+    if (/department|team|group/.test(h)) return "Suggested Team";
+    if (/priority/.test(h)) return "Priority";
+    if (/due\s*date|deadline/.test(h)) return "Due Date";
+    if (/^(notes?|comments?|remark|additional)$/.test(h)) return "Notes";
+    if (/status/.test(h)) return "Status";
+    if (/transact/.test(h)) return "Transaction";
+    if (/package/.test(h)) return "Package";
+    if (/entity|company/.test(h)) return "Entity";
+    if (/time\s*period|date\s*range|period/.test(h)) return "Time Period";
+    if (/document\s*type/.test(h)) return "Document Type";
+    if (/suggested\s*(internal\s*)?owner/.test(h)) return "Suggested Internal Owner";
+    return null;
+}
+
+/* ── Main Parser ──────────────────────────────────────────────── */
 
 export async function parseUploadedXLSX(file: File): Promise<{
     headers: string[];
@@ -816,207 +922,216 @@ export async function parseUploadedXLSX(file: File): Promise<{
     const XLSX = await import("xlsx");
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer, { type: "array" });
-
     const sheetNames = workbook.SheetNames;
-    const selectedSheet = sheetNames.find(n => n.toLowerCase().includes("dd requests")) || sheetNames[0];
-    const sheet = workbook.Sheets[selectedSheet];
 
+    /* ── 1. Worksheet Selection ───────────────────────────────── */
+    let bestSheet = sheetNames[0];
+    let bestScore = -1;
+
+    const preferredName = sheetNames.find(n => /dd\s*request|diligence|request/i.test(n));
+    if (preferredName) bestSheet = preferredName;
+
+    for (const name of sheetNames) {
+        const rows: any[][] = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1 });
+        const eval_ = evaluateWorksheet(rows);
+        let score = eval_.requestLikeContent * 2 + eval_.nonEmptyRows;
+        if (eval_.hasRequestHeader) score += 50;
+        if (/dd\s*request|diligence|request/i.test(name)) score += 30;
+        if (/instruction|legend|cover|blank|summary|lookup|reference|template/i.test(name)) score -= 40;
+        if (score > bestScore) { bestScore = score; bestSheet = name; }
+    }
+
+    const selectedSheet = bestSheet;
+    const sheet = workbook.Sheets[selectedSheet];
     const ref = sheet["!ref"];
     const totalPhysicalRows = ref ? XLSX.utils.decode_range(ref).e.r + 1 : 0;
+    const allRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-    const jsonRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-    const rawHeaders: string[] = jsonRows.length > 0
-        ? jsonRows[0].map((h: any) => (h !== null && h !== undefined ? String(h).trim() : ""))
-        : [];
+    /* ── 2. Header Row Detection ──────────────────────────────── */
+    const headerRowIndex = detectHeaderRow(allRows);
 
-    // Try header-based parsing first
-    const headerMap: Record<string, string> = {};
-    rawHeaders.forEach((h, i) => {
-        const clean = h.trim();
-        if (!clean) return;
-        const lower = clean.toLowerCase().replace(/[\/\s\-_]+/g, " ");
-        if (lower.includes("owner") || lower.includes("seller")) headerMap[`col_${i}`] = "Owner / Seller";
-        else if (lower === "buyer") headerMap[`col_${i}`] = "Buyer";
-        else if (lower === "broker") headerMap[`col_${i}`] = "Broker";
-        else if (lower.includes("request") && lower.includes("title")) headerMap[`col_${i}`] = "Request Title";
-        else if (lower === "description" || lower.includes("description")) headerMap[`col_${i}`] = "Description";
-        else if (lower === "priority" || lower.includes("priority")) headerMap[`col_${i}`] = "Priority";
-        else if (lower.includes("suggested") && (lower.includes("team") || lower.includes("group"))) headerMap[`col_${i}`] = "Suggested Team";
-        else if (lower.includes("suggested") && lower.includes("owner")) headerMap[`col_${i}`] = "Suggested Internal Owner";
-        else if (lower.includes("due") || lower.includes("date")) headerMap[`col_${i}`] = "Due Date";
-        else if (lower === "notes" || lower.includes("notes")) headerMap[`col_${i}`] = "Notes";
-        else if (lower.includes("category")) headerMap[`col_${i}`] = "Category";
-        else headerMap[`col_${i}`] = clean;
-    });
+    /* ── 3. Column Classification ─────────────────────────────── */
+    let headerMap: Record<string, string> = {};
+    let normalizedHeaders: Record<string, string> = {};
+    let dataStartRow = 1;
 
-    const normalizedHeaders: Record<string, string> = {};
-    for (const [k, v] of Object.entries(headerMap)) normalizedHeaders[k] = v;
+    if (headerRowIndex >= 0) {
+        dataStartRow = headerRowIndex + 1;
+        const rawHeaders: string[] = allRows[headerRowIndex].map((h: any) =>
+            (h !== null && h !== undefined ? String(h).trim() : "")
+        );
 
+        const dataRows = allRows.slice(dataStartRow);
+        const colClassifications: { index: number; header: string; classification: ColumnClass; score: number }[] = [];
+
+        for (let ci = 0; ci < rawHeaders.length; ci++) {
+            const header = rawHeaders[ci];
+            const colValues = dataRows.map((row: any[]) =>
+                ci < row.length && row[ci] !== null && row[ci] !== undefined ? String(row[ci]).trim() : ""
+            ).filter((_, di) => di < 200);
+
+            const result = classifyColumn(header, colValues);
+            colClassifications.push({ index: ci, header, ...result });
+        }
+
+        const requestCols = colClassifications
+            .filter(c => c.classification === "REQUEST")
+            .sort((a, b) => b.score - a.score);
+
+        const primaryRequestCol = requestCols.length > 0 ? requestCols[0] : null;
+
+        for (const col of colClassifications) {
+            if (col.index === primaryRequestCol?.index) {
+                headerMap[`col_${col.index}`] = "Request Title";
+            } else if (col.classification === "SEQUENCE") {
+                headerMap[`col_${col.index}`] = "Source Item Number";
+            } else if (col.classification === "METADATA") {
+                const mapped = mapMetadataColumn(col.header);
+                headerMap[`col_${col.index}`] = mapped || col.header;
+            } else if (col.classification === "REQUEST" && col.index !== primaryRequestCol?.index) {
+                headerMap[`col_${col.index}`] = "Description";
+            } else {
+                headerMap[`col_${col.index}`] = col.header || `Column ${col.index}`;
+            }
+        }
+
+        for (const [k, v] of Object.entries(headerMap)) normalizedHeaders[k] = v;
+    } else {
+        // No header detected — check if the first row itself is a header
+        if (allRows.length > 0) {
+            const firstRow = allRows[0];
+            const firstCells = firstRow.map((c: any) => (c !== null && c !== undefined ? String(c).trim() : ""));
+            const hasTextHeaders = firstCells.some(c => c.length > 0 && !/^\d+$/.test(c) && c.length < 40);
+
+            if (hasTextHeaders) {
+                dataStartRow = 1;
+                const dataRows = allRows.slice(1);
+                const colClassifications: { index: number; header: string; classification: ColumnClass; score: number }[] = [];
+
+                for (let ci = 0; ci < firstCells.length; ci++) {
+                    const header = firstCells[ci];
+                    const colValues = dataRows.map((row: any[]) =>
+                        ci < row.length && row[ci] !== null && row[ci] !== undefined ? String(row[ci]).trim() : ""
+                    ).filter((_, di) => di < 200);
+                    const result = classifyColumn(header, colValues);
+                    colClassifications.push({ index: ci, header, ...result });
+                }
+
+                const requestCols = colClassifications.filter(c => c.classification === "REQUEST").sort((a, b) => b.score - a.score);
+                const primaryRequestCol = requestCols.length > 0 ? requestCols[0] : null;
+
+                if (primaryRequestCol) {
+                    for (const col of colClassifications) {
+                        if (col.index === primaryRequestCol.index) headerMap[`col_${col.index}`] = "Request Title";
+                        else if (col.classification === "SEQUENCE") headerMap[`col_${col.index}`] = "Source Item Number";
+                        else if (col.classification === "METADATA") headerMap[`col_${col.index}`] = mapMetadataColumn(col.header) || col.header;
+                        else headerMap[`col_${col.index}`] = col.header || `Column ${col.index}`;
+                    }
+                    for (const [k, v] of Object.entries(headerMap)) normalizedHeaders[k] = v;
+                }
+            }
+        }
+
+        // If still no header map, attempt no-header content-based inference
+        if (Object.keys(headerMap).length === 0 && allRows.length > 1) {
+            const maxCols = Math.max(...allRows.map(r => r?.length || 0));
+            const dataRows = allRows.filter(r => r && r.some((c: any) => c !== null && c !== undefined && String(c).trim().length > 0));
+            const colScores: { index: number; score: number }[] = [];
+
+            for (let ci = 0; ci < maxCols; ci++) {
+                const values = dataRows.map((row: any[]) =>
+                    ci < (row?.length || 0) && row[ci] !== null && row[ci] !== undefined ? String(row[ci]).trim() : ""
+                );
+                const populated = values.filter(v => v.length > 0);
+                const numericCount = populated.filter(v => /^\d+$/.test(v)).length;
+                const longTextCount = populated.filter(v => v.length >= 10 && /\D/.test(v)).length;
+                const isMostlyNumeric = populated.length > 0 && numericCount / populated.length > 0.8;
+                const hasRequestLike = longTextCount > populated.length * 0.3;
+
+                let score = 0;
+                if (isMostlyNumeric) score -= 10;
+                if (hasRequestLike) score += longTextCount;
+                if (populated.length > 5) score += 2;
+                colScores.push({ index: ci, score });
+            }
+
+            colScores.sort((a, b) => b.score - a.score);
+            const best = colScores[0];
+
+            if (best && best.score > 0) {
+                dataStartRow = 0;
+                for (const cs of colScores) {
+                    if (cs.index === best.index) headerMap[`col_${cs.index}`] = "Request Title";
+                    else headerMap[`col_${cs.index}`] = `Column ${cs.index}`;
+                }
+                for (const [k, v] of Object.entries(headerMap)) normalizedHeaders[k] = v;
+            }
+        }
+    }
+
+    /* ── 4. Row Normalization ──────────────────────────────────── */
     const accepted: Record<string, string>[] = [];
     const skipReasons: { rowIndex: number; reason: string; sampleValues: Record<string, string> }[] = [];
+    let currentCategory = "";
+    const hasHeader = Object.keys(headerMap).length > 0;
 
-    let nonEmptyDataRows = 0;
-    for (let i = 1; i < jsonRows.length; i++) {
-        const rawRow: any[] | undefined = jsonRows[i];
-        if (!rawRow) continue;
-        if (rawRow.some((c: any) => c !== null && c !== undefined && String(c).trim().length > 0)) {
-            nonEmptyDataRows++;
+    for (let i = dataStartRow; i < allRows.length; i++) {
+        const rawRow: any[] | undefined = allRows[i];
+        if (!rawRow) { skipReasons.push({ rowIndex: i, reason: "Empty row (null/undefined)", sampleValues: {} }); continue; }
+
+        const rowValues = rawRow.map((v: any) => v !== null && v !== undefined ? String(v).trim() : "");
+        if (rowValues.every((v: string) => !v)) { skipReasons.push({ rowIndex: i, reason: "All cells empty", sampleValues: {} }); continue; }
+
+        const firstCell = rowValues[0] || "";
+
+        if (/^[IVXLCDM]+\.?\s*$/i.test(firstCell) || /^[A-Z]\s*\.?\s*$/.test(firstCell)) {
+            const allCaps = /^[A-Z\s]{3,40}$/.test(firstCell) && firstCell.length >= 3;
+            if (allCaps) currentCategory = firstCell;
+            continue;
         }
-    }
+        if (/^(section|part|exhibit|attachment|schedule|instructions|directions|overview|background|introduction|summary|conclusion|notes?|references?)\b/i.test(firstCell)) {
+            const fl = firstCell.toLowerCase();
+            if (fl.startsWith("section") || fl.startsWith("part") || fl.startsWith("exhibit")) currentCategory = firstCell;
+            continue;
+        }
 
-    const useHeaderParsing = nonEmptyDataRows > 0;
+        const row: Record<string, string> = {};
 
-    if (useHeaderParsing) {
-        for (let i = 1; i < jsonRows.length; i++) {
-            const rawRow: any[] | undefined = jsonRows[i];
-            if (!rawRow || rawRow.length === 0) {
-                skipReasons.push({ rowIndex: i, reason: "Empty row (null/undefined)", sampleValues: {} });
-                continue;
-            }
-
-            const row: Record<string, string> = {};
-            let hasAnyValue = false;
-            const numCols = Math.max(rawHeaders.length, rawRow.length);
+        if (hasHeader) {
+            let numCols = Math.max(Object.keys(headerMap).length, rowValues.length);
             for (let ci = 0; ci < numCols; ci++) {
-                const val = ci < rawRow.length ? rawRow[ci] : undefined;
-                const strVal = val !== null && val !== undefined ? String(val).trim() : "";
-                const key = ci < rawHeaders.length ? headerMap[`col_${ci}`] : undefined;
-                if (key) {
-                    row[key] = strVal;
-                } else {
-                    const fallbackKey = rawHeaders[ci] || `Column_${ci}`;
-                    row[fallbackKey] = strVal;
-                }
-                if (strVal.length > 0) hasAnyValue = true;
+                const val = ci < rowValues.length ? rowValues[ci] : "";
+                const key = headerMap[`col_${ci}`];
+                if (key) row[key] = val;
+                else row[`Column ${ci}`] = val;
             }
-
-            if (!hasAnyValue) {
-                skipReasons.push({ rowIndex: i, reason: "All cells empty", sampleValues: {} });
-                continue;
-            }
-
-            const hasTitle = (row["Request Title"] || "").trim().length > 0;
-            const hasDesc = (row["Description"] || "").trim().length > 0;
-            const hasNotes = (row["Notes"] || "").trim().length > 0;
-
-            if (!hasTitle && !hasDesc && !hasNotes) {
-                const contentCols = Object.entries(row).filter(([_, v]) => v.trim().length > 0).map(([k]) => k);
-                skipReasons.push({
-                    rowIndex: i,
-                    reason: contentCols.length > 0
-                        ? `Row has data in [${contentCols.join(", ")}] but missing Request Title, Description, AND Notes`
-                        : "No content in Request Title, Description, or Notes columns",
-                    sampleValues: row,
-                });
-                continue;
-            }
-
-            accepted.push(row);
+        } else {
+            row["Request Title"] = firstCell;
+            row["Description"] = rowValues[1] || "";
         }
+
+        // Determine the request text content
+        const requestText = row["Request Title"] || row["Title"] || row["Description"] || "";
+        const hasRequestField = requestText.trim().length > 0;
+
+        if (!hasRequestField) {
+            const contentCols = Object.entries(row).filter(([_, v]) => v.trim().length > 0).map(([k]) => k);
+            skipReasons.push({
+                rowIndex: i,
+                reason: contentCols.length > 0
+                    ? `Row has data in [${contentCols.join(", ")}] but no request text detected`
+                    : "No request text in row",
+                sampleValues: row,
+            });
+            continue;
+        }
+
+        if (!row["Category"] && currentCategory) row["Category"] = currentCategory;
+        if (row["Source Item Number"]) row["Source Item Number"] = row["Source Item Number"];
+        accepted.push(row);
     }
 
-    // If header-based parsing yielded few rows, fall back to positional semi-structured parsing
-    const headerAcceptanceRate = nonEmptyDataRows > 0 ? accepted.length / nonEmptyDataRows : 0;
-    if (accepted.length === 0 || headerAcceptanceRate < 0.2) {
-        accepted.length = 0;
-        skipReasons.length = 0;
-
-        let currentCategory = "";
-        const romanNumeral = /^[IVXLCDM]+\.?\s*$/i;
-        const singleLetter = /^[A-Z]\s*\.?\s*$/;
-
-        for (let i = 1; i < jsonRows.length; i++) {
-            const rawRow: any[] | undefined = jsonRows[i];
-            if (!rawRow) {
-                skipReasons.push({ rowIndex: i, reason: "Empty row", sampleValues: {} });
-                continue;
-            }
-
-            const rowValues = rawRow.map((v: any) => v !== null && v !== undefined ? String(v).trim() : "");
-            if (rowValues.every((v: string) => !v)) {
-                skipReasons.push({ rowIndex: i, reason: "All cells empty", sampleValues: {} });
-                continue;
-            }
-
-            const firstCell = rowValues[0] || "";
-            const secondCell = rowValues[1] || "";
-
-            // Detect section header: first cell is a section marker
-            const isRoman = romanNumeral.test(firstCell) || romanNumeral.test(secondCell);
-            const isSingleLetter = singleLetter.test(firstCell);
-            const isAllCapsShort = /^[A-Z\s]{3,40}$/.test(firstCell) && firstCell.length >= 3 && firstCell.length <= 40;
-            if (isRoman || isSingleLetter || isAllCapsShort) {
-                if (firstCell && !isRoman && !isSingleLetter) {
-                    currentCategory = firstCell;
-                }
-                continue;
-            }
-
-            // Check if this is a section/instruction row
-            const firstLower = firstCell.toLowerCase();
-            if (/^(section|part|exhibit|attachment|schedule|instructions|directions|overview|background|introduction|summary|conclusion|notes?|references?)\b/i.test(firstCell)) {
-                if (firstCell && firstLower.startsWith("section") || firstLower.startsWith("part") || firstLower.startsWith("exhibit")) {
-                    currentCategory = firstCell;
-                }
-                continue;
-            }
-
-            // Primary text: prefer column E (index 4) if meaningful, else first non-empty meaningful column
-            let primaryText = "";
-            let responsibleParty = "";
-            let comments = "";
-            let source = "";
-            let status = "";
-
-            if (rowValues[4] && isMeaningfulRequestText(rowValues[4])) {
-                primaryText = rowValues[4];
-            } else {
-                for (let ci = 0; ci < Math.min(rowValues.length, 6); ci++) {
-                    if (ci === 1 || ci === 2) continue;
-                    if (rowValues[ci] && isMeaningfulRequestText(rowValues[ci])) {
-                        primaryText = rowValues[ci];
-                        break;
-                    }
-                }
-            }
-
-            if (!primaryText) {
-                const filledCols = rowValues.map((v: string, idx: number) => v ? `col_${idx}` : "").filter(Boolean);
-                skipReasons.push({
-                    rowIndex: i,
-                    reason: filledCols.length > 0 ? `Row has data in [${filledCols.join(", ")}] but no meaningful request text` : "No meaningful request text detected",
-                    sampleValues: Object.fromEntries(rowValues.map((v: string, idx: number) => [`col_${idx}`, v]).filter(([_, v]) => v)),
-                });
-                continue;
-            }
-
-            responsibleParty = rowValues[5] || "";
-            comments = rowValues[6] || "";
-            source = rowValues[7] || "";
-            status = rowValues[8] || "";
-
-            const row: Record<string, string> = {
-                "Request Title": primaryText,
-                "Description": "",
-                "Notes": comments,
-                "Category": currentCategory,
-                "Owner / Seller": responsibleParty,
-                "Suggested Internal Owner": responsibleParty,
-                "Source / Reference": source,
-                "Status": status,
-            };
-
-            if (rowValues[1] && !romanNumeral.test(rowValues[1]) && !singleLetter.test(rowValues[1]) && rowValues[1].length > 3) {
-                row["Category"] = rowValues[1];
-            }
-            if (rowValues[2] && !romanNumeral.test(rowValues[2]) && !singleLetter.test(rowValues[2]) && rowValues[2].length > 3) {
-                if (!row["Category"]) row["Category"] = rowValues[2];
-            }
-
-            accepted.push(row);
-        }
-    }
-
+    /* ── 5. Build Diagnostics & Result ─────────────────────────── */
     const firstTenSkipped: { rowIndex: number; values: Record<string, string>; reason: string }[] = [];
     for (let si = 0; si < Math.min(skipReasons.length, 10); si++) {
         const sr = skipReasons[si];
@@ -1028,7 +1143,7 @@ export async function parseUploadedXLSX(file: File): Promise<{
         fileSize: file.size,
         sheetNames,
         selectedSheet,
-        rawHeaders,
+        rawHeaders: normalizedHeaders ? Object.values(headerMap).filter(Boolean) : [],
         normalizedHeaders,
         totalPhysicalRows,
         acceptedCount: accepted.length,
@@ -1043,10 +1158,8 @@ export async function parseUploadedXLSX(file: File): Promise<{
     console.log("Sheet names:", sheetNames);
     console.log("Selected sheet:", selectedSheet);
     console.log("Total physical rows:", totalPhysicalRows);
-    console.log("Non-empty data rows:", nonEmptyDataRows);
-    console.log("Header row:", rawHeaders);
+    console.log("Header row index:", headerRowIndex);
     console.log("Normalized headers:", normalizedHeaders);
-    console.log("Parsing mode:", useHeaderParsing ? (headerAcceptanceRate >= 0.2 ? "header-based" : "positional (fallback)") : "positional");
     console.log("Accepted rows:", accepted.length);
     console.log("Skipped rows:", skipReasons.length);
     console.log("First 10 accepted:", accepted.slice(0, 10));
