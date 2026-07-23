@@ -60,8 +60,6 @@ export default function PortalOverview() {
     const navigate = useNavigate();
     const persona = getActivePersona();
     const identity = getPersonaIdentity();
-    const transactions = getPortalTransactions();
-    const txn = transactions.find(t => t.id === selectedTxnId) || transactions[0];
     const portalRequests = getPortalRequests();
     const submissions = getPortalSubmissionsList();
 
@@ -73,6 +71,9 @@ export default function PortalOverview() {
     const [selectedTxnId, setSelectedTxnId] = useState<string>(
         personaTxns.length > 0 ? personaTxns[0].id : ""
     );
+
+    const transactions = getPortalTransactions();
+    const txn = transactions.find(t => t.id === selectedTxnId) || transactions[0];
 
     const scopedRequests = selectedTxnId
         ? portalRequests.filter(r => r.transactionId === selectedTxnId)
