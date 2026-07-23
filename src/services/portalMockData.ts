@@ -269,8 +269,7 @@ export function isRequestAuthorized(requestId: string, userId: string): boolean 
     if (txn) {
         return getTransactionAccessList().some(a => a.transactionId === txn.id && a.userId === userId);
     }
-    const accesses = getTransactionAccessList();
-    return accesses.some(a => a.userId === userId);
+    return false;
 }
 
 export function isTransactionAuthorized(transactionId: string, userId: string): boolean {
@@ -640,12 +639,12 @@ export function getPortalRequests(): PortalRequest[] {
 
     // Filter by persona's authorized transactions for data isolation
     const identity = getPersonaIdentity();
-    if (identity && identity.authorizedTransactions.length > 0) {
-        const authorizedTxnIds = new Set(identity.authorizedTransactions.map(a => a.transactionId));
-        return allRequests.filter(r => authorizedTxnIds.has(r.transactionId));
-    }
+    if (!identity) return [];
 
-    return allRequests;
+    const authorizedTxnIds = new Set(identity.authorizedTransactions.map(a => a.transactionId));
+    if (authorizedTxnIds.size === 0) return [];
+
+    return allRequests.filter(r => authorizedTxnIds.has(r.transactionId));
 }
 
 export function getPortalRequestsByTransaction(transactionId: string): PortalRequest[] {
@@ -669,12 +668,12 @@ export function getPortalDocuments(): PortalDocument[] {
 
     // Filter by persona's authorized transactions for data isolation
     const identity = getPersonaIdentity();
-    if (identity && identity.authorizedTransactions.length > 0) {
-        const authorizedTxnIds = new Set(identity.authorizedTransactions.map(a => a.transactionId));
-        return allDocs.filter(d => authorizedTxnIds.has(d.transactionId));
-    }
+    if (!identity) return [];
 
-    return allDocs;
+    const authorizedTxnIds = new Set(identity.authorizedTransactions.map(a => a.transactionId));
+    if (authorizedTxnIds.size === 0) return [];
+
+    return allDocs.filter(d => authorizedTxnIds.has(d.transactionId));
 }
 
 export function getPortalDocumentsByTransaction(transactionId: string): PortalDocument[] {
@@ -1378,7 +1377,7 @@ function generatePortalRequests(submissionId: string, packageName: string, fileB
     return requests;
 }
 
-function createPortalIntakeItem(submissionId: string, packageName: string, fileName: string, requestCount: number, isABCDemo: boolean): RecapIntakeItem {
+function createPortalIntakeItem(submissionId: string, packageName: string, fileName: string, requestCount: number, isABCDemo: boolean, transactionId?: string): RecapIntakeItem {
     return {
         id: `${submissionId}-intake`,
         intakeId: `INT-PKG-${submissionId.slice(0, 8)}`,
@@ -1386,7 +1385,7 @@ function createPortalIntakeItem(submissionId: string, packageName: string, fileN
         status: "Awaiting Review",
         title: `${packageName}${isABCDemo ? " (Gold Standard Demo)" : ""}`,
         description: `${isABCDemo ? "Gold standard due diligence package" : "Package uploaded via external portal"} containing ${requestCount} DD request items.`,
-        transactionId: isABCDemo ? "txn-abc" : `txn-portal-${submissionId}`,
+        transactionId: transactionId || (isABCDemo ? "txn-abc" : `txn-portal-${submissionId}`),
         transactionName: packageName,
         submittedBy: "External Portal",
         submittedAt: new Date().toISOString(),
@@ -1532,7 +1531,7 @@ export function confirmBrokerPackage(submissionId?: string): void {
     clearParsedRows();
     // Review items are kept for the intake review grid but have _publishedAt: null so they don't appear in tracker
     addPortalCreatedRequests(reviewItems);
-    const intakeItem = createPortalIntakeItem(submissionId, sub.packageName, sub.fileName, reviewItems.length, false);
+    const intakeItem = createPortalIntakeItem(submissionId, sub.packageName, sub.fileName, reviewItems.length, false, txnId);
 
     addPortalCreatedIntakeItem(intakeItem);
     updatePortalSubmissionStatus(submissionId, "Submitted");

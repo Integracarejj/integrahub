@@ -16,7 +16,7 @@ export default function PortalTransactions() {
 
     // Filter transactions to only those the persona has access to
     const authorizedTxnIds = new Set(identity?.authorizedTransactions.map(a => a.transactionId) || []);
-    const transactions = getPortalTransactions().filter(t => authorizedTxnIds.size === 0 || authorizedTxnIds.has(t.id));
+    const transactions = authorizedTxnIds.size === 0 ? [] : getPortalTransactions().filter(t => authorizedTxnIds.has(t.id));
 
     const txnCounts = transactions.map((txn) => {
         const txnRequests = allRequests.filter((r) => r.transactionId === txn.id);
