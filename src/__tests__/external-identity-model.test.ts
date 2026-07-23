@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 
 /* ── localStorage polyfill for Node test environment ────────── */
 
@@ -13,7 +13,6 @@ const localStorageMock: Storage = {
     setItem(key: string, value: string) { store[key] = value; },
 };
 
-// @ts-expect-error — assigning to globalThis.localStorage in test setup
 globalThis.localStorage = localStorageMock;
 
 import {
@@ -23,7 +22,7 @@ import {
     getTransactionsList, addTransaction,
     getTransactionAccessList, addTransactionAccess,
     getAuthorizedTransactions, isRequestAuthorized, isTransactionAuthorized,
-    getPersonaIdentity, getActivePersona, setActivePersona,
+    getPersonaIdentity, setActivePersona,
     clearPortalSubmissions,
     getPortalRequests,
     type ExternalOrganization, type ExternalUser, type ExternalOrganizationMembership,

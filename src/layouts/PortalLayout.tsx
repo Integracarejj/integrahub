@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Outlet, Link } from "react-router-dom";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import PortalNav from "../components/PortalNav";
-import { getActivePersona, getPersonas, setActivePersona, clearPortalSubmissions, getPersonaIdentity, getOrganization } from "../services/portalMockData";
+import { getActivePersona, getPersonas, setActivePersona, clearPortalSubmissions, getPersonaIdentity } from "../services/portalMockData";
 import type { ExternalDemoPersona } from "../services/portalMockData";
 import logo from "../assets/logo.png";
 import "./PortalLayout.css";

@@ -588,7 +588,6 @@ export function getPortalUserContext(): PortalUserContext {
     if (!isRecapDataWiped() && !isDemoActive()) {
         initDemo();
     }
-    const identity = getPersonaIdentity();
     const transactions = getTransactions().map(mapRecapToPortalTxn);
     return {
         displayName: persona.displayName,
