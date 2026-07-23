@@ -6,6 +6,7 @@ import {
     getPortalSubmissionsList,
     parseUploadedXLSX, extractCategoriesFromParsedRows,
     saveParsedRows, toExternalStatusInput,
+    getPersonaIdentity,
 } from "../../services/portalMockData";
 import { getExternalStatusInfo, getStatusPillStyle, getExceptionContext } from "../../services/externalStatusMapping";
 import "./PortalOverview.css";
@@ -58,10 +59,24 @@ type UploadState = "idle" | "selected" | "analyzing" | "complete" | "submitted";
 export default function PortalOverview() {
     const navigate = useNavigate();
     const persona = getActivePersona();
+    const identity = getPersonaIdentity();
     const transactions = getPortalTransactions();
     const txn = transactions[0];
     const portalRequests = getPortalRequests();
     const submissions = getPortalSubmissionsList();
+
+    // Transaction selector: filter requests by authorized transaction
+    const authorizedTxns = identity?.authorizedTransactions || [];
+    const allPortalTxns = identity?.allTransactions || [];
+    const authorizedTxnIds = new Set(authorizedTxns.map(a => a.transactionId));
+    const personaTxns = allPortalTxns.filter(t => authorizedTxnIds.has(t.id));
+    const [selectedTxnId, setSelectedTxnId] = useState<string>(
+        personaTxns.length > 0 ? personaTxns[0].id : ""
+    );
+
+    const scopedRequests = selectedTxnId
+        ? portalRequests.filter(r => r.transactionId === selectedTxnId)
+        : portalRequests;
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const dropZoneRef = useRef<HTMLDivElement>(null);
@@ -71,7 +86,7 @@ export default function PortalOverview() {
     const [banner, setBanner] = useState<string | null>(null);
 
     /* ── Derived Stats using centralized external status mapping ── */
-    const portalStatuses = portalRequests.map(r => getExternalStatusInfo(toExternalStatusInput(r)));
+    const portalStatuses = scopedRequests.map(r => getExternalStatusInfo(toExternalStatusInput(r)));
     const submittedCount = portalStatuses.filter(s => s.status === "Submitted").length;
     const underReviewCount = portalStatuses.filter(s => s.status === "Under Review").length;
     const inProgressCount = portalStatuses.filter(s => s.status === "In Progress").length;
@@ -82,13 +97,13 @@ export default function PortalOverview() {
     const removedCount = portalStatuses.filter(s => s.status.startsWith("Removed")).length;
     const reworkSubmittedCount = portalStatuses.filter(s => s.status === "Rework Review").length;
     const blockerInfoRequestedCount = portalStatuses.filter(s => s.status === "Blocker Information Requested").length;
-    const visibleRequests = portalRequests.filter(r => { const st = getExternalStatusInfo(toExternalStatusInput(r)).status; return st !== "Complete" && !st.startsWith("Removed"); });
+    const visibleRequests = scopedRequests.filter(r => { const st = getExternalStatusInfo(toExternalStatusInput(r)).status; return st !== "Complete" && !st.startsWith("Removed"); });
 
     const [dashboardSearch, setDashboardSearch] = useState("");
     const [dashboardFilterStatus, setDashboardFilterStatus] = useState("all");
     const [dashboardFilterCategory, setDashboardFilterCategory] = useState("all");
-    const dashboardCategories = [...new Set(portalRequests.map(r => r.category))];
-    const dashboardBase = dashboardFilterStatus !== "all" ? portalRequests : visibleRequests;
+    const dashboardCategories = [...new Set(scopedRequests.map(r => r.category))];
+    const dashboardBase = dashboardFilterStatus !== "all" ? scopedRequests : visibleRequests;
     const dashboardFiltered = dashboardBase.filter(r => {
         const ext = getExternalStatusInfo(toExternalStatusInput(r));
         if (dashboardFilterStatus !== "all") {
@@ -239,10 +254,24 @@ export default function PortalOverview() {
             )}
 
             {/* ── Compact Dashboard Header (no hero card) ── */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
                 <div>
                     <p className="po-welcome-sub" style={{ fontSize: 15, margin: 0, color: "#334155" }}>{persona.companyName}{txn ? ` \u00b7 ${txn.name}` : ""}</p>
                 </div>
+                {personaTxns.length > 1 && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <label style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Transaction:</label>
+                        <select
+                            value={selectedTxnId}
+                            onChange={(e) => { setSelectedTxnId(e.target.value); setDashboardFilterStatus("all"); setDashboardFilterCategory("all"); setDashboardSearch(""); }}
+                            style={{ fontSize: 12, padding: "4px 8px", borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff" }}
+                        >
+                            {personaTxns.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
             </div>
 
             {/* ── Upload Panel (shown before any submission) ── */}

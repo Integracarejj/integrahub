@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Outlet, Link } from "react-router-dom";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import PortalNav from "../components/PortalNav";
-import { getActivePersona, getPersonas, setActivePersona, clearPortalSubmissions } from "../services/portalMockData";
+import { getActivePersona, getPersonas, setActivePersona, clearPortalSubmissions, getPersonaIdentity, getOrganization } from "../services/portalMockData";
 import type { ExternalDemoPersona } from "../services/portalMockData";
 import logo from "../assets/logo.png";
 import "./PortalLayout.css";
@@ -16,6 +16,8 @@ export default function PortalLayout() {
     const isPreviewMode = user?.hasAppAccess && !user?.isPortalUser;
 
     const allPersonas = getPersonas();
+    const identity = getPersonaIdentity();
+    const orgName = identity?.organization?.name || currentPersona.companyName;
 
     const handleSwitchPersona = (id: string) => {
         setActivePersona(id);
@@ -55,7 +57,7 @@ export default function PortalLayout() {
                         >
                             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0 }}>
                                 <span className="portal-user-name" style={{ fontSize: 13 }}>{currentPersona.displayName}</span>
-                                <span className="portal-user-role" style={{ fontSize: 10 }}>{currentPersona.role} &middot; {currentPersona.companyName}</span>
+                                <span className="portal-user-role" style={{ fontSize: 10 }}>{currentPersona.role} &middot; {orgName}</span>
                                 <span style={{ fontSize: 9, color: "#475569" }}>{currentPersona.email}</span>
                             </div>
                             <div style={{
@@ -84,7 +86,10 @@ export default function PortalLayout() {
                                     <div style={{ padding: "10px 14px", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "1px solid #f1f5f9" }}>
                                         Switch Persona
                                     </div>
-                                    {allPersonas.map((p) => (
+                                    {allPersonas.map((p) => {
+                                        const pUsers = (() => { try { const r = localStorage.getItem("integrasource.recap.portalUsers"); const arr = r ? JSON.parse(r) : []; return arr.find((u: any) => u.email === p.email); } catch { return null; } })();
+                                        const pOrgName = pUsers?.organizationName || p.companyName;
+                                        return (
                                         <div
                                             key={p.id}
                                             onClick={() => handleSwitchPersona(p.id)}
@@ -108,14 +113,15 @@ export default function PortalLayout() {
                                             </div>
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{p.displayName}</div>
-                                                <div style={{ fontSize: 11, color: "#475569" }}>{p.role} &middot; {p.companyName}</div>
+                                                <div style={{ fontSize: 11, color: "#475569" }}>{p.role} &middot; {pOrgName}</div>
                                                 <div style={{ fontSize: 10, color: "#475569" }}>{p.email}</div>
                                             </div>
                                             {p.id === currentPersona.id && (
                                                 <span style={{ fontSize: 11, fontWeight: 700, color: "#4f46e5" }}>Active</span>
                                             )}
                                         </div>
-                                    )                                    )}
+                                        );
+                                    })}
                                 </div>
                                 <div style={{ borderTop: "1px solid #e0e7ff", padding: "8px 14px" }}>
                                     <button

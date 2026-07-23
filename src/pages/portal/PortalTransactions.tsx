@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { getPortalTransactions, getActivePersona, getPortalRequests } from "../../services/portalMockData";
+import { getPortalTransactions, getActivePersona, getPortalRequests, getPersonaIdentity } from "../../services/portalMockData";
 import "./PortalOverview.css";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -10,9 +10,13 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function PortalTransactions() {
     const navigate = useNavigate();
-    const transactions = getPortalTransactions();
     const persona = getActivePersona();
+    const identity = getPersonaIdentity();
     const allRequests = getPortalRequests();
+
+    // Filter transactions to only those the persona has access to
+    const authorizedTxnIds = new Set(identity?.authorizedTransactions.map(a => a.transactionId) || []);
+    const transactions = getPortalTransactions().filter(t => authorizedTxnIds.size === 0 || authorizedTxnIds.has(t.id));
 
     const txnCounts = transactions.map((txn) => {
         const txnRequests = allRequests.filter((r) => r.transactionId === txn.id);

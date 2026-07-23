@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getPortalRequests, partnerApproveRequest, partnerReworkRequest, partnerExceptionDecision, toExternalStatusInput } from "../../services/portalMockData";
+import { getPortalRequests, partnerApproveRequest, partnerReworkRequest, partnerExceptionDecision, toExternalStatusInput, getPersonaIdentity, isRequestAuthorized } from "../../services/portalMockData";
 import type { PortalRequest } from "../../services/portalMockData";
 import { getExternalMessages, getWorkArtifactsByRequest, addWorkNote, addActivityEntry, updateRequestReturnReason, submitBlockerExternalResponse } from "../../services/recapDataService";
 import { getExternalStatusInfo, getStatusPillStyle } from "../../services/externalStatusMapping";
@@ -370,6 +370,10 @@ export default function PortalRequestDetail() {
     const [refreshKey, setRefreshKey] = useState(0);
     const extInfo = req ? getExternalStatusInfo(toExternalStatusInput(req)) : null;
 
+    // Direct URL authorization check
+    const identity = getPersonaIdentity();
+    const isAuthorized = identity ? isRequestAuthorized(id || "", identity.user.id) : false;
+
     // Re-fetch data when refreshKey changes
     useEffect(() => {
         // This effect triggers a re-render when refreshKey changes
@@ -380,11 +384,15 @@ export default function PortalRequestDetail() {
         navigate("/portal");
     }, [navigate]);
 
-    if (!req) {
+    if (!req || !isAuthorized) {
         return (
             <div className="portal-overview">
                 <h1 className="po-welcome-title">Request Not Found</h1>
-                <p style={{ fontSize: 14, color: "#475569" }}>The requested item could not be found.</p>
+                <p style={{ fontSize: 14, color: "#475569" }}>
+                    {!isAuthorized && req
+                        ? "You do not have access to this request."
+                        : "The requested item could not be found."}
+                </p>
                 <button className="rc-btn rc-btn-primary" onClick={handleViewDashboard} style={{ marginTop: 12 }}>Back to Dashboard</button>
             </div>
         );

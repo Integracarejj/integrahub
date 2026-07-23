@@ -4,6 +4,11 @@ import { getExternalStatusInfo } from "./externalStatusMapping";
 
 const PERSONA_KEY = "integrasource.recap.portalPersona";
 const PARSED_ROWS_KEY = "integrasource.recap.demo.parsedRows";
+const ORGS_KEY = "integrasource.recap.portalOrganizations";
+const USERS_KEY = "integrasource.recap.portalUsers";
+const MEMBERSHIPS_KEY = "integrasource.recap.portalMemberships";
+const TRANSACTIONS_KEY = "integrasource.recap.portalTransactions";
+const TXN_ACCESS_KEY = "integrasource.recap.portalTransactionAccess";
 
 /* ── Persona Model ──────────────────────────────────────────── */
 
@@ -39,6 +44,231 @@ export function getActivePersona(): ExternalDemoPersona {
 
 export function setActivePersona(id: string): void {
     localStorage.setItem(PERSONA_KEY, id);
+}
+
+/* ── External Identity Model ─────────────────────────────── */
+
+export interface ExternalOrganization {
+    id: string;
+    name: string;
+    status: "Active" | "Inactive";
+}
+
+export interface ExternalUser {
+    id: string;
+    email: string;
+    displayName: string;
+    organizationId: string;
+    organizationName: string;
+    roleAssignments: { orgId: string; role: "Owner / Seller" | "Buyer" | "Broker" }[];
+}
+
+export interface ExternalOrganizationMembership {
+    userId: string;
+    orgId: string;
+    role: "Owner / Seller" | "Buyer" | "Broker";
+}
+
+export interface ExternalTransaction {
+    id: string;
+    orgId: string;
+    name: string;
+    description: string;
+    status: "Active" | "Pending" | "Completed";
+    createdAt: string;
+}
+
+export interface ExternalTransactionAccess {
+    transactionId: string;
+    orgId: string;
+    userId: string;
+}
+
+const DEMO_ORGANIZATIONS: ExternalOrganization[] = [
+    { id: "org-atlas", name: "Atlas Capital Partners", status: "Active" },
+    { id: "org-harbor", name: "Harbor Partners", status: "Active" },
+    { id: "org-summit", name: "Summit Equity Group", status: "Active" },
+];
+
+const DEMO_USERS: ExternalUser[] = [
+    {
+        id: "ext-user-alex", email: "broker@mail.com", displayName: "Morgan Blake",
+        organizationId: "org-atlas", organizationName: "Atlas Capital Partners",
+        roleAssignments: [{ orgId: "org-atlas", role: "Broker" }],
+    },
+    {
+        id: "ext-user-hannah", email: "abc@mail.com", displayName: "Alex Carter",
+        organizationId: "org-harbor", organizationName: "Harbor Partners",
+        roleAssignments: [{ orgId: "org-harbor", role: "Owner / Seller" }],
+    },
+    {
+        id: "ext-user-sam", email: "123@mail.com", displayName: "Jamie Reynolds",
+        organizationId: "org-summit", organizationName: "Summit Equity Group",
+        roleAssignments: [{ orgId: "org-summit", role: "Buyer" }],
+    },
+];
+
+const DEMO_MEMBERSHIPS: ExternalOrganizationMembership[] = [
+    { userId: "ext-user-alex", orgId: "org-atlas", role: "Broker" },
+    { userId: "ext-user-hannah", orgId: "org-harbor", role: "Owner / Seller" },
+    { userId: "ext-user-sam", orgId: "org-summit", role: "Buyer" },
+];
+
+function readJsonArray<T>(key: string): T[] {
+    try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+}
+
+function writeJsonArray<T>(key: string, data: T[]): void {
+    localStorage.setItem(key, JSON.stringify(data));
+}
+
+export function getOrganizations(): ExternalOrganization[] {
+    const stored = readJsonArray<ExternalOrganization>(ORGS_KEY);
+    if (stored.length === 0) {
+        writeJsonArray(ORGS_KEY, DEMO_ORGANIZATIONS);
+        return [...DEMO_ORGANIZATIONS];
+    }
+    return stored;
+}
+
+export function getOrganization(id: string): ExternalOrganization | undefined {
+    return getOrganizations().find(o => o.id === id);
+}
+
+export function addOrganization(org: ExternalOrganization): void {
+    const orgs = getOrganizations();
+    orgs.push(org);
+    writeJsonArray(ORGS_KEY, orgs);
+}
+
+export function getExternalUsers(): ExternalUser[] {
+    const stored = readJsonArray<ExternalUser>(USERS_KEY);
+    if (stored.length === 0) {
+        writeJsonArray(USERS_KEY, DEMO_USERS);
+        return [...DEMO_USERS];
+    }
+    return stored;
+}
+
+export function getExternalUser(id: string): ExternalUser | undefined {
+    return getExternalUsers().find(u => u.id === id);
+}
+
+export function addExternalUser(user: ExternalUser): void {
+    const users = getExternalUsers();
+    users.push(user);
+    writeJsonArray(USERS_KEY, users);
+}
+
+export function getMemberships(): ExternalOrganizationMembership[] {
+    const stored = readJsonArray<ExternalOrganizationMembership>(MEMBERSHIPS_KEY);
+    if (stored.length === 0) {
+        writeJsonArray(MEMBERSHIPS_KEY, DEMO_MEMBERSHIPS);
+        return [...DEMO_MEMBERSHIPS];
+    }
+    return stored;
+}
+
+export function addMembership(m: ExternalOrganizationMembership): void {
+    const memberships = getMemberships();
+    memberships.push(m);
+    writeJsonArray(MEMBERSHIPS_KEY, memberships);
+}
+
+export function deleteMembership(userId: string, orgId: string): void {
+    const memberships = getMemberships().filter(m => !(m.userId === userId && m.orgId === orgId));
+    writeJsonArray(MEMBERSHIPS_KEY, memberships);
+}
+
+export function getTransactionsList(): ExternalTransaction[] {
+    const stored = readJsonArray<ExternalTransaction>(TRANSACTIONS_KEY);
+    if (stored.length === 0) {
+        // Initialize demo transactions on first call
+        const demoTxns: ExternalTransaction[] = [
+            { id: "txn-abc-portfolio", orgId: "org-atlas", name: "ABC Portfolio Acquisition", description: "Multi-community residential portfolio due diligence", status: "Active", createdAt: new Date().toISOString() },
+            { id: "txn-harbor-deal", orgId: "org-harbor", name: "Harbor View Single Asset", description: "Single asset acquisition - Harbor View community", status: "Active", createdAt: new Date().toISOString() },
+            { id: "txn-summit-review", orgId: "org-summit", name: "Summit Portfolio Review", description: "Existing portfolio re-underwriting and review", status: "Active", createdAt: new Date().toISOString() },
+        ];
+        writeJsonArray(TRANSACTIONS_KEY, demoTxns);
+        // Also ensure demo access exists
+        if (readJsonArray<ExternalTransactionAccess>(TXN_ACCESS_KEY).length === 0) {
+            const demoAccess: ExternalTransactionAccess[] = [
+                { transactionId: "txn-abc-portfolio", orgId: "org-atlas", userId: "ext-user-alex" },
+                { transactionId: "txn-harbor-deal", orgId: "org-harbor", userId: "ext-user-hannah" },
+                { transactionId: "txn-summit-review", orgId: "org-summit", userId: "ext-user-sam" },
+                { transactionId: "txn-abc-portfolio", orgId: "org-summit", userId: "ext-user-sam" },
+            ];
+            writeJsonArray(TXN_ACCESS_KEY, demoAccess);
+        }
+        return demoTxns;
+    }
+    return stored;
+}
+
+export function addTransaction(txn: ExternalTransaction): void {
+    const txns = getTransactionsList();
+    txns.push(txn);
+    writeJsonArray(TRANSACTIONS_KEY, txns);
+}
+
+export function getTransactionAccessList(): ExternalTransactionAccess[] {
+    const stored = readJsonArray<ExternalTransactionAccess>(TXN_ACCESS_KEY);
+    if (stored.length === 0) {
+        // Trigger initialization via getTransactionsList which also seeds access
+        getTransactionsList();
+        return readJsonArray<ExternalTransactionAccess>(TXN_ACCESS_KEY);
+    }
+    return stored;
+}
+
+export function addTransactionAccess(access: ExternalTransactionAccess): void {
+    const accesses = getTransactionAccessList();
+    accesses.push(access);
+    writeJsonArray(TXN_ACCESS_KEY, accesses);
+}
+
+export function getAuthorizedTransactions(userId: string): ExternalTransactionAccess[] {
+    return getTransactionAccessList().filter(a => a.userId === userId);
+}
+
+export function isRequestAuthorized(requestId: string, userId: string): boolean {
+    const all = getPortalRequests();
+    const req = all.find(r => r.id === requestId || r.requestId === requestId);
+    if (!req) return false;
+    const txns = getTransactionsList();
+    const txn = txns.find(t => t.id === req.transactionId);
+    if (txn) {
+        return getTransactionAccessList().some(a => a.transactionId === txn.id && a.userId === userId);
+    }
+    const accesses = getTransactionAccessList();
+    return accesses.some(a => a.userId === userId);
+}
+
+export function isTransactionAuthorized(transactionId: string, userId: string): boolean {
+    return getTransactionAccessList().some(a => a.transactionId === transactionId && a.userId === userId);
+}
+
+export interface PortalIdentityContext {
+    user: ExternalUser;
+    organization: ExternalOrganization;
+    authorizedTransactions: ExternalTransactionAccess[];
+    allTransactions: ExternalTransaction[];
+}
+
+export function getPersonaIdentity(): PortalIdentityContext | null {
+    const persona = getActivePersona();
+    const users = getExternalUsers();
+    const user = users.find(u => u.email === persona.email);
+    if (!user) return null;
+    const org = getOrganization(user.organizationId);
+    if (!org) return null;
+
+    const authorizedTransactions = getAuthorizedTransactions(user.id);
+    const allTransactions = getTransactionsList();
+    return { user, organization: org, authorizedTransactions, allTransactions };
 }
 
 /* ── Portal Types ──────────────────────────────────────────── */
@@ -83,6 +313,11 @@ export interface PortalRequest {
     team: string;
     brokerBuyer: string;
     externalStatus?: string;
+    /** Organization ownership: captured at upload time */
+    orgId?: string;
+    orgName?: string;
+    userId?: string;
+    userName?: string;
     /** Internal field: whether this was published externally */
     _publishedExternal?: boolean;
     _publishedWithoutDocuments?: boolean;
@@ -269,6 +504,10 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
         team: req.team,
         brokerBuyer: req.brokerBuyer,
         externalStatus: req._externalStatus,
+        orgId: (req as any).orgId,
+        orgName: (req as any).orgName,
+        userId: (req as any).userId,
+        userName: (req as any).userName,
         _publishedExternal: !!req._publishedExternal,
         _publishedWithoutDocuments: req._publishedWithoutDocuments,
         _publishedArtifactIds: req._publishedArtifactIds,
@@ -349,6 +588,7 @@ export function getPortalUserContext(): PortalUserContext {
     if (!isRecapDataWiped() && !isDemoActive()) {
         initDemo();
     }
+    const identity = getPersonaIdentity();
     const transactions = getTransactions().map(mapRecapToPortalTxn);
     return {
         displayName: persona.displayName,
@@ -371,7 +611,16 @@ export function getPortalRequests(): PortalRequest[] {
         initDemo();
     }
     const requests = getRequests();
-    return [...MOCK_REQUESTS, ...requests.map(mapRecapToPortalRequest)];
+    const allRequests = [...MOCK_REQUESTS, ...requests.map(mapRecapToPortalRequest)];
+
+    // Filter by persona's authorized transactions for data isolation
+    const identity = getPersonaIdentity();
+    if (identity && identity.authorizedTransactions.length > 0) {
+        const authorizedTxnIds = new Set(identity.authorizedTransactions.map(a => a.transactionId));
+        return allRequests.filter(r => authorizedTxnIds.has(r.transactionId));
+    }
+
+    return allRequests;
 }
 
 export function getPortalRequestsByTransaction(transactionId: string): PortalRequest[] {
@@ -391,7 +640,16 @@ export function getPortalDocuments(): PortalDocument[] {
         initDemo();
     }
     const documents = getDocuments();
-    return documents.map(mapRecapToPortalDocument).filter((d) => d.externalVisible !== false);
+    const allDocs = documents.map(mapRecapToPortalDocument).filter((d) => d.externalVisible !== false);
+
+    // Filter by persona's authorized transactions for data isolation
+    const identity = getPersonaIdentity();
+    if (identity && identity.authorizedTransactions.length > 0) {
+        const authorizedTxnIds = new Set(identity.authorizedTransactions.map(a => a.transactionId));
+        return allDocs.filter(d => authorizedTxnIds.has(d.transactionId));
+    }
+
+    return allDocs;
 }
 
 export function getPortalDocumentsByTransaction(transactionId: string): PortalDocument[] {
@@ -465,6 +723,8 @@ export function submitPortalNewRequest(data: {
     neededBy: string;
 }): void {
     const persona = getActivePersona();
+    const users = getExternalUsers();
+    const identityUser = users.find(u => u.email === persona.email);
     const newReq: PortalRequest = {
         id: `pr-${Date.now()}`,
         requestId: `DD-PORTAL-${Math.floor(Math.random() * 9000) + 1000}`,
@@ -485,6 +745,10 @@ export function submitPortalNewRequest(data: {
         brokerBuyer: persona.companyName,
         _rawStatus: "Intake Review",
         _workNotes: [],
+        orgId: identityUser?.organizationId,
+        orgName: identityUser?.organizationName,
+        userId: identityUser?.id,
+        userName: identityUser?.displayName,
     };
     MOCK_REQUESTS.unshift(newReq);
 }
@@ -498,6 +762,10 @@ export interface PortalPackageSubmission {
     status: "Draft" | "Analyzed" | "Submitted";
     transactionName: string;
     isABCDemo: boolean;
+    orgId?: string;
+    orgName?: string;
+    userId?: string;
+    userName?: string;
 }
 
 /* ── XLSX Parsing ───────────────────────────────────────────── */
@@ -850,7 +1118,11 @@ export function mapParsedRowToRecapRequest(
     submissionId: string,
     index: number,
     fileBaseName: string,
-    packageName: string
+    packageName: string,
+    orgId?: string,
+    orgName?: string,
+    userId?: string,
+    userName?: string,
 ): RecapRequest {
     const prefix = fileBaseName.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5) || "PKG";
     const subHash = submissionId.replace('sub-', '').slice(-4);
@@ -894,6 +1166,7 @@ export function mapParsedRowToRecapRequest(
         createdDate: now,
         assignedTo: ownerVal,
         _publishedAt: null,
+        ...(orgId ? { orgId, orgName, userId, userName } : {}),
     };
 }
 
@@ -918,7 +1191,7 @@ export function clearParsedRows(): void {
 
 /* ── Portal Package Submission Helpers ────────────────────────── */
 
-function generatePortalRequests(submissionId: string, packageName: string, fileBaseName: string, count: number): RecapRequest[] {
+function generatePortalRequests(submissionId: string, packageName: string, fileBaseName: string, count: number, orgId?: string, orgName?: string, userId?: string, userName?: string): RecapRequest[] {
     const communityNames = ["Cedar Ridge", "Magnolia Place", "Harbor View", "Prairie Oaks", "Summit Springs"];
     const categories = ["Financial Statements", "Licenses", "Environmental", "Insurance", "Legal", "HR / Staffing", "Physical Plant", "Regulatory", "Operations", "Marketing"];
     const teams = ["Financial Analysis", "Regulatory", "Environmental", "Risk Management", "HR & Operations", "DD Management"];
@@ -958,6 +1231,7 @@ function generatePortalRequests(submissionId: string, packageName: string, fileB
             createdDate: now,
             assignedTo: null,
             _publishedAt: null,
+            ...(orgId ? { orgId, orgName, userId, userName } : {}),
         });
     }
     return requests;
@@ -1031,6 +1305,10 @@ export function submitBrokerUploadPackage(
     const packageName = fileBaseName;
     const requestCount = parsedCount ?? 0;
 
+    const persona = getActivePersona();
+    const users = getExternalUsers();
+    const identityUser = users.find(u => u.email === persona.email);
+
     const submission: PortalPackageSubmission = {
         id: submissionId,
         fileName,
@@ -1040,6 +1318,10 @@ export function submitBrokerUploadPackage(
         status: "Analyzed",
         transactionName: packageName,
         isABCDemo: false,
+        orgId: identityUser?.organizationId,
+        orgName: identityUser?.organizationName,
+        userId: identityUser?.id,
+        userName: identityUser?.displayName,
     };
     addPortalSubmission(submission);
 
@@ -1068,6 +1350,10 @@ export function confirmBrokerPackage(submissionId?: string): void {
     const sub = submissions.find(s => s.id === submissionId);
     if (!sub) return;
 
+    const persona = getActivePersona();
+    const users = getExternalUsers();
+    const identityUser = users.find(u => u.email === persona.email);
+
     if (sub.isABCDemo) {
         if (!isRecapDataWiped() && !isDemoActive()) initDemo();
         updatePortalSubmissionStatus(submissionId, "Submitted");
@@ -1089,9 +1375,13 @@ export function confirmBrokerPackage(submissionId?: string): void {
     const parsedRows = getParsedRows();
     let reviewItems: RecapRequest[];
     if (parsedRows.length > 0) {
-        reviewItems = parsedRows.map((row, i) => mapParsedRowToRecapRequest(row, submissionId, i + 1, fileBaseName, sub.packageName));
+        reviewItems = parsedRows.map((row, i) => mapParsedRowToRecapRequest(
+            row, submissionId, i + 1, fileBaseName, sub.packageName,
+            identityUser?.organizationId, identityUser?.organizationName, identityUser?.id, identityUser?.displayName,
+        ));
     } else {
-        reviewItems = generatePortalRequests(submissionId, sub.packageName, fileBaseName, sub.requestCount);
+        reviewItems = generatePortalRequests(submissionId, sub.packageName, fileBaseName, sub.requestCount,
+            identityUser?.organizationId, identityUser?.organizationName, identityUser?.id, identityUser?.displayName);
     }
     clearParsedRows();
     // Review items are kept for the intake review grid but have _publishedAt: null so they don't appear in tracker
@@ -1127,6 +1417,11 @@ export function getOnlyPortalCreatedRequests(): PortalRequest[] {
 
 export function clearPortalSubmissions(): void {
     clearAllPortalCreatedData();
+    localStorage.removeItem(ORGS_KEY);
+    localStorage.removeItem(USERS_KEY);
+    localStorage.removeItem(MEMBERSHIPS_KEY);
+    localStorage.removeItem(TRANSACTIONS_KEY);
+    localStorage.removeItem(TXN_ACCESS_KEY);
     // Also clear in-memory portal-created requests for this session
     MOCK_REQUESTS.length = 0;
 }
