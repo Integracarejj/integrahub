@@ -18,6 +18,7 @@ import {
     saveParsedRows,
     createPortalTransaction,
     getPersonaIdentity,
+    getLastCreatedTransactionId,
 } from "../../services/portalMockData";
 import "./PortalSubmit.css";
 
@@ -279,7 +280,12 @@ function BrokerUploadForm() {
     const allPortalTxns = identity?.allTransactions || [];
     const authorizedTxnIds = new Set(authorizedTxns.map(a => a.transactionId));
     const personaTxns = allPortalTxns.filter(t => authorizedTxnIds.has(t.id));
-    const [selectedTxnId, setSelectedTxnId] = useState<string>(personaTxns[0]?.id || "");
+    // Default to last-created transaction if available, otherwise first authorized
+    const lastCreatedTxnId = getLastCreatedTransactionId();
+    const defaultTxnId = lastCreatedTxnId && authorizedTxnIds.has(lastCreatedTxnId)
+        ? lastCreatedTxnId
+        : personaTxns[0]?.id || "";
+    const [selectedTxnId, setSelectedTxnId] = useState<string>(defaultTxnId);
     const [newTxnName, setNewTxnName] = useState("");
     const [showNewTxn, setShowNewTxn] = useState(false);
 

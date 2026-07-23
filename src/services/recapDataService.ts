@@ -1766,6 +1766,7 @@ export function clearAllPortalCreatedData(): void {
     localStorage.removeItem("integrasource.recap.portalTransactions");
     localStorage.removeItem("integrasource.recap.portalTransactionAccess");
     localStorage.removeItem("integrasource.recap.activityFeed");
+    localStorage.removeItem("integrasource.recap.lastCreatedTransactionId");
 }
 
 export function setRecapWiped(): void {

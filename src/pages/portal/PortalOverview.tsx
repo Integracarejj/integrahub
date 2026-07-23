@@ -6,7 +6,7 @@ import {
     getPortalSubmissionsList,
     parseUploadedXLSX, extractCategoriesFromParsedRows,
     saveParsedRows, toExternalStatusInput,
-    getPersonaIdentity,
+    getPersonaIdentity, getLastCreatedTransactionId, clearLastCreatedTransactionId,
 } from "../../services/portalMockData";
 import { getExternalStatusInfo, getStatusPillStyle, getExceptionContext } from "../../services/externalStatusMapping";
 import "./PortalOverview.css";
@@ -68,9 +68,16 @@ export default function PortalOverview() {
     const allPortalTxns = identity?.allTransactions || [];
     const authorizedTxnIds = new Set(authorizedTxns.map(a => a.transactionId));
     const personaTxns = allPortalTxns.filter(t => authorizedTxnIds.has(t.id));
-    const [selectedTxnId, setSelectedTxnId] = useState<string>(
-        personaTxns.length > 0 ? personaTxns[0].id : ""
-    );
+
+    // Default to the last-created transaction if available, otherwise first authorized
+    const lastCreatedTxnId = getLastCreatedTransactionId();
+    const defaultTxnId = lastCreatedTxnId && authorizedTxnIds.has(lastCreatedTxnId)
+        ? lastCreatedTxnId
+        : personaTxns.length > 0 ? personaTxns[0].id : "";
+    const [selectedTxnId, setSelectedTxnId] = useState<string>(defaultTxnId);
+
+    // Consume the "last created" hint once so it doesn't persist across future visits
+    useEffect(() => { if (lastCreatedTxnId) clearLastCreatedTransactionId(); }, [lastCreatedTxnId]);
 
     const transactions = getPortalTransactions();
     const txn = transactions.find(t => t.id === selectedTxnId) || transactions[0];

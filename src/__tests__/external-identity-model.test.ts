@@ -231,14 +231,14 @@ describe('Transaction Access Model', () => {
 
     it('should initialize demo transaction access on first call', () => {
         const accesses = getTransactionAccessList();
-        expect(accesses.length).toBe(4);
+        expect(accesses.length).toBe(3);
         expect(accesses.find(a => a.transactionId === 'txn-abc-portfolio' && a.userId === 'ext-user-alex')).toBeDefined();
     });
 
     it('should add transaction access', () => {
         addTransactionAccess(buildTxnAccess({ transactionId: 'txn-extra', userId: 'user-extra' }));
         const accesses = getTransactionAccessList();
-        expect(accesses.length).toBe(5);
+        expect(accesses.length).toBe(4);
         expect(accesses.find(a => a.transactionId === 'txn-extra')).toBeDefined();
     });
 
@@ -307,7 +307,8 @@ describe('Persona Identity Context', () => {
         setActivePersona('buyer');
         identity = getPersonaIdentity()!;
         expect(identity.authorizedTransactions.some(a => a.transactionId === 'txn-summit-review')).toBe(true);
-        expect(identity.authorizedTransactions.some(a => a.transactionId === 'txn-abc-portfolio')).toBe(true);
+        // Summit must NOT have cross-org access to Atlas transactions
+        expect(identity.authorizedTransactions.some(a => a.transactionId === 'txn-abc-portfolio')).toBe(false);
     });
 });
 
@@ -336,11 +337,11 @@ describe('Request Authorization', () => {
         expect(authorized).toBe(false);
     });
 
-    it('should authorize cross-transaction access for Sam Buyer', () => {
+    it('should deny cross-transaction access for Sam Buyer (no cross-org)', () => {
         setActivePersona('buyer');
-        // Jamie Reynolds (ext-user-sam) has access to both txn-summit-review AND txn-abc-portfolio
+        // Summit must NOT have access to Atlas transactions — cross-org access removed
         const authorized = isTransactionAuthorized('txn-abc-portfolio', 'ext-user-sam');
-        expect(authorized).toBe(true);
+        expect(authorized).toBe(false);
     });
 });
 

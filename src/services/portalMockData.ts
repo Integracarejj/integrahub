@@ -9,6 +9,7 @@ const USERS_KEY = "integrasource.recap.portalUsers";
 const MEMBERSHIPS_KEY = "integrasource.recap.portalMemberships";
 const TRANSACTIONS_KEY = "integrasource.recap.portalTransactions";
 const TXN_ACCESS_KEY = "integrasource.recap.portalTransactionAccess";
+const LAST_CREATED_TXN_KEY = "integrasource.recap.lastCreatedTransactionId";
 
 /* ── Persona Model ──────────────────────────────────────────── */
 
@@ -199,7 +200,8 @@ export function getTransactionsList(): ExternalTransaction[] {
                 { transactionId: "txn-abc-portfolio", orgId: "org-atlas", userId: "ext-user-alex" },
                 { transactionId: "txn-harbor-deal", orgId: "org-harbor", userId: "ext-user-hannah" },
                 { transactionId: "txn-summit-review", orgId: "org-summit", userId: "ext-user-sam" },
-                { transactionId: "txn-abc-portfolio", orgId: "org-summit", userId: "ext-user-sam" },
+                // REMOVED: { transactionId: "txn-abc-portfolio", orgId: "org-summit", userId: "ext-user-sam" }
+                // Summit must NOT have cross-org access to Atlas transactions
             ];
             writeJsonArray(TXN_ACCESS_KEY, demoAccess);
         }
@@ -253,7 +255,19 @@ export function createPortalTransaction(name: string, description?: string): str
             userId: identityUser.id,
         });
     }
+    // Store so Overview can default to this transaction
+    localStorage.setItem(LAST_CREATED_TXN_KEY, txnId);
     return txnId;
+}
+
+/** Get the last transaction ID created by the active persona (or null). */
+export function getLastCreatedTransactionId(): string | null {
+    return localStorage.getItem(LAST_CREATED_TXN_KEY);
+}
+
+/** Clear the last created transaction hint (called after consumption). */
+export function clearLastCreatedTransactionId(): void {
+    localStorage.removeItem(LAST_CREATED_TXN_KEY);
 }
 
 export function getAuthorizedTransactions(userId: string): ExternalTransactionAccess[] {
