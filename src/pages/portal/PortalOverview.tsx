@@ -467,17 +467,20 @@ export default function PortalOverview() {
                 </div>
             )}
 
-            {/* ── Persistent "Submit Another Package" entry when requests exist ── */}
+            {/* ── Persistent "Submit Another Package" drag/drop zone when requests exist ── */}
             {hasSubmitted && uploadState === "idle" && (
-                <div style={{ textAlign: "center", padding: "12px 0", marginBottom: 0 }}>
+                <div ref={dropZoneRef} className="po-upload-hero" style={{ padding: "24px 32px", marginBottom: 0, borderRadius: 16, maxWidth: 600, margin: "0 auto" }}>
                     <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleFileSelected} />
-                    <button
-                        className="rc-btn rc-btn-secondary"
-                        onClick={handleBrowseClick}
-                        style={{ padding: "10px 24px", fontSize: 13, fontWeight: 700, borderRadius: 8, border: "1px solid #d1d5db" }}
-                    >
-                        Submit Another Package
-                    </button>
+                    <div style={{ display: "flex", alignItems: "center", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" />
+                            <line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                        <span style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>Drop your due diligence package here</span>
+                        <span style={{ fontSize: 13, color: "#64748b" }}>or</span>
+                        <button className="rc-btn rc-btn-primary" onClick={handleBrowseClick} style={{ padding: "8px 20px", fontSize: 13, fontWeight: 700 }}>Browse Files</button>
+                    </div>
                 </div>
             )}
 

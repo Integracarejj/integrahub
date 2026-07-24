@@ -1004,3 +1004,223 @@ describe('Test U: Three-persona simultaneous upload — mutual isolation', () =>
         expect(summitReqs.filter(r => r.transactionId === harborTxnId).length).toBe(0);
     });
 });
+
+/* ═══════════════════════════════════════════════════════════════
+   Test V — Org identity propagation through intake + request
+   ═══════════════════════════════════════════════════════════════ */
+describe('Test V: Org identity propagation — intake item carries org fields through to request', () => {
+    beforeEach(() => {
+        clearPortalSubmissions();
+        clearAllPortalCreatedData();
+        simulateDataWipe();
+    });
+
+    it('Atlas upload: intake item and subsequent requests carry org-atlas identity', () => {
+        setActivePersona('broker');
+        const txnId = createPortalTransaction('Keystone Identity');
+        const rows = setupMockParsedRows(3);
+        saveParsedRows(rows);
+        const result = submitBrokerUploadPackage('keystone.xlsx', 3, ['Financial'], txnId);
+        confirmBrokerPackage(result.submissionId);
+
+        const subs = getPortalSubmissionsList();
+        const sub = subs.find(s => s.id === result.submissionId);
+        expect(sub).toBeDefined();
+        expect(sub!.orgId).toBe('org-atlas');
+        expect(sub!.orgName).toBe('Atlas Capital Partners');
+
+        const requests = getPortalRequests();
+        const matching = requests.filter(r => r.transactionId === txnId);
+        expect(matching.length).toBe(3);
+        for (const r of matching) {
+            expect(r.orgId).toBe('org-atlas');
+            expect(r.orgName).toBe('Atlas Capital Partners');
+        }
+    });
+
+    it('Harbor upload: intake item carries org-harbor identity', () => {
+        setActivePersona('owner-seller');
+        const txnId = createPortalTransaction('Harbor Identity');
+        const rows = setupMockParsedRows(2);
+        saveParsedRows(rows);
+        const result = submitBrokerUploadPackage('harbor.xlsx', 2, ['Legal'], txnId);
+        confirmBrokerPackage(result.submissionId);
+
+        const subs = getPortalSubmissionsList();
+        const sub = subs.find(s => s.id === result.submissionId);
+        expect(sub).toBeDefined();
+        expect(sub!.orgId).toBe('org-harbor');
+        expect(sub!.orgName).toBe('Harbor Partners');
+    });
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   Test W — orgId belt-and-suspenders in getPortalSubmissionsList
+   ═══════════════════════════════════════════════════════════════ */
+describe('Test W: getPortalSubmissionsList filters by both authorizedTxnIds AND orgId', () => {
+    beforeEach(() => {
+        clearPortalSubmissions();
+        clearAllPortalCreatedData();
+        simulateDataWipe();
+    });
+
+    it('Atlas uploads to a transaction; Harbor does NOT see it even if they share the same transaction (impossible in practice, but validates the belt)', () => {
+        setActivePersona('broker');
+        const txnId = createPortalTransaction('Shared Belt Test');
+        const rows = setupMockParsedRows(2);
+        saveParsedRows(rows);
+        const result = submitBrokerUploadPackage('belt.xlsx', 2, ['Financial'], txnId);
+        confirmBrokerPackage(result.submissionId);
+
+        // Switch to Harbor (different org, different authorized txns)
+        setActivePersona('owner-seller');
+        const harborSubs = getPortalSubmissionsList();
+        // Harbor should see 0 items — they don't have the transaction OR the org
+        expect(harborSubs.filter(s => s.transactionId === txnId).length).toBe(0);
+    });
+
+    it('getPortalRequests also filters by orgId belt-and-suspenders', () => {
+        setActivePersona('broker');
+        const txnId = createPortalTransaction('Belt Suspenders Req');
+        const rows = setupMockParsedRows(2);
+        saveParsedRows(rows);
+        const result = submitBrokerUploadPackage('bsr.xlsx', 2, ['Financial'], txnId);
+        confirmBrokerPackage(result.submissionId);
+
+        // Switch to Harbor
+        setActivePersona('owner-seller');
+        const harborReqs = getPortalRequests();
+        expect(harborReqs.filter(r => r.transactionId === txnId).length).toBe(0);
+    });
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   Test X — clearPortalSubmissions sets wiped flag
+   ═══════════════════════════════════════════════════════════════ */
+describe('Test X: clearPortalSubmissions sets wiped flag to prevent initDemo re-seed', () => {
+    it('after clearPortalSubmissions, localStorage wiped flag is set', () => {
+        localStorage.removeItem('integrasource.recap.wiped');
+        expect(localStorage.getItem('integrasource.recap.wiped')).toBeNull();
+        clearPortalSubmissions();
+        expect(localStorage.getItem('integrasource.recap.wiped')).toBe('true');
+    });
+
+    it('after data wipe + clearPortalSubmissions, isRecapDataWiped returns true', () => {
+        simulateDataWipe();
+        expect(isRecapDataWiped()).toBe(true);
+        clearPortalSubmissions();
+        expect(isRecapDataWiped()).toBe(true);
+    });
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   Test Y — RecapRequest carries transactionName and orgName
+   ═══════════════════════════════════════════════════════════════ */
+describe('Test Y: RecapRequest objects carry transactionName and orgName for display', () => {
+    beforeEach(() => {
+        clearPortalSubmissions();
+        clearAllPortalCreatedData();
+        simulateDataWipe();
+    });
+
+    it('Atlas requests have transactionName and orgName populated', () => {
+        setActivePersona('broker');
+        const txnId = createPortalTransaction('Display Context Test');
+        const rows = setupMockParsedRows(2);
+        saveParsedRows(rows);
+        const result = submitBrokerUploadPackage('display.xlsx', 2, ['Financial'], txnId);
+        confirmBrokerPackage(result.submissionId);
+
+        const requests = getPortalRequests();
+        const matching = requests.filter(r => r.transactionId === txnId);
+        expect(matching.length).toBe(2);
+        for (const r of matching) {
+            expect(r.transactionName).toBeTruthy();
+            expect(r.orgName).toBe('Atlas Capital Partners');
+            expect(r.orgId).toBe('org-atlas');
+        }
+    });
+
+    it('Submissions list items carry orgName for external party column display', () => {
+        setActivePersona('broker');
+        const txnId = createPortalTransaction('Sub Display Test');
+        const rows = setupMockParsedRows(1);
+        saveParsedRows(rows);
+        const result = submitBrokerUploadPackage('subdisplay.xlsx', 1, ['Financial'], txnId);
+        confirmBrokerPackage(result.submissionId);
+
+        const subs = getPortalSubmissionsList();
+        const sub = subs.find(s => s.id === result.submissionId);
+        expect(sub).toBeDefined();
+        expect(sub!.orgName).toBe('Atlas Capital Partners');
+        expect(sub!.userName).toBeTruthy();
+    });
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   Test Z — Regression guard: existing isolation invariant holds
+   ═══════════════════════════════════════════════════════════════ */
+describe('Test Z: Regression guard — new org fields do not break existing isolation', () => {
+    beforeEach(() => {
+        clearPortalSubmissions();
+        clearAllPortalCreatedData();
+        simulateDataWipe();
+    });
+
+    it('Atlas, Harbor, Summit uploads remain mutually isolated after org field changes', () => {
+        setActivePersona('broker');
+        const atlasTxn = createPortalTransaction('Regression Atlas');
+        const atlasRows = setupMockParsedRows(3);
+        saveParsedRows(atlasRows);
+        const atlasResult = submitBrokerUploadPackage('reg-atlas.xlsx', 3, ['Financial'], atlasTxn);
+        confirmBrokerPackage(atlasResult.submissionId);
+
+        setActivePersona('owner-seller');
+        const harborTxn = createPortalTransaction('Regression Harbor');
+        const harborRows = setupMockParsedRows(2);
+        saveParsedRows(harborRows);
+        const harborResult = submitBrokerUploadPackage('reg-harbor.xlsx', 2, ['Legal'], harborTxn);
+        confirmBrokerPackage(harborResult.submissionId);
+
+        setActivePersona('buyer');
+        const summitTxn = createPortalTransaction('Regression Summit');
+        const summitRows = setupMockParsedRows(4);
+        saveParsedRows(summitRows);
+        const summitResult = submitBrokerUploadPackage('reg-summit.xlsx', 4, ['Financial'], summitTxn);
+        confirmBrokerPackage(summitResult.submissionId);
+
+        // Atlas sees only theirs
+        setActivePersona('broker');
+        const atlasReqs = getPortalRequests();
+        expect(atlasReqs.filter(r => r.transactionId === atlasTxn).length).toBe(3);
+        expect(atlasReqs.filter(r => r.transactionId === harborTxn).length).toBe(0);
+        expect(atlasReqs.filter(r => r.transactionId === summitTxn).length).toBe(0);
+
+        // Harbor sees only theirs
+        setActivePersona('owner-seller');
+        const harborReqs = getPortalRequests();
+        expect(harborReqs.filter(r => r.transactionId === harborTxn).length).toBe(2);
+        expect(harborReqs.filter(r => r.transactionId === atlasTxn).length).toBe(0);
+        expect(harborReqs.filter(r => r.transactionId === summitTxn).length).toBe(0);
+
+        // Summit sees only theirs
+        setActivePersona('buyer');
+        const summitReqs = getPortalRequests();
+        expect(summitReqs.filter(r => r.transactionId === summitTxn).length).toBe(4);
+        expect(summitReqs.filter(r => r.transactionId === atlasTxn).length).toBe(0);
+        expect(summitReqs.filter(r => r.transactionId === harborTxn).length).toBe(0);
+
+        // Submissions lists also isolated
+        setActivePersona('broker');
+        const atlasSubs = getPortalSubmissionsList();
+        expect(atlasSubs.every(s => s.orgId === 'org-atlas')).toBe(true);
+
+        setActivePersona('owner-seller');
+        const harborSubs = getPortalSubmissionsList();
+        expect(harborSubs.every(s => s.orgId === 'org-harbor')).toBe(true);
+
+        setActivePersona('buyer');
+        const summitSubs = getPortalSubmissionsList();
+        expect(summitSubs.every(s => s.orgId === 'org-summit')).toBe(true);
+    });
+});

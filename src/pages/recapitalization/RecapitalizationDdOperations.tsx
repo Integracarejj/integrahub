@@ -598,8 +598,8 @@ export default function RecapitalizationDdOperations() {
                                 <>
                                     <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#475569", fontWeight: 600 }}>{req.requestId}</td>
                                     <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 240 }}>
-                                        {req.title.split(" - ").slice(1).join(" - ").trim() || req.title}
-                                        <span style={{ display: "inline-flex", gap: 6, marginLeft: 6, verticalAlign: "middle" }}>
+                                        <span style={{ display: "inline-flex", gap: 6, verticalAlign: "middle" }}>
+                                            {req.title.split(" - ").slice(1).join(" - ").trim() || req.title}
                                             {getWorkArtifactsByRequest(getArtifactKey(req)).length > 0 && (
                                                 <span onClick={e => { e.stopPropagation(); setArtifactListModal({ req, artifacts: getWorkArtifactsByRequest(getArtifactKey(req)) }); }} role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') setArtifactListModal({ req, artifacts: getWorkArtifactsByRequest(getArtifactKey(req)) }); }} style={{ cursor: "pointer", color: "#2563eb" }} title="View artifacts">
                                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
@@ -611,6 +611,13 @@ export default function RecapitalizationDdOperations() {
                                                 </span>
                                             )}
                                         </span>
+                                        {(req.transactionName || req.orgName) && (
+                                            <div style={{ fontSize: 11, color: "#64748b", fontWeight: 400, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                                {req.transactionName && <span>{req.transactionName}</span>}
+                                                {req.transactionName && req.orgName && <span> · </span>}
+                                                {req.orgName && <span style={{ fontWeight: 600 }}>{req.orgName}</span>}
+                                            </div>
+                                        )}
                                     </td>
                                     <td><PriorityBadge priority={req.priority} /></td>
                                     <td onClick={e => e.stopPropagation()}>
@@ -682,7 +689,16 @@ export default function RecapitalizationDdOperations() {
                             ) : (
                                 <>
                                     <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#475569", fontWeight: 600 }}>{req.requestId}</td>
-                                    <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 240 }}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</td>
+                                    <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 240 }}>
+                                        <div>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</div>
+                                        {(req.transactionName || req.orgName) && (
+                                            <div style={{ fontSize: 11, color: "#64748b", fontWeight: 400, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                                {req.transactionName && <span>{req.transactionName}</span>}
+                                                {req.transactionName && req.orgName && <span> · </span>}
+                                                {req.orgName && <span style={{ fontWeight: 600 }}>{req.orgName}</span>}
+                                            </div>
+                                        )}
+                                    </td>
                                     <td style={{ fontSize: 12, color: "#475569" }}>{req.communityNames[0] || "\u2014"}</td>
                                     <td><PriorityBadge priority={req.priority} /></td>
                                     <td onClick={e => e.stopPropagation()}>

@@ -44,6 +44,11 @@ export interface RecapRequest {
     source: "External" | "Internal" | "Bulk Import";
     createdDate: string;
     assignedTo: string | null;
+    /** External party identity — captured at upload time from portal persona */
+    orgId?: string;
+    orgName?: string;
+    userId?: string;
+    userName?: string;
     _publishedAt?: string | null;
     _convertedAt?: string | null;
     _sourceIntakeId?: string;
@@ -130,6 +135,11 @@ export interface RecapIntakeItem {
     assignedTo: string | null;
     communityNames: string[];
     priority: "High" | "Medium" | "Low";
+    /** External party identity — captured at upload time from portal persona */
+    orgId?: string;
+    orgName?: string;
+    userId?: string;
+    userName?: string;
     /** Broker-Upload-specific fields */
     fileName?: string;
     rowsFound?: number;

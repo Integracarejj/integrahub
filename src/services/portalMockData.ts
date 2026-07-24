@@ -541,10 +541,10 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
         team: req.team,
         brokerBuyer: req.brokerBuyer,
         externalStatus: req._externalStatus,
-        orgId: (req as any).orgId,
-        orgName: (req as any).orgName,
-        userId: (req as any).userId,
-        userName: (req as any).userName,
+        orgId: req.orgId,
+        orgName: req.orgName,
+        userId: req.userId,
+        userName: req.userName,
         _publishedExternal: !!req._publishedExternal,
         _publishedWithoutDocuments: req._publishedWithoutDocuments,
         _publishedArtifactIds: req._publishedArtifactIds,
@@ -593,8 +593,8 @@ export function toExternalStatusInput(req: PortalRequest) {
         _blockerExternalQuestion: req._blockerExternalQuestion,
         _blockerExternalResponse: req._blockerExternalResponse,
         _processingStartedAt: req._processingStartedAt,
-        _archived: (req as any)._archived,
-        _archiveReason: (req as any)._archiveReason,
+        _archived: req._archived,
+        _archiveReason: req._archiveReason,
     };
 }
 
@@ -1446,7 +1446,7 @@ function generatePortalRequests(submissionId: string, packageName: string, fileB
     return requests;
 }
 
-function createPortalIntakeItem(submissionId: string, packageName: string, fileName: string, requestCount: number, isABCDemo: boolean, transactionId?: string): RecapIntakeItem {
+function createPortalIntakeItem(submissionId: string, packageName: string, fileName: string, requestCount: number, isABCDemo: boolean, transactionId?: string, orgId?: string, orgName?: string, userId?: string, userName?: string): RecapIntakeItem {
     return {
         id: `${submissionId}-intake`,
         intakeId: `INT-PKG-${submissionId.slice(0, 8)}`,
@@ -1456,11 +1456,15 @@ function createPortalIntakeItem(submissionId: string, packageName: string, fileN
         description: `${isABCDemo ? "Gold standard due diligence package" : "Package uploaded via external portal"} containing ${requestCount} DD request items.`,
         transactionId: transactionId || (isABCDemo ? "txn-abc" : `txn-portal-${submissionId}`),
         transactionName: packageName,
-        submittedBy: "External Portal",
+        submittedBy: userName || "External Portal",
         submittedAt: new Date().toISOString(),
         assignedTo: null,
         communityNames: ["Cedar Ridge", "Magnolia Place", "Harbor View", "Prairie Oaks", "Summit Springs"],
         priority: "High",
+        orgId,
+        orgName,
+        userId,
+        userName,
         fileName,
         rowsFound: requestCount,
     };
@@ -1600,7 +1604,7 @@ export function confirmBrokerPackage(submissionId?: string): void {
     clearParsedRows();
     // Review items are kept for the intake review grid but have _publishedAt: null so they don't appear in tracker
     addPortalCreatedRequests(reviewItems);
-    const intakeItem = createPortalIntakeItem(submissionId, sub.packageName, sub.fileName, reviewItems.length, false, txnId);
+    const intakeItem = createPortalIntakeItem(submissionId, sub.packageName, sub.fileName, reviewItems.length, false, txnId, identityUser?.organizationId, identityUser?.organizationName, identityUser?.id, identityUser?.displayName);
 
     addPortalCreatedIntakeItem(intakeItem);
     updatePortalSubmissionStatus(submissionId, "Submitted");

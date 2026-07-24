@@ -485,6 +485,13 @@ function ReviewEngine() {
                         <span className="rc-badge rc-badge-import" style={{ fontSize: 10, marginLeft: 8 }}>{scope.transactionName}</span>
                     )}
                 </div>
+                {scope && scope.orgName && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, padding: "8px 14px", background: "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13 }}>
+                        <span style={{ fontWeight: 700, color: "#0f172a" }}>{scope.orgName}</span>
+                        <span style={{ color: "#94a3b8" }}>|</span>
+                        <span style={{ color: "#475569" }}>Submitted by <strong>{scope.userName || scope.submittedBy}</strong></span>
+                    </div>
+                )}
                 <div className="rc-header-actions">
                     <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setUpdateCount(k => k + 1); showToast("Refreshed"); }}>Refresh</button>
                     <button className="rc-btn rc-btn-primary" onClick={handleMoveToWorkQueue} disabled={publishing || readyCount === 0} title={readyCount === 0 ? "No items marked 'Move to Work Queue'" : ""}>
@@ -1727,6 +1734,7 @@ function IntakeQueue() {
                                         <th>Type</th>
                                         <th>Title</th>
                                         <th>Transaction</th>
+                                        <th>External Party</th>
                                         <th>Source</th>
                                         <th>Community</th>
                                         <th>Submitted</th>
@@ -1779,6 +1787,16 @@ function IntakeQueue() {
                                                 </td>
                                                 <td style={{ maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#475569" }}>
                                                     {item.transactionName}
+                                                </td>
+                                                <td style={{ fontSize: 12, lineHeight: 1.4 }}>
+                                                    {item.orgName ? (
+                                                        <span>
+                                                            <span style={{ fontWeight: 700, color: "#0f172a", display: "block" }}>{item.orgName}</span>
+                                                            {item.userName && <span style={{ color: "#64748b", fontSize: 11 }}>{item.userName}</span>}
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ color: "#94a3b8" }}>-</span>
+                                                    )}
                                                 </td>
                                                 <td style={{ color: "#475569" }}>{item.submittedBy}</td>
                                                 <td style={{ maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#475569", fontSize: 12 }}>

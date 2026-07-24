@@ -38,6 +38,7 @@ export default function RecapitalizationTracker() {
     const [filterTeam, setFilterTeam] = useState("all");
     const [filterOwner, setFilterOwner] = useState("all");
     const [filterExternal, setFilterExternal] = useState("all");
+    const [filterOrg, setFilterOrg] = useState("all");
 
     const [overdueOnly, setOverdueOnly] = useState(false);
     const [myItems, setMyItems] = useState(false);
@@ -96,6 +97,7 @@ export default function RecapitalizationTracker() {
             result = result.filter(r => r.title.toLowerCase().includes(q) || r.requestId.toLowerCase().includes(q) || r.brokerBuyer.toLowerCase().includes(q));
         }
         if (filterTxn !== "all") result = result.filter(r => r.transactionId === filterTxn);
+        if (filterOrg !== "all") result = result.filter(r => r.orgName === filterOrg);
         if (filterStatus !== "all") result = result.filter(r => r.status === filterStatus);
         if (filterPriority !== "all") result = result.filter(r => r.priority === filterPriority);
         if (filterTeam !== "all") result = result.filter(r => r.team === filterTeam);
@@ -106,7 +108,7 @@ export default function RecapitalizationTracker() {
         if (filterExternal === "ready") result = result.filter(r => !(r as any)._publishedExternal && r.status === "Complete");
         if (filterExternal === "published") result = result.filter(r => (r as any)._publishedExternal);
         return result;
-    }, [allRequests, search, filterTxn, filterStatus, filterPriority, filterTeam, filterOwner, filterExternal, overdueOnly, myItems, currentUser, publishedBatchId, sourcePackageId, sourceIntakeId]);
+    }, [allRequests, search, filterTxn, filterOrg, filterStatus, filterPriority, filterTeam, filterOwner, filterExternal, overdueOnly, myItems, currentUser, publishedBatchId, sourcePackageId, sourceIntakeId]);
 
     const totalActiveRequests = useMemo(() => allRequests.filter(r => r._publishedAt || r._createdFromReview).length, [allRequests]);
 
@@ -245,6 +247,12 @@ export default function RecapitalizationTracker() {
                         <option value="all">All Transactions</option>
                         {transactions.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
+                    <select className="rc-filter-select" value={filterOrg} onChange={e => setFilterOrg(e.target.value)}>
+                        <option value="all">All External Parties</option>
+                        {[...new Set(allRequests.filter(r => r.orgName).map(r => r.orgName!))].sort().map(org => (
+                            <option key={org} value={org}>{org}</option>
+                        ))}
+                    </select>
                     <select className="rc-filter-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
                         <option value="all">All Statuses</option>
                         {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -328,6 +336,8 @@ export default function RecapitalizationTracker() {
                             </th>
                             <th style={{ minWidth: 90, whiteSpace: "nowrap" }}>Request ID</th>
                             <th style={{ minWidth: 160 }}>Deliverable</th>
+                            <th style={{ minWidth: 110, whiteSpace: "nowrap" }}>Transaction</th>
+                            <th style={{ minWidth: 110, whiteSpace: "nowrap" }}>External Party</th>
                             <th style={{ minWidth: 60, whiteSpace: "nowrap" }}>Status</th>
                             <th style={{ minWidth: 55, whiteSpace: "nowrap" }}>External</th>
                             <th style={{ minWidth: 50, whiteSpace: "nowrap" }}>Priority</th>
@@ -355,6 +365,19 @@ export default function RecapitalizationTracker() {
                                         <span className="rc-badge rc-badge-visible" style={{ fontSize: 9, padding: "1px 5px", marginRight: 6, verticalAlign: "middle" }}>New</span>
                                     )}
                                     {req.title.split(" - ").slice(1).join(" - ").trim() || req.title}
+                                </td>
+                                <td style={{ fontSize: 12, color: "#475569", maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {req.transactionName || "-"}
+                                </td>
+                                <td style={{ fontSize: 12, lineHeight: 1.3 }}>
+                                    {req.orgName ? (
+                                        <span>
+                                            <span style={{ fontWeight: 700, color: "#0f172a", display: "block" }}>{req.orgName}</span>
+                                            {req.userName && <span style={{ color: "#64748b", fontSize: 11 }}>{req.userName}</span>}
+                                        </span>
+                                    ) : (
+                                        <span style={{ color: "#94a3b8" }}>-</span>
+                                    )}
                                 </td>
                                 <td onClick={e => e.stopPropagation()}>
                                     <select

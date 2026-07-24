@@ -181,7 +181,16 @@ export default function RecapitalizationMyWork() {
                     {items.map(req => (
                         <tr key={req.id} className="rc-row-clickable" onClick={() => openWorkspace(req)}>
                             <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#475569", fontWeight: 600 }}>{req.requestId}</td>
-                            <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 220 }}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</td>
+                            <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 220 }}>
+                                <div>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</div>
+                                {(req.transactionName || req.orgName) && (
+                                    <div style={{ fontSize: 11, color: "#64748b", fontWeight: 400, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                        {req.transactionName && <span>{req.transactionName}</span>}
+                                        {req.transactionName && req.orgName && <span> · </span>}
+                                        {req.orgName && <span style={{ fontWeight: 600 }}>{req.orgName}</span>}
+                                    </div>
+                                )}
+                            </td>
                             <td style={{ fontSize: 12, color: "#475569" }}>{req.communityNames[0] || "\u2014"}</td>
                             <td style={{ textAlign: "center" }}><PriorityBadge priority={req.priority} /></td>
                             <td><StatusBadge displayLabel={getDisplayStatus(req)} /></td>

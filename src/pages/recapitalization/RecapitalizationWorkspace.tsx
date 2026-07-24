@@ -663,6 +663,13 @@ function WorkflowStateCard({
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>
                                     {transaction.name}
                                 </span>
+                                {(item.orgName || item.orgId) && (
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                                        <span style={{ fontWeight: 600 }}>{item.orgName}</span>
+                                        {item.userName && <span style={{ color: "#64748b", fontWeight: 400 }}> \u00b7 Submitted by {item.userName}</span>}
+                                    </span>
+                                )}
                             </div>
                         </div>
 
