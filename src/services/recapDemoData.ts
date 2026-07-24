@@ -285,6 +285,10 @@ const ALL_RECAP_KEYS = [
     "integrasource.recap.demo.portalSubmissions",
     "integrasource.recap.demo.parsedRows",
     "integrasource.recap.myWorkUser",
+    "integrasource.recap.portalTransactions",
+    "integrasource.recap.portalTransactionAccess",
+    "integrasource.recap.activityFeed",
+    "integrasource.recap.lastCreatedTransactionId",
 ];
 
 export function resetAllRecapData(): void {

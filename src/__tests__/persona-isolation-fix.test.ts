@@ -43,6 +43,7 @@ import {
     clearAllPortalCreatedData,
     getRequests,
     getIntakeItems,
+    isRecapDataWiped,
 } from '../services/recapDataService';
 
 /* ── Helpers ──────────────────────────────────────────────── */
@@ -803,5 +804,203 @@ describe('Test Q: Questions and clarifications are persona-scoped', () => {
         setActivePersona('buyer');
         const clarifications = getPortalClarifications();
         expect(clarifications.length).toBe(0);
+    });
+});
+
+/* ── Test R: Exact user-reported scenario (ATLAS↔SUMMIT bidirectional) ── */
+describe('Test R: Exact user-reported scenario — Atlas ↔ Summit bidirectional isolation', () => {
+    beforeEach(() => {
+        clearPortalSubmissions();
+        clearAllPortalCreatedData();
+        simulateDataWipe();
+    });
+
+    it('Step 1-6: Wipe → Atlas creates txn → upload → switch Summit → Summit sees 0 Atlas requests', () => {
+        setActivePersona('broker');
+        const txnId = createKeystoneAsAtlas();
+        uploadPackage(txnId, 213, 'Keystone');
+
+        setActivePersona('broker');
+        expect(getPortalRequests().filter(r => r.transactionId === txnId).length).toBe(213);
+
+        setActivePersona('buyer');
+        expect(getPortalRequests().filter(r => r.transactionId === txnId).length).toBe(0);
+    });
+
+    it('Bidirectional: Summit uploads → Atlas sees 0 Summit requests', () => {
+        setActivePersona('buyer');
+        const summitTxnId = createSummitProject();
+        uploadPackage(summitTxnId, 50, 'SummitProject');
+
+        setActivePersona('buyer');
+        expect(getPortalRequests().filter(r => r.transactionId === summitTxnId).length).toBe(50);
+
+        setActivePersona('broker');
+        expect(getPortalRequests().filter(r => r.transactionId === summitTxnId).length).toBe(0);
+    });
+
+    it('Both upload simultaneously — each sees only their own', () => {
+        setActivePersona('broker');
+        const atlasTxnId = createKeystoneAsAtlas();
+        uploadPackage(atlasTxnId, 100, 'AtlasKeystone');
+
+        setActivePersona('buyer');
+        const summitTxnId = createSummitProject();
+        uploadPackage(summitTxnId, 50, 'SummitReview');
+
+        setActivePersona('broker');
+        const atlasAll = getPortalRequests();
+        expect(atlasAll.filter(r => r.transactionId === atlasTxnId).length).toBe(100);
+        expect(atlasAll.filter(r => r.transactionId === summitTxnId).length).toBe(0);
+        expect(atlasAll.length).toBe(100);
+
+        setActivePersona('buyer');
+        const summitAll = getPortalRequests();
+        expect(summitAll.filter(r => r.transactionId === summitTxnId).length).toBe(50);
+        expect(summitAll.filter(r => r.transactionId === atlasTxnId).length).toBe(0);
+        expect(summitAll.length).toBe(50);
+    });
+
+    it('Round-trip: Atlas → Summit → Atlas — no stale data', () => {
+        setActivePersona('broker');
+        const atlasTxnId = createKeystoneAsAtlas();
+        uploadPackage(atlasTxnId, 10, 'Keystone');
+
+        setActivePersona('buyer');
+        expect(getPortalRequests().filter(r => r.transactionId === atlasTxnId).length).toBe(0);
+
+        setActivePersona('broker');
+        expect(getPortalRequests().filter(r => r.transactionId === atlasTxnId).length).toBe(10);
+    });
+
+    it('isRequestAuthorized denies cross-persona even though request exists in shared pool', () => {
+        setActivePersona('broker');
+        const txnId = createKeystoneAsAtlas();
+        uploadPackage(txnId, 5, 'Keystone');
+
+        setActivePersona('broker');
+        const atlasReqs = getPortalRequests().filter(r => r.transactionId === txnId);
+        const reqId = atlasReqs[0].id;
+
+        expect(isRequestAuthorized(reqId, 'ext-user-alex')).toBe(true);
+        expect(isRequestAuthorized(reqId, 'ext-user-sam')).toBe(false);
+        expect(isRequestAuthorized(reqId, 'ext-user-hannah')).toBe(false);
+    });
+});
+
+/* ── Test S: Clear Demo Data — wiped flag prevents initDemo re-seeding ── */
+describe('Test S: Clear Demo Data sets wiped flag — initDemo does not re-run', () => {
+    it('after clearPortalSubmissions, isRecapDataWiped() returns true', () => {
+        clearPortalSubmissions();
+        clearAllPortalCreatedData();
+        expect(isRecapDataWiped()).toBe(true);
+    });
+
+    it('after clearPortalSubmissions + persona switch, no demo data leaks', () => {
+        clearPortalSubmissions();
+        clearAllPortalCreatedData();
+
+        setActivePersona('broker');
+        const txnId = createKeystoneAsAtlas();
+        uploadPackage(txnId, 5, 'Keystone');
+
+        setActivePersona('buyer');
+        expect(getPortalRequests().filter(r => r.transactionId === txnId).length).toBe(0);
+        expect(getPortalRequests().length).toBe(0);
+    });
+
+    it('both Clear mechanisms produce same isolation outcome', () => {
+        clearPortalSubmissions();
+        clearAllPortalCreatedData();
+        simulateDataWipe();
+
+        setActivePersona('broker');
+        const txnId = createKeystoneAsAtlas();
+        uploadPackage(txnId, 5, 'Keystone');
+
+        setActivePersona('buyer');
+        expect(getPortalRequests().filter(r => r.transactionId === txnId).length).toBe(0);
+    });
+});
+
+/* ── Test T: orgId belt-and-suspenders — cross-org requests filtered even if txn matches ── */
+describe('Test T: orgId belt-and-suspenders isolation', () => {
+    beforeEach(() => {
+        clearPortalSubmissions();
+        clearAllPortalCreatedData();
+        simulateDataWipe();
+    });
+
+    it('Atlas requests carry orgId=org-atlas', () => {
+        setActivePersona('broker');
+        const txnId = createKeystoneAsAtlas();
+        uploadPackage(txnId, 3, 'Keystone');
+
+        setActivePersona('broker');
+        const reqs = getPortalRequests().filter(r => r.transactionId === txnId);
+        expect(reqs.length).toBe(3);
+        expect(reqs.every(r => r.orgId === 'org-atlas')).toBe(true);
+    });
+
+    it('Summit requests carry orgId=org-summit', () => {
+        setActivePersona('buyer');
+        const txnId = createSummitProject();
+        uploadPackage(txnId, 3, 'Summit');
+
+        setActivePersona('buyer');
+        const reqs = getPortalRequests().filter(r => r.transactionId === txnId);
+        expect(reqs.length).toBe(3);
+        expect(reqs.every(r => r.orgId === 'org-summit')).toBe(true);
+    });
+
+    it('Atlas submissions carry orgId=org-atlas', () => {
+        setActivePersona('broker');
+        const txnId = createKeystoneAsAtlas();
+        uploadPackage(txnId, 3, 'Keystone');
+
+        setActivePersona('broker');
+        const subs = getPortalSubmissionsList();
+        expect(subs.some(s => s.orgId === 'org-atlas')).toBe(true);
+    });
+});
+
+/* ── Test U: Three-persona simultaneous isolation ── */
+describe('Test U: Three-persona simultaneous upload — mutual isolation', () => {
+    beforeEach(() => {
+        clearPortalSubmissions();
+        clearAllPortalCreatedData();
+        simulateDataWipe();
+    });
+
+    it('Atlas, Harbor, Summit each upload — each sees only their own', () => {
+        setActivePersona('broker');
+        const atlasTxnId = createKeystoneAsAtlas();
+        uploadPackage(atlasTxnId, 5, 'Keystone');
+
+        setActivePersona('owner-seller');
+        const harborTxnId = createHarborProject();
+        uploadPackage(harborTxnId, 3, 'HarborProject');
+
+        setActivePersona('buyer');
+        const summitTxnId = createSummitProject();
+        uploadPackage(summitTxnId, 4, 'SummitReview');
+
+        setActivePersona('broker');
+        const atlasReqs = getPortalRequests();
+        expect(atlasReqs.filter(r => r.transactionId === atlasTxnId).length).toBe(5);
+        expect(atlasReqs.filter(r => r.transactionId === harborTxnId).length).toBe(0);
+        expect(atlasReqs.filter(r => r.transactionId === summitTxnId).length).toBe(0);
+
+        setActivePersona('owner-seller');
+        const harborReqs = getPortalRequests();
+        expect(harborReqs.filter(r => r.transactionId === harborTxnId).length).toBe(3);
+        expect(harborReqs.filter(r => r.transactionId === atlasTxnId).length).toBe(0);
+        expect(harborReqs.filter(r => r.transactionId === summitTxnId).length).toBe(0);
+
+        setActivePersona('buyer');
+        const summitReqs = getPortalRequests();
+        expect(summitReqs.filter(r => r.transactionId === summitTxnId).length).toBe(4);
+        expect(summitReqs.filter(r => r.transactionId === atlasTxnId).length).toBe(0);
+        expect(summitReqs.filter(r => r.transactionId === harborTxnId).length).toBe(0);
     });
 });

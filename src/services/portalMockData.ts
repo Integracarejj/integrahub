@@ -664,7 +664,7 @@ export function getPortalRequests(): PortalRequest[] {
     const authorizedTxnIds = new Set(identity.authorizedTransactions.map(a => a.transactionId));
     if (authorizedTxnIds.size === 0) return [];
 
-    return allRequests.filter(r => authorizedTxnIds.has(r.transactionId));
+    return allRequests.filter(r => authorizedTxnIds.has(r.transactionId) && (!r.orgId || r.orgId === identity.organization.id));
 }
 
 export function getPortalRequestsByTransaction(transactionId: string): PortalRequest[] {
@@ -735,7 +735,6 @@ export function getPortalDocuments(): PortalDocument[] {
 
     return allDocs.filter(d => authorizedTxnIds.has(d.transactionId));
 }
-
 export function getPortalDocumentsByTransaction(transactionId: string): PortalDocument[] {
     return getPortalDocuments().filter((d) => d.transactionId === transactionId);
 }
@@ -1627,7 +1626,7 @@ export function getPortalSubmissionsList(): PortalPackageSubmission[] {
     if (!identity) return [];
     const authorizedTxnIds = new Set(identity.authorizedTransactions.map(a => a.transactionId));
     if (authorizedTxnIds.size === 0) return [];
-    return getPortalSubmissions().filter(s => s.transactionId && authorizedTxnIds.has(s.transactionId));
+    return getPortalSubmissions().filter(s => s.transactionId && authorizedTxnIds.has(s.transactionId) && (!s.orgId || s.orgId === identity.organization.id));
 }
 
 export function getOnlyPortalCreatedRequests(): PortalRequest[] {
@@ -1641,6 +1640,8 @@ export function clearPortalSubmissions(): void {
     localStorage.removeItem(MEMBERSHIPS_KEY);
     localStorage.removeItem(TRANSACTIONS_KEY);
     localStorage.removeItem(TXN_ACCESS_KEY);
+    // Set wiped flag so initDemo() does not re-run after clear
+    localStorage.setItem("integrasource.recap.wiped", "true");
     // Also clear in-memory portal-created requests for this session
     MOCK_REQUESTS.length = 0;
 }
