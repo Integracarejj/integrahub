@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { getActivity } from "../services/recapDataService";
+import { getPortalActivity } from "../services/portalMockData";
 import type { RecapActivity } from "../services/recapDataService";
 import "./PortalNav.css";
 
@@ -54,7 +54,7 @@ function ActivityIcon({ type }: { type: RecapActivity["type"] }) {
 export default function PortalNav({ open, onClose }: PortalNavProps) {
     const [activityOpen, setActivityOpen] = useState(false);
     const [commOpen, setCommOpen] = useState(false);
-    const allActivity = getActivity(20);
+    const allActivity = getPortalActivity(20);
 
     const externalSafe = allActivity.filter(isExternalSafeNavActivity);
 

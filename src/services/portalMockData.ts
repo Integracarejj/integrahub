@@ -1,4 +1,4 @@
-import { getTransactions, getRequests, getDocuments, isDemoActive, initDemo, getDemoEngineSummary, addPortalCreatedIntakeItem, addPortalCreatedRequests, addPortalSubmission, getPortalSubmissions, updatePortalSubmissionStatus, clearAllPortalCreatedData, isRecapDataWiped, clearRecapWiped, addActivityEntry } from "./recapDataService";
+import { getTransactions, getRequests, getDocuments, isDemoActive, initDemo, getDemoEngineSummary, addPortalCreatedIntakeItem, addPortalCreatedRequests, addPortalSubmission, getPortalSubmissions, updatePortalSubmissionStatus, clearAllPortalCreatedData, isRecapDataWiped, clearRecapWiped, addActivityEntry, getActivity } from "./recapDataService";
 import type { RecapRequest, RecapDocument, RecapTransaction, RecapIntakeItem } from "./recapDataService";
 import { getExternalStatusInfo } from "./externalStatusMapping";
 
@@ -239,22 +239,21 @@ export function createPortalTransaction(name: string, description?: string): str
     const persona = getActivePersona();
     const users = getExternalUsers();
     const identityUser = users.find(u => u.email === persona.email);
+    if (!identityUser) return txnId;
     const txn: ExternalTransaction = {
         id: txnId,
-        orgId: identityUser?.organizationId || "org-atlas",
+        orgId: identityUser.organizationId,
         name,
         description: description || `Transaction: ${name}`,
         status: "Active",
         createdAt: new Date().toISOString(),
     };
     addTransaction(txn);
-    if (identityUser) {
-        addTransactionAccess({
-            transactionId: txnId,
-            orgId: identityUser.organizationId,
-            userId: identityUser.id,
-        });
-    }
+    addTransactionAccess({
+        transactionId: txnId,
+        orgId: identityUser.organizationId,
+        userId: identityUser.id,
+    });
     // Store so Overview can default to this transaction
     localStorage.setItem(LAST_CREATED_TXN_KEY, txnId);
     return txnId;
@@ -275,8 +274,7 @@ export function getAuthorizedTransactions(userId: string): ExternalTransactionAc
 }
 
 export function isRequestAuthorized(requestId: string, userId: string): boolean {
-    const all = getPortalRequests();
-    const req = all.find(r => r.id === requestId || r.requestId === requestId);
+    const req = getRequestFromAnySource(requestId);
     if (!req) return false;
     const txns = getTransactionsList();
     const txn = txns.find(t => t.id === req.transactionId);
@@ -627,7 +625,10 @@ export function getPortalUserContext(): PortalUserContext {
     if (!isRecapDataWiped() && !isDemoActive()) {
         initDemo();
     }
-    const transactions = getTransactions().map(mapRecapToPortalTxn);
+    const identity = getPersonaIdentity();
+    const allTxns = getTransactions().map(mapRecapToPortalTxn);
+    const authorizedTxnIds = new Set(identity?.authorizedTransactions.map(a => a.transactionId) || []);
+    const transactions = authorizedTxnIds.size === 0 ? [] : allTxns.filter(t => authorizedTxnIds.has(t.id));
     return {
         displayName: persona.displayName,
         email: persona.email,
@@ -641,7 +642,12 @@ export function getPortalTransactions(): PortalTransaction[] {
     if (!isRecapDataWiped() && !isDemoActive()) {
         initDemo();
     }
-    return getTransactions().map(mapRecapToPortalTxn);
+    const allTxns = getTransactions().map(mapRecapToPortalTxn);
+    const identity = getPersonaIdentity();
+    if (!identity) return [];
+    const authorizedTxnIds = new Set(identity.authorizedTransactions.map(a => a.transactionId));
+    if (authorizedTxnIds.size === 0) return [];
+    return allTxns.filter(t => authorizedTxnIds.has(t.id));
 }
 
 export function getPortalRequests(): PortalRequest[] {
@@ -665,12 +671,52 @@ export function getPortalRequestsByTransaction(transactionId: string): PortalReq
     return getPortalRequests().filter((r) => r.transactionId === transactionId);
 }
 
+/** Get aggregate counts across all authorized transactions for the active persona. */
+export function getAggregateTransactionStats(): {
+    totalRequests: number;
+    byStatus: Record<string, number>;
+    transactionCount: number;
+} {
+    const requests = getPortalRequests();
+    const byStatus: Record<string, number> = {};
+    for (const r of requests) {
+        const ext = getExternalStatusInfo(toExternalStatusInput(r));
+        byStatus[ext.status] = (byStatus[ext.status] || 0) + 1;
+    }
+    const txnIds = new Set(requests.map(r => r.transactionId));
+    return { totalRequests: requests.length, byStatus, transactionCount: txnIds.size };
+}
+
+/** Check if a request belongs to any authorized transaction for the given user. */
+export function isRequestInAnyAuthorizedTransaction(requestId: string, userId: string): boolean {
+    const req = getRequestFromAnySource(requestId);
+    if (!req) return false;
+    return getTransactionAccessList().some(a => a.transactionId === req.transactionId && a.userId === userId);
+}
+
+function getRequestFromAnySource(requestId: string): PortalRequest | null {
+    if (!isRecapDataWiped() && !isDemoActive()) {
+        initDemo();
+    }
+    const requests = getRequests();
+    const allRequests = [...MOCK_REQUESTS, ...requests.map(mapRecapToPortalRequest)];
+    return allRequests.find(r => r.id === requestId || r.requestId === requestId) || null;
+}
+
 export function getPortalQuestions(): PortalQuestion[] {
-    return MOCK_QUESTIONS;
+    const identity = getPersonaIdentity();
+    if (!identity) return [];
+    const authorizedTxnIds = new Set(identity.authorizedTransactions.map(a => a.transactionId));
+    if (authorizedTxnIds.size === 0) return [];
+    return MOCK_QUESTIONS.filter(q => authorizedTxnIds.has(q.transactionId));
 }
 
 export function getPortalClarifications(): PortalClarification[] {
-    return MOCK_CLARIFICATIONS;
+    const identity = getPersonaIdentity();
+    if (!identity) return [];
+    const authorizedTxnIds = new Set(identity.authorizedTransactions.map(a => a.transactionId));
+    if (authorizedTxnIds.size === 0) return [];
+    return MOCK_CLARIFICATIONS.filter(c => authorizedTxnIds.has(c.transactionId));
 }
 
 export function getPortalDocuments(): PortalDocument[] {
@@ -692,6 +738,16 @@ export function getPortalDocuments(): PortalDocument[] {
 
 export function getPortalDocumentsByTransaction(transactionId: string): PortalDocument[] {
     return getPortalDocuments().filter((d) => d.transactionId === transactionId);
+}
+
+/** Get activity entries scoped to the active persona's authorized transactions. */
+export function getPortalActivity(limit?: number): ReturnType<typeof getActivity> {
+    const identity = getPersonaIdentity();
+    if (!identity) return [];
+    const authorizedTxnIds = new Set(identity.authorizedTransactions.map(a => a.transactionId));
+    if (authorizedTxnIds.size === 0) return [];
+    const allActivity = getActivity(limit);
+    return allActivity.filter(a => a.transactionId && authorizedTxnIds.has(a.transactionId));
 }
 
 export function submitPortalQuestion(data: {
@@ -1567,7 +1623,11 @@ export function loadABCDemoPackage(): void {
 }
 
 export function getPortalSubmissionsList(): PortalPackageSubmission[] {
-    return getPortalSubmissions();
+    const identity = getPersonaIdentity();
+    if (!identity) return [];
+    const authorizedTxnIds = new Set(identity.authorizedTransactions.map(a => a.transactionId));
+    if (authorizedTxnIds.size === 0) return [];
+    return getPortalSubmissions().filter(s => s.transactionId && authorizedTxnIds.has(s.transactionId));
 }
 
 export function getOnlyPortalCreatedRequests(): PortalRequest[] {

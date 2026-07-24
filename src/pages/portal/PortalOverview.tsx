@@ -68,23 +68,28 @@ export default function PortalOverview() {
     const allPortalTxns = identity?.allTransactions || [];
     const authorizedTxnIds = new Set(authorizedTxns.map(a => a.transactionId));
     const personaTxns = allPortalTxns.filter(t => authorizedTxnIds.has(t.id));
+    const orgName = identity?.organization?.name || persona.companyName;
 
-    // Default to the last-created transaction if available, otherwise first authorized
+    // "All Transactions" uses empty string as sentinel
+    const ALL_TXN_SENTINEL = "__all__";
     const lastCreatedTxnId = getLastCreatedTransactionId();
     const defaultTxnId = lastCreatedTxnId && authorizedTxnIds.has(lastCreatedTxnId)
         ? lastCreatedTxnId
-        : personaTxns.length > 0 ? personaTxns[0].id : "";
+        : personaTxns.length > 1 ? ALL_TXN_SENTINEL : personaTxns.length > 0 ? personaTxns[0].id : ALL_TXN_SENTINEL;
     const [selectedTxnId, setSelectedTxnId] = useState<string>(defaultTxnId);
 
     // Consume the "last created" hint once so it doesn't persist across future visits
     useEffect(() => { if (lastCreatedTxnId) clearLastCreatedTransactionId(); }, [lastCreatedTxnId]);
 
     const transactions = getPortalTransactions();
-    const txn = transactions.find(t => t.id === selectedTxnId) || transactions[0];
+    const isAllSelected = selectedTxnId === ALL_TXN_SENTINEL;
+    const txn = isAllSelected ? null : transactions.find(t => t.id === selectedTxnId) || null;
 
-    const scopedRequests = selectedTxnId
-        ? portalRequests.filter(r => r.transactionId === selectedTxnId)
-        : portalRequests;
+    const scopedRequests = isAllSelected
+        ? portalRequests
+        : selectedTxnId
+            ? portalRequests.filter(r => r.transactionId === selectedTxnId)
+            : portalRequests;
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const dropZoneRef = useRef<HTMLDivElement>(null);
@@ -238,9 +243,11 @@ export default function PortalOverview() {
         setUploadState("submitted");
     };
 
-    const hasSubmitted = selectedTxnId
-        ? submissions.some(s => s.transactionId === selectedTxnId) || uploadState === "submitted"
-        : submissions.length > 0 || uploadState === "submitted";
+    const hasSubmitted = isAllSelected
+        ? submissions.length > 0 || uploadState === "submitted"
+        : selectedTxnId
+            ? submissions.some(s => s.transactionId === selectedTxnId) || uploadState === "submitted"
+            : submissions.length > 0 || uploadState === "submitted";
     const showOnlyUpload = !hasSubmitted && uploadState !== "submitted";
 
     /* ── Scroll ref and state ── */
@@ -266,9 +273,9 @@ export default function PortalOverview() {
             {/* ── Compact Dashboard Header (no hero card) ── */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
                 <div>
-                    <p className="po-welcome-sub" style={{ fontSize: 15, margin: 0, color: "#334155" }}>{persona.companyName}{txn ? ` \u00b7 ${txn.name}` : ""}</p>
+                    <p className="po-welcome-sub" style={{ fontSize: 15, margin: 0, color: "#334155" }}>{orgName}{isAllSelected ? ` \u00b7 All Transactions` : txn ? ` \u00b7 ${txn.name}` : ""}</p>
                 </div>
-                {personaTxns.length > 1 && (
+                {personaTxns.length >= 1 && (
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <label style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Transaction:</label>
                         <select
@@ -276,6 +283,9 @@ export default function PortalOverview() {
                             onChange={(e) => { setSelectedTxnId(e.target.value); setDashboardFilterStatus("all"); setDashboardFilterCategory("all"); setDashboardSearch(""); }}
                             style={{ fontSize: 12, padding: "4px 8px", borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff" }}
                         >
+                            {personaTxns.length > 1 && (
+                                <option value={ALL_TXN_SENTINEL}>All {orgName} Transactions</option>
+                            )}
                             {personaTxns.map(t => (
                                 <option key={t.id} value={t.id}>{t.name}</option>
                             ))}

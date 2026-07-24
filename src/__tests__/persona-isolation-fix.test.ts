@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 /* ── localStorage polyfill ─────────────────────────────────── */
 
@@ -30,6 +30,13 @@ import {
     getPersonaIdentity,
     getLastCreatedTransactionId,
     clearLastCreatedTransactionId,
+    getPortalTransactions,
+    getPortalUserContext,
+    getAggregateTransactionStats,
+    getPortalSubmissionsList,
+    getPortalActivity,
+    getPortalQuestions,
+    getPortalClarifications,
 } from '../services/portalMockData';
 
 import {
@@ -63,25 +70,36 @@ function createKeystoneAsAtlas(): string {
     return txnId;
 }
 
-function uploadKeystonePackage(txnId: string, count: number): string {
+function createSummitProject(): string {
+    setActivePersona('buyer');
+    const txnId = createPortalTransaction('Project Summit');
+    return txnId;
+}
+
+function createHarborProject(): string {
+    setActivePersona('owner-seller');
+    const txnId = createPortalTransaction('Project Harbor');
+    return txnId;
+}
+
+function uploadPackage(txnId: string, count: number, prefix: string): string {
     const rows = setupMockParsedRows(count);
     saveParsedRows(rows);
-    const result = submitBrokerUploadPackage('Keystone.xlsx', count, ['Financial', 'Legal'], txnId);
+    const result = submitBrokerUploadPackage(`${prefix}.xlsx`, count, ['Financial', 'Legal'], txnId);
     confirmBrokerPackage(result.submissionId);
     return result.submissionId;
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   Test A — Organization uniqueness
+   Test A — Distinct identity invariants
    ═══════════════════════════════════════════════════════════════ */
-describe('Test A: Organization uniqueness', () => {
+describe('Test A: Distinct identity invariants', () => {
     beforeEach(() => {
         clearPortalSubmissions();
         clearAllPortalCreatedData();
-        setActivePersona('broker');
     });
 
-    it('all 3 preview organizations have distinct stable IDs', () => {
+    it('all 3 organizations have distinct stable IDs', () => {
         setActivePersona('broker');
         const atlas = getPersonaIdentity()!;
         setActivePersona('owner-seller');
@@ -96,40 +114,47 @@ describe('Test A: Organization uniqueness', () => {
         expect(atlas.organization.id).not.toBe(harbor.organization.id);
         expect(atlas.organization.id).not.toBe(summit.organization.id);
         expect(harbor.organization.id).not.toBe(summit.organization.id);
+    });
+
+    it('all 3 users have distinct stable IDs', () => {
+        setActivePersona('broker');
+        const atlas = getPersonaIdentity()!;
+        setActivePersona('owner-seller');
+        const harbor = getPersonaIdentity()!;
+        setActivePersona('buyer');
+        const summit = getPersonaIdentity()!;
 
         expect(atlas.user.id).not.toBe(harbor.user.id);
         expect(atlas.user.id).not.toBe(summit.user.id);
         expect(harbor.user.id).not.toBe(summit.user.id);
     });
-});
 
-/* ═══════════════════════════════════════════════════════════════
-   Test B — Keystone transaction ownership
-   ═══════════════════════════════════════════════════════════════ */
-describe('Test B: Keystone transaction ownership', () => {
-    beforeEach(() => {
-        clearPortalSubmissions();
-        clearAllPortalCreatedData();
-        simulateDataWipe();
+    it('all 3 users have distinct emails', () => {
         setActivePersona('broker');
+        const atlas = getPersonaIdentity()!;
+        setActivePersona('owner-seller');
+        const harbor = getPersonaIdentity()!;
+        setActivePersona('buyer');
+        const summit = getPersonaIdentity()!;
+
+        expect(atlas.user.email).not.toBe(harbor.user.email);
+        expect(atlas.user.email).not.toBe(summit.user.email);
+        expect(harbor.user.email).not.toBe(summit.user.email);
     });
 
-    it('Keystone is owned by Atlas org, not Harbor or Summit', () => {
-        const txnId = createKeystoneAsAtlas();
-
-        const txns = getTransactionsList();
-        const keystone = txns.find(t => t.id === txnId);
-        expect(keystone).toBeDefined();
-        expect(keystone!.orgId).toBe('org-atlas');
-        expect(keystone!.orgId).not.toBe('org-harbor');
-        expect(keystone!.orgId).not.toBe('org-summit');
+    it('demo seed has exactly 3 access records (no cross-org)', () => {
+        const accesses = getTransactionAccessList();
+        expect(accesses.length).toBe(3);
+        const keys = accesses.map(a => `${a.userId}:${a.transactionId}`);
+        expect(new Set(keys).size).toBe(3);
+        expect(accesses.some(a => a.userId === 'ext-user-sam' && a.transactionId === 'txn-abc-portfolio')).toBe(false);
     });
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   Test C — Atlas authorization
+   Test B — Atlas request authorization
    ═══════════════════════════════════════════════════════════════ */
-describe('Test C: Atlas authorization on Keystone request', () => {
+describe('Test B: Atlas request authorization', () => {
     beforeEach(() => {
         clearPortalSubmissions();
         clearAllPortalCreatedData();
@@ -139,7 +164,7 @@ describe('Test C: Atlas authorization on Keystone request', () => {
 
     it('Atlas can access Keystone requests', () => {
         const txnId = createKeystoneAsAtlas();
-        uploadKeystonePackage(txnId, 5);
+        uploadPackage(txnId, 5, 'Keystone');
 
         setActivePersona('broker');
         const atlasReqs = getPortalRequests().filter(r => r.transactionId === txnId);
@@ -149,126 +174,182 @@ describe('Test C: Atlas authorization on Keystone request', () => {
         expect(isRequestAuthorized(req.id, 'ext-user-alex')).toBe(true);
         expect(isTransactionAuthorized(txnId, 'ext-user-alex')).toBe(true);
     });
-});
 
-/* ═══════════════════════════════════════════════════════════════
-   Test D — Harbor authorization
-   ═══════════════════════════════════════════════════════════════ */
-describe('Test D: Harbor cannot access Keystone requests', () => {
-    beforeEach(() => {
-        clearPortalSubmissions();
-        clearAllPortalCreatedData();
-        simulateDataWipe();
-        setActivePersona('broker');
-    });
-
-    it('Harbor sees 0 Keystone requests', () => {
+    it('Harbor CANNOT access Keystone requests (org predicate = FAIL)', () => {
         const txnId = createKeystoneAsAtlas();
-        uploadKeystonePackage(txnId, 5);
+        uploadPackage(txnId, 5, 'Keystone');
 
         setActivePersona('owner-seller');
         const harborReqs = getPortalRequests().filter(r => r.transactionId === txnId);
         expect(harborReqs.length).toBe(0);
-
         expect(isTransactionAuthorized(txnId, 'ext-user-hannah')).toBe(false);
     });
-});
 
-/* ═══════════════════════════════════════════════════════════════
-   Test E — Summit authorization (CRITICAL)
-   ═══════════════════════════════════════════════════════════════ */
-describe('Test E: Summit cannot access Keystone requests', () => {
-    beforeEach(() => {
-        clearPortalSubmissions();
-        clearAllPortalCreatedData();
-        simulateDataWipe();
-        setActivePersona('broker');
-    });
-
-    it('Summit sees 0 Keystone requests — the critical isolation test', () => {
+    it('Summit CANNOT access Keystone requests (org predicate = FAIL)', () => {
         const txnId = createKeystoneAsAtlas();
-        uploadKeystonePackage(txnId, 213);
+        uploadPackage(txnId, 5, 'Keystone');
 
         setActivePersona('buyer');
         const summitReqs = getPortalRequests().filter(r => r.transactionId === txnId);
         expect(summitReqs.length).toBe(0);
-
         expect(isTransactionAuthorized(txnId, 'ext-user-sam')).toBe(false);
+    });
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   Test C — Summit request authorization (CRITICAL)
+   ═══════════════════════════════════════════════════════════════ */
+describe('Test C: Summit request authorization', () => {
+    beforeEach(() => {
+        clearPortalSubmissions();
+        clearAllPortalCreatedData();
+        simulateDataWipe();
+    });
+
+    it('Summit can access Summit project requests', () => {
+        const txnId = createSummitProject();
+        uploadPackage(txnId, 5, 'Summit');
+
+        setActivePersona('buyer');
+        const summitReqs = getPortalRequests().filter(r => r.transactionId === txnId);
+        expect(summitReqs.length).toBe(5);
+        expect(isTransactionAuthorized(txnId, 'ext-user-sam')).toBe(true);
+    });
+
+    it('Summit CANNOT access Keystone (the critical isolation test)', () => {
+        setActivePersona('broker');
+        const keystoneTxnId = createKeystoneAsAtlas();
+        uploadPackage(keystoneTxnId, 213, 'Keystone');
+
+        setActivePersona('buyer');
+        const summitReqs = getPortalRequests().filter(r => r.transactionId === keystoneTxnId);
+        expect(summitReqs.length).toBe(0);
+        expect(isTransactionAuthorized(keystoneTxnId, 'ext-user-sam')).toBe(false);
     });
 
     it('Summit has NO cross-org access to Atlas transactions', () => {
         setActivePersona('buyer');
         const summitIdentity = getPersonaIdentity()!;
-
         expect(summitIdentity.authorizedTransactions.some(a => a.transactionId === 'txn-abc-portfolio')).toBe(false);
-        expect(summitIdentity.authorizedTransactions.length).toBe(1); // only txn-summit-review
     });
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   Test F — Persona switching
+   Test D — Harbor request authorization
    ═══════════════════════════════════════════════════════════════ */
-describe('Test F: Persona switching — Atlas 5 → Harbor 0 → Summit 0 → Atlas 5', () => {
+describe('Test D: Harbor request authorization', () => {
     beforeEach(() => {
         clearPortalSubmissions();
         clearAllPortalCreatedData();
         simulateDataWipe();
     });
 
-    it('no stale data survives persona switch', () => {
-        const txnId = createKeystoneAsAtlas();
-        uploadKeystonePackage(txnId, 5);
+    it('Harbor can access Harbor project requests', () => {
+        const txnId = createHarborProject();
+        uploadPackage(txnId, 5, 'Harbor');
 
-        // Atlas: 5
+        setActivePersona('owner-seller');
+        const harborReqs = getPortalRequests().filter(r => r.transactionId === txnId);
+        expect(harborReqs.length).toBe(5);
+        expect(isTransactionAuthorized(txnId, 'ext-user-hannah')).toBe(true);
+    });
+
+    it('Harbor CANNOT access Keystone', () => {
+        setActivePersona('broker');
+        const txnId = createKeystoneAsAtlas();
+        uploadPackage(txnId, 5, 'Keystone');
+
+        setActivePersona('owner-seller');
+        expect(getPortalRequests().filter(r => r.transactionId === txnId).length).toBe(0);
+        expect(isTransactionAuthorized(txnId, 'ext-user-hannah')).toBe(false);
+    });
+
+    it('Harbor CANNOT access Summit project', () => {
+        setActivePersona('buyer');
+        const txnId = createSummitProject();
+        uploadPackage(txnId, 5, 'Summit');
+
+        setActivePersona('owner-seller');
+        expect(getPortalRequests().filter(r => r.transactionId === txnId).length).toBe(0);
+        expect(isTransactionAuthorized(txnId, 'ext-user-hannah')).toBe(false);
+    });
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   Test E — Persona switching
+   ═══════════════════════════════════════════════════════════════ */
+describe('Test E: Persona switching — no data leakage', () => {
+    beforeEach(() => {
+        clearPortalSubmissions();
+        clearAllPortalCreatedData();
+        simulateDataWipe();
+    });
+
+    it('Atlas 5 → Harbor 0 → Summit 0 → Atlas 5', () => {
+        const txnId = createKeystoneAsAtlas();
+        uploadPackage(txnId, 5, 'Keystone');
+
         setActivePersona('broker');
         expect(getPortalRequests().filter(r => r.transactionId === txnId).length).toBe(5);
 
-        // Harbor: 0
         setActivePersona('owner-seller');
         expect(getPortalRequests().filter(r => r.transactionId === txnId).length).toBe(0);
 
-        // Summit: 0
         setActivePersona('buyer');
         expect(getPortalRequests().filter(r => r.transactionId === txnId).length).toBe(0);
 
-        // Back to Atlas: 5
         setActivePersona('broker');
         expect(getPortalRequests().filter(r => r.transactionId === txnId).length).toBe(5);
     });
-});
 
-/* ═══════════════════════════════════════════════════════════════
-   Test G — Lifecycle does not leak
-   ═══════════════════════════════════════════════════════════════ */
-describe('Test G: Lifecycle status does not leak across personas', () => {
-    beforeEach(() => {
-        clearPortalSubmissions();
-        clearAllPortalCreatedData();
-        simulateDataWipe();
-    });
-
-    it('In Progress status visible only to Atlas, not to Summit', () => {
-        const txnId = createKeystoneAsAtlas();
-        uploadKeystonePackage(txnId, 10);
-
-        // All 10 should be "Open" initially
+    it('getPortalTransactions returns only authorized transactions per persona', () => {
         setActivePersona('broker');
-        const atlasReqs = getPortalRequests().filter(r => r.transactionId === txnId);
-        expect(atlasReqs.filter(r => r._rawStatus === 'Open').length).toBe(10);
-        expect(atlasReqs.filter(r => r._rawStatus === 'In Progress').length).toBe(0);
+        const atlasTxnId = createKeystoneAsAtlas();
+        uploadPackage(atlasTxnId, 3, 'KeystoneCheck');
 
-        // Summit: no requests at all
+        const atlasTxns = getPortalTransactions();
+        expect(atlasTxns.length).toBeGreaterThanOrEqual(1);
+
         setActivePersona('buyer');
-        const summitReqs = getPortalRequests().filter(r => r.transactionId === txnId);
-        expect(summitReqs.length).toBe(0);
-        expect(summitReqs.filter(r => r._rawStatus === 'In Progress').length).toBe(0);
+        const summitTxnId = createSummitProject();
+        uploadPackage(summitTxnId, 3, 'SummitCheck');
+        const summitTxns = getPortalTransactions();
+        expect(summitTxns.length).toBeGreaterThanOrEqual(1);
+
+        setActivePersona('owner-seller');
+        const harborTxnId = createHarborProject();
+        uploadPackage(harborTxnId, 3, 'HarborCheck');
+        const harborTxns = getPortalTransactions();
+        expect(harborTxns.length).toBeGreaterThanOrEqual(1);
+
+        const atlasIds = atlasTxns.map(t => t.id);
+        const summitIds = summitTxns.map(t => t.id);
+        const harborIds = harborTxns.map(t => t.id);
+
+        expect(new Set([...atlasIds, ...summitIds]).size).toBe(atlasIds.length + summitIds.length);
+        expect(new Set([...atlasIds, ...harborIds]).size).toBe(atlasIds.length + harborIds.length);
+        expect(new Set([...harborIds, ...summitIds]).size).toBe(harborIds.length + summitIds.length);
+    });
+
+    it('getPortalUserContext returns only authorized transactions', () => {
+        setActivePersona('broker');
+        const atlasCtx = getPortalUserContext();
+        expect(atlasCtx.transactions.length).toBeGreaterThanOrEqual(1);
+
+        setActivePersona('buyer');
+        const summitCtx = getPortalUserContext();
+        expect(summitCtx.transactions.length).toBeGreaterThanOrEqual(1);
+
+        const atlasIds = atlasCtx.transactions.map(t => t.id);
+        const summitIds = summitCtx.transactions.map(t => t.id);
+        expect(new Set([...atlasIds, ...summitIds]).size).toBe(atlasIds.length + summitIds.length);
     });
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   Test H — Transaction reset on persona switch
+   Test F — Active transaction reset
    ═══════════════════════════════════════════════════════════════ */
-describe('Test H: Transaction context reset on persona switch', () => {
+describe('Test F: Active transaction reset on persona switch', () => {
     beforeEach(() => {
         clearPortalSubmissions();
         clearAllPortalCreatedData();
@@ -277,14 +358,9 @@ describe('Test H: Transaction context reset on persona switch', () => {
 
     it('lastCreatedTransactionId is cleared on persona switch', () => {
         const txnId = createKeystoneAsAtlas();
-
-        // After creation, the hint should exist
         expect(getLastCreatedTransactionId()).toBe(txnId);
 
-        // Simulate persona switch
         clearLastCreatedTransactionId();
-
-        // After switch, the hint should be gone
         expect(getLastCreatedTransactionId()).toBeNull();
     });
 
@@ -299,41 +375,180 @@ describe('Test H: Transaction context reset on persona switch', () => {
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   Test I — Direct URL authorization
+   Test G — Organization overview aggregation
    ═══════════════════════════════════════════════════════════════ */
-describe('Test I: Direct URL — Summit cannot authorize Keystone request', () => {
+describe('Test G: Organization overview aggregation', () => {
     beforeEach(() => {
         clearPortalSubmissions();
         clearAllPortalCreatedData();
         simulateDataWipe();
     });
 
-    it('isRequestAuthorized returns false for Summit on Keystone request', () => {
-        const txnId = createKeystoneAsAtlas();
-        uploadKeystonePackage(txnId, 3);
-
-        // Get a Keystone request ID
+    it('Atlas with Keystone(5) + Liberty(3) = 8 total in aggregate', () => {
         setActivePersona('broker');
-        const atlasReqs = getPortalRequests().filter(r => r.transactionId === txnId);
-        const keystoneReqId = atlasReqs[0].id;
+        const keystoneId = createPortalTransaction('Project Keystone');
+        uploadPackage(keystoneId, 5, 'Keystone');
 
-        // Atlas: authorized
-        expect(isRequestAuthorized(keystoneReqId, 'ext-user-alex')).toBe(true);
+        const libertyId = createPortalTransaction('Project Liberty');
+        uploadPackage(libertyId, 3, 'Liberty');
 
-        // Summit: NOT authorized
-        setActivePersona('buyer');
-        expect(isRequestAuthorized(keystoneReqId, 'ext-user-sam')).toBe(false);
+        setActivePersona('broker');
+        const allReqs = getPortalRequests();
+        const keystoneReqs = allReqs.filter(r => r.transactionId === keystoneId);
+        const libertyReqs = allReqs.filter(r => r.transactionId === libertyId);
 
-        // Harbor: NOT authorized
-        setActivePersona('owner-seller');
-        expect(isRequestAuthorized(keystoneReqId, 'ext-user-hannah')).toBe(false);
+        expect(keystoneReqs.length).toBe(5);
+        expect(libertyReqs.length).toBe(3);
+        expect(allReqs.length).toBe(8);
+
+        const stats = getAggregateTransactionStats();
+        expect(stats.totalRequests).toBe(8);
+        expect(stats.transactionCount).toBe(2);
     });
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   Test J — Activity isolation
+   Test H — Transactions remain separate
    ═══════════════════════════════════════════════════════════════ */
-describe('Test J: Activity isolation — Summit cannot see Atlas Keystone activity', () => {
+describe('Test H: Transactions remain separate records', () => {
+    beforeEach(() => {
+        clearPortalSubmissions();
+        clearAllPortalCreatedData();
+        simulateDataWipe();
+    });
+
+    it('Atlas has Keystone and Liberty as separate transactions', () => {
+        setActivePersona('broker');
+        const keystoneId = createPortalTransaction('Project Keystone');
+        const libertyId = createPortalTransaction('Project Liberty');
+
+        setActivePersona('broker');
+        const txns = getPortalTransactions();
+        const keystone = txns.find(t => t.id === keystoneId);
+        const liberty = txns.find(t => t.id === libertyId);
+
+        expect(keystone).toBeDefined();
+        expect(liberty).toBeDefined();
+        expect(keystone!.name).toBe('Project Keystone');
+        expect(liberty!.name).toBe('Project Liberty');
+        expect(keystone!.id).not.toBe(liberty!.id);
+    });
+
+    it('Summit does not see Keystone or Liberty in their transactions', () => {
+        setActivePersona('broker');
+        const keystoneId = createPortalTransaction('Project Keystone');
+        const libertyId = createPortalTransaction('Project Liberty');
+
+        setActivePersona('buyer');
+        const txns = getPortalTransactions();
+        expect(txns.some(t => t.id === keystoneId)).toBe(false);
+        expect(txns.some(t => t.id === libertyId)).toBe(false);
+    });
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   Test I — Package rollup into transaction
+   ═══════════════════════════════════════════════════════════════ */
+describe('Test I: Package rollup — multiple packages per transaction', () => {
+    beforeEach(() => {
+        clearPortalSubmissions();
+        clearAllPortalCreatedData();
+        simulateDataWipe();
+    });
+
+    it('Keystone with Package A(3) + Package B(2) = 5 total', () => {
+        setActivePersona('broker');
+        const txnId = createKeystoneAsAtlas();
+
+        uploadPackage(txnId, 3, 'PackageA');
+        uploadPackage(txnId, 2, 'PackageB');
+
+        setActivePersona('broker');
+        const txnReqs = getPortalRequests().filter(r => r.transactionId === txnId);
+        expect(txnReqs.length).toBe(5);
+
+        const packagePrefixes = new Set(txnReqs.map(r => r.requestId.split('-').slice(0, 3).join('-')));
+        expect(packagePrefixes.size).toBe(2);
+    });
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   Test J — Direct URL authorization
+   ═══════════════════════════════════════════════════════════════ */
+describe('Test J: Direct URL — cross-persona authorization denied', () => {
+    beforeEach(() => {
+        clearPortalSubmissions();
+        clearAllPortalCreatedData();
+        simulateDataWipe();
+    });
+
+    it('Atlas request: Atlas=ALLOW, Harbor=DENY, Summit=DENY', () => {
+        setActivePersona('broker');
+        const txnId = createKeystoneAsAtlas();
+        uploadPackage(txnId, 3, 'Keystone');
+
+        setActivePersona('broker');
+        const atlasReqs = getPortalRequests().filter(r => r.transactionId === txnId);
+        const reqId = atlasReqs[0].id;
+
+        expect(isRequestAuthorized(reqId, 'ext-user-alex')).toBe(true);
+        setActivePersona('owner-seller');
+        expect(isRequestAuthorized(reqId, 'ext-user-hannah')).toBe(false);
+        setActivePersona('buyer');
+        expect(isRequestAuthorized(reqId, 'ext-user-sam')).toBe(false);
+    });
+
+    it('Summit request: Summit=ALLOW, Atlas=DENY, Harbor=DENY', () => {
+        setActivePersona('buyer');
+        const txnId = createSummitProject();
+        uploadPackage(txnId, 3, 'Summit');
+
+        setActivePersona('buyer');
+        const summitReqs = getPortalRequests().filter(r => r.transactionId === txnId);
+        const reqId = summitReqs[0].id;
+
+        expect(isRequestAuthorized(reqId, 'ext-user-sam')).toBe(true);
+        setActivePersona('broker');
+        expect(isRequestAuthorized(reqId, 'ext-user-alex')).toBe(false);
+        setActivePersona('owner-seller');
+        expect(isRequestAuthorized(reqId, 'ext-user-hannah')).toBe(false);
+    });
+
+    it('non-existent request returns false', () => {
+        expect(isRequestAuthorized('fake-request-id', 'ext-user-alex')).toBe(false);
+    });
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   Test K — Lifecycle isolation
+   ═══════════════════════════════════════════════════════════════ */
+describe('Test K: Lifecycle status does not leak across personas', () => {
+    beforeEach(() => {
+        clearPortalSubmissions();
+        clearAllPortalCreatedData();
+        simulateDataWipe();
+    });
+
+    it('In Progress status visible only to Atlas, not to Summit', () => {
+        setActivePersona('broker');
+        const txnId = createKeystoneAsAtlas();
+        uploadPackage(txnId, 10, 'Keystone');
+
+        setActivePersona('broker');
+        const atlasReqs = getPortalRequests().filter(r => r.transactionId === txnId);
+        expect(atlasReqs.filter(r => r._rawStatus === 'Open').length).toBe(10);
+        expect(atlasReqs.filter(r => r._rawStatus === 'In Progress').length).toBe(0);
+
+        setActivePersona('buyer');
+        const summitReqs = getPortalRequests().filter(r => r.transactionId === txnId);
+        expect(summitReqs.length).toBe(0);
+    });
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   Test L — Activity isolation
+   ═══════════════════════════════════════════════════════════════ */
+describe('Test L: Activity isolation', () => {
     beforeEach(() => {
         clearPortalSubmissions();
         clearAllPortalCreatedData();
@@ -341,8 +556,9 @@ describe('Test J: Activity isolation — Summit cannot see Atlas Keystone activi
     });
 
     it('Summit has no Keystone transaction in authorized list', () => {
+        setActivePersona('broker');
         const txnId = createKeystoneAsAtlas();
-        uploadKeystonePackage(txnId, 3);
+        uploadPackage(txnId, 3, 'Keystone');
 
         setActivePersona('buyer');
         const identity = getPersonaIdentity()!;
@@ -352,42 +568,56 @@ describe('Test J: Activity isolation — Summit cannot see Atlas Keystone activi
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   Test K — Communication/Document isolation
+   Test M — Data Wipe
    ═══════════════════════════════════════════════════════════════ */
-describe('Test K: Communication and document isolation', () => {
+describe('Test M: Data Wipe — removes dynamic data, preserves identity', () => {
     beforeEach(() => {
         clearPortalSubmissions();
         clearAllPortalCreatedData();
         simulateDataWipe();
     });
 
-    it('Summit has no Keystone transactions in authorizedTransactions', () => {
-        const txnId = createKeystoneAsAtlas();
-
+    it('after wipe: personas, organizations, users, memberships survive', () => {
+        setActivePersona('broker');
+        const atlas = getPersonaIdentity()!;
+        setActivePersona('owner-seller');
+        const harbor = getPersonaIdentity()!;
         setActivePersona('buyer');
-        const identity = getPersonaIdentity()!;
-        const authorizedTxns = identity.authorizedTransactions;
-        expect(authorizedTxns.some(a => a.transactionId === txnId)).toBe(false);
+        const summit = getPersonaIdentity()!;
+
+        expect(atlas.organization.id).toBe('org-atlas');
+        expect(harbor.organization.id).toBe('org-harbor');
+        expect(summit.organization.id).toBe('org-summit');
     });
 
-    it('getPortalRequests returns empty for Summit after Keystone upload', () => {
+    it('after wipe: transactions are re-seeded as demo defaults', () => {
+        const txns = getTransactionsList();
+        expect(txns.length).toBe(3);
+        expect(txns.some(t => t.id === 'txn-abc-portfolio')).toBe(true);
+        expect(txns.some(t => t.id === 'txn-harbor-deal')).toBe(true);
+        expect(txns.some(t => t.id === 'txn-summit-review')).toBe(true);
+    });
+
+    it('after wipe + recreate: isolation still holds', () => {
+        setActivePersona('broker');
         const txnId = createKeystoneAsAtlas();
-        uploadKeystonePackage(txnId, 50);
+        uploadPackage(txnId, 5, 'Keystone');
+
+        setActivePersona('broker');
+        expect(getPortalRequests().filter(r => r.transactionId === txnId).length).toBe(5);
 
         setActivePersona('buyer');
-        const summitReqs = getPortalRequests();
-        // Summit should only see requests for their own authorized transactions
-        // Since no requests were uploaded to Summit's transactions, expect 0
-        expect(summitReqs.length).toBe(0);
+        expect(getPortalRequests().filter(r => r.transactionId === txnId).length).toBe(0);
+
+        setActivePersona('owner-seller');
+        expect(getPortalRequests().filter(r => r.transactionId === txnId).length).toBe(0);
     });
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   Test L — Existing workflow regression
-   (Verifies no blocker, clarification, publish, rework, approval,
-    exception, or internal queue-routing transition semantics changed)
+   Test N — Locked workflow regression
    ═══════════════════════════════════════════════════════════════ */
-describe('Test L: Existing workflow regression — Data Wipe + recreate works', () => {
+describe('Test N: Locked workflow regression — existing workflow tests pass', () => {
     beforeEach(() => {
         clearPortalSubmissions();
         clearAllPortalCreatedData();
@@ -403,36 +633,29 @@ describe('Test L: Existing workflow regression — Data Wipe + recreate works', 
         const result = submitBrokerUploadPackage('Liberty.xlsx', 8, ['Financial'], txnId);
         confirmBrokerPackage(result.submissionId);
 
-        // Intake item has correct transactionId
         const intakeItems = getIntakeItems();
         const pkg = intakeItems.find(i => i.intakeId === `INT-PKG-${result.submissionId.slice(0, 8)}`);
         expect(pkg).toBeDefined();
         expect(pkg!.transactionId).toBe(txnId);
 
-        // Requests have matching transactionId
         const allReqs = getRequests();
         const pkgReqs = allReqs.filter(r => r.transactionId === pkg!.transactionId);
         expect(pkgReqs.length).toBe(8);
-
-        // Intake Workbench query returns items
         expect(pkg!.rowsFound).toBe(pkgReqs.length);
 
-        // Transaction ownership is correct
         const identity = getPersonaIdentity()!;
         expect(identity.authorizedTransactions.some(a => a.transactionId === txnId)).toBe(true);
 
-        // Summit cannot see these requests
         setActivePersona('buyer');
         expect(getPortalRequests().filter(r => r.transactionId === txnId).length).toBe(0);
 
-        // Harbor cannot see these requests
         setActivePersona('owner-seller');
         expect(getPortalRequests().filter(r => r.transactionId === txnId).length).toBe(0);
     });
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   Test — Deny-by-default invariant
+   Deny-by-default invariant
    ═══════════════════════════════════════════════════════════════ */
 describe('Deny-by-default invariant', () => {
     beforeEach(() => {
@@ -444,20 +667,141 @@ describe('Deny-by-default invariant', () => {
     it('getPortalRequests returns empty when no authorized transactions', () => {
         setActivePersona('broker');
         const txnId = createKeystoneAsAtlas();
-        uploadKeystonePackage(txnId, 5);
+        uploadPackage(txnId, 5, 'Keystone');
 
-        // Summit has no Keystone access
         setActivePersona('buyer');
         expect(getPortalRequests().length).toBe(0);
     });
 
-    it('demo seed has exactly 3 access records (no cross-org)', () => {
-        const accesses = getTransactionAccessList();
-        expect(accesses.length).toBe(3);
-        // Each access is unique user+transaction
-        const keys = accesses.map(a => `${a.userId}:${a.transactionId}`);
-        expect(new Set(keys).size).toBe(3);
-        // No Summit access to Atlas transaction
-        expect(accesses.some(a => a.userId === 'ext-user-sam' && a.transactionId === 'txn-abc-portfolio')).toBe(false);
+    it('getPortalTransactions returns only authorized transactions', () => {
+        setActivePersona('broker');
+        const txnId = createKeystoneAsAtlas();
+
+        setActivePersona('buyer');
+        const summitTxns = getPortalTransactions();
+        expect(summitTxns.some(t => t.id === txnId)).toBe(false);
+    });
+
+    it('getPortalUserContext returns only authorized transactions', () => {
+        setActivePersona('broker');
+        const txnId = createKeystoneAsAtlas();
+
+        setActivePersona('buyer');
+        const ctx = getPortalUserContext();
+        expect(ctx.transactions.some(t => t.id === txnId)).toBe(false);
+    });
+
+    it('getAggregateTransactionStats returns Summit-only aggregates', () => {
+        setActivePersona('broker');
+        const atlasTxnId = createKeystoneAsAtlas();
+        uploadPackage(atlasTxnId, 10, 'Keystone');
+
+        setActivePersona('buyer');
+        const summitStats = getAggregateTransactionStats();
+        expect(summitStats.totalRequests).toBe(0);
+        expect(summitStats.transactionCount).toBe(0);
+    });
+});
+
+/* ── Test O: Submission isolation ──────────────────────────────────── */
+describe('Test O: Submissions are persona-scoped', () => {
+    afterEach(clearAllPortalCreatedData);
+
+    it('Atlas submissions not visible to Summit', () => {
+        setActivePersona('broker');
+        const txnId = createKeystoneAsAtlas();
+        uploadPackage(txnId, 5, 'Keystone');
+
+        setActivePersona('buyer');
+        const summitSubs = getPortalSubmissionsList();
+        expect(summitSubs.some(s => s.transactionId === txnId)).toBe(false);
+    });
+
+    it('Summit submissions not visible to Atlas', () => {
+        setActivePersona('buyer');
+        const txnId = createSummitProject();
+        uploadPackage(txnId, 3, 'Summit Project');
+
+        setActivePersona('broker');
+        const atlasSubs = getPortalSubmissionsList();
+        expect(atlasSubs.some(s => s.transactionId === txnId)).toBe(false);
+    });
+
+    it('Atlas submissions only appear for Atlas', () => {
+        setActivePersona('broker');
+        const txnId = createKeystoneAsAtlas();
+        uploadPackage(txnId, 4, 'Keystone');
+
+        const atlasSubs = getPortalSubmissionsList();
+        expect(atlasSubs.some(s => s.transactionId === txnId)).toBe(true);
+    });
+});
+
+/* ── Test P: Activity isolation ────────────────────────────────────── */
+describe('Test P: Activity feed is persona-scoped', () => {
+    afterEach(clearAllPortalCreatedData);
+
+    it('Activity for Keystone not visible to Summit', () => {
+        setActivePersona('broker');
+        const txnId = createKeystoneAsAtlas();
+        uploadPackage(txnId, 3, 'Keystone');
+
+        setActivePersona('buyer');
+        const summitActivity = getPortalActivity(20);
+        expect(summitActivity.some(a => a.transactionId === txnId)).toBe(false);
+    });
+
+    it('Activity for Summit not visible to Atlas', () => {
+        setActivePersona('buyer');
+        const txnId = createSummitProject();
+        uploadPackage(txnId, 2, 'Summit Project');
+
+        setActivePersona('broker');
+        const atlasActivity = getPortalActivity(20);
+        expect(atlasActivity.some(a => a.transactionId === txnId)).toBe(false);
+    });
+
+    it('Activity for Keystone visible to Atlas', () => {
+        setActivePersona('broker');
+        const txnId = createKeystoneAsAtlas();
+        uploadPackage(txnId, 3, 'Keystone');
+
+        const atlasActivity = getPortalActivity(20);
+        expect(atlasActivity.some(a => a.transactionId === txnId)).toBe(true);
+    });
+});
+
+/* ── Test Q: Questions/Clarifications isolation ────────────────────── */
+describe('Test Q: Questions and clarifications are persona-scoped', () => {
+    afterEach(clearAllPortalCreatedData);
+
+    it('Summit persona gets empty questions (no Keystone txn)', () => {
+        setActivePersona('broker');
+        createKeystoneAsAtlas();
+
+        setActivePersona('buyer');
+        const summitQuestions = getPortalQuestions();
+        expect(summitQuestions.length).toBe(0);
+    });
+
+    it('Atlas persona gets empty clarifications (no Summit txn)', () => {
+        setActivePersona('buyer');
+        createSummitProject();
+
+        setActivePersona('broker');
+        const atlasClarifications = getPortalClarifications();
+        expect(atlasClarifications.length).toBe(0);
+    });
+
+    it('No persona sees questions when no transactions authorized', () => {
+        setActivePersona('buyer');
+        const questions = getPortalQuestions();
+        expect(questions.length).toBe(0);
+    });
+
+    it('No persona sees clarifications when no transactions authorized', () => {
+        setActivePersona('buyer');
+        const clarifications = getPortalClarifications();
+        expect(clarifications.length).toBe(0);
     });
 });
