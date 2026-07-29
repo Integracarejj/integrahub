@@ -88,9 +88,10 @@ export interface RecapRequest {
     _exceptionDecisionNote?: string | null;
     /** Archive fields */
     _archived?: boolean;
-    _archiveReason?: "Duplicate" | "Not Applicable" | "Cancelled" | "Closed" | null;
+    _archiveReason?: "Duplicate" | "Not Applicable" | "Cancelled" | "Closed" | "Entered in Error" | "No Longer Required" | "Superseded" | "Testing / Data Cleanup" | "Other" | null;
     _archivedAt?: string | null;
     _archivedBy?: string | null;
+    _archiveNote?: string | null;
     /** Blocker workflow fields */
     _blockerReason?: string | null;
     _blockerStatus?: "Raised" | "Pending External" | "External Response Received" | "Resolved" | null;

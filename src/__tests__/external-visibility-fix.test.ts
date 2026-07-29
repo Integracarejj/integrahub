@@ -125,9 +125,9 @@ describe('Test B: Generated requests inherit package context', () => {
             expect((req as any).userName).toBe('Morgan Blake');
         }
 
-        // transactionName should be the package name
+        // transactionName should resolve to the transaction name, not the package name
         for (const req of keystoneRequests) {
-            expect(req.transactionName).toBe('Keystone_DD');
+            expect(req.transactionName).toBe('Project Keystone');
         }
     });
 });

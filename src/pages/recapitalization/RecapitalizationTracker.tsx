@@ -5,6 +5,7 @@ import {
     updateRequestStatus, updateRequestOwner, updateRequestTeam, addActivityEntry,
     updateRequestPriority, updateRequestDueDate, updateRequestExternalStatus, isDemoActive,
     bulkUpdateDemoRequests, getWorkArtifactsByRequest, promoteToReusableKnowledge, getReusableKnowledgeRecommendation,
+    archiveRequest, isPlatformAdminActive, permanentlyDeleteRequest,
 } from "../../services/recapDataService";
 
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
@@ -39,6 +40,7 @@ export default function RecapitalizationTracker() {
     const [filterOwner, setFilterOwner] = useState("all");
     const [filterExternal, setFilterExternal] = useState("all");
     const [filterOrg, setFilterOrg] = useState("all");
+    const [filterArchive, setFilterArchive] = useState<"active" | "archived" | "all">("active");
 
     const [overdueOnly, setOverdueOnly] = useState(false);
     const [myItems, setMyItems] = useState(false);
@@ -60,6 +62,11 @@ export default function RecapitalizationTracker() {
     const [artifactWarning, setArtifactWarning] = useState<{ req: RecapRequest; newStatus: string } | null>(null);
     const [pendingAssign, setPendingAssign] = useState<{ req: RecapRequest; owner: string } | null>(null);
     const [artifactListModal, setArtifactListModal] = useState<{ req: RecapRequest; artifacts: WorkArtifact[] } | null>(null);
+    const [archiveModal, setArchiveModal] = useState<{ reqs: RecapRequest[]; single: boolean } | null>(null);
+    const [archiveReason, setArchiveReason] = useState("");
+    const [archiveNote, setArchiveNote] = useState("");
+    const [deleteModal, setDeleteModal] = useState<{ req: RecapRequest } | null>(null);
+    const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
     const selectAllRef = useRef<HTMLInputElement>(null);
 
@@ -107,8 +114,10 @@ export default function RecapitalizationTracker() {
         if (filterExternal === "internal") result = result.filter(r => !(r as any)._publishedExternal && r.status !== "Complete");
         if (filterExternal === "ready") result = result.filter(r => !(r as any)._publishedExternal && r.status === "Complete");
         if (filterExternal === "published") result = result.filter(r => (r as any)._publishedExternal);
+        if (filterArchive === "active") result = result.filter(r => !r._archived);
+        if (filterArchive === "archived") result = result.filter(r => r._archived);
         return result;
-    }, [allRequests, search, filterTxn, filterOrg, filterStatus, filterPriority, filterTeam, filterOwner, filterExternal, overdueOnly, myItems, currentUser, publishedBatchId, sourcePackageId, sourceIntakeId]);
+    }, [allRequests, search, filterTxn, filterOrg, filterStatus, filterPriority, filterTeam, filterOwner, filterExternal, overdueOnly, myItems, currentUser, publishedBatchId, sourcePackageId, sourceIntakeId, filterArchive]);
 
     const totalActiveRequests = useMemo(() => allRequests.filter(r => r._publishedAt || r._createdFromReview).length, [allRequests]);
 
@@ -280,6 +289,11 @@ export default function RecapitalizationTracker() {
                         <option value="ready">Ready to Publish</option>
                         <option value="published">Published External</option>
                     </select>
+                    <select className="rc-filter-select" value={filterArchive} onChange={e => setFilterArchive(e.target.value as "active" | "archived" | "all")} style={{ fontSize: 11, minWidth: 90 }}>
+                        <option value="active">Active</option>
+                        <option value="archived">Archived</option>
+                        <option value="all">All</option>
+                    </select>
                     <div className="rc-toggle-group">
                         <button className={`rc-toggle-btn${!myItems ? " rc-toggle-active" : ""}`} onClick={() => setMyItems(false)}>All Items</button>
                         <button className={`rc-toggle-btn${myItems ? " rc-toggle-active" : ""}`} onClick={() => {
@@ -307,6 +321,8 @@ export default function RecapitalizationTracker() {
                         <span>selected</span>
                         <div className="rc-bulk-sep" />
                         <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={() => { setBulkEdit({ owner: "", team: "", priority: "", status: "", dueDate: "", visible: "" }); setBulkModalOpen(true); }}>Bulk Update</button>
+                        <div className="rc-bulk-sep" />
+                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => { setArchiveReason(""); setArchiveNote(""); setArchiveModal({ reqs: [...selectedIds].map(id => allRequests.find(r => r.id === id)).filter(Boolean) as RecapRequest[], single: false }); }}>Archive Selected</button>
                         <div className="rc-bulk-sep" />
                         <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={clearSelection}>Clear Selection</button>
                     </div>
@@ -444,6 +460,14 @@ export default function RecapitalizationTracker() {
                                             </span>
                                         ) : (
                                             <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Publish External" onClick={e => { e.stopPropagation(); setDetailModalItem(req); setPublishStep(1); setPublishSelectedArtifactNames(getWorkArtifactsByRequest(getArtifactKey(req)).map(a => a.name)); setPublishExternalNote(""); }} style={{ fontSize: 12, fontWeight: 700, color: "#166534" }}>{req.status === "Needs Rework" ? "RP" : "P"}</button>
+                                        )}
+                                        {!req._archived ? (
+                                            <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Archive" onClick={e => { e.stopPropagation(); setArchiveReason(""); setArchiveNote(""); setArchiveModal({ reqs: [req], single: true }); }} style={{ fontSize: 12, fontWeight: 700, color: "#64748b" }}>A</button>
+                                        ) : (
+                                            <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Unarchive" onClick={e => { e.stopPropagation(); setRefreshKey(k => k + 1); }} style={{ fontSize: 12, fontWeight: 700, color: "#64748b" }}>U</button>
+                                        )}
+                                        {isPlatformAdminActive() && (
+                                            <button className="rc-btn rc-btn-ghost rc-btn-sm rc-btn-icon" title="Permanently Delete" onClick={e => { e.stopPropagation(); setDeleteConfirmText(""); setDeleteModal({ req }); }} style={{ fontSize: 12, fontWeight: 700, color: "#991b1b" }}>Del</button>
                                         )}
                                     </div>
                                 </td>
@@ -655,6 +679,113 @@ export default function RecapitalizationTracker() {
                         </div>
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-primary" onClick={() => setArtifactListModal(null)}>Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {archiveModal && (
+                <div className="rc-modal-overlay" onClick={() => setArchiveModal(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="rc-modal-header">
+                            <h2>Archive {archiveModal.single ? "Request" : `${archiveModal.reqs.length} Requests`}</h2>
+                            <button className="rc-modal-close" onClick={() => setArchiveModal(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            {archiveModal.single ? (
+                                <div style={{ fontSize: 13, color: "#1e293b", marginBottom: 16 }}>
+                                    Archive <strong>{archiveModal.reqs[0].requestId}</strong> &mdash; {archiveModal.reqs[0].title.split(" - ").slice(1).join(" - ").trim() || archiveModal.reqs[0].title}?
+                                </div>
+                            ) : (
+                                <div style={{ fontSize: 13, color: "#1e293b", marginBottom: 16 }}>
+                                    Archive <strong>{archiveModal.reqs.length}</strong> requests?
+                                </div>
+                            )}
+                            <div style={{ marginBottom: 12 }}>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", display: "block", marginBottom: 4 }}>Reason</label>
+                                <select value={archiveReason} onChange={e => setArchiveReason(e.target.value)} style={{ width: "100%", padding: "6px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 4 }}>
+                                    <option value="">Select a reason...</option>
+                                    <option value="Duplicate">Duplicate</option>
+                                    <option value="Entered in Error">Entered in Error</option>
+                                    <option value="No Longer Required">No Longer Required</option>
+                                    <option value="Superseded">Superseded</option>
+                                    <option value="Testing / Data Cleanup">Testing / Data Cleanup</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            {archiveReason === "Other" && (
+                                <div>
+                                    <label style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", display: "block", marginBottom: 4 }}>Note (required)</label>
+                                    <textarea value={archiveNote} onChange={e => setArchiveNote(e.target.value)} placeholder="Explain why this request is being archived..." rows={2} style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #cbd5e1", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }} />
+                                </div>
+                            )}
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setArchiveModal(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={!archiveReason} onClick={() => {
+                                const ids = archiveModal.reqs.map(r => r.id);
+                                ids.forEach(id => {
+                                    archiveRequest(id, archiveReason as any, archiveNote || undefined, "Sarah Chen");
+                                });
+                                setRefreshKey(k => k + 1);
+                                setBulkToast(`Archived ${ids.length} request${ids.length !== 1 ? "s" : ""}`);
+                                setArchiveModal(null);
+                                setArchiveReason("");
+                                setArchiveNote("");
+                                clearSelection();
+                            }}>Archive</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {deleteModal && (
+                <div className="rc-modal-overlay" onClick={() => setDeleteModal(null)}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="rc-modal-header">
+                            <h2 style={{ color: "#991b1b" }}>Permanent Delete</h2>
+                            <button className="rc-modal-close" onClick={() => setDeleteModal(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ padding: "12px 16px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, fontSize: 13, color: "#991b1b", marginBottom: 16, lineHeight: 1.5 }}>
+                                <strong>&#9888; This action cannot be undone.</strong>
+                                <div style={{ marginTop: 6 }}>
+                                    Permanently deleting <strong>{deleteModal.req.requestId}</strong> &mdash; {deleteModal.req.title.split(" - ").slice(1).join(" - ").trim() || deleteModal.req.title} will:
+                                </div>
+                                <ul style={{ margin: "6px 0 0 0", paddingLeft: 20, fontSize: 12 }}>
+                                    <li>Remove the request from all views</li>
+                                    <li>Delete related artifacts</li>
+                                    <li>Remove related activity entries</li>
+                                    <li>This cannot be reversed</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", display: "block", marginBottom: 4 }}>
+                                    Type <strong style={{ color: "#991b1b" }}>DELETE</strong> to confirm
+                                </label>
+                                <input
+                                    value={deleteConfirmText}
+                                    onChange={e => setDeleteConfirmText(e.target.value)}
+                                    placeholder="Type DELETE to confirm"
+                                    style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 4, fontFamily: "inherit", boxSizing: "border-box" }}
+                                />
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" onClick={() => setDeleteModal(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-danger" disabled={deleteConfirmText !== "DELETE"} onClick={() => {
+                                const id = deleteModal.req.id;
+                                const removed = permanentlyDeleteRequest(id);
+                                if (removed) {
+                                    setBulkToast(`Permanently deleted ${deleteModal.req.requestId}`);
+                                } else {
+                                    setBulkToast(`Could not delete ${deleteModal.req.requestId}`);
+                                }
+                                setRefreshKey(k => k + 1);
+                                setDeleteModal(null);
+                                setDeleteConfirmText("");
+                                clearSelection();
+                            }} style={{ background: "#dc2626", color: "#fff", border: "none", padding: "8px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Permanently Delete</button>
                         </div>
                     </div>
                 </div>

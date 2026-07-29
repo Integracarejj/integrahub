@@ -358,7 +358,14 @@ function ReviewEngine() {
         setPublishAll(true);
         setPublishing(true);
         setTimeout(() => {
-            const result = publishIntake();
+            let result: { publishedCount: number; publishedIds: string[]; publishedBatchId?: string };
+            if (scope) {
+                // Portal scope: publish all unpublished requests for this transaction
+                const ids = allRequests.filter(r => !r._publishedAt).map(r => r.id);
+                result = publishSelectedRequests(ids, { sourceIntakeId: scope.id, sourcePackageId: scope.id });
+            } else {
+                result = publishIntake();
+            }
             setPublishedCount(result.publishedCount);
             setPublishedBatchId(result.publishedBatchId);
             setPublishing(false);
@@ -801,7 +808,19 @@ function ReviewEngine() {
                                 </table>
                             </div>
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px", borderTop: "1px solid #e2e8f0", fontSize: 12, color: "#475569" }}>
-                                <span>Showing {rangeStart}&ndash;{rangeEnd} of {filtered.length} items</span>
+                                <span>
+                                    Showing {rangeStart}&ndash;{rangeEnd} of {filtered.length} items
+                                    {filtered.length > paginated.length && selectedIds.size < filtered.length && (
+                                        <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ marginLeft: 12, fontSize: 11, color: "#4338ca", fontWeight: 600, padding: "2px 8px" }} onClick={() => setSelectedIds(new Set(filtered.map(r => r.id)))}>
+                                            Select all {filtered.length} items across all pages
+                                        </button>
+                                    )}
+                                    {selectedIds.size === filtered.length && filtered.length > paginated.length && (
+                                        <button className="rc-btn rc-btn-ghost rc-btn-sm" style={{ marginLeft: 12, fontSize: 11, color: "#475569", padding: "2px 8px" }} onClick={() => { setSelectedIds(new Set()); setPage(0); }}>
+                                            Clear all {filtered.length} items
+                                        </button>
+                                    )}
+                                </span>
                                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                                     <button className="rc-btn rc-btn-ghost rc-btn-sm" disabled={safePage === 0} onClick={() => setPage(safePage - 1)} style={{ fontSize: 11, padding: "2px 10px" }}>Previous</button>
                                     <span style={{ fontWeight: 600, color: "#334155" }}>Page {safePage + 1} of {totalPages}</span>

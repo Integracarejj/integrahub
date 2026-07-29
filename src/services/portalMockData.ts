@@ -210,6 +210,13 @@ export function getTransactionsList(): ExternalTransaction[] {
     return stored;
 }
 
+export function resolveTransactionName(transactionId?: string, fallback?: string): string {
+    if (!transactionId) return fallback || "Unknown Transaction";
+    const txns = getTransactionsList();
+    const txn = txns.find(t => t.id === transactionId);
+    return txn?.name || fallback || transactionId;
+}
+
 export function addTransaction(txn: ExternalTransaction): void {
     const txns = getTransactionsList();
     txns.push(txn);
@@ -374,8 +381,9 @@ export interface PortalRequest {
     _exceptionDecisionNote?: string | null;
     _exceptionReason?: string | null;
     _archived?: boolean;
-    _archiveReason?: "Duplicate" | "Not Applicable" | "Cancelled" | "Closed" | null;
+    _archiveReason?: "Duplicate" | "Not Applicable" | "Cancelled" | "Closed" | "Entered in Error" | "No Longer Required" | "Superseded" | "Testing / Data Cleanup" | "Other" | null;
     _archivedAt?: string | null;
+    _archiveNote?: string | null;
     /** Raw internal status before external label mapping — use this for getExternalStatusInfo() */
     _rawStatus: string;
     /** Work notes for clarification routing */
@@ -567,6 +575,7 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
         _archived: !!req._archived,
         _archiveReason: req._archiveReason ?? null,
         _archivedAt: req._archivedAt ?? null,
+        _archiveNote: req._archiveNote ?? null,
         _rawStatus: req.status,
         _workNotes: req._workNotes,
         _publishedAt: req._publishedAt ?? null,
@@ -602,6 +611,7 @@ export function toExternalStatusInput(req: PortalRequest) {
         _processingStartedAt: req._processingStartedAt,
         _archived: req._archived,
         _archiveReason: req._archiveReason,
+        _archiveNote: req._archiveNote,
     };
 }
 
@@ -627,13 +637,34 @@ function mapRecapToPortalDocument(doc: RecapDocument): PortalDocument {
 
 /* ── Exported Functions ────────────────────────────────────── */
 
+function mapExternalToPortalTxn(txn: ExternalTransaction): PortalTransaction {
+    return {
+        id: txn.id,
+        name: txn.name,
+        description: txn.description,
+        status: txn.status || "Active",
+        sellerName: "",
+        buyerName: "",
+        brokerName: "",
+        targetClose: "",
+        totalRequests: 0,
+        providedCount: 0,
+        inProgressCount: 0,
+        clarificationNeededCount: 0,
+        communities: [],
+    };
+}
+
 export function getPortalUserContext(): PortalUserContext {
     const persona = getActivePersona();
     if (!isRecapDataWiped() && !isDemoActive()) {
         initDemo();
     }
     const identity = getPersonaIdentity();
-    const allTxns = getTransactions().map(mapRecapToPortalTxn);
+    let allTxns = getTransactions().map(mapRecapToPortalTxn);
+    if (allTxns.length === 0 && identity) {
+        allTxns = identity.allTransactions.map(mapExternalToPortalTxn);
+    }
     const authorizedTxnIds = new Set(identity?.authorizedTransactions.map(a => a.transactionId) || []);
     const transactions = authorizedTxnIds.size === 0 ? [] : allTxns.filter(t => authorizedTxnIds.has(t.id));
     return {
@@ -649,9 +680,12 @@ export function getPortalTransactions(): PortalTransaction[] {
     if (!isRecapDataWiped() && !isDemoActive()) {
         initDemo();
     }
-    const allTxns = getTransactions().map(mapRecapToPortalTxn);
+    let allTxns = getTransactions().map(mapRecapToPortalTxn);
     const identity = getPersonaIdentity();
     if (!identity) return [];
+    if (allTxns.length === 0) {
+        allTxns = identity.allTransactions.map(mapExternalToPortalTxn);
+    }
     const authorizedTxnIds = new Set(identity.authorizedTransactions.map(a => a.transactionId));
     if (authorizedTxnIds.size === 0) return [];
     return allTxns.filter(t => authorizedTxnIds.has(t.id));
@@ -1363,7 +1397,7 @@ export function mapParsedRowToRecapRequest(
         requestId: `DD-${prefix}-${subHash}-${String(index).padStart(3, "0")}`,
         intakeId: `INT-${prefix}-${index}`,
         transactionId: transactionId || `txn-portal-${submissionId}`,
-        transactionName: packageName,
+        transactionName: resolveTransactionName(transactionId, packageName),
         _sourcePackageId: `${submissionId}-intake`,
         _sourcePackageName: packageName || fileBaseName,
         _sourceFileName: fileBaseName,
@@ -1431,7 +1465,7 @@ function generatePortalRequests(submissionId: string, packageName: string, fileB
             requestId: `DD-${prefix}-${subHash}-${String(i).padStart(3, "0")}`,
             intakeId: `INT-${prefix}-${i}`,
             transactionId: transactionId || `txn-portal-${submissionId}`,
-            transactionName: packageName,
+            transactionName: resolveTransactionName(transactionId, packageName),
             _sourcePackageId: `${submissionId}-intake`,
             _sourcePackageName: packageName,
             _sourceFileName: fileBaseName,
@@ -1472,7 +1506,7 @@ function createPortalIntakeItem(submissionId: string, packageName: string, fileN
         title: `${packageName}${isABCDemo ? " (Gold Standard Demo)" : ""}`,
         description: `${isABCDemo ? "Gold standard due diligence package" : "Package uploaded via external portal"} containing ${requestCount} DD request items.`,
         transactionId: transactionId || (isABCDemo ? "txn-abc" : `txn-portal-${submissionId}`),
-        transactionName: packageName,
+        transactionName: resolveTransactionName(transactionId, packageName),
         submittedBy: userName || "External Portal",
         submittedAt: new Date().toISOString(),
         assignedTo: null,
@@ -1546,7 +1580,7 @@ export function submitBrokerUploadPackage(
         submittedAt: new Date().toISOString(),
         requestCount,
         status: "Analyzed",
-        transactionName: packageName,
+        transactionName: resolveTransactionName(transactionId, packageName),
         isABCDemo: false,
         orgId: identityUser?.organizationId,
         orgName: identityUser?.organizationName,
@@ -1596,7 +1630,7 @@ export function confirmBrokerPackage(submissionId?: string): void {
             requestId: null,
             requestTitle: null,
             transactionId: sub.isABCDemo ? "txn-abc" : `txn-portal-${submissionId}`,
-            transactionName: sub.packageName,
+            transactionName: sub.transactionName,
         });
         return;
     }
@@ -1632,7 +1666,7 @@ export function confirmBrokerPackage(submissionId?: string): void {
         requestId: null,
         requestTitle: null,
         transactionId: txnId || `txn-portal-${submissionId}`,
-        transactionName: sub.packageName,
+        transactionName: sub.transactionName,
     });
 }
 

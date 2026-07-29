@@ -173,48 +173,50 @@ export function isRecapDataWiped(): boolean {
     return isRecapWiped();
 }
 
+const DEMO_TRANSACTION_IDS = new Set(["txn-abc-portfolio", "txn-harbor-deal", "txn-summit-review"]);
+
 export function getTransactions(): RecapTransaction[] {
-    if (isRecapWiped()) {
-        const portalReqs = getPortalCreatedRequests();
-        const seen = new Set<string>();
-        const result = portalReqs.reduce<RecapTransaction[]>((acc, r) => {
-            if (!seen.has(r.transactionId)) {
-                seen.add(r.transactionId);
-                acc.push(makePortalTransaction(r.transactionId, r.transactionName));
-            }
-            return acc;
-        }, []);
-        // Also include ExternalTransactions created via createPortalTransaction()
-        // (they exist before any package is submitted, so no RecapTransaction yet)
-        try {
-            const extTxnsRaw = localStorage.getItem("integrasource.recap.portalTransactions");
-            if (extTxnsRaw) {
-                const extTxns = JSON.parse(extTxnsRaw) as { id: string; name: string }[];
-                for (const et of extTxns) {
-                    if (!seen.has(et.id)) {
-                        seen.add(et.id);
-                        result.push(makePortalTransaction(et.id, et.name));
-                    }
+    // Collect all unique transactions from portal-created requests (always included)
+    const portalReqs = getPortalCreatedRequests();
+    const seen = new Set<string>();
+    const result = portalReqs.reduce<RecapTransaction[]>((acc, r) => {
+        if (!seen.has(r.transactionId)) {
+            seen.add(r.transactionId);
+            acc.push(makePortalTransaction(r.transactionId, r.transactionName));
+        }
+        return acc;
+    }, []);
+    // Always include ExternalTransactions created via createPortalTransaction()
+    // (skip demo seed IDs so they don't leak into operational UI)
+    try {
+        const extTxnsRaw = localStorage.getItem("integrasource.recap.portalTransactions");
+        if (extTxnsRaw) {
+            const extTxns = JSON.parse(extTxnsRaw) as { id: string; name: string }[];
+            for (const et of extTxns) {
+                if (!seen.has(et.id) && !DEMO_TRANSACTION_IDS.has(et.id)) {
+                    seen.add(et.id);
+                    result.push(makePortalTransaction(et.id, et.name));
                 }
             }
-        } catch { /* ignore parse errors */ }
-        return result;
-    }
+        }
+    } catch { /* ignore parse errors */ }
+    // Add mode-specific transactions on top (Mock or Demo)
     if (isDemoLoaded()) {
         const txn = Demo.getDemoTransaction();
-        const result = txn ? [txn] : [];
-        // Include synthetic transactions for any portal-created packages (e.g. BonJovi)
-        const portalReqs = getPortalCreatedRequests();
-        const seenIds = new Set(result.map(t => t.id));
-        portalReqs.forEach(r => {
-            if (!seenIds.has(r.transactionId)) {
-                seenIds.add(r.transactionId);
-                result.push(makePortalTransaction(r.transactionId, r.transactionName));
+        if (txn && !seen.has(txn.id)) {
+            seen.add(txn.id);
+            result.unshift(txn);
+        }
+    } else if (!isRecapWiped()) {
+        const mockTxns = Mock.getTransactions();
+        for (const mt of mockTxns) {
+            if (!seen.has(mt.id)) {
+                seen.add(mt.id);
+                result.push(mt);
             }
-        });
-        return result;
+        }
     }
-    return Mock.getTransactions();
+    return result;
 }
 
 export function getActiveTransactions(): RecapTransaction[] {
@@ -222,15 +224,25 @@ export function getActiveTransactions(): RecapTransaction[] {
 }
 
 export function getTransactionById(id: string): RecapTransaction | undefined {
+    // Check demo first
     if (isDemoLoaded()) {
         const txn = Demo.getDemoTransaction();
         if (txn && txn.id === id) return txn;
-        // Check portal requests for matching transaction ID
-        const portalReqs = getPortalCreatedRequests();
-        const found = portalReqs.find(r => r.transactionId === id);
-        if (found) return makePortalTransaction(found.transactionId, found.transactionName);
-        return;
     }
+    // Check portal requests
+    const portalReqs = getPortalCreatedRequests();
+    const found = portalReqs.find(r => r.transactionId === id);
+    if (found) return makePortalTransaction(found.transactionId, found.transactionName);
+    // Check external transactions
+    try {
+        const extTxnsRaw = localStorage.getItem("integrasource.recap.portalTransactions");
+        if (extTxnsRaw) {
+            const extTxns = JSON.parse(extTxnsRaw) as { id: string; name: string }[];
+            const match = extTxns.find(e => e.id === id);
+            if (match) return makePortalTransaction(match.id, match.name);
+        }
+    } catch { /* ignore */ }
+    // Fall back to Mock
     return Mock.getTransactionById(id);
 }
 
@@ -1429,8 +1441,26 @@ export function getDemoReports() {
 }
 
 export function publishIntake(): { publishedCount: number; publishedIds: string[]; publishedBatchId?: string } {
-    if (isDemoLoaded()) return Demo.publishIntake();
-    return { publishedCount: 0, publishedIds: [] };
+    if (isDemoLoaded()) {
+        const demoResult = Demo.publishIntake();
+        // Also publish any portal-created requests that are not yet published
+        const portalReqs = getPortalCreatedRequests();
+        const unpublished = portalReqs.filter(r => !r._publishedAt);
+        if (unpublished.length > 0) {
+            const portalResult = publishSelectedRequests(unpublished.map(r => r.id));
+            return {
+                publishedCount: demoResult.publishedCount + portalResult.publishedCount,
+                publishedIds: [...demoResult.publishedIds, ...portalResult.publishedIds],
+                publishedBatchId: demoResult.publishedBatchId || portalResult.publishedBatchId,
+            };
+        }
+        return demoResult;
+    }
+    // No demo loaded: publish all unpublished portal-created requests
+    const portalReqs = getPortalCreatedRequests();
+    const unpublished = portalReqs.filter(r => !r._publishedAt);
+    if (unpublished.length === 0) return { publishedCount: 0, publishedIds: [] };
+    return publishSelectedRequests(unpublished.map(r => r.id));
 }
 
 export function publishSelectedRequests(ids: string[], sourceInfo?: { sourceIntakeId?: string; sourcePackageId?: string }): { publishedCount: number; publishedIds: string[]; publishedBatchId?: string } {
@@ -1775,6 +1805,124 @@ export function setRecapWiped(): void {
 
 export function clearRecapWiped(): void {
     Demo.clearRecapWiped();
+}
+
+/* ── Archive Functions ────────────────────────────────────── */
+
+export function archiveRequest(
+    id: string,
+    reason: "Duplicate" | "Not Applicable" | "Cancelled" | "Closed" | "Entered in Error" | "No Longer Required" | "Superseded" | "Testing / Data Cleanup" | "Other",
+    note?: string,
+    archivedBy?: string,
+): RecapRequest | undefined {
+    const now = new Date().toISOString().split("T")[0];
+    return patchRequest(id, {
+        _archived: true,
+        _archiveReason: reason,
+        _archivedAt: now,
+        _archivedBy: archivedBy || "System",
+        _archiveNote: note || null,
+    });
+}
+
+export function bulkArchiveRequests(
+    ids: string[],
+    reason: "Duplicate" | "Not Applicable" | "Cancelled" | "Closed" | "Entered in Error" | "No Longer Required" | "Superseded" | "Testing / Data Cleanup" | "Other",
+    note?: string,
+    archivedBy?: string,
+): number {
+    let count = 0;
+    const now = new Date().toISOString().split("T")[0];
+    const by = archivedBy || "System";
+    ids.forEach(id => {
+        const result = patchRequest(id, {
+            _archived: true,
+            _archiveReason: reason,
+            _archivedAt: now,
+            _archivedBy: by,
+            _archiveNote: note || null,
+        });
+        if (result) count++;
+    });
+    return count;
+}
+
+export function unarchiveRequest(id: string): RecapRequest | undefined {
+    return patchRequest(id, {
+        _archived: false,
+        _archiveReason: null,
+        _archivedAt: null,
+        _archivedBy: null,
+        _archiveNote: null,
+    });
+}
+
+/* ── Platform Admin Delete ────────────────────────────────── */
+
+const PLATFORM_ADMIN_OVERRIDE_KEY = "integrasource.recap.platformAdminOverride";
+
+export function setPlatformAdminOverride(active: boolean): void {
+    if (active) {
+        localStorage.setItem(PLATFORM_ADMIN_OVERRIDE_KEY, "true");
+    } else {
+        localStorage.removeItem(PLATFORM_ADMIN_OVERRIDE_KEY);
+    }
+}
+
+export function isPlatformAdminActive(): boolean {
+    try {
+        return localStorage.getItem(PLATFORM_ADMIN_OVERRIDE_KEY) === "true";
+    } catch {
+        return false;
+    }
+}
+
+export function permanentlyDeleteRequest(id: string): boolean {
+    if (!isPlatformAdminActive()) return false;
+
+    let removed = false;
+
+    // Try demo state — use bulkUpdate to set a tombstone status
+    if (isDemoLoaded()) {
+        const existing = Demo.getDemoRequestById(id);
+        if (existing) {
+            Demo.bulkUpdateDemoRequests([id], { status: "Not Applicable" as any });
+            removed = true;
+        }
+    }
+
+    // Try mock data (skip — immutable mock fixtures)
+
+    // Try portal requests — hard delete
+    const portalReqs = getPortalCreatedRequests();
+    const beforePortal = portalReqs.length;
+    const remaining = portalReqs.filter(r => r.id !== id && r.requestId !== id && r.intakeId !== id);
+    if (remaining.length < beforePortal) {
+        localStorage.setItem(PORTAL_REQUESTS_KEY, JSON.stringify(remaining));
+        removed = true;
+    }
+
+    // Clean up related artifacts
+    try {
+        const raw = localStorage.getItem(ARTIFACTS_KEY);
+        if (raw) {
+            const store: Record<string, WorkArtifact[]> = JSON.parse(raw);
+            delete store[id];
+            localStorage.setItem(ARTIFACTS_KEY, JSON.stringify(store));
+        }
+    } catch { /* ignore */ }
+
+    // Clean up activity entries related to this request
+    try {
+        const actRaw = localStorage.getItem("integrasource.recap.activityFeed");
+        if (actRaw) {
+            let activities = JSON.parse(actRaw) as any[];
+            activities = activities.filter((a: any) => a.requestId !== id);
+            localStorage.setItem("integrasource.recap.activityFeed", JSON.stringify(activities));
+        }
+    } catch { /* ignore */ }
+
+    return removed;
 }
 
 /* ── Centralized Predicates ───────────────────────────────── */
