@@ -25,6 +25,16 @@ export default function PortalRequests() {
     const [filterStatus, setFilterStatus] = useState(statusFromUrl);
     const [filterCategory, setFilterCategory] = useState("all");
     const [filterCommunity, setFilterCommunity] = useState("all");
+    const [filterPackage, setFilterPackage] = useState("all");
+
+    // Extract unique package names from requests that have them
+    const packageNames = useMemo(() => {
+        const names = new Set<string>();
+        allRequests.forEach(r => {
+            if (r._sourcePackageName) names.add(r._sourcePackageName);
+        });
+        return [...names].sort();
+    }, [allRequests]);
 
     const filtered = useMemo(() => {
         let result = [...allRequests];
@@ -41,8 +51,9 @@ export default function PortalRequests() {
         }
         if (filterCategory !== "all") result = result.filter(r => r.category === filterCategory);
         if (filterCommunity !== "all") result = result.filter(r => r.communityNames.includes(filterCommunity));
+        if (filterPackage !== "all") result = result.filter(r => r._sourcePackageName === filterPackage);
         return result;
-    }, [allRequests, search, filterStatus, filterCategory, filterCommunity]);
+    }, [allRequests, search, filterStatus, filterCategory, filterCommunity, filterPackage]);
 
     const communities = txn?.communities || [];
     const categories = [...new Set(allRequests.map(r => r.category).filter(Boolean))];
@@ -87,6 +98,12 @@ export default function PortalRequests() {
                     <option value="all">All Communities</option>
                     {communities.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                 </select>
+                {packageNames.length > 1 && (
+                    <select className="po-filter-select" value={filterPackage} onChange={(e) => setFilterPackage(e.target.value)} style={{ minWidth: 140 }}>
+                        <option value="all">All Packages</option>
+                        {packageNames.map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                )}
             </div>
 
             <div className="rc-card">
@@ -108,6 +125,9 @@ export default function PortalRequests() {
                                 <span className="po-requests-id">{req.requestId.split("-").length >= 3 ? req.requestId.split("-")[0] + "-" + req.requestId.split("-").slice(-1)[0] : req.requestId}</span>
                                 <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
                                     <span className="po-requests-title" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={req.title}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</span>
+                                    {req._sourcePackageName && (
+                                        <span style={{ fontSize: 10, color: "#64748b", fontWeight: 400 }}>{req._sourceFileName || req._sourcePackageName}</span>
+                                    )}
                                     {extInfo.status === "Awaiting Your Review" && (
                                         <span style={{ fontSize: 11, color: "#047857", fontWeight: 500 }}>Document ready for approval</span>
                                     )}

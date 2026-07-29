@@ -92,7 +92,6 @@ export default function PortalOverview() {
             : portalRequests;
 
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const dropZoneRef = useRef<HTMLDivElement>(null);
     const [uploadState, setUploadState] = useState<UploadState>("idle");
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
@@ -172,14 +171,18 @@ export default function PortalOverview() {
         if (fileInputRef.current) fileInputRef.current.value = "";
     }, []);
 
-    const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleSelectedFile = useCallback(async (file: File) => {
+        setUploadState("idle");
+        setAnalysis(null);
+        setBanner(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        await runFileAnalysis(file);
+    }, []);
+
+    const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            setUploadState("idle");
-            setAnalysis(null);
-            setBanner(null);
-            if (fileInputRef.current) fileInputRef.current.value = "";
-            await runFileAnalysis(file);
+            await handleSelectedFile(file);
         }
     };
 
@@ -187,29 +190,29 @@ export default function PortalOverview() {
         fileInputRef.current?.click();
     };
 
-    useEffect(() => {
-        const el = dropZoneRef.current;
-        if (!el) return;
-        const prevent = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
-        const onDrop = async (e: DragEvent) => {
-            e.preventDefault(); e.stopPropagation();
-            const file = e.dataTransfer?.files?.[0];
-            if (file) {
-                setUploadState("idle"); setAnalysis(null); setBanner(null);
-                await runFileAnalysis(file);
-            }
-        };
-        el.addEventListener("dragenter", prevent);
-        el.addEventListener("dragover", prevent);
-        el.addEventListener("dragleave", prevent);
-        el.addEventListener("drop", onDrop);
-        return () => {
-            el.removeEventListener("dragenter", prevent);
-            el.removeEventListener("dragover", prevent);
-            el.removeEventListener("dragleave", prevent);
-            el.removeEventListener("drop", onDrop);
-        };
-    }, []);
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const handleDragEnter = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const handleDrop = async (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const file = e.dataTransfer?.files?.[0];
+        if (file) {
+            await handleSelectedFile(file);
+        }
+    };
 
     const runFileAnalysis = async (file: File) => {
         setSelectedFile(file);
@@ -226,7 +229,8 @@ export default function PortalOverview() {
             }
             saveParsedRows(parsed.rows);
             const cats = extractCategoriesFromParsedRows(parsed.rows);
-            const result = submitBrokerUploadPackage(file.name, parsed.count, cats, selectedTxnId || undefined);
+            const effectiveTxnId = isAllSelected ? undefined : (selectedTxnId || undefined);
+            const result = submitBrokerUploadPackage(file.name, parsed.count, cats, effectiveTxnId);
             setAnalysis(result);
             setUploadState("complete");
         } catch (err) {
@@ -304,8 +308,8 @@ export default function PortalOverview() {
                         </p>
                     </div>
 
-                    <div ref={dropZoneRef} className="po-upload-hero" style={{ marginBottom: 24 }}>
-                        <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleFileSelected} />
+                    <div className="po-upload-hero" style={{ marginBottom: 24 }} onDragOver={handleDragOver} onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+                        <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleInputChange} />
 
                         {uploadState === "idle" && (
                             <>
@@ -443,8 +447,8 @@ export default function PortalOverview() {
 
             {/* ── Compact upload panel when user has submissions but is uploading another ── */}
             {!showOnlyUpload && uploadState !== "idle" && uploadState !== "submitted" && (
-                <div className="po-compact-upload" style={{ padding: "16px 20px", marginBottom: 0 }}>
-                    <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleFileSelected} />
+                <div className="po-compact-upload" style={{ padding: "16px 20px", marginBottom: 0 }} onDragOver={handleDragOver} onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+                    <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleInputChange} />
                     {uploadState === "analyzing" && (
                         <div style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "center" }}>
                             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" style={{ flexShrink: 0 }}>
@@ -469,8 +473,8 @@ export default function PortalOverview() {
 
             {/* ── Persistent "Submit Another Package" drag/drop zone when requests exist ── */}
             {hasSubmitted && uploadState === "idle" && (
-                <div ref={dropZoneRef} className="po-upload-hero" style={{ padding: "24px 32px", marginBottom: 0, borderRadius: 16, maxWidth: 600, margin: "0 auto" }}>
-                    <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleFileSelected} />
+                <div className="po-upload-hero" style={{ padding: "24px 32px", marginBottom: 0, borderRadius: 16, maxWidth: 600, margin: "0 auto" }} onDragOver={handleDragOver} onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+                    <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleInputChange} />
                     <div style={{ display: "flex", alignItems: "center", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />

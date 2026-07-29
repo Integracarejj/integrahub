@@ -53,6 +53,8 @@ export interface RecapRequest {
     _convertedAt?: string | null;
     _sourceIntakeId?: string;
     _sourcePackageId?: string;
+    _sourcePackageName?: string;
+    _sourceFileName?: string;
     _sourceReviewItemId?: string;
     _createdFromReview?: boolean;
     _externalStatus?: "Internal Only" | "Ready to Publish" | "Published External";
@@ -124,6 +126,12 @@ export interface ExternalMessageEntry {
 export interface RecapIntakeItem {
     id: string;
     intakeId: string;
+    /** Globally unique persistent package identity (same as id for broker uploads) */
+    packageId?: string;
+    /** Human-readable package name (e.g. "Keystone Initial DD") */
+    packageName?: string;
+    /** Original uploaded file name (e.g. "Project Keystone.xlsx") */
+    fileName?: string;
     type: "Broker Upload" | "External Question" | "External Clarification" | "External New Request" | "Access Request" | "Manual Internal Request";
     status: "Awaiting Review" | "Assigned" | "Converted" | "Duplicate" | "Rejected" | "Not Applicable";
     title: string;
@@ -140,8 +148,6 @@ export interface RecapIntakeItem {
     orgName?: string;
     userId?: string;
     userName?: string;
-    /** Broker-Upload-specific fields */
-    fileName?: string;
     rowsFound?: number;
     /** Suggested fields from classification engine */
     suggestedCategory?: string;

@@ -635,7 +635,7 @@ describe('Test N: Locked workflow regression — existing workflow tests pass', 
         confirmBrokerPackage(result.submissionId);
 
         const intakeItems = getIntakeItems();
-        const pkg = intakeItems.find(i => i.intakeId === `INT-PKG-${result.submissionId.slice(0, 8)}`);
+        const pkg = intakeItems.find(i => i.intakeId === `INT-PKG-${result.submissionId}`);
         expect(pkg).toBeDefined();
         expect(pkg!.transactionId).toBe(txnId);
 

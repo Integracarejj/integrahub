@@ -345,7 +345,7 @@ function ReviewEngine() {
         if (ids.length === 0) return;
         setPublishing(true);
         setTimeout(() => {
-            const result = publishSelectedRequests(ids, { sourceIntakeId: scope?.id || intakeId, sourcePackageId: scope?.transactionId });
+            const result = publishSelectedRequests(ids, { sourceIntakeId: scope?.id || intakeId, sourcePackageId: scope?.id || intakeId });
             setPublishedCount(result.publishedCount);
             setPublishedBatchId(result.publishedBatchId);
             setPublishing(false);
@@ -406,7 +406,7 @@ function ReviewEngine() {
         }
         setPublishing(true);
         setTimeout(() => {
-            const result = publishSelectedRequests(bulkReady, { sourceIntakeId: scope?.id || intakeId, sourcePackageId: scope?.transactionId });
+            const result = publishSelectedRequests(bulkReady, { sourceIntakeId: scope?.id || intakeId, sourcePackageId: scope?.id || intakeId });
             setPublishedCount(result.publishedCount);
             setPublishedBatchId(result.publishedBatchId);
             setPublishing(false);
@@ -612,6 +612,14 @@ function ReviewEngine() {
                 </div>
             </div>
 
+            {scope && (
+                <div style={{ position: "sticky", top: 0, zIndex: 10, background: "#f8fafc", borderBottom: "1px solid #e2e8f0", padding: "6px 14px", marginBottom: 0, fontSize: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                    <span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.02em" }}>{scope.transactionName}</span>
+                    {scope.orgName && <><span style={{ color: "#94a3b8" }}>·</span><span style={{ color: "#475569" }}>{scope.orgName}</span></>}
+                    {scope.packageName && scope.packageName !== scope.transactionName && <><span style={{ color: "#94a3b8" }}>·</span><span style={{ color: "#475569" }}>{scope.packageName}</span></>}
+                    {scope.fileName && <><span style={{ color: "#94a3b8" }}>·</span><span style={{ color: "#64748b", fontSize: 11 }}>{scope.fileName}</span></>}
+                </div>
+            )}
             <div className="rc-card">
                 <div className="rc-card-header">
                     <h2>
@@ -1150,7 +1158,7 @@ function IntakeDrawer({
 
     const handleAction = (action: string) => {
         if (action === "review") {
-            navigate(`/recapitalization/intake/review/${item.intakeId}`);
+            navigate(`/recapitalization/intake/review/${item.id}`);
             return;
         }
         if (action === "assign") {
@@ -1504,9 +1512,9 @@ function IntakeQueue() {
     const handleRowClick = (item: RecapIntakeItem) => {
         if (item.type === "Broker Upload") {
             // Navigate directly to review for this specific intake/package
-            navigate(`/recapitalization/intake/review/${item.intakeId}`);
+            navigate(`/recapitalization/intake/review/${item.id}`);
         } else {
-            navigate(`/recapitalization/workspace/${item.intakeId}`);
+            navigate(`/recapitalization/workspace/${item.id}`);
         }
     };
 

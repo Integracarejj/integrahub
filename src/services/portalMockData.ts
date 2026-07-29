@@ -394,6 +394,10 @@ export interface PortalRequest {
     /** External lifecycle milestone: timestamp when processing first started.
      *  Preserves "In Progress" externally across internal status changes. */
     _processingStartedAt?: string | null;
+    /** Package context — which uploaded package this request originated from */
+    _sourcePackageId?: string;
+    _sourcePackageName?: string;
+    _sourceFileName?: string;
 }
 
 export interface PortalQuestion {
@@ -574,6 +578,9 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
         _blockerExternalQuestion: req._blockerExternalQuestion ?? null,
         _blockerExternalResponse: req._blockerExternalResponse ?? null,
         _processingStartedAt: req._processingStartedAt ?? null,
+        _sourcePackageId: req._sourcePackageId,
+        _sourcePackageName: req._sourcePackageName,
+        _sourceFileName: req._sourceFileName,
     };
 }
 
@@ -1357,6 +1364,9 @@ export function mapParsedRowToRecapRequest(
         intakeId: `INT-${prefix}-${index}`,
         transactionId: transactionId || `txn-portal-${submissionId}`,
         transactionName: packageName,
+        _sourcePackageId: `${submissionId}-intake`,
+        _sourcePackageName: packageName || fileBaseName,
+        _sourceFileName: fileBaseName,
         brokerBuyer: "External",
         communityIds: [],
         communityNames: [],
@@ -1422,6 +1432,9 @@ function generatePortalRequests(submissionId: string, packageName: string, fileB
             intakeId: `INT-${prefix}-${i}`,
             transactionId: transactionId || `txn-portal-${submissionId}`,
             transactionName: packageName,
+            _sourcePackageId: `${submissionId}-intake`,
+            _sourcePackageName: packageName,
+            _sourceFileName: fileBaseName,
             brokerBuyer: "External",
             communityIds: [],
             communityNames: [community],
@@ -1447,9 +1460,13 @@ function generatePortalRequests(submissionId: string, packageName: string, fileB
 }
 
 function createPortalIntakeItem(submissionId: string, packageName: string, fileName: string, requestCount: number, isABCDemo: boolean, transactionId?: string, orgId?: string, orgName?: string, userId?: string, userName?: string): RecapIntakeItem {
+    const stableId = `${submissionId}-intake`;
     return {
-        id: `${submissionId}-intake`,
-        intakeId: `INT-PKG-${submissionId.slice(0, 8)}`,
+        id: stableId,
+        intakeId: `INT-PKG-${submissionId}`,
+        packageId: stableId,
+        packageName: packageName,
+        fileName: fileName,
         type: "Broker Upload",
         status: "Awaiting Review",
         title: `${packageName}${isABCDemo ? " (Gold Standard Demo)" : ""}`,
@@ -1465,7 +1482,6 @@ function createPortalIntakeItem(submissionId: string, packageName: string, fileN
         orgName,
         userId,
         userName,
-        fileName,
         rowsFound: requestCount,
     };
 }
