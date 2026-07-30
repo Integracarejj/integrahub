@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { getRequests, getTeamMembers, updateRequestStatus, updateRequestOwner, getDocuments, updateRequestReturnToOwner, getActivity, addActivityEntry, getWorkArtifactsByRequest, updateRequestStatusNotes, isDemoActive, sendExceptionRecommendation, clearExceptionFields, resolveBlockerInternal, requestExternalBlockerHelp } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
+import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
 
 const STATUS_OPTIONS = ["Open", "Assigned", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate", "Waiting Partner Review", "Needs Rework", "Completed"];
@@ -611,13 +612,10 @@ export default function RecapitalizationDdOperations() {
                                                 </span>
                                             )}
                                         </span>
-                                        {(req.transactionName || req.orgName) && (
-                                            <div style={{ fontSize: 11, color: "#64748b", fontWeight: 400, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                                {req.transactionName && <span>{req.transactionName}</span>}
-                                                {req.transactionName && req.orgName && <span> · </span>}
-                                                {req.orgName && <span style={{ fontWeight: 600 }}>{req.orgName}</span>}
-                                            </div>
-                                        )}
+                                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
+                                            {req.transactionName && <ProjectBadge name={req.transactionName} />}
+                                            {req.orgName && <span style={{ fontSize: 12, fontWeight: 600, color: "#0f172a" }}>{req.orgName}</span>}
+                                        </div>
                                     </td>
                                     <td><PriorityBadge priority={req.priority} /></td>
                                     <td onClick={e => e.stopPropagation()}>
@@ -691,13 +689,10 @@ export default function RecapitalizationDdOperations() {
                                     <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#475569", fontWeight: 600 }}>{req.requestId}</td>
                                     <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 240 }}>
                                         <div>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</div>
-                                        {(req.transactionName || req.orgName) && (
-                                            <div style={{ fontSize: 11, color: "#64748b", fontWeight: 400, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                                {req.transactionName && <span>{req.transactionName}</span>}
-                                                {req.transactionName && req.orgName && <span> · </span>}
-                                                {req.orgName && <span style={{ fontWeight: 600 }}>{req.orgName}</span>}
-                                            </div>
-                                        )}
+                                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
+                                            {req.transactionName && <ProjectBadge name={req.transactionName} />}
+                                            {req.orgName && <span style={{ fontSize: 12, fontWeight: 600, color: "#0f172a" }}>{req.orgName}</span>}
+                                        </div>
                                     </td>
                                     <td style={{ fontSize: 12, color: "#475569" }}>{req.communityNames[0] || "\u2014"}</td>
                                     <td><PriorityBadge priority={req.priority} /></td>

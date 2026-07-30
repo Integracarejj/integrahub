@@ -10,6 +10,7 @@ import {
     createPortalTransaction,
 } from "../../services/portalMockData";
 import { getExternalStatusInfo, getStatusPillStyle, getExceptionContext } from "../../services/externalStatusMapping";
+import ProjectBadge from "../../components/common/ProjectBadge";
 import "./PortalOverview.css";
 
 const STAT_HELPERS: Record<string, string> = {
@@ -115,7 +116,9 @@ export default function PortalOverview() {
     const [dashboardSearch, setDashboardSearch] = useState("");
     const [dashboardFilterStatus, setDashboardFilterStatus] = useState("all");
     const [dashboardFilterCategory, setDashboardFilterCategory] = useState("all");
+    const [dashboardFilterProject, setDashboardFilterProject] = useState("all");
     const dashboardCategories = [...new Set(scopedRequests.map(r => r.category))];
+    const dashboardProjects = [...new Set(scopedRequests.map(r => r.transactionName).filter(Boolean))].sort();
     const dashboardBase = dashboardFilterStatus !== "all" ? scopedRequests : visibleRequests;
     const dashboardFiltered = dashboardBase.filter(r => {
         const ext = getExternalStatusInfo(toExternalStatusInput(r));
@@ -129,6 +132,7 @@ export default function PortalOverview() {
             else if (ext.label !== dashboardFilterStatus) return false;
         }
         if (dashboardFilterCategory !== "all" && r.category !== dashboardFilterCategory) return false;
+        if (dashboardFilterProject !== "all" && r.transactionName !== dashboardFilterProject) return false;
         if (dashboardSearch) {
             const q = dashboardSearch.toLowerCase();
             if (!r.title.toLowerCase().includes(q) && !r.requestId.toLowerCase().includes(q)) return false;
@@ -304,8 +308,65 @@ export default function PortalOverview() {
                 )}
             </div>
 
-            {/* ── Upload Panel (shown before any submission) ── */}
-            {showOnlyUpload && (
+            {/* ── Upload Hero — always show polished card for analyze/complete ── */}
+            {(uploadState === "analyzing" || uploadState === "complete") && (
+                <div className="po-upload-hero" style={{ marginBottom: 24 }} onDragOver={handleDragOver} onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+                    <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleInputChange} />
+
+                    {uploadState === "analyzing" && (
+                        <div>
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 12px" }}>
+                                <polyline points="23 4 23 10 17 10" />
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                            </svg>
+                            <h3 style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", margin: "0 0 6px" }}>Analyzing package...</h3>
+                            <p style={{ fontSize: 15, color: "#334155", margin: 0 }}>Reading {selectedFile?.name}...</p>
+                            <div style={{ width: "50%", height: 6, background: "#c7d2fe", borderRadius: 3, margin: "14px auto 0", overflow: "hidden" }}>
+                                <div style={{ width: "60%", height: "100%", background: "#4f46e5", borderRadius: 3 }} />
+                            </div>
+                        </div>
+                    )}
+
+                    {uploadState === "complete" && analysis && (
+                        <div>
+                            <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#dcfce7", color: "#166534", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", border: "3px solid #bbf7d0" }}>
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                            </div>
+                            <h3 style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", margin: "0 0 8px", letterSpacing: "-0.02em" }}>Package Successfully Analyzed</h3>
+                            <p style={{ fontSize: 16, color: "#334155", margin: "0 0 6px", fontWeight: 600 }}>
+                                We identified <strong style={{ color: "#0f172a" }}>{analysis.detected}</strong> potential due diligence request{analysis.detected !== 1 ? "s" : ""} in <strong style={{ color: "#0f172a" }}>{analysis.packageName}</strong>.
+                            </p>
+                            <p style={{ fontSize: 14, color: "#dc2626", margin: "0 0 4px", fontWeight: 700 }}>
+                                Your package has not yet been submitted to IntegraCare.
+                            </p>
+                            <p style={{ fontSize: 14, color: "#334155", margin: "0 0 20px", lineHeight: 1.6 }}>
+                                Review the summary below, then select <strong>Submit Package</strong> to send these requests to the IntegraCare Due Diligence Team.
+                            </p>
+                            <div style={{ textAlign: "center", marginBottom: 18 }}>
+                                <div style={{ fontSize: 42, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{analysis.detected}</div>
+                                <div style={{ fontSize: 14, color: "#334155", fontWeight: 600 }}>Requests Detected</div>
+                            </div>
+                            <div style={{ background: "#f8faff", borderRadius: 12, border: "1px solid #dbeafe", padding: "16px 20px", marginBottom: 20, textAlign: "left" }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 10 }}>After submission</div>
+                                <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.8, display: "flex", flexDirection: "column", gap: 2 }}>
+                                    <span>&bull; IntegraCare will review, classify, assign, and process each request</span>
+                                    <span>&bull; Clarification may be requested if additional information is needed</span>
+                                    <span>&bull; Approved documents will be returned through this portal for your review</span>
+                                </div>
+                            </div>
+                            <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+                                <button className="rc-btn rc-btn-primary" onClick={handleSubmitPackage} style={{ padding: "14px 40px", fontSize: 16, fontWeight: 700, borderRadius: 12 }}>Submit Package</button>
+                                <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ padding: "14px 24px", fontSize: 14, borderRadius: 12, border: "1px solid #d1d5db", color: "#0f172a", background: "#fff" }}>Upload Different Package</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* ── Full upload hero for first-time idle ── */}
+            {showOnlyUpload && uploadState === "idle" && (
                 <div style={{ maxWidth: 720, margin: "0 auto" }}>
                     <div style={{ textAlign: "center", marginBottom: 24 }}>
                         <h2 style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", marginBottom: 8, letterSpacing: "-0.02em" }}>Upload your due diligence request list to begin</h2>
@@ -331,76 +392,24 @@ export default function PortalOverview() {
                                 <button className="rc-btn rc-btn-primary" onClick={handleBrowseClick} style={{ padding: "14px 40px", fontSize: 16, fontWeight: 700, borderRadius: 12 }}>Browse Files</button>
                             </>
                         )}
-
-                        {uploadState === "analyzing" && (
-                            <div>
-                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 12px" }}>
-                                    <polyline points="23 4 23 10 17 10" />
-                                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-                                </svg>
-                                <h3 style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", margin: "0 0 6px" }}>Analyzing package...</h3>
-                                <p style={{ fontSize: 15, color: "#334155", margin: 0 }}>Reading {selectedFile?.name}...</p>
-                                <div style={{ width: "50%", height: 6, background: "#c7d2fe", borderRadius: 3, margin: "14px auto 0", overflow: "hidden" }}>
-                                    <div style={{ width: "60%", height: "100%", background: "#4f46e5", borderRadius: 3 }} />
-                                </div>
-                            </div>
-                        )}
-
-                        {uploadState === "complete" && analysis && (
-                            <div>
-                                <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#dcfce7", color: "#166534", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", border: "3px solid #bbf7d0" }}>
-                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <polyline points="20 6 9 17 4 12" />
-                                    </svg>
-                                </div>
-                                <h3 style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", margin: "0 0 8px", letterSpacing: "-0.02em" }}>Package Successfully Analyzed</h3>
-                                <p style={{ fontSize: 16, color: "#334155", margin: "0 0 6px", fontWeight: 600 }}>
-                                    We identified <strong style={{ color: "#0f172a" }}>{analysis.detected}</strong> potential due diligence request{analysis.detected !== 1 ? "s" : ""} in <strong style={{ color: "#0f172a" }}>{analysis.packageName}</strong>.
-                                </p>
-                                <p style={{ fontSize: 14, color: "#dc2626", margin: "0 0 4px", fontWeight: 700 }}>
-                                    Your package has not yet been submitted to IntegraCare.
-                                </p>
-                                <p style={{ fontSize: 14, color: "#334155", margin: "0 0 20px", lineHeight: 1.6 }}>
-                                    Review the summary below, then select <strong>Submit Package</strong> to send these requests to the IntegraCare Due Diligence Team.
-                                </p>
-                                <div style={{ textAlign: "center", marginBottom: 18 }}>
-                                    <div style={{ fontSize: 42, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{analysis.detected}</div>
-                                    <div style={{ fontSize: 14, color: "#334155", fontWeight: 600 }}>Requests Detected</div>
-                                </div>
-                                <div style={{ background: "#f8faff", borderRadius: 12, border: "1px solid #dbeafe", padding: "16px 20px", marginBottom: 20, textAlign: "left" }}>
-                                    <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 10 }}>After submission</div>
-                                    <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.8, display: "flex", flexDirection: "column", gap: 2 }}>
-                                        <span>&bull; IntegraCare will review, classify, assign, and process each request</span>
-                                        <span>&bull; Clarification may be requested if additional information is needed</span>
-                                        <span>&bull; Approved documents will be returned through this portal for your review</span>
-                                    </div>
-                                </div>
-                                <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-                                    <button className="rc-btn rc-btn-primary" onClick={handleSubmitPackage} style={{ padding: "14px 40px", fontSize: 16, fontWeight: 700, borderRadius: 12 }}>Submit Package</button>
-                                    <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ padding: "14px 24px", fontSize: 14, borderRadius: 12, border: "1px solid #d1d5db", color: "#0f172a", background: "#fff" }}>Upload Different Package</button>
-                                </div>
-                            </div>
-                        )}
                     </div>
 
-                    {uploadState === "idle" && (
-                        <div style={{ maxWidth: 620, margin: "0 auto" }}>
-                            <h3 style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", marginBottom: 16, textAlign: "center" }}>How it works</h3>
-                            <div className="po-how-it-works">
-                                {[
-                                    { step: "1", title: "Upload", desc: "Upload your due diligence request list as an Excel file" },
-                                    { step: "2", title: "Review", desc: "IntegraCare reviews and routes your requests" },
-                                    { step: "3", title: "Track", desc: "Monitor progress and published results here" },
-                                ].map(s => (
-                                    <div key={s.step} className="po-how-step">
-                                        <div className="po-how-step-number">{s.step}</div>
-                                        <div className="po-how-step-title">{s.title}</div>
-                                        <div className="po-how-step-desc">{s.desc}</div>
-                                    </div>
-                                ))}
-                            </div>
+                    <div style={{ maxWidth: 620, margin: "0 auto" }}>
+                        <h3 style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", marginBottom: 16, textAlign: "center" }}>How it works</h3>
+                        <div className="po-how-it-works">
+                            {[
+                                { step: "1", title: "Upload", desc: "Upload your due diligence request list as an Excel file" },
+                                { step: "2", title: "Review", desc: "IntegraCare reviews and routes your requests" },
+                                { step: "3", title: "Track", desc: "Monitor progress and published results here" },
+                            ].map(s => (
+                                <div key={s.step} className="po-how-step">
+                                    <div className="po-how-step-number">{s.step}</div>
+                                    <div className="po-how-step-title">{s.title}</div>
+                                    <div className="po-how-step-desc">{s.desc}</div>
+                                </div>
+                            ))}
                         </div>
-                    )}
+                    </div>
                 </div>
             )}
 
@@ -448,32 +457,6 @@ export default function PortalOverview() {
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
-
-            {/* ── Compact upload panel when user has submissions but is uploading another ── */}
-            {!showOnlyUpload && uploadState !== "idle" && uploadState !== "submitted" && (
-                <div className="po-compact-upload" style={{ padding: "16px 20px", marginBottom: 0 }} onDragOver={handleDragOver} onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDrop={handleDrop}>
-                    <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleInputChange} />
-                    {uploadState === "analyzing" && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "center" }}>
-                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" style={{ flexShrink: 0 }}>
-                                <polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-                            </svg>
-                            <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>Analyzing {selectedFile?.name}...</span>
-                        </div>
-                    )}
-                    {uploadState === "complete" && analysis && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
-                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="1.5" style={{ flexShrink: 0 }}>
-                                <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                            <span style={{ fontSize: 16, fontWeight: 700, color: "#166534" }}>Package Ready</span>
-                            <span style={{ fontSize: 14, color: "#334155" }}>{analysis.detected} request{analysis.detected !== 1 ? "s" : ""} detected in {analysis.packageName}</span>
-                            <button className="rc-btn rc-btn-primary" onClick={handleSubmitPackage} style={{ padding: "8px 20px", fontSize: 13, fontWeight: 700 }}>Submit Package</button>
-                            <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ padding: "8px 14px", fontSize: 13 }}>Upload Different Package</button>
-                        </div>
-                    )}
                 </div>
             )}
 
@@ -630,14 +613,18 @@ export default function PortalOverview() {
                                     <option value="Complete">Complete</option>
                                     <option value="Removed">Removed from Scope</option>
                                 </select>
-                                <select className="po-filter-select" aria-label="Filter by category" value={dashboardFilterCategory} onChange={e => setDashboardFilterCategory(e.target.value)}>
+                                 <select className="po-filter-select" aria-label="Filter by category" value={dashboardFilterCategory} onChange={e => setDashboardFilterCategory(e.target.value)}>
                                     <option value="all">All Categories</option>
                                     {dashboardCategories.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
+                                <select className="po-filter-select" aria-label="Filter by project" value={dashboardFilterProject} onChange={e => setDashboardFilterProject(e.target.value)}>
+                                    <option value="all">All Projects</option>
+                                    {dashboardProjects.map(p => <option key={p} value={p}>{p}</option>)}
+                                </select>
                             </div>
                             <div className="po-requests-table">
-                                <div className="po-requests-header" style={{ gridTemplateColumns: "0.5fr 2fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr" }}>
-                                    <span>ID</span><span>Request</span><span>Status</span><span>Review Type</span><span>Category</span><span>Community</span><span>Updated</span>
+                                <div className="po-requests-header" style={{ gridTemplateColumns: "0.5fr 1.8fr 0.9fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr" }}>
+                                    <span>ID</span><span>Request</span><span>Project</span><span>Status</span><span>Review Type</span><span>Category</span><span>Community</span><span>Updated</span>
                                 </div>
                                 {dashboardFiltered.slice(0, 10).map((req) => {
                                     const excCtx = getExceptionContext(req);
@@ -645,7 +632,7 @@ export default function PortalOverview() {
                                     const isClarResp = req._rawStatus === "Clarification Needed" && extInfo.status === "Under Review" && !!req._workNotes?.some(n => n.action === "Clarification Response") && !req._returnReason;
                                     const isReworking = req._partnerDecision === "Rework Required" && extInfo.status === "Rework Review";
                                     return (
-                                    <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.5fr 2fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr" }} onClick={() => navigate(`/portal/requests/${req.id}`)} title={req.requestId}>
+                                    <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.5fr 1.8fr 0.9fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr" }} onClick={() => navigate(`/portal/requests/${req.id}`)} title={req.requestId}>
                                         <span className="po-requests-id">{shortId(req.requestId)}</span>
                                         <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
                                             <span className="po-requests-title" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={req.title}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</span>
@@ -656,6 +643,9 @@ export default function PortalOverview() {
                                                 <span style={{ fontSize: 11, color: "#c2410c", fontWeight: 500 }}>Rework requested — IntegraCare reviewing</span>
                                             )}
                                         </div>
+                                        <span style={{ display: "flex", alignItems: "center" }}>
+                                            <ProjectBadge name={req.transactionName} />
+                                        </span>
                                         <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                             <StatusBadge status={req.status} />
                                         </span>

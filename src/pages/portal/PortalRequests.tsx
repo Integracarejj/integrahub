@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getPortalRequests, getActivePersona, getPortalTransactions, getPersonaIdentity, toExternalStatusInput } from "../../services/portalMockData";
 import { getExternalStatusInfo, getStatusPillStyle, getExceptionContext } from "../../services/externalStatusMapping";
+import ProjectBadge from "../../components/common/ProjectBadge";
 import "./PortalOverview.css";
 
 function StatusBadge({ status }: { status: string }) {
@@ -31,6 +32,7 @@ export default function PortalRequests() {
     const [filterCategory, setFilterCategory] = useState("all");
     const [filterCommunity, setFilterCommunity] = useState("all");
     const [filterPackage, setFilterPackage] = useState("all");
+    const [filterProject, setFilterProject] = useState("all");
 
     const scopedRequests = useMemo(() => {
         if (!transactionId || !txn) return allRequests;
@@ -62,11 +64,13 @@ export default function PortalRequests() {
         if (filterCategory !== "all") result = result.filter(r => r.category === filterCategory);
         if (filterCommunity !== "all") result = result.filter(r => r.communityNames.includes(filterCommunity));
         if (filterPackage !== "all") result = result.filter(r => r._sourcePackageName === filterPackage);
+        if (filterProject !== "all") result = result.filter(r => r.transactionName === filterProject);
         return result;
-    }, [scopedRequests, search, filterStatus, filterCategory, filterCommunity, filterPackage]);
+    }, [scopedRequests, search, filterStatus, filterCategory, filterCommunity, filterPackage, filterProject]);
 
     const communities = txn?.communities || allTxns.flatMap(t => t.communities).filter((c, i, a) => a.findIndex(x => x.id === c.id) === i) || [];
     const categories = [...new Set(scopedRequests.map(r => r.category).filter(Boolean))];
+    const projectNames = [...new Set(scopedRequests.map(r => r.transactionName).filter(Boolean))].sort();
 
     return (
         <div className="portal-overview">
@@ -122,6 +126,12 @@ export default function PortalRequests() {
                     <option value="all">All Communities</option>
                     {communities.map((c: any) => <option key={c.id || c} value={c.name || c}>{c.name || c}</option>)}
                 </select>
+                {projectNames.length > 1 && (
+                    <select className="po-filter-select" value={filterProject} onChange={(e) => setFilterProject(e.target.value)} style={{ minWidth: 140 }}>
+                        <option value="all">All Projects</option>
+                        {projectNames.map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                )}
                 {packageNames.length > 1 && (
                     <select className="po-filter-select" value={filterPackage} onChange={(e) => setFilterPackage(e.target.value)} style={{ minWidth: 140 }}>
                         <option value="all">All Packages</option>
@@ -132,8 +142,8 @@ export default function PortalRequests() {
 
             <div className="rc-card">
                 <div className="po-requests-table">
-                    <div className="po-requests-header" style={{ gridTemplateColumns: "0.5fr 2.5fr 0.9fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr" }}>
-                        <span>ID</span><span>Request</span><span>Transaction</span><span>Status</span><span>Review Type</span><span>Category</span><span>Community</span><span>Updated</span>
+                    <div className="po-requests-header" style={{ gridTemplateColumns: "0.5fr 2.2fr 0.9fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr" }}>
+                        <span>ID</span><span>Request</span><span>Project</span><span>Status</span><span>Review Type</span><span>Category</span><span>Community</span><span>Updated</span>
                     </div>
                     {filtered.length === 0 ? (
                         <div className="po-empty-state" style={{ padding: "40px 20px", textAlign: "center" }}>
@@ -145,7 +155,7 @@ export default function PortalRequests() {
                         const isClarResp = req._rawStatus === "Clarification Needed" && extInfo.status === "Under Review" && !!req._workNotes?.some(n => n.action === "Clarification Response") && !req._returnReason;
                         const isReworking = req._partnerDecision === "Rework Required" && extInfo.status === "Under Review";
                         return (
-                            <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.5fr 2.5fr 0.9fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr" }} onClick={() => navigate(`/portal/requests/${req.id}`)} title={req.requestId}>
+                            <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.5fr 2.2fr 0.9fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr" }} onClick={() => navigate(`/portal/requests/${req.id}`)} title={req.requestId}>
                                 <span className="po-requests-id">{req.requestId.split("-").length >= 3 ? req.requestId.split("-")[0] + "-" + req.requestId.split("-").slice(-1)[0] : req.requestId}</span>
                                 <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
                                     <span className="po-requests-title" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={req.title}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</span>
@@ -168,8 +178,8 @@ export default function PortalRequests() {
                                         <span style={{ fontSize: 11, color: "#c2410c", fontWeight: 500 }}>Rework requested — IntegraCare reviewing</span>
                                     )}
                                 </div>
-                                <span style={{ fontSize: 12, color: "#475569", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={req.transactionName}>
-                                    {req.transactionName || "\u2014"}
+                                <span style={{ display: "flex", alignItems: "center" }}>
+                                    <ProjectBadge name={req.transactionName} />
                                 </span>
                                 <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                     <StatusBadge status={extInfo.label} />

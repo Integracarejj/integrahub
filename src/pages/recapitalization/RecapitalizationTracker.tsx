@@ -10,6 +10,7 @@ import {
 
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
+import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
 
 interface BulkEdit {
@@ -382,10 +383,10 @@ export default function RecapitalizationTracker() {
                                     )}
                                     {req.title.split(" - ").slice(1).join(" - ").trim() || req.title}
                                 </td>
-                                <td style={{ fontSize: 12, color: "#475569", maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                    <div>{req.transactionName || "-"}</div>
+                                <td style={{ verticalAlign: "middle" }}>
+                                    <ProjectBadge name={req.transactionName} />
                                     {req._sourcePackageName && req._sourcePackageName !== req.transactionName && (
-                                        <div style={{ fontSize: 10, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{req._sourcePackageName}</div>
+                                        <div style={{ fontSize: 10, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>{req._sourcePackageName}</div>
                                     )}
                                 </td>
                                 <td style={{ fontSize: 12, lineHeight: 1.3 }}>

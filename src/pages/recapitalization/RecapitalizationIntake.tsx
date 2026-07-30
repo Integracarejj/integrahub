@@ -3,6 +3,7 @@ import { useNavigate, useParams, Routes, Route } from "react-router-dom";
 import { getIntakeItems, isDemoActive, getDemoEngineSummary, publishIntake, publishSelectedRequests, getDemoRequests, getRequests, bulkUpdateDemoRequests, getTeamMembers, getTeams } from "../../services/recapDataService";
 import type { RecapIntakeItem, RecapRequest, RecapTeamMember } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
+import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
 
 interface Note {
@@ -489,7 +490,7 @@ function ReviewEngine() {
                     </button>
                     <h1>Intake Workbench</h1>
                     {scope && (
-                        <span className="rc-badge rc-badge-import" style={{ fontSize: 10, marginLeft: 8 }}>{scope.transactionName}</span>
+                        <ProjectBadge name={scope.transactionName} />
                     )}
                 </div>
                 {scope && scope.orgName && (
@@ -621,8 +622,8 @@ function ReviewEngine() {
 
             {scope && (
                 <div style={{ position: "sticky", top: 0, zIndex: 10, background: "#f8fafc", borderBottom: "1px solid #e2e8f0", padding: "6px 14px", marginBottom: 0, fontSize: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                    <span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.02em" }}>{scope.transactionName}</span>
-                    {scope.orgName && <><span style={{ color: "#94a3b8" }}>·</span><span style={{ color: "#475569" }}>{scope.orgName}</span></>}
+                    <ProjectBadge name={scope.transactionName} />
+                    {scope.orgName && <span style={{ fontWeight: 600, color: "#0f172a", fontSize: 12 }}>{scope.orgName}</span>}
                     {scope.packageName && scope.packageName !== scope.transactionName && <><span style={{ color: "#94a3b8" }}>·</span><span style={{ color: "#475569" }}>{scope.packageName}</span></>}
                     {scope.fileName && <><span style={{ color: "#94a3b8" }}>·</span><span style={{ color: "#64748b", fontSize: 11 }}>{scope.fileName}</span></>}
                 </div>
@@ -1812,8 +1813,8 @@ function IntakeQueue() {
                                                         </span>
                                                     </span>
                                                 </td>
-                                                <td style={{ maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#475569" }}>
-                                                    {item.transactionName}
+                                                <td style={{ verticalAlign: "middle" }}>
+                                                    <ProjectBadge name={item.transactionName} />
                                                 </td>
                                                 <td style={{ fontSize: 12, lineHeight: 1.4 }}>
                                                     {item.orgName ? (

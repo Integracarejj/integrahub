@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { getRequests, isDemoActive, getTeamMembers } from "../../services/recapDataService";
 import type { RecapRequest } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
+import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
 
 type ViewTab = "active-work" | "waiting-dd-ops" | "completed-work" | "my-team" | "returned";
@@ -183,13 +184,10 @@ export default function RecapitalizationMyWork() {
                             <td style={{ fontFamily: '"SF Mono", "Cascadia Code", "Consolas", monospace', fontSize: 11, color: "#475569", fontWeight: 600 }}>{req.requestId}</td>
                             <td className="rc-truncate" style={{ fontWeight: 500, maxWidth: 220 }}>
                                 <div>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</div>
-                                {(req.transactionName || req.orgName) && (
-                                    <div style={{ fontSize: 11, color: "#64748b", fontWeight: 400, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                        {req.transactionName && <span>{req.transactionName}</span>}
-                                        {req.transactionName && req.orgName && <span> · </span>}
-                                        {req.orgName && <span style={{ fontWeight: 600 }}>{req.orgName}</span>}
-                                    </div>
-                                )}
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
+                                    {req.transactionName && <ProjectBadge name={req.transactionName} />}
+                                    {req.orgName && <span style={{ fontSize: 12, fontWeight: 600, color: "#0f172a" }}>{req.orgName}</span>}
+                                </div>
                             </td>
                             <td style={{ fontSize: 12, color: "#475569" }}>{req.communityNames[0] || "\u2014"}</td>
                             <td style={{ textAlign: "center" }}><PriorityBadge priority={req.priority} /></td>

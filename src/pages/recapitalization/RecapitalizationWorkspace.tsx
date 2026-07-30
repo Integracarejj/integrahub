@@ -4,6 +4,7 @@ import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateReq
 import type { RecapRequest, WorkArtifact, WorkNoteEntry } from "../../services/recapDataService";
 import ClarificationThread, { getClarificationSummary } from "../../components/common/ClarificationThread";
 import RecapSubNav from "./RecapSubNav";
+import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
 
 const TEAM_MEMBERS = ["Sarah Chen", "James Wright", "Lisa Park", "Tom Davies", "Mike O'Brien", "Anna Patel", "David Park", "Carlos Rivera", "Demo User (Test)"];
@@ -659,10 +660,7 @@ function WorkflowStateCard({
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
                                     {communities.slice(0, 2).join(", ") || "\u2014"}
                                 </span>
-                                <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>
-                                    {transaction.name}
-                                </span>
+                                <ProjectBadge name={transaction.name} />
                                 {(item.orgName || item.orgId) && (
                                     <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
@@ -1895,7 +1893,7 @@ function WorkflowStateCard({
                                         <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Deliverable</span> {displayTitle || item.category || "\u2014"}</div>
                                         <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Owner</span> {item.owner || "\u2014"}</div>
                                         <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Status</span> {displayStatus}</div>
-                                        {item.transactionName && <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Transaction</span> {item.transactionName}</div>}
+                                        {item.transactionName && <div style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em" }}>Transaction</span><ProjectBadge name={item.transactionName} /></div>}
                                         {item.communityNames && item.communityNames.length > 0 && <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Community</span> {item.communityNames.join(", ")}</div>}
                                     </div>
                                     <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6, display: "block" }}>Question for DD Operations <span style={{ color: "#dc2626" }}>*</span></label>
