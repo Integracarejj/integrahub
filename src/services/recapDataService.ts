@@ -173,7 +173,7 @@ export function isRecapDataWiped(): boolean {
     return isRecapWiped();
 }
 
-const DEMO_TRANSACTION_IDS = new Set(["txn-abc-portfolio", "txn-harbor-deal", "txn-summit-review"]);
+export const DEMO_TRANSACTION_IDS = new Set(["txn-abc-portfolio", "txn-harbor-deal", "txn-summit-review"]);
 
 export function getTransactions(): RecapTransaction[] {
     // Collect all unique transactions from portal-created requests (always included)

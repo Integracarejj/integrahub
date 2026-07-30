@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getPortalRequests, getActivePersona, getPortalTransactions, toExternalStatusInput } from "../../services/portalMockData";
+import { getPortalRequests, getActivePersona, getPortalTransactions, getPersonaIdentity, toExternalStatusInput } from "../../services/portalMockData";
 import { getExternalStatusInfo, getStatusPillStyle, getExceptionContext } from "../../services/externalStatusMapping";
 import "./PortalOverview.css";
 
@@ -18,7 +18,12 @@ export default function PortalRequests() {
     const [searchParams] = useSearchParams();
     const allRequests = getPortalRequests();
     const persona = getActivePersona();
-    const txn = getPortalTransactions()[0];
+    const allTxns = getPortalTransactions();
+    const identity = getPersonaIdentity();
+    const orgName = identity?.organization?.name || persona.companyName;
+
+    const transactionId = searchParams.get("transactionId");
+    const txn = transactionId ? allTxns.find(t => t.id === transactionId) || null : null;
 
     const statusFromUrl = searchParams.get("status") || "all";
     const [search, setSearch] = useState("");
@@ -27,17 +32,22 @@ export default function PortalRequests() {
     const [filterCommunity, setFilterCommunity] = useState("all");
     const [filterPackage, setFilterPackage] = useState("all");
 
+    const scopedRequests = useMemo(() => {
+        if (!transactionId || !txn) return allRequests;
+        return allRequests.filter(r => r.transactionId === transactionId);
+    }, [allRequests, transactionId, txn]);
+
     // Extract unique package names from requests that have them
     const packageNames = useMemo(() => {
         const names = new Set<string>();
-        allRequests.forEach(r => {
+        scopedRequests.forEach(r => {
             if (r._sourcePackageName) names.add(r._sourcePackageName);
         });
         return [...names].sort();
-    }, [allRequests]);
+    }, [scopedRequests]);
 
     const filtered = useMemo(() => {
-        let result = [...allRequests];
+        let result = [...scopedRequests];
         if (search) {
             const q = search.toLowerCase();
             result = result.filter(r => r.title.toLowerCase().includes(q) || r.requestId.toLowerCase().includes(q) || r.category.toLowerCase().includes(q));
@@ -53,19 +63,33 @@ export default function PortalRequests() {
         if (filterCommunity !== "all") result = result.filter(r => r.communityNames.includes(filterCommunity));
         if (filterPackage !== "all") result = result.filter(r => r._sourcePackageName === filterPackage);
         return result;
-    }, [allRequests, search, filterStatus, filterCategory, filterCommunity, filterPackage]);
+    }, [scopedRequests, search, filterStatus, filterCategory, filterCommunity, filterPackage]);
 
-    const communities = txn?.communities || [];
-    const categories = [...new Set(allRequests.map(r => r.category).filter(Boolean))];
+    const communities = txn?.communities || allTxns.flatMap(t => t.communities).filter((c, i, a) => a.findIndex(x => x.id === c.id) === i) || [];
+    const categories = [...new Set(scopedRequests.map(r => r.category).filter(Boolean))];
 
     return (
         <div className="portal-overview">
-            <h1 className="po-welcome-title">Requests</h1>
-            <p className="po-welcome-sub" style={{ marginBottom: 20 }}>
-                {persona.role === "Owner / Seller" && "Documents requested from ABC Company for the due diligence process. Use the Upload button to provide requested materials."}
-                {persona.role === "Buyer" && "All due diligence requests for the ABC Company Portfolio. Track progress and submit new requests as needed."}
-                {persona.role === "Broker" && "All due diligence requests across the transaction. Filter by community or status to find what needs attention."}
-            </p>
+            {txn ? (
+                <div style={{ marginBottom: 20 }}>
+                    <div style={{ fontSize: 12, color: "#4f46e5", fontWeight: 600, marginBottom: 4, cursor: "pointer" }} onClick={() => navigate("/portal/requests")}>
+                        &larr; All Transactions
+                    </div>
+                    <h1 className="po-welcome-title" style={{ marginBottom: 2 }}>{txn.name}</h1>
+                    <p className="po-welcome-sub" style={{ marginBottom: 0 }}>
+                        {orgName} &middot; {scopedRequests.length} request{scopedRequests.length !== 1 ? "s" : ""}
+                    </p>
+                </div>
+            ) : (
+                <>
+                    <h1 className="po-welcome-title">Requests</h1>
+                    <p className="po-welcome-sub" style={{ marginBottom: 20 }}>
+                        {persona.role === "Owner / Seller" && "Documents requested from ABC Company for the due diligence process. Use the Upload button to provide requested materials."}
+                        {persona.role === "Buyer" && "All due diligence requests for the ABC Company Portfolio. Track progress and submit new requests as needed."}
+                        {persona.role === "Broker" && "All due diligence requests across the transaction. Filter by community or status to find what needs attention."}
+                    </p>
+                </>
+            )}
 
             <div className="po-filter-row">
                 <div className="po-search-box">
@@ -96,7 +120,7 @@ export default function PortalRequests() {
                 </select>
                 <select className="po-filter-select" value={filterCommunity} onChange={(e) => setFilterCommunity(e.target.value)}>
                     <option value="all">All Communities</option>
-                    {communities.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    {communities.map((c: any) => <option key={c.id || c} value={c.name || c}>{c.name || c}</option>)}
                 </select>
                 {packageNames.length > 1 && (
                     <select className="po-filter-select" value={filterPackage} onChange={(e) => setFilterPackage(e.target.value)} style={{ minWidth: 140 }}>
@@ -108,8 +132,8 @@ export default function PortalRequests() {
 
             <div className="rc-card">
                 <div className="po-requests-table">
-                    <div className="po-requests-header" style={{ gridTemplateColumns: "0.5fr 2.5fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr 0.7fr" }}>
-                        <span>ID</span><span>Request</span><span>Status</span><span>Review Type</span><span>Category</span><span>Community</span><span>Updated</span><span style={{ textAlign: "center" }}>Action</span>
+                    <div className="po-requests-header" style={{ gridTemplateColumns: "0.5fr 2.5fr 0.9fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr" }}>
+                        <span>ID</span><span>Request</span><span>Transaction</span><span>Status</span><span>Review Type</span><span>Category</span><span>Community</span><span>Updated</span>
                     </div>
                     {filtered.length === 0 ? (
                         <div className="po-empty-state" style={{ padding: "40px 20px", textAlign: "center" }}>
@@ -121,7 +145,7 @@ export default function PortalRequests() {
                         const isClarResp = req._rawStatus === "Clarification Needed" && extInfo.status === "Under Review" && !!req._workNotes?.some(n => n.action === "Clarification Response") && !req._returnReason;
                         const isReworking = req._partnerDecision === "Rework Required" && extInfo.status === "Under Review";
                         return (
-                            <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.5fr 2.5fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr 0.7fr" }} onClick={() => navigate(`/portal/requests/${req.id}`)} title={req.requestId}>
+                            <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.5fr 2.5fr 0.9fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr" }} onClick={() => navigate(`/portal/requests/${req.id}`)} title={req.requestId}>
                                 <span className="po-requests-id">{req.requestId.split("-").length >= 3 ? req.requestId.split("-")[0] + "-" + req.requestId.split("-").slice(-1)[0] : req.requestId}</span>
                                 <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
                                     <span className="po-requests-title" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={req.title}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</span>
@@ -144,6 +168,9 @@ export default function PortalRequests() {
                                         <span style={{ fontSize: 11, color: "#c2410c", fontWeight: 500 }}>Rework requested — IntegraCare reviewing</span>
                                     )}
                                 </div>
+                                <span style={{ fontSize: 12, color: "#475569", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={req.transactionName}>
+                                    {req.transactionName || "\u2014"}
+                                </span>
                                 <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                     <StatusBadge status={extInfo.label} />
                                 </span>
@@ -159,22 +186,6 @@ export default function PortalRequests() {
                                 <span className="po-requests-txn">{req.category || "\u2014"}</span>
                                 <span className="po-requests-txn">{req.communityNames[0] || "\u2014"}</span>
                                 <span className="po-requests-txn">{req.updatedAt || req.neededBy || "\u2014"}</span>
-                                <span style={{ display: "flex", justifyContent: "center" }}>
-                                    {extInfo.externalActionRequired && (
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); navigate(`/portal/requests/${req.id}`); }}
-                                            style={{
-                                                fontSize: 12, padding: "6px 16px", borderRadius: 8,
-                                                background: "#1d4ed8", color: "#fff", border: "none",
-                                                cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap",
-                                            }}
-                                            onMouseEnter={e => { (e.target as HTMLElement).style.background = "#1e40af"; }}
-                                            onMouseLeave={e => { (e.target as HTMLElement).style.background = "#1d4ed8"; }}
-                                        >
-                                            {extInfo.externalActionLabel || "Open"}
-                                        </button>
-                                    )}
-                                </span>
                             </div>
                         );
                     })}

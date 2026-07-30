@@ -138,7 +138,7 @@ export default function PortalTransactions() {
                                 <div style={{ textAlign: "center" }}>
                                     <button
                                         className="rc-btn rc-btn-primary"
-                                        onClick={() => navigate("/portal/requests")}
+                                        onClick={() => navigate(`/portal/requests?transactionId=${txn.id}`)}
                                         style={{ padding: "12px 32px", fontSize: 14, fontWeight: 700, borderRadius: 10 }}
                                     >
                                         View Requests

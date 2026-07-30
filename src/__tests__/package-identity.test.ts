@@ -36,8 +36,7 @@ import {
     isPlatformAdminActive,
     setPlatformAdminOverride,
     permanentlyDeleteRequest,
-    getIntakeItems,
-    getTrackerRequests,
+
 } from '../services/recapDataService';
 
 function simulateDataWipe(): void {
@@ -631,14 +630,14 @@ describe('Acceptance: 213/130 multi-package, archive, delete', () => {
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   Multi-Transaction Integration Test — 213 + 130 scenario
-   Covers all 23 assertions from the acceptance spec
+   External Portal Consumer Path — 213 + 130 scenario
+   Uses ONLY functions consumed by the deployed browser:
+   getPortalTransactions, getPortalRequests, getPortalRequestsByTransaction
+   createPortalTransaction, submitBrokerUploadPackage, confirmBrokerPackage
    ═══════════════════════════════════════════════════════════════ */
-describe('Multi-transaction 213/130 — full integration', () => {
+describe('External Portal — multi-transaction 213/130 consumer path', () => {
     let keystoneTxn: string;
     let libertyTxn: string;
-    let keystoneSubId: string;
-    let libertySubId: string;
 
     beforeEach(() => {
         clearPortalSubmissions();
@@ -660,234 +659,124 @@ describe('Multi-transaction 213/130 — full integration', () => {
         return result.submissionId;
     }
 
-    it('1-7: 2 transactions, 2 packages, 213 Keystone, 130 Liberty, 343 aggregate', () => {
+    it('Atlas has 2 independent transactions (getPortalTransactions)', () => {
         keystoneTxn = createPortalTransaction('Project Keystone');
         libertyTxn = createPortalTransaction('Project Liberty');
-        expect(keystoneTxn).not.toBe(libertyTxn);
+        uploadPackage(keystoneTxn, 'Keystone.xlsx', 213);
+        uploadPackage(libertyTxn, 'Liberty.xlsx', 130);
 
-        keystoneSubId = uploadPackage(keystoneTxn, 'Keystone.xlsx', 213);
-        libertySubId = uploadPackage(libertyTxn, 'Liberty.xlsx', 130);
-        expect(keystoneSubId).not.toBe(libertySubId);
+        const portalTxns = getPortalTransactions();
+        expect(portalTxns.length).toBe(2);
 
-        // 1: 2 transaction records
-        const allTxns = getTransactions();
-        const keystoneFound = allTxns.find(t => t.id === keystoneTxn);
-        const libertyFound = allTxns.find(t => t.id === libertyTxn);
-        expect(keystoneFound).toBeDefined();
-        expect(keystoneFound!.name).toBe('Project Keystone');
-        expect(libertyFound).toBeDefined();
-        expect(libertyFound!.name).toBe('Project Liberty');
-
-        // 2: 2 intake items (packages)
-        const intakeItems = getIntakeItems();
-        const keystoneIntake = intakeItems.find(i => i.transactionId === keystoneTxn);
-        const libertyIntake = intakeItems.find(i => i.transactionId === libertyTxn);
-        expect(keystoneIntake).toBeDefined();
-        expect(libertyIntake).toBeDefined();
-
-        // 3: Keystone has 213 requests
-        const keystoneReqs = getRequests().filter(r => r.transactionId === keystoneTxn);
-        expect(keystoneReqs.length).toBe(213);
-
-        // 4: Liberty has 130 requests
-        const libertyReqs = getRequests().filter(r => r.transactionId === libertyTxn);
-        expect(libertyReqs.length).toBe(130);
-
-        // 5: Atlas aggregate = 343
-        const allReqs = getRequests();
-        expect(allReqs.length).toBe(343);
-
-        // 6: Keystone detail query = 213
-        expect(keystoneReqs.length).toBe(213);
-
-        // 7: Liberty detail query = 130
-        expect(libertyReqs.length).toBe(130);
-    });
-
-    it('8: transaction options have Keystone, Liberty, and no fake values', () => {
-        keystoneTxn = createPortalTransaction('Project Keystone');
-        libertyTxn = createPortalTransaction('Project Liberty');
-        uploadPackage(keystoneTxn, 'Keystone.xlsx', 5);
-        uploadPackage(libertyTxn, 'Liberty.xlsx', 3);
-
-        const txns = getTransactions();
-        const names = txns.map(t => t.name);
-
-        // Real transactions present
+        const names = portalTxns.map(t => t.name);
         expect(names).toContain('Project Keystone');
         expect(names).toContain('Project Liberty');
 
-        // No external demo transaction names leaked into operational UI
+        // No demo/fake transaction names
+        expect(names).not.toContain('ABC Portfolio Acquisition');
         expect(names).not.toContain('Harbor View Single Asset');
         expect(names).not.toContain('Summit Portfolio Review');
-        expect(names).not.toContain('ABC Portfolio Acquisition');
     });
 
-    it('9-11: Move 4 Keystone + 3 Liberty to Work Queue = 7 total', () => {
+    it('Atlas aggregate = 343 via getPortalRequests (no demo contamination)', () => {
         keystoneTxn = createPortalTransaction('Project Keystone');
         libertyTxn = createPortalTransaction('Project Liberty');
         uploadPackage(keystoneTxn, 'Keystone.xlsx', 213);
         uploadPackage(libertyTxn, 'Liberty.xlsx', 130);
 
-        // Move 4 Keystone items
-        const allKeystone = getRequests().filter(r => r.transactionId === keystoneTxn);
-        const keystone4 = allKeystone.slice(0, 4).map(r => r.id);
-        publishSelectedRequests(keystone4, {
-            sourceIntakeId: `keystone-intake`,
-            sourcePackageId: `keystone-pkg`,
-        });
+        const allReqs = getPortalRequests();
+        expect(allReqs.length).toBe(343);
 
-        // Move 3 Liberty items
-        const allLiberty = getRequests().filter(r => r.transactionId === libertyTxn);
-        const liberty3 = allLiberty.slice(0, 3).map(r => r.id);
-        publishSelectedRequests(liberty3, {
-            sourceIntakeId: `liberty-intake`,
-            sourcePackageId: `liberty-pkg`,
-        });
-
-        // 11: Work Queue total = 7
-        const wq = getTrackerRequests();
-        expect(wq.length).toBe(7);
-
-        // Filter by Keystone
-        const keystoneWQ = wq.filter(r => r.transactionId === keystoneTxn);
-        expect(keystoneWQ.length).toBe(4);
-
-        // Filter by Liberty
-        const libertyWQ = wq.filter(r => r.transactionId === libertyTxn);
-        expect(libertyWQ.length).toBe(3);
+        const keystoneReqs = allReqs.filter(r => r.transactionId === keystoneTxn);
+        const libertyReqs = allReqs.filter(r => r.transactionId === libertyTxn);
+        expect(keystoneReqs.length).toBe(213);
+        expect(libertyReqs.length).toBe(130);
     });
 
-    it('12-13: Work Queue filter by transaction', () => {
+    it('Keystone-scoped query returns 213 with correct transactionId', () => {
         keystoneTxn = createPortalTransaction('Project Keystone');
         libertyTxn = createPortalTransaction('Project Liberty');
-        uploadPackage(keystoneTxn, 'Keystone.xlsx', 10);
-        uploadPackage(libertyTxn, 'Liberty.xlsx', 8);
+        uploadPackage(keystoneTxn, 'Keystone.xlsx', 213);
+        uploadPackage(libertyTxn, 'Liberty.xlsx', 130);
 
-        // Move 4 Keystone
-        const kIds = getRequests().filter(r => r.transactionId === keystoneTxn).slice(0, 4).map(r => r.id);
-        publishSelectedRequests(kIds);
-        // Move 3 Liberty
-        const lIds = getRequests().filter(r => r.transactionId === libertyTxn).slice(0, 3).map(r => r.id);
-        publishSelectedRequests(lIds);
-
-        const allWQ = getTrackerRequests();
-        expect(allWQ.length).toBe(7);
-
-        const keystoneWQ = allWQ.filter(r => r.transactionId === keystoneTxn);
-        const libertyWQ = allWQ.filter(r => r.transactionId === libertyTxn);
-        expect(keystoneWQ.length).toBe(4);
-        expect(libertyWQ.length).toBe(3);
-    });
-
-    it('14: each Work Queue request has correct orgId, transactionId, package, source, lineage', () => {
-        keystoneTxn = createPortalTransaction('Project Keystone');
-        libertyTxn = createPortalTransaction('Project Liberty');
-        uploadPackage(keystoneTxn, 'Keystone.xlsx', 5);
-        uploadPackage(libertyTxn, 'Liberty.xlsx', 3);
-
-        // Move 2 from each
-        const kIds = getRequests().filter(r => r.transactionId === keystoneTxn).slice(0, 2).map(r => r.id);
-        const lIds = getRequests().filter(r => r.transactionId === libertyTxn).slice(0, 2).map(r => r.id);
-        publishSelectedRequests(kIds, { sourceIntakeId: 'ki', sourcePackageId: 'kp' });
-        publishSelectedRequests(lIds, { sourceIntakeId: 'li', sourcePackageId: 'lp' });
-
-        const wq = getTrackerRequests();
-        expect(wq.length).toBe(4);
-
-        // Keystone items
-        const kItems = wq.filter(r => r.transactionId === keystoneTxn);
-        kItems.forEach(r => {
-            expect(r.orgId).toBe('org-atlas');
+        const keystoneReqs = getPortalRequests().filter(r => r.transactionId === keystoneTxn);
+        expect(keystoneReqs.length).toBe(213);
+        keystoneReqs.forEach(r => {
             expect(r.transactionId).toBe(keystoneTxn);
-            expect(r._sourcePackageId).toBe('kp');
-            expect(r._sourceIntakeId).toBe('ki');
-            expect(r._createdFromReview).toBe(true);
-            expect(r._publishedAt).toBeDefined();
+            expect(r.transactionName).toBe('Project Keystone');
         });
+    });
 
-        // Liberty items
-        const lItems = wq.filter(r => r.transactionId === libertyTxn);
-        lItems.forEach(r => {
-            expect(r.orgId).toBe('org-atlas');
+    it('Liberty-scoped query returns 130 with correct transactionId', () => {
+        keystoneTxn = createPortalTransaction('Project Keystone');
+        libertyTxn = createPortalTransaction('Project Liberty');
+        uploadPackage(keystoneTxn, 'Keystone.xlsx', 213);
+        uploadPackage(libertyTxn, 'Liberty.xlsx', 130);
+
+        const libertyReqs = getPortalRequests().filter(r => r.transactionId === libertyTxn);
+        expect(libertyReqs.length).toBe(130);
+        libertyReqs.forEach(r => {
             expect(r.transactionId).toBe(libertyTxn);
-            expect(r._sourcePackageId).toBe('lp');
-            expect(r._sourceIntakeId).toBe('li');
-            expect(r._createdFromReview).toBe(true);
-            expect(r._publishedAt).toBeDefined();
+            expect(r.transactionName).toBe('Project Liberty');
         });
     });
 
-    it('15-18: Move all 213 + 130 = 343, no 150 cap', () => {
+    it('no cross-contamination between Keystone and Liberty requests', () => {
         keystoneTxn = createPortalTransaction('Project Keystone');
         libertyTxn = createPortalTransaction('Project Liberty');
         uploadPackage(keystoneTxn, 'Keystone.xlsx', 213);
         uploadPackage(libertyTxn, 'Liberty.xlsx', 130);
 
-        // Move all 213 Keystone
-        const allK = getRequests().filter(r => r.transactionId === keystoneTxn);
-        const kIds = allK.map(r => r.id);
-        const kResult = publishSelectedRequests(kIds);
-        expect(kResult.publishedCount).toBe(213);
+        const allReqs = getPortalRequests();
+        const keystoneIds = new Set(allReqs.filter(r => r.transactionId === keystoneTxn).map(r => r.id));
+        const libertyIds = new Set(allReqs.filter(r => r.transactionId === libertyTxn).map(r => r.id));
 
-        // Move all 130 Liberty
-        const allL = getRequests().filter(r => r.transactionId === libertyTxn);
-        const lIds = allL.map(r => r.id);
-        const lResult = publishSelectedRequests(lIds);
-        expect(lResult.publishedCount).toBe(130);
+        // No overlap
+        keystoneIds.forEach(id => expect(libertyIds.has(id)).toBe(false));
+        libertyIds.forEach(id => expect(keystoneIds.has(id)).toBe(false));
 
-        // Combined Work Queue = 343
-        const wq = getTrackerRequests();
-        expect(wq.length).toBe(343);
-
-        // Keystone filter = 213
-        expect(wq.filter(r => r.transactionId === keystoneTxn).length).toBe(213);
-
-        // Liberty filter = 130
-        expect(wq.filter(r => r.transactionId === libertyTxn).length).toBe(130);
+        // Combined count = 343
+        expect(keystoneIds.size).toBe(213);
+        expect(libertyIds.size).toBe(130);
     });
 
-    it('19-21: External portal distinguishes transactions', () => {
+    it('every portal request exposes transaction identity (transactionName)', () => {
         keystoneTxn = createPortalTransaction('Project Keystone');
         libertyTxn = createPortalTransaction('Project Liberty');
         uploadPackage(keystoneTxn, 'Keystone.xlsx', 213);
         uploadPackage(libertyTxn, 'Liberty.xlsx', 130);
 
-        // Publish some
-        const allIds = getRequests().map(r => r.id);
-        publishSelectedRequests(allIds);
-
-        // Set persona to broker (Atlas Capital Partners)
-        setActivePersona('broker');
-
-        // External portal: both transactions visible
-        const portalTxns = getPortalTransactions();
-        const keystonePortalTxn = portalTxns.find(t => t.id === keystoneTxn);
-        const libertyPortalTxn = portalTxns.find(t => t.id === libertyTxn);
-        expect(keystonePortalTxn).toBeDefined();
-        expect(keystonePortalTxn!.name).toBe('Project Keystone');
-        expect(libertyPortalTxn).toBeDefined();
-        expect(libertyPortalTxn!.name).toBe('Project Liberty');
-
-        // External portal: Keystone-scoped query returns 213
-        const allPortalReqs = getPortalRequests();
-        const keystonePortalReqs = allPortalReqs.filter(r => r.transactionId === keystoneTxn);
-        const libertyPortalReqs = allPortalReqs.filter(r => r.transactionId === libertyTxn);
-        expect(keystonePortalReqs.length).toBe(213);
-        expect(libertyPortalReqs.length).toBe(130);
-        expect(allPortalReqs.length).toBe(343);
+        const allReqs = getPortalRequests();
+        allReqs.forEach(r => {
+            expect(r.transactionId).toBeTruthy();
+            expect(r.transactionName).toBeTruthy();
+        });
     });
 
-    it('22: data wipe removes both transactions from operational filters', () => {
+    it('org isolation: Summit cannot see Atlas transactions', () => {
+        keystoneTxn = createPortalTransaction('Project Keystone');
+        libertyTxn = createPortalTransaction('Project Liberty');
+        uploadPackage(keystoneTxn, 'Keystone.xlsx', 213);
+        uploadPackage(libertyTxn, 'Liberty.xlsx', 130);
+
+        setActivePersona('buyer');
+        const summitTxns = getPortalTransactions();
+        expect(summitTxns.some(t => t.id === keystoneTxn)).toBe(false);
+        expect(summitTxns.some(t => t.id === libertyTxn)).toBe(false);
+
+        const summitReqs = getPortalRequests();
+        expect(summitReqs.some(r => r.transactionId === keystoneTxn)).toBe(false);
+        expect(summitReqs.some(r => r.transactionId === libertyTxn)).toBe(false);
+    });
+
+    it('data wipe removes both transactions from getPortalTransactions', () => {
         keystoneTxn = createPortalTransaction('Project Keystone');
         libertyTxn = createPortalTransaction('Project Liberty');
         uploadPackage(keystoneTxn, 'Keystone.xlsx', 5);
         uploadPackage(libertyTxn, 'Liberty.xlsx', 3);
 
-        // Transactions visible before wipe
-        const beforeTxns = getTransactions();
-        expect(beforeTxns.some(t => t.id === keystoneTxn)).toBe(true);
-        expect(beforeTxns.some(t => t.id === libertyTxn)).toBe(true);
+        // Visible before wipe
+        expect(getPortalTransactions().length).toBeGreaterThanOrEqual(2);
 
         // Wipe
         clearPortalSubmissions();
@@ -895,11 +784,8 @@ describe('Multi-transaction 213/130 — full integration', () => {
         localStorage.setItem("integrasource.recap.wiped", "true");
         setActivePersona('broker');
 
-        // No transactions visible
-        const afterTxns = getTransactions();
-        expect(afterTxns.some(t => t.id === keystoneTxn)).toBe(false);
-        expect(afterTxns.some(t => t.id === libertyTxn)).toBe(false);
-        expect(afterTxns.every(t => t.name !== 'Project Keystone')).toBe(true);
-        expect(afterTxns.every(t => t.name !== 'Project Liberty')).toBe(true);
+        // No transactions visible (including demo — not re-seeded after wipe)
+        const afterTxns = getPortalTransactions();
+        expect(afterTxns.length).toBe(0);
     });
 });

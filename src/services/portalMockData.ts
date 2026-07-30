@@ -1,4 +1,4 @@
-import { getTransactions, getRequests, getDocuments, isDemoActive, initDemo, getDemoEngineSummary, addPortalCreatedIntakeItem, addPortalCreatedRequests, addPortalSubmission, getPortalSubmissions, updatePortalSubmissionStatus, clearAllPortalCreatedData, isRecapDataWiped, clearRecapWiped, addActivityEntry, getActivity } from "./recapDataService";
+import { getTransactions, getRequests, getDocuments, isDemoActive, initDemo, getDemoEngineSummary, addPortalCreatedIntakeItem, addPortalCreatedRequests, addPortalSubmission, getPortalSubmissions, updatePortalSubmissionStatus, clearAllPortalCreatedData, isRecapDataWiped, clearRecapWiped, addActivityEntry, getActivity, DEMO_TRANSACTION_IDS } from "./recapDataService";
 import type { RecapRequest, RecapDocument, RecapTransaction, RecapIntakeItem } from "./recapDataService";
 import { getExternalStatusInfo } from "./externalStatusMapping";
 
@@ -187,6 +187,7 @@ export function deleteMembership(userId: string, orgId: string): void {
 export function getTransactionsList(): ExternalTransaction[] {
     const stored = readJsonArray<ExternalTransaction>(TRANSACTIONS_KEY);
     if (stored.length === 0) {
+        if (isRecapDataWiped()) return [];
         // Initialize demo transactions on first call
         const demoTxns: ExternalTransaction[] = [
             { id: "txn-abc-portfolio", orgId: "org-atlas", name: "ABC Portfolio Acquisition", description: "Multi-community residential portfolio due diligence", status: "Active", createdAt: new Date().toISOString() },
@@ -657,14 +658,8 @@ function mapExternalToPortalTxn(txn: ExternalTransaction): PortalTransaction {
 
 export function getPortalUserContext(): PortalUserContext {
     const persona = getActivePersona();
-    if (!isRecapDataWiped() && !isDemoActive()) {
-        initDemo();
-    }
     const identity = getPersonaIdentity();
-    let allTxns = getTransactions().map(mapRecapToPortalTxn);
-    if (allTxns.length === 0 && identity) {
-        allTxns = identity.allTransactions.map(mapExternalToPortalTxn);
-    }
+    let allTxns = getTransactions().map(mapRecapToPortalTxn).filter(t => !DEMO_TRANSACTION_IDS.has(t.id));
     const authorizedTxnIds = new Set(identity?.authorizedTransactions.map(a => a.transactionId) || []);
     const transactions = authorizedTxnIds.size === 0 ? [] : allTxns.filter(t => authorizedTxnIds.has(t.id));
     return {
@@ -677,14 +672,11 @@ export function getPortalUserContext(): PortalUserContext {
 }
 
 export function getPortalTransactions(): PortalTransaction[] {
-    if (!isRecapDataWiped() && !isDemoActive()) {
-        initDemo();
-    }
-    let allTxns = getTransactions().map(mapRecapToPortalTxn);
+    let allTxns = getTransactions().map(mapRecapToPortalTxn).filter(t => !DEMO_TRANSACTION_IDS.has(t.id));
     const identity = getPersonaIdentity();
     if (!identity) return [];
     if (allTxns.length === 0) {
-        allTxns = identity.allTransactions.map(mapExternalToPortalTxn);
+        allTxns = identity.allTransactions.filter(t => !DEMO_TRANSACTION_IDS.has(t.id)).map(mapExternalToPortalTxn);
     }
     const authorizedTxnIds = new Set(identity.authorizedTransactions.map(a => a.transactionId));
     if (authorizedTxnIds.size === 0) return [];
@@ -692,9 +684,6 @@ export function getPortalTransactions(): PortalTransaction[] {
 }
 
 export function getPortalRequests(): PortalRequest[] {
-    if (!isRecapDataWiped() && !isDemoActive()) {
-        initDemo();
-    }
     const requests = getRequests();
     const allRequests = [...MOCK_REQUESTS, ...requests.map(mapRecapToPortalRequest)];
 
@@ -705,7 +694,11 @@ export function getPortalRequests(): PortalRequest[] {
     const authorizedTxnIds = new Set(identity.authorizedTransactions.map(a => a.transactionId));
     if (authorizedTxnIds.size === 0) return [];
 
-    return allRequests.filter(r => authorizedTxnIds.has(r.transactionId) && (!r.orgId || r.orgId === identity.organization.id));
+    return allRequests.filter(r =>
+        authorizedTxnIds.has(r.transactionId) &&
+        (!r.orgId || r.orgId === identity.organization.id) &&
+        !DEMO_TRANSACTION_IDS.has(r.transactionId)
+    );
 }
 
 export function getPortalRequestsByTransaction(transactionId: string): PortalRequest[] {
@@ -736,9 +729,6 @@ export function isRequestInAnyAuthorizedTransaction(requestId: string, userId: s
 }
 
 function getRequestFromAnySource(requestId: string): PortalRequest | null {
-    if (!isRecapDataWiped() && !isDemoActive()) {
-        initDemo();
-    }
     const requests = getRequests();
     const allRequests = [...MOCK_REQUESTS, ...requests.map(mapRecapToPortalRequest)];
     return allRequests.find(r => r.id === requestId || r.requestId === requestId) || null;
@@ -761,9 +751,6 @@ export function getPortalClarifications(): PortalClarification[] {
 }
 
 export function getPortalDocuments(): PortalDocument[] {
-    if (!isRecapDataWiped() && !isDemoActive()) {
-        initDemo();
-    }
     const documents = getDocuments();
     const allDocs = documents.map(mapRecapToPortalDocument).filter((d) => d.externalVisible !== false);
 
@@ -774,7 +761,7 @@ export function getPortalDocuments(): PortalDocument[] {
     const authorizedTxnIds = new Set(identity.authorizedTransactions.map(a => a.transactionId));
     if (authorizedTxnIds.size === 0) return [];
 
-    return allDocs.filter(d => authorizedTxnIds.has(d.transactionId));
+    return allDocs.filter(d => authorizedTxnIds.has(d.transactionId) && !DEMO_TRANSACTION_IDS.has(d.transactionId));
 }
 export function getPortalDocumentsByTransaction(transactionId: string): PortalDocument[] {
     return getPortalDocuments().filter((d) => d.transactionId === transactionId);

@@ -671,7 +671,7 @@ export default function PortalOverview() {
                             </div>
                             {dashboardFiltered.length > 10 && (
                                 <div style={{ textAlign: "right", marginTop: 6 }}>
-                                    <span style={{ fontSize: 13, color: "#4f46e5", fontWeight: 600, cursor: "pointer" }} onClick={() => navigate("/portal/requests")}>View all requests &rarr;</span>
+                                    <span style={{ fontSize: 13, color: "#4f46e5", fontWeight: 600, cursor: "pointer" }} onClick={() => navigate(`/portal/requests${!isAllSelected && selectedTxnId ? `?transactionId=${selectedTxnId}` : ""}`)}>View all requests &rarr;</span>
                                 </div>
                             )}
                         </>

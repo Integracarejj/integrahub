@@ -96,7 +96,8 @@ function uploadPackage(txnId: string, count: number, prefix: string): string {
    ═══════════════════════════════════════════════════════════════ */
 describe('Test A: Distinct identity invariants', () => {
     beforeEach(() => {
-        clearPortalSubmissions();
+        // Ensure no stale wiped flag from prior tests
+        localStorage.removeItem("integrasource.recap.wiped");
         clearAllPortalCreatedData();
     });
 
@@ -334,10 +335,14 @@ describe('Test E: Persona switching — no data leakage', () => {
 
     it('getPortalUserContext returns only authorized transactions', () => {
         setActivePersona('broker');
+        const atlasTxnId = createKeystoneAsAtlas();
+        uploadPackage(atlasTxnId, 3, 'KeystoneCheck');
         const atlasCtx = getPortalUserContext();
         expect(atlasCtx.transactions.length).toBeGreaterThanOrEqual(1);
 
         setActivePersona('buyer');
+        const summitTxnId = createSummitProject();
+        uploadPackage(summitTxnId, 3, 'SummitCheck');
         const summitCtx = getPortalUserContext();
         expect(summitCtx.transactions.length).toBeGreaterThanOrEqual(1);
 
@@ -591,12 +596,9 @@ describe('Test M: Data Wipe — removes dynamic data, preserves identity', () =>
         expect(summit.organization.id).toBe('org-summit');
     });
 
-    it('after wipe: transactions are re-seeded as demo defaults', () => {
+    it('after wipe: transactions are empty (demo not re-seeded)', () => {
         const txns = getTransactionsList();
-        expect(txns.length).toBe(3);
-        expect(txns.some(t => t.id === 'txn-abc-portfolio')).toBe(true);
-        expect(txns.some(t => t.id === 'txn-harbor-deal')).toBe(true);
-        expect(txns.some(t => t.id === 'txn-summit-review')).toBe(true);
+        expect(txns.length).toBe(0);
     });
 
     it('after wipe + recreate: isolation still holds', () => {
