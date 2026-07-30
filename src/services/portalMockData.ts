@@ -1521,6 +1521,7 @@ export function submitBrokerUploadPackage(
     categories: string[];
     packageName: string;
     isABCDemo: boolean;
+    transactionId?: string;
 } {
     const submissionId = `sub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
@@ -1548,6 +1549,7 @@ export function submitBrokerUploadPackage(
             categories: Object.keys(summary.categories),
             packageName: "ABC Company Portfolio",
             isABCDemo: true,
+            transactionId: submission.transactionId,
         };
     }
 
@@ -1560,6 +1562,9 @@ export function submitBrokerUploadPackage(
     const users = getExternalUsers();
     const identityUser = users.find(u => u.email === persona.email);
 
+    // Auto-create transaction if not provided
+    const resolvedTxnId = transactionId || createPortalTransaction(packageName);
+
     const submission: PortalPackageSubmission = {
         id: submissionId,
         fileName,
@@ -1567,13 +1572,13 @@ export function submitBrokerUploadPackage(
         submittedAt: new Date().toISOString(),
         requestCount,
         status: "Analyzed",
-        transactionName: resolveTransactionName(transactionId, packageName),
+        transactionName: resolveTransactionName(resolvedTxnId, packageName),
         isABCDemo: false,
         orgId: identityUser?.organizationId,
         orgName: identityUser?.organizationName,
         userId: identityUser?.id,
         userName: identityUser?.displayName,
-        transactionId,
+        transactionId: resolvedTxnId,
     };
     addPortalSubmission(submission);
 
@@ -1589,6 +1594,7 @@ export function submitBrokerUploadPackage(
         categories,
         packageName,
         isABCDemo: false,
+        transactionId: resolvedTxnId,
     };
 }
 

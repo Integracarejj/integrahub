@@ -25,6 +25,7 @@ import {
     saveParsedRows,
     clearPortalSubmissions,
     createPortalTransaction,
+    getTransactionsList,
 } from '../services/portalMockData';
 
 import {
@@ -314,6 +315,101 @@ describe('Test G: Data Wipe — upload entry available after wipe + recreate', (
 
         // Dynamic data gone
         expect(getPortalSubmissionsList().filter(s => s.transactionId === txnId).length).toBe(0);
+    });
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   Test — Auto-create transaction submission path
+   ═══════════════════════════════════════════════════════════════════ */
+describe('Auto-create transaction submission path', () => {
+    beforeEach(() => {
+        clearPortalSubmissions();
+        clearAllPortalCreatedData();
+        simulateDataWipe();
+        setActivePersona('broker');
+    });
+
+    it('submitBrokerUploadPackage auto-creates transaction when transactionId is not provided', () => {
+        const rows = setupMockParsedRows(3);
+        saveParsedRows(rows);
+
+        // Submit without a transactionId → should auto-create
+        const result = submitBrokerUploadPackage('Project_Keystone.xlsx', 3, ['Financial'], undefined);
+
+        // A transaction must have been auto-created
+        const txns = getTransactionsList();
+        const autoTxn = txns.find(t => result.transactionId === t.id);
+        expect(autoTxn).toBeDefined();
+        expect(autoTxn!.name).toBe('Project_Keystone');
+    });
+
+    it('confirmed package requests are visible via getPortalRequests()', () => {
+        const rows = setupMockParsedRows(3);
+        saveParsedRows(rows);
+
+        const result = submitBrokerUploadPackage('Keystone_DD.xlsx', 3, ['Financial'], undefined);
+        const txnId = result.transactionId;
+
+        confirmBrokerPackage(result.submissionId);
+
+        // Requests must be visible
+        const portalReqs = getPortalRequests().filter(r => r.transactionId === txnId);
+        expect(portalReqs.length).toBe(3);
+
+        // All requests carry the auto-created transaction ID
+        for (const req of portalReqs) {
+            expect(req.transactionId).toBe(txnId);
+        }
+    });
+
+    it('requests survive across re-call (simulating dashboard refresh)', () => {
+        const rows = setupMockParsedRows(3);
+        saveParsedRows(rows);
+
+        const result = submitBrokerUploadPackage('Keystone_DD.xlsx', 3, ['Financial'], undefined);
+        const txnId = result.transactionId;
+
+        confirmBrokerPackage(result.submissionId);
+
+        // Simulate re-mount / refresh: call getPortalRequests() again
+        const fresh = getPortalRequests().filter(r => r.transactionId === txnId);
+        expect(fresh.length).toBe(3);
+    });
+
+    it('two auto-created transactions produce correctly scoped requests', () => {
+        const rows1 = setupMockParsedRows(2);
+        saveParsedRows(rows1);
+        const result1 = submitBrokerUploadPackage('Keystone.xlsx', 2, ['Financial'], undefined);
+        const txnId1 = result1.transactionId;
+        confirmBrokerPackage(result1.submissionId);
+
+        const rows2 = setupMockParsedRows(4);
+        saveParsedRows(rows2);
+        const result2 = submitBrokerUploadPackage('Liberty.xlsx', 4, ['Legal'], undefined);
+        const txnId2 = result2.transactionId;
+        confirmBrokerPackage(result2.submissionId);
+
+        expect(txnId1).not.toBe(txnId2);
+
+        const keystoneReqs = getPortalRequests().filter(r => r.transactionId === txnId1);
+        expect(keystoneReqs.length).toBe(2);
+
+        const libertyReqs = getPortalRequests().filter(r => r.transactionId === txnId2);
+        expect(libertyReqs.length).toBe(4);
+    });
+
+    it('explicit transactionId still works (no regression)', () => {
+        const txnId = createPortalTransaction('Project Keystone');
+        const rows = setupMockParsedRows(3);
+        saveParsedRows(rows);
+
+        // Submit WITH explicit transactionId
+        const result = submitBrokerUploadPackage('Keystone.xlsx', 3, ['Financial'], txnId);
+        expect(result.transactionId).toBe(txnId);
+        confirmBrokerPackage(result.submissionId);
+
+        const portalReqs = getPortalRequests().filter(r => r.transactionId === txnId);
+        expect(portalReqs.length).toBe(3);
     });
 });
 

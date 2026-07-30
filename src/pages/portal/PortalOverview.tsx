@@ -7,6 +7,7 @@ import {
     parseUploadedXLSX, extractCategoriesFromParsedRows,
     saveParsedRows, toExternalStatusInput,
     getPersonaIdentity, getLastCreatedTransactionId, clearLastCreatedTransactionId,
+    createPortalTransaction,
 } from "../../services/portalMockData";
 import { getExternalStatusInfo, getStatusPillStyle, getExceptionContext } from "../../services/externalStatusMapping";
 import "./PortalOverview.css";
@@ -229,7 +230,12 @@ export default function PortalOverview() {
             }
             saveParsedRows(parsed.rows);
             const cats = extractCategoriesFromParsedRows(parsed.rows);
-            const effectiveTxnId = isAllSelected ? undefined : (selectedTxnId || undefined);
+            let effectiveTxnId = isAllSelected ? undefined : (selectedTxnId || undefined);
+            // Auto-create a transaction when none is selected
+            if (!effectiveTxnId) {
+                const txnName = file.name.replace(/\.[^.]+$/, "").trim();
+                effectiveTxnId = createPortalTransaction(txnName);
+            }
             const result = submitBrokerUploadPackage(file.name, parsed.count, cats, effectiveTxnId);
             setAnalysis(result);
             setUploadState("complete");
