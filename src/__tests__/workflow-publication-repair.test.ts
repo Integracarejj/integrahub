@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { diag, clearDiag, getDiagBuffer, diagRequestState, compareRequests, evaluateExternalSelector } from '../utils/diagnostics';
+import { diag, clearDiag, getDiagBuffer, diagRequestState, compareRequests } from '../utils/diagnostics';
 import type { RecapRequest } from '../services/recapMockData';
 import { getExternalStatusInfo } from '../services/externalStatusMapping';
 import { toExternalStatusInput } from '../services/portalMockData';
@@ -16,9 +16,6 @@ const localStorageMock: Storage = {
 };
 
 globalThis.localStorage = localStorageMock;
-
-// Using type only for local mocks — actual service imports below
-import type { PortalRequest } from '../services/portalMockData';
 
 import {
     setActivePersona,
@@ -42,12 +39,9 @@ import {
     submitClarificationToDdOperations,
     returnClarificationToContributor,
     updateRequestReturnToOwner,
+    updateRequestReturnReason,
     archiveRequest,
     publishSelectedRequests,
-    patchRequest,
-    isRecapWiped,
-    isDemoLoaded,
-    getPortalCreatedRequests,
     partnerReworkRequest,
     addActivityEntry,
     addWorkNote,
@@ -241,6 +235,164 @@ describe('Workflow Publication Repair', () => {
             expect(found[0].externalStatus).toBe('Published External');
             const ext = getExternalStatusInfo(toExternalStatusInput(found[0]));
             expect(ext.status).toBe('Awaiting Your Review');
+        });
+    });
+
+    describe('Test 4 — Internal clarification → Publish (DD-050 defect)', () => {
+        it('published request with resolved internal clarification history shows Awaiting Your Review externally', () => {
+            const { txnId, submissionId } = setupPortalProject();
+            const req = getRequestByTitle(txnId, 'clarification');
+            if (!req) throw new Error('Clarification request not found');
+
+            publishSelectedRequests([req.id], { sourceIntakeId: `${submissionId}-intake`, sourcePackageId: `${submissionId}-intake` });
+
+            uiAcceptWork(req.id, CONTRIBUTOR, req.title || '', req.category || '', req.transactionId, req.transactionName || '');
+
+            submitClarificationToDdOperations(req.id, 'Need more details', null, CONTRIBUTOR);
+            const clarReq = getRequestById(req.id);
+            expect(clarReq?.status).toBe('Clarification Needed');
+            expect(clarReq?._clarificationRaisedBy).toBe(CONTRIBUTOR);
+
+            returnClarificationToContributor(req.id, 'Response provided', DD_OPS_LEAD);
+
+            uiAcceptWork(req.id, CONTRIBUTOR, req.title || '', req.category || '', req.transactionId, req.transactionName || '');
+
+            uiCompleteReview(req.id, CONTRIBUTOR, '', req.title || '', req.category || '', req.transactionId, req.transactionName || '');
+
+            uiPublishExternal(req.id, DD_OPS_LEAD, req.title || '', req.category || '', req.transactionId, req.transactionName || '', req.requestId);
+
+            const final = getRequestById(req.id);
+            diagRequestState('internal-clarification after publish', final);
+            expect(final?.status).toBe('Waiting Partner Review');
+            expect(final?._externalStatus).toBe('Published External');
+            expect(final?._publishedExternal).toBe(true);
+            const historicalClarNotes = final?._workNotes?.filter(n => n.action === 'Clarification Needed' || n.action === 'Clarification Response');
+            expect(historicalClarNotes?.length).toBeGreaterThan(0);
+
+            const portalReqs = getPortalRequests();
+            const found = portalReqs.find(r => r.id === req.id || r.requestId === req.id);
+            expect(found).toBeDefined();
+            expect(found?._rawStatus).toBe('Waiting Partner Review');
+            const ext = getExternalStatusInfo(toExternalStatusInput(found!));
+            expect(ext.status).toBe('Awaiting Your Review');
+        });
+    });
+
+    describe('Test 5 — External clarification → Publish', () => {
+        it('published request with resolved external clarification history shows Awaiting Your Review externally', () => {
+            const { txnId, submissionId } = setupPortalProject();
+            const req = getRequestByTitle(txnId, 'clarification');
+            if (!req) throw new Error('Clarification request not found');
+
+            publishSelectedRequests([req.id], { sourceIntakeId: `${submissionId}-intake`, sourcePackageId: `${submissionId}-intake` });
+
+            uiAcceptWork(req.id, CONTRIBUTOR, req.title || '', req.category || '', req.transactionId, req.transactionName || '');
+
+            updateRequestStatus(req.id, 'Clarification Needed');
+            addWorkNote(req.id, 'What is the cap rate?', DD_OPS_LEAD, 'Clarification External Question');
+            updateRequestReturnReason(req.id, 'What is the cap rate?');
+
+            addWorkNote(req.id, 'Cap rate is 6.2%.', 'External Partner', 'Clarification Response');
+            updateRequestReturnReason(req.id, null);
+
+            uiAcceptWork(req.id, CONTRIBUTOR, req.title || '', req.category || '', req.transactionId, req.transactionName || '');
+            addWorkNote(req.id, 'Cap rate confirmed at 6.2%. Proceed.', DD_OPS_LEAD, 'Clarification Guidance');
+
+            uiCompleteReview(req.id, CONTRIBUTOR, '', req.title || '', req.category || '', req.transactionId, req.transactionName || '');
+
+            uiPublishExternal(req.id, DD_OPS_LEAD, req.title || '', req.category || '', req.transactionId, req.transactionName || '', req.requestId);
+
+            diagRequestState('external-clarification after publish', getRequestById(req.id));
+
+            const portalReqs = getPortalRequests();
+            const found = portalReqs.find(r => r.id === req.id || r.requestId === req.id);
+            expect(found).toBeDefined();
+            const ext = getExternalStatusInfo(toExternalStatusInput(found!));
+            expect(ext.status).toBe('Awaiting Your Review');
+        });
+    });
+
+    describe('Test 6 — Second-round clarification after publish', () => {
+        it('active external clarification on published request shows Information Requested, then returns to Awaiting Your Review after resolution', () => {
+            const { txnId, submissionId } = setupPortalProject();
+            const req = getRequestByTitle(txnId, 'simple');
+            if (!req) throw new Error('Simple request not found');
+
+            publishSelectedRequests([req.id], { sourceIntakeId: `${submissionId}-intake`, sourcePackageId: `${submissionId}-intake` });
+            uiAcceptWork(req.id, CONTRIBUTOR, req.title || '', req.category || '', req.transactionId, req.transactionName || '');
+            uiCompleteReview(req.id, CONTRIBUTOR, '', req.title || '', req.category || '', req.transactionId, req.transactionName || '');
+            uiPublishExternal(req.id, DD_OPS_LEAD, req.title || '', req.category || '', req.transactionId, req.transactionName || '', req.requestId);
+
+            const published = getRequestById(req.id);
+            expect(published?.status).toBe('Waiting Partner Review');
+
+            let portalReqs = getPortalRequests();
+            let found = portalReqs.find(r => r.id === req.id || r.requestId === req.id);
+            expect(getExternalStatusInfo(toExternalStatusInput(found!)).status).toBe('Awaiting Your Review');
+
+            updateRequestStatus(req.id, 'Clarification Needed');
+            addWorkNote(req.id, 'Need updated revenue figures.', DD_OPS_LEAD, 'Clarification External Question');
+            updateRequestReturnReason(req.id, 'Need updated revenue figures.');
+
+            portalReqs = getPortalRequests();
+            found = portalReqs.find(r => r.id === req.id || r.requestId === req.id);
+            const activeExt = getExternalStatusInfo(toExternalStatusInput(found!));
+            expect(activeExt.status).toBe('Information Requested');
+
+            addWorkNote(req.id, 'Updated figures attached.', 'External Partner', 'Clarification Response');
+            updateRequestReturnReason(req.id, null);
+            uiAcceptWork(req.id, CONTRIBUTOR, req.title || '', req.category || '', req.transactionId, req.transactionName || '');
+            addWorkNote(req.id, 'Figures confirmed. Proceed.', DD_OPS_LEAD, 'Clarification Guidance');
+
+            portalReqs = getPortalRequests();
+            found = portalReqs.find(r => r.id === req.id || r.requestId === req.id);
+            const resolvedExt = getExternalStatusInfo(toExternalStatusInput(found!));
+            expect(resolvedExt.status).toBe('Awaiting Your Review');
+        });
+    });
+
+    describe('Test 7 — Mapper: published state wins over resolved clarification history', () => {
+        it('historical internal clarification + published = Awaiting Your Review', () => {
+            const ext = getExternalStatusInfo({
+                status: 'Clarification Needed',
+                _externalStatus: 'Published External',
+                _publishedExternal: true,
+                _publishedAt: '2026-08-01',
+                _workNotes: [
+                    { action: 'Clarification Needed' },
+                    { action: 'Clarification Response' },
+                ],
+            } as any);
+            expect(ext.status).toBe('Awaiting Your Review');
+        });
+
+        it('historical external clarification with guidance + published = Awaiting Your Review', () => {
+            const ext = getExternalStatusInfo({
+                status: 'Clarification Needed',
+                _externalStatus: 'Published External',
+                _publishedExternal: true,
+                _publishedAt: '2026-08-01',
+                _workNotes: [
+                    { action: 'Clarification External Question' },
+                    { action: 'Clarification Response' },
+                    { action: 'Clarification Guidance' },
+                ],
+            } as any);
+            expect(ext.status).toBe('Awaiting Your Review');
+        });
+
+        it('active external clarification on published request still shows Information Requested', () => {
+            const ext = getExternalStatusInfo({
+                status: 'Clarification Needed',
+                _externalStatus: 'Published External',
+                _publishedExternal: true,
+                _publishedAt: '2026-08-01',
+                _workNotes: [
+                    { action: 'Clarification External Question' },
+                ],
+                _returnReason: 'What is the cap rate?',
+            } as any);
+            expect(ext.status).toBe('Information Requested');
         });
     });
 

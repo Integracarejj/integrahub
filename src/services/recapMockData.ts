@@ -822,6 +822,10 @@ export function updateExternalPublishStatus(id: string, publishedWithoutDocument
         req._publishedExternalAt = new Date().toISOString().split("T")[0];
         req._externalStatus = "Published External";
         req._publishedWithoutDocuments = publishedWithoutDocuments ?? false;
+        req._partnerDecision = null;
+        req._partnerNote = null;
+        req._partnerActionAt = null;
+        req.status = "Waiting Partner Review" as RecapRequest["status"];
         req.lastUpdated = new Date().toISOString().split("T")[0];
     }
     return req;

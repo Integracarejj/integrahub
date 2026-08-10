@@ -61,22 +61,36 @@ function getRecapStatus(req: { status: string; _exceptionRecommendation?: string
     // Clarification / Information Requested
     if (status === "Clarification Needed") {
         const notes = req._workNotes;
-        if (notes && notes.length > 0) {
-            const hasExternalQuestion = notes.some((n: { action?: string | null }) => n.action === "Clarification External Question");
-            if (hasExternalQuestion) {
-                const clarActions = ["Clarification External Question", "Clarification Response", "Clarification Guidance"];
-                const clarNotes = notes.filter((n: { action?: string | null }) => clarActions.includes(n.action || ""));
-                if (clarNotes.length > 0) {
-                    const lastAction = clarNotes[clarNotes.length - 1].action;
-                    if (lastAction === "Clarification External Question") return "information-requested";
-                    if (lastAction === "Clarification Response") return processingStarted ? "in-progress" : "under-review";
-                    if (lastAction === "Clarification Guidance") return processingStarted ? "in-progress" : "under-review";
-                }
-                return "information-requested";
-            }
+        // A clarification is "active" while the partner still owes a response: the last
+        // external question/guidance action is an open question. Once guidance has been
+        // given (or the clarification was internal only), it is resolved historical context.
+        const hasExternalQuestion = !!notes?.some((n: { action?: string | null }) => n.action === "Clarification External Question");
+        let activeExternalClarification = false;
+        if (hasExternalQuestion) {
+            const clarActions = ["Clarification External Question", "Clarification Guidance"];
+            const clarNotes = (notes || []).filter((n: { action?: string | null }) => clarActions.includes(n.action || ""));
+            activeExternalClarification = clarNotes.length > 0 && clarNotes[clarNotes.length - 1].action === "Clarification External Question";
         }
-        if (notes?.some((n: { action?: string | null }) => n.action === "Clarification Response")) return processingStarted ? "in-progress" : "under-review";
-        return processingStarted ? "in-progress" : "under-review";
+
+        if (!(publishedExt && !activeExternalClarification)) {
+            if (notes && notes.length > 0) {
+                if (hasExternalQuestion) {
+                    const clarActions = ["Clarification External Question", "Clarification Response", "Clarification Guidance"];
+                    const clarNotes = notes.filter((n: { action?: string | null }) => clarActions.includes(n.action || ""));
+                    if (clarNotes.length > 0) {
+                        const lastAction = clarNotes[clarNotes.length - 1].action;
+                        if (lastAction === "Clarification External Question") return "information-requested";
+                        if (lastAction === "Clarification Response") return processingStarted ? "in-progress" : "under-review";
+                        if (lastAction === "Clarification Guidance") return processingStarted ? "in-progress" : "under-review";
+                    }
+                    return "information-requested";
+                }
+            }
+            if (notes?.some((n: { action?: string | null }) => n.action === "Clarification Response")) return processingStarted ? "in-progress" : "under-review";
+            return processingStarted ? "in-progress" : "under-review";
+        }
+        // Published state wins over resolved/historical clarification context.
+        // Fall through to the publication branch below.
     }
 
     // Publication / Rework / Awaiting Your Review

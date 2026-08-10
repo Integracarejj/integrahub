@@ -27,41 +27,42 @@ export function clearDiag(): void {
   buffer.length = 0;
 }
 
-export function diagRequestState(label: string, req: Record<string, unknown> | null | undefined): void {
+export function diagRequestState(label: string, req: object | null | undefined): void {
   if (!req) {
     diag("REQUEST_STATE_SNAPSHOT", label, { error: "request not found" });
     return;
   }
+  const r = req as Record<string, unknown>;
   diag("REQUEST_STATE_SNAPSHOT", label, {
-    id: req.id,
-    requestId: req.requestId,
-    intakeId: req.intakeId,
-    orgId: req.orgId,
-    transactionId: req.transactionId,
-    project: req.project,
-    status: req.status,
-    _externalStatus: req._externalStatus,
-    _publishedExternal: req._publishedExternal,
-    _publishedAt: req._publishedAt,
-    _blockerStatus: req._blockerStatus,
-    _blockerReason: req._blockerReason,
-    _blockerResolution: req._blockerResolution,
-    _returnReason: req._returnReason,
-    _returnedBy: req._returnedBy,
-    _completedBy: req._completedBy,
-    _completedAt: req._completedAt,
-    _partnerDecision: req._partnerDecision,
-    _exceptionRecommendation: req._exceptionRecommendation,
-    _exceptionSentAt: req._exceptionSentAt,
-    _exceptionDecision: req._exceptionDecision,
-    _processingStartedAt: req._processingStartedAt,
-    _needsReassignment: req._needsReassignment,
-    _misassignedReason: req._misassignedReason,
-    owner: req.owner,
-    assignedTo: req.assignedTo,
-    _clarificationStatus: req._clarificationStatus,
-    _clarificationSentAt: req._clarificationSentAt,
-    _clarificationExternalSentAt: req._clarificationExternalSentAt,
+    id: r.id,
+    requestId: r.requestId,
+    intakeId: r.intakeId,
+    orgId: r.orgId,
+    transactionId: r.transactionId,
+    project: r.project,
+    status: r.status,
+    _externalStatus: r._externalStatus,
+    _publishedExternal: r._publishedExternal,
+    _publishedAt: r._publishedAt,
+    _blockerStatus: r._blockerStatus,
+    _blockerReason: r._blockerReason,
+    _blockerResolution: r._blockerResolution,
+    _returnReason: r._returnReason,
+    _returnedBy: r._returnedBy,
+    _completedBy: r._completedBy,
+    _completedAt: r._completedAt,
+    _partnerDecision: r._partnerDecision,
+    _exceptionRecommendation: r._exceptionRecommendation,
+    _exceptionSentAt: r._exceptionSentAt,
+    _exceptionDecision: r._exceptionDecision,
+    _processingStartedAt: r._processingStartedAt,
+    _needsReassignment: r._needsReassignment,
+    _misassignedReason: r._misassignedReason,
+    owner: r.owner,
+    assignedTo: r.assignedTo,
+    _clarificationStatus: r._clarificationStatus,
+    _clarificationSentAt: r._clarificationSentAt,
+    _clarificationExternalSentAt: r._clarificationExternalSentAt,
   });
 }
 
