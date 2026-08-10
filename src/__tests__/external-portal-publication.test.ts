@@ -327,6 +327,71 @@ describe('External Portal Publication Boundary', () => {
         });
     });
 
+    describe('TEST 7 — Second package joins the existing (selected) transaction', () => {
+        it('keeps both packages visible after the browser selected-transaction upload path', () => {
+            clearDiag();
+            clearAllPortalCreatedData();
+            setActivePersona('broker');
+
+            // Package A uploaded in "All Transactions" mode → auto-creates its own transaction
+            saveParsedRows([
+                { 'Request Title': 'Keystone Alpha', 'Category': 'Financial', 'Priority': 'High', '#': '1' },
+                { 'Request Title': 'Keystone Beta', 'Category': 'Legal', 'Priority': 'High', '#': '2' },
+            ]);
+            const subA = submitBrokerUploadPackage('Project Keystone.xlsx', 2, ['Financial', 'Legal']);
+            const txnA = subA.transactionId!;
+            confirmBrokerPackage(subA.submissionId);
+
+            // Package B uploaded while the portal is scoped to the last-created transaction (txnA)
+            saveParsedRows([
+                { 'Request Title': 'Liberty Gamma', 'Category': 'Environmental', 'Priority': 'Medium', '#': '1' },
+                { 'Request Title': 'Liberty Delta', 'Category': 'Regulatory', 'Priority': 'Low', '#': '2' },
+            ]);
+            const subB = submitBrokerUploadPackage('liberty.xlsx', 2, ['Environmental', 'Regulatory'], txnA);
+            confirmBrokerPackage(subB.submissionId);
+
+            // One transaction exists and BOTH packages' requests are linked to it
+            expect(txnA).toBeDefined();
+            const ksAlpha = getRequestByTitle(txnA, 'keystone alpha')!;
+            const ksBeta = getRequestByTitle(txnA, 'keystone beta')!;
+            const lbGamma = getRequestByTitle(txnA, 'liberty gamma')!;
+            const lbDelta = getRequestByTitle(txnA, 'liberty delta')!;
+            for (const r of [ksAlpha, ksBeta, lbGamma, lbDelta]) {
+                expect(r.transactionId).toBe(txnA);
+            }
+
+            publishSelectedRequests([ksAlpha.id, ksBeta.id, lbGamma.id, lbDelta.id], { sourceIntakeId: 'selpath-intake', sourcePackageId: 'selpath-intake' });
+
+            // Publish one request from EACH package externally
+            uiAcceptWork(ksAlpha.id, CONTRIBUTOR, ksAlpha.title || '', ksAlpha.category || '', ksAlpha.transactionId, ksAlpha.transactionName || '');
+            uiCompleteReview(ksAlpha.id, CONTRIBUTOR, '', ksAlpha.title || '', ksAlpha.category || '', ksAlpha.transactionId, ksAlpha.transactionName || '');
+            uiPublishExternal(ksAlpha.id, DD_OPS_LEAD, ksAlpha.title || '', ksAlpha.category || '', ksAlpha.transactionId, ksAlpha.transactionName || '', ksAlpha.requestId);
+
+            uiAcceptWork(lbGamma.id, CONTRIBUTOR, lbGamma.title || '', lbGamma.category || '', lbGamma.transactionId, lbGamma.transactionName || '');
+            uiCompleteReview(lbGamma.id, CONTRIBUTOR, '', lbGamma.title || '', lbGamma.category || '', lbGamma.transactionId, lbGamma.transactionName || '');
+            uiPublishExternal(lbGamma.id, DD_OPS_LEAD, lbGamma.title || '', lbGamma.category || '', lbGamma.transactionId, lbGamma.transactionName || '', lbGamma.requestId);
+
+            const portalReqs = getPortalRequests();
+
+            // No duplicates
+            const ids = portalReqs.map(r => r.id);
+            expect(new Set(ids).size).toBe(ids.length);
+            for (const r of [ksAlpha, ksBeta, lbGamma, lbDelta]) {
+                expect(portalReqs.filter(p => p.id === r.id || p.requestId === r.id).length).toBe(1);
+            }
+
+            // Both packages' published requests are Awaiting Your Review
+            const awaiting = portalReqs.filter(r => getExternalStatusInfo(toExternalStatusInput(r)).status === 'Awaiting Your Review');
+            expect(awaiting.length).toBe(2);
+            expect(awaiting.some(r => r.title.includes('Keystone Alpha'))).toBe(true);
+            expect(awaiting.some(r => r.title.includes('Liberty Gamma'))).toBe(true);
+
+            // Shared transaction means one project bucket holds all four requests
+            const sharedProject = portalReqs.filter(r => r.transactionName === 'Project Keystone');
+            expect(sharedProject.length).toBe(4);
+        });
+    });
+
     describe('TEST 6 — Non-published internal work', () => {
         it('stays Under Review and never shows Awaiting Your Review before external publication', () => {
             const { txnId, submissionId } = setupProject('Project Keystone', [
