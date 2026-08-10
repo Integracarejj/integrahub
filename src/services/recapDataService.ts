@@ -1027,6 +1027,7 @@ export function submitClarificationToDdOperations(id: string, questionText: stri
     const nowDate = now.split("T")[0];
     const existing = getRequestById(id);
     const prevNotes = existing?._workNotes || [];
+    const returnTarget = existing?.owner && existing.owner.trim() !== DD_OPS_LEAD ? existing.owner : raisedBy;
     const wnEntries: WorkNoteEntry[] = [];
     wnEntries.push({
         id: `wn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -1047,7 +1048,7 @@ export function submitClarificationToDdOperations(id: string, questionText: stri
     const patch: Partial<RecapRequest> = {
         ...clearIncompatibleActiveState("Clarification Needed"),
         status: "Clarification Needed" as RecapRequest["status"],
-        _clarificationRaisedBy: raisedBy,
+        _clarificationRaisedBy: returnTarget,
         _statusNotes: questionText,
         _workNotes: [...prevNotes, ...wnEntries],
         lastUpdated: nowDate,
