@@ -1,6 +1,7 @@
 import { isDemoLoaded, isRecapWiped } from "./recapDemoData";
 import * as Demo from "./recapDemoData";
 import * as Mock from "./recapMockData";
+import { diag, diagRequestState } from "../utils/diagnostics";
 import type {
     RecapTransaction, RecapRequest, RecapIntakeItem,
     RecapDocument, RecapActivity, RecapTeamMember, RecapCategory, RecapDeliverable, WorkNoteEntry, ExternalMessageEntry,
@@ -703,18 +704,37 @@ export function updateRequestNotMine(id: string, reason: string, userName: strin
 }
 
 export function updateRequestExternalStatus(id: string, publishedWithoutDocuments?: boolean, externalNote?: string, publishedArtifactIds?: string[]): RecapRequest | undefined {
+    diag("PUBLISH_EXTERNAL_CALLED", "publish external started", {
+        id,
+        publishedWithoutDocuments: publishedWithoutDocuments ?? false,
+        externalNote,
+        artifactCount: publishedArtifactIds?.length ?? 0,
+    });
     const patch: Partial<RecapRequest> = { _publishedExternal: true, _publishedExternalAt: new Date().toISOString().split("T")[0], _externalStatus: "Published External", _publishedWithoutDocuments: publishedWithoutDocuments ?? false, _publishedExternalNote: externalNote, _publishedArtifactIds: publishedArtifactIds, status: "Waiting Partner Review" as RecapRequest["status"], _partnerDecision: null, _partnerNote: null, _partnerActionAt: null };
+    let result: RecapRequest | undefined;
     if (isDemoLoaded()) {
-        const result = Demo.updateDemoRequest(id, patch);
-        if (result) return result;
-        return updatePortalRequestById(id, patch);
+        result = Demo.updateDemoRequest(id, patch);
+        if (!result) result = updatePortalRequestById(id, patch);
+    } else {
+        result = Mock.updateExternalPublishStatus(id, publishedWithoutDocuments);
+        if (result) {
+            result._publishedExternalNote = externalNote;
+        } else {
+            result = updatePortalRequestById(id, patch);
+        }
     }
-    const result = Mock.updateExternalPublishStatus(id, publishedWithoutDocuments);
     if (result) {
-        result._publishedExternalNote = externalNote;
-        return result;
+        diag("PUBLISH_CANONICAL_UPDATED", "publish external canonical updated", {
+            id: result.id,
+            requestId: result.requestId,
+            status: result.status,
+            _externalStatus: result._externalStatus,
+            _publishedExternal: result._publishedExternal,
+            _publishedAt: result._publishedAt,
+        });
+        diagRequestState("publish-external canonical after update", result);
     }
-    return updatePortalRequestById(id, patch);
+    return result;
 }
 
 export function partnerApproveRequest(id: string, comment?: string): RecapRequest | undefined {

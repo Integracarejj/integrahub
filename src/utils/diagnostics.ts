@@ -1,6 +1,8 @@
 type DiagEventType =
   | "WORKFLOW_STEP"
   | "PUBLISH_EXTERNAL_CALLED"
+  | "PUBLISH_CANONICAL_UPDATED"
+  | "PUBLISH_EXTERNAL_PROJECTION_UPDATED"
   | "EXTERNAL_REQUEST_SELECTOR_EVALUATED"
   | "EXTERNAL_REQUEST_INCLUDED"
   | "EXTERNAL_REQUEST_EXCLUDED"
@@ -92,7 +94,7 @@ export function compareRequests(
   });
 }
 
-export function evaluateExternalSelector(req: Record<string, unknown> | null | undefined, identity: { authorizedTxnIds: string[]; orgId: string } | null): void {
+export function evaluateExternalSelector(req: { id?: unknown; requestId?: unknown; transactionId?: unknown; orgId?: unknown } | null | undefined, identity: { authorizedTxnIds: string[]; orgId: string } | null): void {
   if (!req) {
     diag("EXTERNAL_REQUEST_SELECTOR_EVALUATED", "no request provided", { excluded: true, reason: "request is null/undefined" });
     return;

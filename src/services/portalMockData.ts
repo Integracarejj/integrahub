@@ -1,6 +1,7 @@
 import { getTransactions, getRequests, getDocuments, isDemoActive, initDemo, getDemoEngineSummary, addPortalCreatedIntakeItem, addPortalCreatedRequests, addPortalSubmission, getPortalSubmissions, updatePortalSubmissionStatus, clearAllPortalCreatedData, isRecapDataWiped, clearRecapWiped, addActivityEntry, getActivity, DEMO_TRANSACTION_IDS } from "./recapDataService";
 import type { RecapRequest, RecapDocument, RecapTransaction, RecapIntakeItem } from "./recapDataService";
 import { getExternalStatusInfo } from "./externalStatusMapping";
+import { diag, evaluateExternalSelector } from "../utils/diagnostics";
 
 const PERSONA_KEY = "integrasource.recap.portalPersona";
 const PARSED_ROWS_KEY = "integrasource.recap.demo.parsedRows";
@@ -694,11 +695,31 @@ export function getPortalRequests(): PortalRequest[] {
     const authorizedTxnIds = new Set(identity.authorizedTransactions.map(a => a.transactionId));
     if (authorizedTxnIds.size === 0) return [];
 
-    return allRequests.filter(r =>
-        authorizedTxnIds.has(r.transactionId) &&
-        (!r.orgId || r.orgId === identity.organization.id) &&
-        !DEMO_TRANSACTION_IDS.has(r.transactionId)
-    );
+    const selectorIdentity = {
+        authorizedTxnIds: identity.authorizedTransactions.map(a => a.transactionId),
+        orgId: identity.organization.id,
+    };
+
+    const scoped: PortalRequest[] = [];
+    for (const r of allRequests) {
+        evaluateExternalSelector(r, selectorIdentity);
+        if (!authorizedTxnIds.has(r.transactionId)) continue;
+        if (r.orgId && r.orgId !== identity.organization.id) continue;
+        if (DEMO_TRANSACTION_IDS.has(r.transactionId)) continue;
+        if (r._publishedExternal) {
+            diag("PUBLISH_EXTERNAL_PROJECTION_UPDATED", "publish external projection updated", {
+                id: r.id,
+                requestId: r.requestId,
+                transactionId: r.transactionId,
+                rawStatus: r._rawStatus,
+                externalStatus: r.externalStatus,
+                projectedStatus: r.status,
+                _publishedAt: r._publishedAt,
+            });
+        }
+        scoped.push(r);
+    }
+    return scoped;
 }
 
 export function getPortalRequestsByTransaction(transactionId: string): PortalRequest[] {
