@@ -56,6 +56,10 @@ interface AnalysisResult {
 
 type UploadState = "idle" | "selected" | "analyzing" | "complete" | "submitted";
 
+/** Explicit destination choice for ADDITIONAL packages (Upload Another Package).
+ *  The previous project/transaction is NEVER silently inherited. */
+type DestinationMode = "new-project" | "existing-project";
+
 /* ── Main Dashboard ── */
 
 export default function PortalOverview() {
@@ -98,6 +102,16 @@ export default function PortalOverview() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
     const [banner, setBanner] = useState<string | null>(null);
+
+    // Destination routing for ADDITIONAL packages: the user explicitly picks
+    // New Project or an Existing Project before uploading. Defaults to a NEW
+    // project (derived from the package filename) so an additional package is
+    // never silently dropped into the previously selected project.
+    const [destMode, setDestMode] = useState<DestinationMode>("new-project");
+    const [destProjectName, setDestProjectName] = useState("");
+    const [destTxnId, setDestTxnId] = useState("");
+    const [showDestPanel, setShowDestPanel] = useState(false);
+    const [pendingDropFile, setPendingDropFile] = useState<File | null>(null);
 
     /* ── Derived Stats using centralized external status mapping ── */
     const portalStatuses = scopedRequests.map(r => getExternalStatusInfo(toExternalStatusInput(r)));
@@ -176,13 +190,13 @@ export default function PortalOverview() {
         if (fileInputRef.current) fileInputRef.current.value = "";
     }, []);
 
-    const handleSelectedFile = useCallback(async (file: File) => {
+    const handleSelectedFile = async (file: File) => {
         setUploadState("idle");
         setAnalysis(null);
         setBanner(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
         await runFileAnalysis(file);
-    }, []);
+    };
 
     const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -192,6 +206,10 @@ export default function PortalOverview() {
     };
 
     const handleBrowseClick = () => {
+        if (hasSubmitted && !showDestPanel) {
+            openDestinationPanel();
+            return;
+        }
         fileInputRef.current?.click();
     };
 
@@ -215,6 +233,10 @@ export default function PortalOverview() {
         e.stopPropagation();
         const file = e.dataTransfer?.files?.[0];
         if (file) {
+            if (hasSubmitted && !showDestPanel) {
+                openDestinationPanel(file);
+                return;
+            }
             await handleSelectedFile(file);
         }
     };
@@ -234,11 +256,30 @@ export default function PortalOverview() {
             }
             saveParsedRows(parsed.rows);
             const cats = extractCategoriesFromParsedRows(parsed.rows);
-            let effectiveTxnId = isAllSelected ? undefined : (selectedTxnId || undefined);
-            // Auto-create a transaction when none is selected
-            if (!effectiveTxnId) {
-                const txnName = file.name.replace(/\.[^.]+$/, "").trim();
-                effectiveTxnId = createPortalTransaction(txnName);
+            let effectiveTxnId: string | undefined;
+            if (hasSubmitted) {
+                // ADDITIONAL package: destination is an EXPLICIT user choice.
+                // Never silently inherit the previously selected transaction/project.
+                if (destMode === "existing-project") {
+                    effectiveTxnId = destTxnId
+                        || (selectedTxnId && selectedTxnId !== ALL_TXN_SENTINEL ? selectedTxnId : personaTxns[0]?.id)
+                        || undefined;
+                    // Defensive fallback (no authorized existing project selected yet).
+                    if (!effectiveTxnId) {
+                        effectiveTxnId = createPortalTransaction(destProjectName.trim() || file.name.replace(/\.[^.]+$/, "").trim());
+                    }
+                } else {
+                    const txnName = (destProjectName.trim() || file.name.replace(/\.[^.]+$/, "").trim());
+                    effectiveTxnId = createPortalTransaction(txnName);
+                }
+            } else {
+                // FIRST package: unchanged behavior — auto-create a transaction
+                // from the filename unless a specific one is selected.
+                effectiveTxnId = isAllSelected ? undefined : (selectedTxnId || undefined);
+                if (!effectiveTxnId) {
+                    const txnName = file.name.replace(/\.[^.]+$/, "").trim();
+                    effectiveTxnId = createPortalTransaction(txnName);
+                }
             }
             const result = submitBrokerUploadPackage(file.name, parsed.count, cats, effectiveTxnId);
             setAnalysis(result);
@@ -251,10 +292,38 @@ export default function PortalOverview() {
         }
     };
 
+    const openDestinationPanel = useCallback((file?: File) => {
+        setDestMode("new-project");
+        setDestProjectName(file ? file.name.replace(/\.[^.]+$/, "").trim() : "");
+        const last = getLastCreatedTransactionId();
+        setDestTxnId(
+            (last && authorizedTxnIds.has(last) ? last
+                : selectedTxnId && selectedTxnId !== ALL_TXN_SENTINEL && authorizedTxnIds.has(selectedTxnId) ? selectedTxnId
+                : personaTxns[0]?.id) || "",
+        );
+        setPendingDropFile(file || null);
+        setShowDestPanel(true);
+    }, [authorizedTxnIds, selectedTxnId, personaTxns]);
+
+    const handleContinueToUpload = () => {
+        if (pendingDropFile) {
+            runFileAnalysis(pendingDropFile);
+            setPendingDropFile(null);
+        } else {
+            fileInputRef.current?.click();
+        }
+    };
+
     const handleSubmitPackage = () => {
         if (!analysis) return;
         confirmBrokerPackage(analysis.submissionId);
         setUploadState("submitted");
+        // The destination choice applies to ONE additional package cycle; the
+        // next "Upload Another Package" asks again.
+        setShowDestPanel(false);
+        setDestMode("new-project");
+        setDestProjectName("");
+        setPendingDropFile(null);
     };
 
     const hasSubmitted = isAllSelected
@@ -432,7 +501,7 @@ export default function PortalOverview() {
                                     No action is required from you right now. The IntegraCare team owns the next step.
                                 </div>
                             </div>
-                            <button className="rc-btn rc-btn-primary" onClick={resetUpload} style={{ padding: "10px 24px", fontSize: 13, fontWeight: 700 }}>Upload Another Package</button>
+                            <button className="rc-btn rc-btn-primary" onClick={() => { resetUpload(); setShowDestPanel(true); }} style={{ padding: "10px 24px", fontSize: 13, fontWeight: 700 }}>Upload Another Package</button>
                         </div>
                         <div style={{ borderTop: "1px solid #bbf7d0", paddingTop: 16, maxWidth: 700, margin: "0 auto" }}>
                             <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 12, textAlign: "center" }}>How the review process works</div>
@@ -456,6 +525,42 @@ export default function PortalOverview() {
                                 Requests may move through the process at different times. Your dashboard will update as each item progresses.
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Additional Package Destination Choice ── */}
+            {hasSubmitted && uploadState === "idle" && showDestPanel && (
+                <div className="po-dest-panel">
+                    <div className="po-dest-title">Where should this package go?</div>
+                    <div className="po-dest-options">
+                        <label className="po-dest-option">
+                            <input type="radio" name="destination" checked={destMode === "new-project"} onChange={() => setDestMode("new-project")} />
+                            <span className="po-dest-option-label">New Project</span>
+                        </label>
+                        <label className="po-dest-option">
+                            <input type="radio" name="destination" checked={destMode === "existing-project"} onChange={() => setDestMode("existing-project")} />
+                            <span className="po-dest-option-label">Existing Project</span>
+                        </label>
+                    </div>
+                    {destMode === "new-project" ? (
+                        <div className="po-dest-field">
+                            <label className="po-dest-field-label" htmlFor="dest-project-name">Project Name</label>
+                            <input id="dest-project-name" className="po-dest-input" type="text" value={destProjectName} onChange={e => setDestProjectName(e.target.value)} placeholder="Project name (leave blank to use the package filename)" />
+                        </div>
+                    ) : (
+                        <div className="po-dest-field">
+                            <label className="po-dest-field-label" htmlFor="dest-project-select">Project</label>
+                            <select id="dest-project-select" className="po-dest-input" value={destTxnId} onChange={e => setDestTxnId(e.target.value)}>
+                                {personaTxns.length === 0 && <option value="">No existing projects available</option>}
+                                {personaTxns.map(t => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                    <div className="po-dest-actions">
+                        <button className="rc-btn rc-btn-primary" onClick={handleContinueToUpload}>Continue to Upload</button>
                     </div>
                 </div>
             )}

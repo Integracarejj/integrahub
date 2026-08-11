@@ -2,23 +2,22 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Page, TestInfo } from "@playwright/test";
 import { test, expect, gotoApp } from "./helpers/auth";
-import { getFixturePaths, KEYSTONE_FILE, LIBERTY_FILE } from "./helpers/fixtures";
+import { getFixturePaths, KEYSTONE_FILE, LIBERTY_FILE, KEYSTONE_TITLE, LIBERTY_TITLE } from "./helpers/fixtures";
 
 /**
- * Diagnostic: does the external Overview "Upload Another Package" flow route
- * Package B into a NEW (auto-created) transaction, separate from Package A?
+ * External Overview "Upload Another Package" destination routing.
  *
- * Setup is "clean": use the harness's real test-data reset (Settings → Wipe
- * Recapitalization Test Data). After the wipe the broker persona (Morgan Blake
- * / Atlas Capital Partners) has ZERO authorized transactions, so the Overview
- * starts in "All Transactions" mode. Each uploaded package auto-creates its
- * own transaction named after the file base name ("keystone", "liberty").
+ * Regression for the Azure defect: the second package SILENTLY inherited the
+ * first package's project/transaction, so Package B (liberty) was published
+ * externally as PROJECT KEYSTONE.
  *
- * Expected observed behavior (Jeremy's manual evidence from the real app):
- * Package B is routed to a DIFFERENT transaction than Package A — i.e. the
- * second package does NOT join the first package's transaction.
+ * The fix makes the destination an explicit user choice:
+ *   - New Project      → creates a DISTINCT transaction (Test A)
+ *   - Existing Project → reuses the explicitly selected transaction (Test B)
  *
- * No internal workflow steps — this runs in seconds.
+ * These tests ONLY exercise upload routing / project assignment. No internal
+ * workflow steps (intake / tracker / workspace / publish) are run here — those
+ * flows already have passing Playwright coverage.
  */
 
 const PERSONA_USER_EMAIL = "broker@mail.com";
@@ -49,75 +48,174 @@ interface PortalSnapshot {
     personaOrgId: string | null;
 }
 
-test("diagnostic: Overview Upload Another Package routes Package B to a NEW transaction", async ({ page }, testInfo: TestInfo) => {
+/* ── TEST A — additional package → NEW PROJECT creates a DISTINCT transaction ── */
+
+test("Test A — additional package chosen as New Project creates a distinct transaction", async ({ page }, testInfo: TestInfo) => {
     test.setTimeout(120_000);
 
     const fixtures = getFixturePaths();
     const evidence: Record<string, unknown> = {};
 
     try {
-        /* ── 1. Start clean — real harness reset (Settings → Wipe) ── */
+        /* ── Clean slate ── */
         await gotoApp(page, "/recapitalization/settings");
-        await page.getByRole("button", { name: "Wipe Recapitalization Test Data" }).click();
-        await page.locator(".rc-modal").getByRole("button", { name: "Wipe Recapitalization Test Data" }).click();
-        await expect(page.getByText(/Recapitalization test data wiped/)).toBeVisible({ timeout: 15_000 });
+        await wipeRecapData(page);
 
-        /* ── 2. Open the REAL external Overview ── */
+        /* ── First package: keystone.xlsx (auto-creates its own project) ── */
         await gotoApp(page, "/portal");
-        await expect(page.locator(".portal-user-name")).toContainText("Morgan Blake");
-        await expect(page.locator(".portal-user-role")).toContainText("Atlas Capital Partners");
         await expect(page.getByRole("heading", { name: "Upload your due diligence request list to begin" })).toBeVisible();
+        await uploadFirstPackage(page, fixtures.keystone);
 
-        evidence.baseline = await capturePortalSnapshot(page);
-        console.log("BASELINE", JSON.stringify(evidence.baseline));
-
-        /* ── 3. Package A: keystone.xlsx ── */
-        await uploadViaOverview(page, fixtures.keystone);
-        evidence.afterPackageA = await capturePortalSnapshot(page);
-        console.log("AFTER_A", JSON.stringify(evidence.afterPackageA));
-
-        /* ── 4. Click the real "Upload Another Package" ── */
+        /* ── Additional package: EXPLICIT New Project → name "Liberty" ── */
         await page.getByRole("button", { name: "Upload Another Package" }).click();
-        await expect(page.getByRole("button", { name: "Browse Files" }).first()).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByText("Where should this package go?")).toBeVisible({ timeout: 15_000 });
+        await page.getByRole("radio", { name: "New Project" }).check();
+        await page.getByLabel("Project Name", { exact: true }).fill("Liberty");
+        await uploadAdditionalPackage(page, fixtures.liberty);
 
-        /* ── 5. Package B: liberty.xlsx ── */
-        await uploadViaOverview(page, fixtures.liberty);
-        evidence.afterPackageB = await capturePortalSnapshot(page);
-        console.log("AFTER_B", JSON.stringify(evidence.afterPackageB));
-
-        /* ── 6. Compare + assert the observed routing ── */
-        const subA = findSubmission(evidence.afterPackageA as PortalSnapshot, KEYSTONE_FILE);
-        const subB = findSubmission(evidence.afterPackageB as PortalSnapshot, LIBERTY_FILE);
-
+        /* ── Assert routing: DISTINCT transactions ── */
+        const snap = await capturePortalSnapshot(page);
+        const subA = findSubmission(snap, KEYSTONE_FILE);
+        const subB = findSubmission(snap, LIBERTY_FILE);
         expect(subA, "keystone submission missing").toBeDefined();
         expect(subB, "liberty submission missing").toBeDefined();
-        expect(subA.transactionId, "Package A must record a transactionId").toBeTruthy();
-        expect(subB.transactionId, "Package B must record a transactionId").toBeTruthy();
 
-        const verdict = {
-            packageA: packageIdentity(subA),
-            packageB: packageIdentity(subB),
-            sameTransaction: subA.transactionId === subB.transactionId,
-            packageBInDifferentTransaction: subA.transactionId !== subB.transactionId,
-            expected: "Package B is routed to a NEW auto-created transaction, separate from Package A",
+        const txnA = subA!.transactionId;
+        const txnB = subB!.transactionId;
+        expect(txnA, "Package A must record a transactionId").toBeTruthy();
+        expect(txnB, "Package B must record a transactionId").toBeTruthy();
+        expect(txnA, "New Project must create a DISTINCT transaction (no silent inheritance)").not.toBe(txnB);
+        expect(subA!.transactionName).toBe("keystone");
+        expect(subB!.transactionName).toBe("Liberty");
+        expect(subA!.orgId).toBe("org-atlas");
+        expect(subB!.orgId).toBe("org-atlas");
+
+        // Atlas (org-atlas / broker) is authorized for BOTH transactions.
+        expect(authorizedTxnIds(snap)).toEqual([txnA!, txnB!].sort());
+
+        /* ── External project labels on the Overview dashboard ── */
+        await expect(page.getByText("Package Submitted Successfully")).toBeVisible();
+        const ksRow = page.locator(".po-requests-row", { hasText: KEYSTONE_TITLE });
+        const lbRow = page.locator(".po-requests-row", { hasText: LIBERTY_TITLE });
+        await expect(ksRow).toHaveCount(1);
+        await expect(lbRow).toHaveCount(1);
+        await expect(ksRow).toContainText("keystone"); // Project Keystone label
+        await expect(lbRow).toContainText("Liberty");  // Project Liberty label
+        const projectFilter = page.getByLabel("Filter by project");
+        await expect(projectFilter).toBeVisible();
+        await expect(projectFilter.locator("option")).toHaveText(["All Projects", "Liberty", "keystone"]);
+
+        evidence.verdict = {
+            packageA: { transactionId: txnA, transactionName: subA!.transactionName },
+            packageB: { transactionId: txnB, transactionName: subB!.transactionName },
+            distinct: txnA !== txnB,
         };
-        evidence.verdict = verdict;
-        console.log("VERDICT", JSON.stringify(verdict));
-
-        expect(subA.transactionId).not.toBe(subB.transactionId);
+        console.log("TEST-A-VERDICT", JSON.stringify(evidence.verdict));
     } finally {
-        exportEvidence(testInfo, evidence);
+        exportEvidence(testInfo, "test-a-new-project", evidence);
+    }
+});
+
+/* ── TEST B — additional package → EXISTING PROJECT reuses the selected transaction ── */
+
+test("Test B — additional package chosen as Existing Project reuses the selected transaction", async ({ page }, testInfo: TestInfo) => {
+    test.setTimeout(120_000);
+
+    const fixtures = getFixturePaths();
+    const evidence: Record<string, unknown> = {};
+
+    try {
+        /* ── Clean slate ── */
+        await gotoApp(page, "/recapitalization/settings");
+        await wipeRecapData(page);
+
+        /* ── First package: keystone.xlsx (auto-creates its own project) ── */
+        await gotoApp(page, "/portal");
+        await expect(page.getByRole("heading", { name: "Upload your due diligence request list to begin" })).toBeVisible();
+        await uploadFirstPackage(page, fixtures.keystone);
+
+        /* ── Additional package: EXPLICIT Existing Project → keystone ── */
+        await page.getByRole("button", { name: "Upload Another Package" }).click();
+        await expect(page.getByText("Where should this package go?")).toBeVisible({ timeout: 15_000 });
+        await page.getByRole("radio", { name: "Existing Project" }).check();
+        await page.getByLabel("Project", { exact: true }).selectOption({ label: "keystone" });
+        await uploadAdditionalPackage(page, fixtures.liberty);
+
+        /* ── Assert routing: SAME transaction, still Project Keystone ── */
+        const snap = await capturePortalSnapshot(page);
+        const subA = findSubmission(snap, KEYSTONE_FILE);
+        const subB = findSubmission(snap, LIBERTY_FILE);
+        expect(subA, "keystone submission missing").toBeDefined();
+        expect(subB, "supplemental submission missing").toBeDefined();
+
+        const txnA = subA!.transactionId;
+        const txnB = subB!.transactionId;
+        expect(txnA, "Package A must record a transactionId").toBeTruthy();
+        expect(txnB, "Package B must record a transactionId").toBeTruthy();
+        expect(txnB, "Existing Project must reuse the selected transaction").toBe(txnA);
+        expect(subA!.transactionName).toBe("keystone");
+        expect(subB!.transactionName).toBe("keystone"); // still Project Keystone
+        expect(subA!.orgId).toBe("org-atlas");
+        expect(subB!.orgId).toBe("org-atlas");
+
+        // A single authorized project remains (no extra transaction created).
+        expect(authorizedTxnIds(snap)).toEqual([txnA!]);
+
+        /* ── External project label on the Overview dashboard stays keystone ── */
+        await expect(page.getByText("Package Submitted Successfully")).toBeVisible();
+        const ksRow = page.locator(".po-requests-row", { hasText: KEYSTONE_TITLE });
+        const lbRow = page.locator(".po-requests-row", { hasText: LIBERTY_TITLE });
+        await expect(ksRow).toHaveCount(1);
+        await expect(lbRow).toHaveCount(1);
+        await expect(ksRow).toContainText("keystone"); // Project Keystone label
+        await expect(lbRow).toContainText("keystone"); // still Project Keystone
+        const projectFilter = page.getByLabel("Filter by project");
+        await expect(projectFilter).toBeVisible();
+        await expect(projectFilter.locator("option")).toHaveText(["All Projects", "keystone"]);
+
+        evidence.verdict = {
+            packageA: { transactionId: txnA, transactionName: subA!.transactionName },
+            packageB: { transactionId: txnB, transactionName: subB!.transactionName },
+            sameTransaction: txnA === txnB,
+        };
+        console.log("TEST-B-VERDICT", JSON.stringify(evidence.verdict));
+    } finally {
+        exportEvidence(testInfo, "test-b-existing-project", evidence);
     }
 });
 
 /* ── Helpers ── */
 
-async function uploadViaOverview(page: Page, fixturePath: string): Promise<void> {
+async function uploadFirstPackage(page: Page, fixturePath: string): Promise<void> {
     await page.locator('input[type="file"]').first().setInputFiles(fixturePath);
     await expect(page.getByRole("heading", { name: "Package Successfully Analyzed" })).toBeVisible({ timeout: 30_000 });
     await page.getByRole("button", { name: "Submit Package" }).click();
     await expect(page.getByText("Package Submitted Successfully")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("button", { name: "Upload Another Package" })).toBeVisible();
+}
+
+async function uploadAdditionalPackage(page: Page, fixturePath: string): Promise<void> {
+    await page.locator('input[type="file"]').first().setInputFiles(fixturePath);
+    await expect(page.getByRole("heading", { name: "Package Successfully Analyzed" })).toBeVisible({ timeout: 30_000 });
+    await page.getByRole("button", { name: "Submit Package" }).click();
+    await expect(page.getByText("Package Submitted Successfully")).toBeVisible({ timeout: 30_000 });
+}
+
+async function wipeRecapData(page: Page): Promise<void> {
+    await page.getByRole("button", { name: "Wipe Recapitalization Test Data" }).first().click();
+    await expect(page.locator(".rc-modal")).toBeVisible();
+    await page.locator(".rc-modal").getByRole("button", { name: "Wipe Recapitalization Test Data" }).click();
+    await expect(page.locator(".rc-modal")).toHaveCount(0, { timeout: 10_000 });
+    const state = await page.evaluate(() => ({
+        flag: localStorage.getItem("integrasource.recap.wiped"),
+        transactions: localStorage.getItem("integrasource.recap.portalTransactions"),
+        requests: localStorage.getItem("integrasource.recap.demo.portalRequests"),
+        access: localStorage.getItem("integrasource.recap.portalTransactionAccess"),
+    }));
+    expect(state.flag).toBe("true");
+    expect(state.transactions).toBeFalsy();
+    expect(state.requests).toBeFalsy();
+    expect(state.access).toBeFalsy();
 }
 
 async function capturePortalSnapshot(page: Page): Promise<PortalSnapshot> {
@@ -153,21 +251,13 @@ function findSubmission(snapshot: PortalSnapshot, fileName: string): SubmissionR
     return (snapshot.submissions || []).find(s => s.fileName === fileName);
 }
 
-function packageIdentity(sub: SubmissionRecord): Record<string, string | undefined> {
-    return {
-        submissionId: sub.id,
-        transactionId: sub.transactionId,
-        transactionName: sub.transactionName,
-        orgId: sub.orgId,
-        orgName: sub.orgName,
-        packageName: sub.packageName,
-        sourceFileName: sub.fileName,
-    };
+function authorizedTxnIds(snapshot: PortalSnapshot): string[] {
+    return [...new Set(snapshot.authorizedTxnIds)].sort();
 }
 
-function exportEvidence(testInfo: TestInfo, evidence: Record<string, unknown>): void {
+function exportEvidence(testInfo: TestInfo, label: string, evidence: Record<string, unknown>): void {
     try {
-        const out = testInfo.outputPath(`overview-routing-evidence-${testInfo.testId}.json`);
+        const out = testInfo.outputPath(`overview-routing-${label}-${testInfo.testId}.json`);
         fs.mkdirSync(path.dirname(out), { recursive: true });
         fs.writeFileSync(out, JSON.stringify(evidence, null, 2), "utf8");
         console.log("EVIDENCE-EXPORT", out);
