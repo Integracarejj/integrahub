@@ -16,6 +16,10 @@ dist-ssr
 deploy/
 *.zip
 
+# Playwright
+test-results/
+playwright-report/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

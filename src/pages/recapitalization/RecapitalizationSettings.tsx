@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import RecapSubNav from "./RecapSubNav";
 import { isRecapDataWiped, setRecapWiped } from "../../services/recapDataService";
+import { beginDiagSession, endDiagSession, getDiagSession, exportDiagSessionJson, clearDiagSession } from "../../utils/diagnostics";
+import { usePermissions, isPlatformAdmin } from "../../hooks/usePermissions";
 import "./Recapitalization.css";
 
 const SETTING_GROUPS = [
@@ -41,6 +43,16 @@ export default function RecapitalizationSettings() {
     const [wiped, setWiped] = useState(isRecapDataWiped());
     const [toast, setToast] = useState("");
     const [confirmOpen, setConfirmOpen] = useState(false);
+    const [, setDiagVersion] = useState(0);
+    const { permissions } = usePermissions();
+    const diagAccessible = import.meta.env.DEV || isPlatformAdmin(permissions);
+
+    useEffect(() => {
+        const interval = setInterval(() => setDiagVersion(v => v + 1), 500);
+        return () => clearInterval(interval);
+    }, []);
+
+    const diagSession = getDiagSession();
 
     const showBanner = (msg: string) => {
         setToast(msg);
@@ -52,6 +64,40 @@ export default function RecapitalizationSettings() {
         setWiped(true);
         setConfirmOpen(false);
         showBanner("Recapitalization test data wiped. Intake, Work Queue, My Work, DD Ops, and Activity Feed are now empty.");
+    };
+
+    const handleStartDiag = () => {
+        beginDiagSession("e2e");
+        setDiagVersion(v => v + 1);
+        showBanner(`Diagnostics session started: ${getDiagSession()?.id}`);
+    };
+
+    const handleEndDiag = () => {
+        const ended = endDiagSession();
+        setDiagVersion(v => v + 1);
+        showBanner(ended ? `Diagnostics session ended (${ended.eventCount} events). Export JSON to save it.` : "No active diagnostics session.");
+    };
+
+    const handleExportDiag = () => {
+        const json = exportDiagSessionJson();
+        const current = getDiagSession();
+        if (!json || !current) {
+            showBanner("No diagnostics session to export.");
+            return;
+        }
+        const blob = new Blob([json], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `integraiq-diagnostics-${current.id}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const handleClearDiag = () => {
+        clearDiagSession();
+        setDiagVersion(v => v + 1);
+        showBanner("Diagnostics session cleared.");
     };
 
     return (
@@ -143,6 +189,45 @@ export default function RecapitalizationSettings() {
                     </div>
                 </div>
             </div>
+
+            {diagAccessible && (
+                <div className="rc-card" style={{ border: "1px solid #bfdbfe" }}>
+                    <div className="rc-card-header">
+                        <h2>Diagnostics Session Recorder</h2>
+                        <span className="rc-badge" style={{ fontSize: 10, background: diagSession ? "#eff6ff" : "#f1f5f9", color: diagSession ? "#1d4ed8" : "#475569", border: diagSession ? "1px solid #bfdbfe" : "1px solid #cbd5e1" }}>
+                            {diagSession ? `Session ${diagSession.endedAt ? "Ended" : "Active"} · ${diagSession.eventCount} events` : "No Active Session"}
+                        </span>
+                    </div>
+                    <div className="rc-card-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                        {diagSession ? (
+                            <p style={{ fontSize: 12, color: "#334155", margin: 0, lineHeight: 1.5 }}>
+                                <strong>{diagSession.id}</strong> — started {new Date(diagSession.startedAt).toLocaleTimeString()}
+                                {diagSession.endedAt ? `, ended ${new Date(diagSession.endedAt).toLocaleTimeString()}` : ""}. {diagSession.eventCount} diagnostic
+                                events captured ({diagSession.endedAt ? "frozen — export to save" : "recording…"}).
+                            </p>
+                        ) : (
+                            <p style={{ fontSize: 12, color: "#475569", margin: 0, lineHeight: 1.5 }}>
+                                Start a session before running a publication flow to capture a timestamped, exportable trace of the external
+                                publication pipeline. Visible in dev builds and to PlatformAdmin users in deployed environments.
+                            </p>
+                        )}
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                            <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={handleStartDiag} disabled={!!diagSession}>
+                                Start Diagnostics Session
+                            </button>
+                            <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={handleEndDiag} disabled={!diagSession || !!diagSession.endedAt}>
+                                End Diagnostics Session
+                            </button>
+                            <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={handleExportDiag} disabled={!diagSession}>
+                                Export Diagnostics JSON
+                            </button>
+                            <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={handleClearDiag}>
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

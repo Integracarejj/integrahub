@@ -18,5 +18,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    // Scope unit tests to src/ so Playwright specs under e2e/ are not picked up.
+    include: ['src/**/*.{test,spec}.{js,ts,jsx,tsx}'],
   },
 })
