@@ -18,12 +18,17 @@ export const KEYSTONE_FILE = "keystone.xlsx";
 export const LIBERTY_FILE = "liberty.xlsx";
 export const KEYSTONE_TITLE = "E2E Keystone Request";
 export const LIBERTY_TITLE = "E2E Liberty Request";
+export const REWORK_FILE = "project-rework-approval.xlsx";
+export const REWORK_TITLE = "Project Rework Approval Request";
+export const REWORK_ARTIFACT_FILE = "rework-approval-artifact.txt";
 
 const FIXTURE_DIR = path.join(process.cwd(), "test-results", "fixtures");
 
 interface FixtureSet {
     keystone: string;
     liberty: string;
+    rework: string;
+    reworkArtifact: string;
 }
 
 function buildWorkbook(rows: (string | number)[][]): Buffer {
@@ -38,6 +43,8 @@ function ensureFixtures(): FixtureSet {
 
     const keystone = path.join(FIXTURE_DIR, KEYSTONE_FILE);
     const liberty = path.join(FIXTURE_DIR, LIBERTY_FILE);
+    const rework = path.join(FIXTURE_DIR, REWORK_FILE);
+    const reworkArtifact = path.join(FIXTURE_DIR, REWORK_ARTIFACT_FILE);
 
     fs.writeFileSync(keystone, buildWorkbook([
         ["#", "Request Title"],
@@ -49,7 +56,13 @@ function ensureFixtures(): FixtureSet {
         [1, LIBERTY_TITLE],
     ]));
 
-    return { keystone, liberty };
+    fs.writeFileSync(rework, buildWorkbook([
+        ["#", "Request Title"],
+        [1, REWORK_TITLE],
+    ]));
+    fs.writeFileSync(reworkArtifact, "IntegraIQ deterministic external rework approval artifact.\n", "utf8");
+
+    return { keystone, liberty, rework, reworkArtifact };
 }
 
 let cached: FixtureSet | null = null;

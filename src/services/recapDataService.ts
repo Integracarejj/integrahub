@@ -571,9 +571,12 @@ export function updateRequestReturnToOwner(id: string, reason: string, returnedB
     };
     let req: RecapRequest | undefined;
     const prevNotes = existing?._workNotes || [];
+    const returnOwner = existing?._partnerReworkOriginalOwner || existing?.owner || null;
     if (isDemoLoaded()) {
         req = Demo.updateDemoRequest(id, {
             status: "Needs Rework",
+            owner: returnOwner,
+            assignedTo: returnOwner,
             _returnReason: reason,
             _returnedBy: returnedBy,
             _exceptionRecommendation: null,
@@ -586,12 +589,15 @@ export function updateRequestReturnToOwner(id: string, reason: string, returnedB
             _partnerDecision: null,
             _partnerNote: null,
             _partnerActionAt: null,
+            _partnerReworkOriginalOwner: null,
             _workNotes: [...prevNotes, wnEntry],
         });
     } else {
         req = Mock.getRequestById(id);
         if (req) {
             req.status = "Needs Rework";
+            req.owner = returnOwner;
+            req.assignedTo = returnOwner;
             req._returnReason = reason;
             req._returnedBy = returnedBy;
             req._exceptionRecommendation = null;
@@ -604,11 +610,14 @@ export function updateRequestReturnToOwner(id: string, reason: string, returnedB
             req._partnerDecision = null;
             req._partnerNote = null;
             req._partnerActionAt = null;
+            req._partnerReworkOriginalOwner = null;
             req._workNotes = [...prevNotes, wnEntry];
             req.lastUpdated = new Date().toISOString().split("T")[0];
         } else {
             req = updatePortalRequestById(id, {
                 status: "Needs Rework",
+                owner: returnOwner,
+                assignedTo: returnOwner,
                 _returnReason: reason,
                 _returnedBy: returnedBy,
                 _blockerStatus: null,
@@ -616,6 +625,7 @@ export function updateRequestReturnToOwner(id: string, reason: string, returnedB
                 _partnerDecision: null,
                 _partnerNote: null,
                 _partnerActionAt: null,
+                _partnerReworkOriginalOwner: null,
                 _workNotes: [...prevNotes, wnEntry],
             });
         }
@@ -773,16 +783,9 @@ export function partnerApproveRequest(id: string, comment?: string): RecapReques
 export function partnerReworkRequest(id: string, reason: string): RecapRequest | undefined {
     const now = new Date().toISOString();
     const DD_OPS_LEAD = "David Park";
-    let originalOwner: string | null = null;
-    let existingNotes: WorkNoteEntry[] = [];
-    if (isDemoLoaded()) {
-        const existing = Demo.getDemoRequestById(id);
-        if (existing) { originalOwner = existing.owner; existingNotes = existing._workNotes || []; }
-    }
-    if (originalOwner === null) {
-        const existing = Mock.getRequestById(id);
-        if (existing) { originalOwner = existing.owner; existingNotes = existing._workNotes || []; }
-    }
+    const existing = getRequestById(id);
+    const originalOwner = existing?.owner || null;
+    const existingNotes: WorkNoteEntry[] = existing?._workNotes || [];
     const originalContributor = originalOwner || "Unknown";
     const wnEntry: WorkNoteEntry = {
         id: `wn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -798,6 +801,7 @@ export function partnerReworkRequest(id: string, reason: string): RecapRequest |
         _partnerDecision: "Rework Required",
         _partnerNote: reason,
         _partnerActionAt: now,
+        _partnerReworkOriginalOwner: originalContributor,
         _workNotes: [...existingNotes, wnEntry],
     };
     const desc = `Rework requested by partner. Reason: ${reason}`;

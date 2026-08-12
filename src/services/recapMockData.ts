@@ -79,6 +79,8 @@ export interface RecapRequest {
     _partnerDecision?: "Approved" | "Rework Required" | null;
     _partnerNote?: string | null;
     _partnerActionAt?: string | null;
+    /** Contributor who owned the request before external rework routed it to DD Operations. */
+    _partnerReworkOriginalOwner?: string | null;
     /** Exception recommendation sent to external partner for review */
     _exceptionRecommendation?: "Duplicate" | "Not Applicable" | null;
     _exceptionSentAt?: string | null;

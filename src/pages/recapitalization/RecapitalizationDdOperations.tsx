@@ -911,7 +911,7 @@ export default function RecapitalizationDdOperations() {
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
                             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                                 <div style={{ fontSize: 13, color: "#334155" }}>
-                                    This will return <strong>{returnToOwner.req.requestId}</strong> to <strong>{returnToOwner.req.owner}</strong> for clarification before approval.
+                                    This will return <strong>{returnToOwner.req.requestId}</strong> to <strong>{returnToOwner.req._partnerReworkOriginalOwner || returnToOwner.req.owner}</strong> for clarification before approval.
                                 </div>
                                 <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
                                     This will set the status to "Clarification Needed" and send the item back to the owner with a reason.
@@ -937,7 +937,7 @@ export default function RecapitalizationDdOperations() {
                                 setRefreshKey(k => k + 1);
                                 setSuccessMsg({
                                     title: "Successfully reassigned",
-                                    body: `Successfully reassigned to ${returnToOwner.req.owner}.`,
+                                    body: `Successfully reassigned to ${returnToOwner.req._partnerReworkOriginalOwner || returnToOwner.req.owner}.`,
                                 });
                                 setReturnToOwner(null);
                             }}>Return to Owner</button>
