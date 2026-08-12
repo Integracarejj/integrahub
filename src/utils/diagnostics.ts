@@ -60,6 +60,32 @@ function persistSession(): void {
   }
 }
 
+type DiagSessionListener = () => void;
+const sessionListeners = new Set<DiagSessionListener>();
+
+function notifySessionListeners(): void {
+  for (const listener of sessionListeners) {
+    try {
+      listener();
+    } catch {
+      // A misbehaving listener must not break the recorder.
+    }
+  }
+}
+
+/**
+ * Subscribe to diagnostics session lifecycle changes (start / end / clear /
+ * new event). Returns an unsubscribe function. Lets UI read getDiagSession()
+ * and re-render immediately in the same lifecycle as the mutating call —
+ * no polling or page refresh required.
+ */
+export function subscribeDiagSession(listener: DiagSessionListener): () => void {
+  sessionListeners.add(listener);
+  return () => {
+    sessionListeners.delete(listener);
+  };
+}
+
 loadSessionFromStorage();
 
 export function diag(type: DiagEventType, label: string, data: Record<string, unknown> = {}): void {
@@ -74,6 +100,7 @@ export function diag(type: DiagEventType, label: string, data: Record<string, un
     }
     session.eventCount = session.events.length;
     persistSession();
+    notifySessionListeners();
   }
 }
 
@@ -96,6 +123,7 @@ export function beginDiagSession(label = "e2e"): DiagSessionExport {
     events: [],
   };
   diag("SESSION_START", "diagnostics session started", { sessionId: session.id, label });
+  notifySessionListeners();
   return session;
 }
 
@@ -106,6 +134,7 @@ export function endDiagSession(): DiagSessionExport | null {
   session.endedAt = new Date().toISOString();
   session.eventCount = session.events.length;
   persistSession();
+  notifySessionListeners();
   return session;
 }
 
@@ -128,6 +157,7 @@ export function clearDiagSession(): void {
     // ignore
   }
   buffer.length = 0;
+  notifySessionListeners();
 }
 
 export function diagRequestState(label: string, req: object | null | undefined): void {

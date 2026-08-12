@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import RecapSubNav from "./RecapSubNav";
 import { isRecapDataWiped, setRecapWiped } from "../../services/recapDataService";
-import { beginDiagSession, endDiagSession, getDiagSession, exportDiagSessionJson, clearDiagSession } from "../../utils/diagnostics";
+import { beginDiagSession, endDiagSession, getDiagSession, exportDiagSessionJson, clearDiagSession, subscribeDiagSession } from "../../utils/diagnostics";
 import { usePermissions, isPlatformAdmin } from "../../hooks/usePermissions";
 import "./Recapitalization.css";
 
@@ -47,10 +47,7 @@ export default function RecapitalizationSettings() {
     const { permissions } = usePermissions();
     const diagAccessible = import.meta.env.DEV || isPlatformAdmin(permissions);
 
-    useEffect(() => {
-        const interval = setInterval(() => setDiagVersion(v => v + 1), 500);
-        return () => clearInterval(interval);
-    }, []);
+    useEffect(() => subscribeDiagSession(() => setDiagVersion(v => v + 1)), []);
 
     const diagSession = getDiagSession();
 
@@ -187,6 +184,9 @@ export default function RecapitalizationSettings() {
                             Wipe Recapitalization Test Data
                         </button>
                     </div>
+                    <p style={{ fontSize: 12, color: "#64748b", margin: 0, lineHeight: 1.5 }}>
+                        Diagnostics sessions are managed separately from recap test data. Wiping recap data does not clear an active diagnostics session.
+                    </p>
                 </div>
             </div>
 
@@ -212,7 +212,7 @@ export default function RecapitalizationSettings() {
                             </p>
                         )}
                         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                            <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={handleStartDiag} disabled={!!diagSession}>
+                            <button className="rc-btn rc-btn-primary rc-btn-sm" onClick={handleStartDiag} disabled={!!diagSession && !diagSession.endedAt}>
                                 Start Diagnostics Session
                             </button>
                             <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={handleEndDiag} disabled={!diagSession || !!diagSession.endedAt}>
