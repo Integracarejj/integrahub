@@ -532,25 +532,32 @@ export default function PortalOverview() {
             {/* ── Additional Package Destination Choice ── */}
             {hasSubmitted && uploadState === "idle" && showDestPanel && (
                 <div className="po-dest-panel">
-                    <div className="po-dest-title">Where should this package go?</div>
+                    <div className="po-dest-heading">Upload Another Package</div>
+                    <div className="po-dest-question">Is this package for the same project or a different project?</div>
                     <div className="po-dest-options">
-                        <label className="po-dest-option">
-                            <input type="radio" name="destination" checked={destMode === "new-project"} onChange={() => setDestMode("new-project")} />
-                            <span className="po-dest-option-label">New Project</span>
+                        <label className={`po-dest-option${destMode === "new-project" ? " po-dest-option--selected" : ""}`}>
+                            <input type="radio" name="destination" aria-label="Different Project" checked={destMode === "new-project"} onChange={() => setDestMode("new-project")} />
+                            <span className="po-dest-option-main">
+                                <span className="po-dest-option-label">Different Project</span>
+                                <span className="po-dest-option-helper">Create a new project for this package.</span>
+                            </span>
                         </label>
-                        <label className="po-dest-option">
-                            <input type="radio" name="destination" checked={destMode === "existing-project"} onChange={() => setDestMode("existing-project")} />
-                            <span className="po-dest-option-label">Existing Project</span>
+                        <label className={`po-dest-option${destMode === "existing-project" ? " po-dest-option--selected" : ""}`}>
+                            <input type="radio" name="destination" aria-label="Same Project" checked={destMode === "existing-project"} onChange={() => setDestMode("existing-project")} />
+                            <span className="po-dest-option-main">
+                                <span className="po-dest-option-label">Same Project</span>
+                                <span className="po-dest-option-helper">Add this package to an existing project.</span>
+                            </span>
                         </label>
                     </div>
                     {destMode === "new-project" ? (
                         <div className="po-dest-field">
                             <label className="po-dest-field-label" htmlFor="dest-project-name">Project Name</label>
-                            <input id="dest-project-name" className="po-dest-input" type="text" value={destProjectName} onChange={e => setDestProjectName(e.target.value)} placeholder="Project name (leave blank to use the package filename)" />
+                            <input id="dest-project-name" className="po-dest-input" type="text" value={destProjectName} onChange={e => setDestProjectName(e.target.value)} placeholder="Leave blank to use the package filename" />
                         </div>
                     ) : (
                         <div className="po-dest-field">
-                            <label className="po-dest-field-label" htmlFor="dest-project-select">Project</label>
+                            <label className="po-dest-field-label" htmlFor="dest-project-select">Select Project</label>
                             <select id="dest-project-select" className="po-dest-input" value={destTxnId} onChange={e => setDestTxnId(e.target.value)}>
                                 {personaTxns.length === 0 && <option value="">No existing projects available</option>}
                                 {personaTxns.map(t => (
@@ -560,7 +567,7 @@ export default function PortalOverview() {
                         </div>
                     )}
                     <div className="po-dest-actions">
-                        <button className="rc-btn rc-btn-primary" onClick={handleContinueToUpload}>Continue to Upload</button>
+                        <button className="rc-btn rc-btn-primary" onClick={handleContinueToUpload}>Continue</button>
                     </div>
                 </div>
             )}

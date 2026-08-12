@@ -12,8 +12,8 @@ import { getFixturePaths, KEYSTONE_FILE, LIBERTY_FILE, KEYSTONE_TITLE, LIBERTY_T
  * externally as PROJECT KEYSTONE.
  *
  * The fix makes the destination an explicit user choice:
- *   - New Project      → creates a DISTINCT transaction (Test A)
- *   - Existing Project → reuses the explicitly selected transaction (Test B)
+ *   - Different Project → creates a DISTINCT transaction (Test A)
+ *   - Same Project      → reuses the explicitly selected transaction (Test B)
  *
  * These tests ONLY exercise upload routing / project assignment. No internal
  * workflow steps (intake / tracker / workspace / publish) are run here — those
@@ -50,7 +50,7 @@ interface PortalSnapshot {
 
 /* ── TEST A — additional package → NEW PROJECT creates a DISTINCT transaction ── */
 
-test("Test A — additional package chosen as New Project creates a distinct transaction", async ({ page }, testInfo: TestInfo) => {
+test("Test A — additional package chosen as Different Project creates a distinct transaction", async ({ page }, testInfo: TestInfo) => {
     test.setTimeout(120_000);
 
     const fixtures = getFixturePaths();
@@ -66,10 +66,10 @@ test("Test A — additional package chosen as New Project creates a distinct tra
         await expect(page.getByRole("heading", { name: "Upload your due diligence request list to begin" })).toBeVisible();
         await uploadFirstPackage(page, fixtures.keystone);
 
-        /* ── Additional package: EXPLICIT New Project → name "Liberty" ── */
+        /* ── Additional package: EXPLICIT Different Project → name "Liberty" ── */
         await page.getByRole("button", { name: "Upload Another Package" }).click();
-        await expect(page.getByText("Where should this package go?")).toBeVisible({ timeout: 15_000 });
-        await page.getByRole("radio", { name: "New Project" }).check();
+        await expect(page.getByText("Is this package for the same project or a different project?")).toBeVisible({ timeout: 15_000 });
+        await page.getByRole("radio", { name: "Different Project" }).check();
         await page.getByLabel("Project Name", { exact: true }).fill("Liberty");
         await uploadAdditionalPackage(page, fixtures.liberty);
 
@@ -118,7 +118,7 @@ test("Test A — additional package chosen as New Project creates a distinct tra
 
 /* ── TEST B — additional package → EXISTING PROJECT reuses the selected transaction ── */
 
-test("Test B — additional package chosen as Existing Project reuses the selected transaction", async ({ page }, testInfo: TestInfo) => {
+test("Test B — additional package chosen as Same Project reuses the selected transaction", async ({ page }, testInfo: TestInfo) => {
     test.setTimeout(120_000);
 
     const fixtures = getFixturePaths();
@@ -134,11 +134,11 @@ test("Test B — additional package chosen as Existing Project reuses the select
         await expect(page.getByRole("heading", { name: "Upload your due diligence request list to begin" })).toBeVisible();
         await uploadFirstPackage(page, fixtures.keystone);
 
-        /* ── Additional package: EXPLICIT Existing Project → keystone ── */
+        /* ── Additional package: EXPLICIT Same Project → keystone ── */
         await page.getByRole("button", { name: "Upload Another Package" }).click();
-        await expect(page.getByText("Where should this package go?")).toBeVisible({ timeout: 15_000 });
-        await page.getByRole("radio", { name: "Existing Project" }).check();
-        await page.getByLabel("Project", { exact: true }).selectOption({ label: "keystone" });
+        await expect(page.getByText("Is this package for the same project or a different project?")).toBeVisible({ timeout: 15_000 });
+        await page.getByRole("radio", { name: "Same Project" }).check();
+        await page.getByLabel("Select Project", { exact: true }).selectOption({ label: "keystone" });
         await uploadAdditionalPackage(page, fixtures.liberty);
 
         /* ── Assert routing: SAME transaction, still Project Keystone ── */
