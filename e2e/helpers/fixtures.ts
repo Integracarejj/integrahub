@@ -22,7 +22,10 @@ export const REWORK_FILE = "project-rework-approval.xlsx";
 export const REWORK_TITLE = "Project Rework Approval Request";
 export const REWORK_ARTIFACT_FILE = "rework-approval-artifact.txt";
 
-const FIXTURE_DIR = path.join(process.cwd(), "test-results", "fixtures");
+// Playwright workers are separate Node processes. Keep generated files in a
+// process-scoped directory so concurrent workers never rewrite a fixture while
+// another browser is uploading it.
+const FIXTURE_DIR = path.join(process.cwd(), "test-results", "fixtures", `worker-${process.pid}`);
 
 interface FixtureSet {
     keystone: string;

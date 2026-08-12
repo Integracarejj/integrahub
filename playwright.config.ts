@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 5173;
 const BASE_URL = `http://localhost:${PORT}`;
+const WORKERS = process.env.CI ? 3 : Number(process.env.PLAYWRIGHT_WORKERS || 1);
 
 /**
  * Local Playwright harness for the IntegraIQ application.
@@ -14,20 +15,22 @@ const BASE_URL = `http://localhost:${PORT}`;
  * PlatformAdmin preview user, so the app runs fully locally with the
  * frontend only — no Azure/API backend required.
  *
- * One worker on purpose: the application keeps workflow state in
- * localStorage/runtime mock stores per browser context.
+ * Workflow state lives in each test's isolated browser context. CI runs spec
+ * files concurrently; local runs default to one worker because Edge contention
+ * on the supported Windows workstation is slower than serial execution. Set
+ * PLAYWRIGHT_WORKERS to opt into local concurrency.
  */
 export default defineConfig({
     testDir: "./e2e",
     fullyParallel: false,
-    workers: 1,
+    workers: WORKERS,
     reporter: [["list"], ["html", { open: "never" }]],
     outputDir: "test-results",
     timeout: 180_000,
     expect: { timeout: 15_000 },
     use: {
         baseURL: BASE_URL,
-        channel: "msedge",
+        channel: process.env.CI ? undefined : "msedge",
         headless: true,
         viewport: { width: 1440, height: 900 },
         actionTimeout: 20_000,

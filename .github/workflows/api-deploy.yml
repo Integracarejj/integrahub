@@ -1,19 +1,16 @@
-name: Deploy to Azure App Service
+name: Validate and Deploy
 
 on:
   push:
     branches:
       - main
-    paths:
-      - 'api/**'
-      - 'src/**'
-      - 'index.html'
-      - 'package.json'
-      - '.github/workflows/api-deploy.yml'
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
-  deploy:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,6 +18,48 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright regression suite
+        run: npm run test:e2e
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: TypeScript validation
+        run: npx tsc -b
+
+      - name: Production build
+        run: npm run build
+
+      - name: Upload Playwright failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure-artifacts-${{ github.run_id }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  deploy:
+    needs: validate
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
 
       - name: Build frontend
         run: |
@@ -44,4 +83,3 @@ jobs:
           app-name: Integrasource
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: deploy.zip
-

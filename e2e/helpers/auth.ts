@@ -65,7 +65,7 @@ export async function mockAuth(page: Page): Promise<void> {
  */
 export async function gotoApp(page: Page, path = "/portal"): Promise<void> {
     await mockAuth(page);
-    await page.goto(path);
+    await page.goto(path, { waitUntil: "domcontentloaded" });
     if (path.startsWith("/portal")) {
         // Preview banner is rendered by PortalLayout when a hasAppAccess user views
         // the portal — confirms both auth and the portal guard passed.
