@@ -225,7 +225,7 @@ export function compareRequests(
   });
 }
 
-export function evaluateExternalSelector(req: { id?: unknown; requestId?: unknown; transactionId?: unknown; orgId?: unknown } | null | undefined, identity: { authorizedTxnIds: string[]; orgId: string } | null): void {
+export function evaluateExternalSelector(req: { id?: unknown; requestId?: unknown; transactionId?: unknown; orgId?: unknown; _publishedExternal?: unknown } | null | undefined, identity: { authorizedTxnIds: string[]; orgId: string } | null): void {
   if (!req) {
     diag("EXTERNAL_REQUEST_SELECTOR_EVALUATED", "no request provided", { excluded: true, reason: "request is null/undefined" });
     return;
@@ -260,7 +260,12 @@ export function evaluateExternalSelector(req: { id?: unknown; requestId?: unknow
     return;
   }
 
-  diag("EXTERNAL_REQUEST_INCLUDED", "request passes selector", { id: req.id, requestId: req.requestId, transactionId: txnId, orgId });
+  // Ordinary successful selector evaluations happen on every portal render and
+  // are too noisy to persist. Published requests are worth retaining because
+  // they prove the external publication projection crossed the selector.
+  if (req._publishedExternal === true) {
+    diag("EXTERNAL_REQUEST_INCLUDED", "published request passes selector", { id: req.id, requestId: req.requestId, transactionId: txnId, orgId, publishedExternal: true });
+  }
 }
 
 function isDemoTxn(txnId: string): boolean {
