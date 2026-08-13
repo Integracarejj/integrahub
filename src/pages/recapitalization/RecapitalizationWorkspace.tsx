@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive, addExternalMessage, getExternalMessages, updateRequestNotMine, updateRequestReturnToOwner, updateRequestReturnReason, sendExceptionRecommendation, blockRequest, resolveBlockerInternal, requestExternalBlockerHelp, submitClarificationToDdOperations, returnClarificationToContributor } from "../../services/recapDataService";
+import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, getRequests, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive, addExternalMessage, getExternalMessages, updateRequestNotMine, updateRequestReturnToOwner, updateRequestReturnReason, sendExceptionRecommendation, recommendDuplicate, blockRequest, resolveBlockerInternal, requestExternalBlockerHelp, submitClarificationToDdOperations, returnClarificationToContributor } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact, WorkNoteEntry } from "../../services/recapDataService";
 import ClarificationThread, { getClarificationSummary } from "../../components/common/ClarificationThread";
 import RecapSubNav from "./RecapSubNav";
@@ -109,7 +109,7 @@ export default function RecapitalizationWorkspace() {
     const [clarificationAdditionalContext, setClarificationAdditionalContext] = useState("");
     const [clarificationSubmitStep, setClarificationSubmitStep] = useState<"select" | "message" | "confirm" | "done">("select");
     const [blockModal, setBlockModal] = useState<{ step: "input" | "completed"; reason: string } | null>(null);
-    const [duplicateModal, setDuplicateModal] = useState<{ reason: string; optionalId: string } | null>(null);
+    const [duplicateModal, setDuplicateModal] = useState<{ reason: string; optionalId: string; duplicateType: "Within Package" | "Possible Match" } | null>(null);
     const [notApplicableModal, setNotApplicableModal] = useState<{ reason: string } | null>(null);
     const [ddOpsRecommendModal, setDdOpsRecommendModal] = useState<{ type: "Duplicate" | "Not Applicable"; partnerNote: string } | null>(null);
     const [resolutionPrompt, setResolutionPrompt] = useState<{ note: string } | null>(null);
@@ -1226,7 +1226,7 @@ function WorkflowStateCard({
                                 <>
                                   <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0891b2" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>} label="Clarification Support" desc="Ask DD Operations for help" onClick={() => setNeedClarificationOpen(true)} />
                                   <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>} label="Block Work" desc="Waiting on something" onClick={() => setBlockModal({ step: "input", reason: "" })} />
-                                  <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>} label="Mark Duplicate" desc="Possible duplicate" onClick={() => setDuplicateModal({ reason: "", optionalId: "" })} />
+                                  <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>} label="Mark Duplicate" desc="Possible duplicate" onClick={() => setDuplicateModal({ reason: "", optionalId: "", duplicateType: "Within Package" })} />
                                   <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>} label="Mark Not Applicable" desc="Not needed" onClick={() => setNotApplicableModal({ reason: "" })} />
                                 </>
                               )}
@@ -2243,6 +2243,28 @@ function WorkflowStateCard({
                                 <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Request ID</span> {displayId}</div>
                                 <div><span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.03em", marginRight: 6 }}>Deliverable</span> {displayTitle || item.category || "\u2014"}</div>
                             </div>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6, display: "block" }}>Duplicate Type</label>
+                            <select
+                                aria-label="Duplicate Type"
+                                value={duplicateModal.duplicateType}
+                                onChange={e => setDuplicateModal(prev => prev ? { ...prev, duplicateType: e.target.value as "Within Package" | "Possible Match" } : null)}
+                                style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", color: "#0f172a", marginBottom: 12 }}
+                            >
+                                <option value="Within Package">Within Package</option>
+                                <option value="Possible Match">Possible Match</option>
+                            </select>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6, display: "block" }}>Duplicate Of <span style={{ color: "#dc2626" }}>*</span></label>
+                            <select
+                                aria-label="Duplicate Of"
+                                value={duplicateModal.optionalId}
+                                onChange={e => setDuplicateModal(prev => prev ? { ...prev, optionalId: e.target.value } : null)}
+                                style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", color: "#0f172a", marginBottom: 12 }}
+                            >
+                                <option value="">Select the request to keep</option>
+                                {getRequests().filter(r => r.id !== item.id && r.transactionId === item.transactionId && !r._archived).map(r => (
+                                    <option key={r.id} value={r.id}>{r.requestId} — {r.title}</option>
+                                ))}
+                            </select>
                             <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6, display: "block" }}>Reason <span style={{ color: "#dc2626" }}>*</span></label>
                             <textarea
                                 value={duplicateModal.reason}
@@ -2258,12 +2280,12 @@ function WorkflowStateCard({
                         </div>
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-ghost" onClick={() => setDuplicateModal(null)}>Cancel</button>
-                            <button className="rc-btn rc-btn-primary" disabled={!duplicateModal.reason.trim()} onClick={() => {
+                            <button className="rc-btn rc-btn-primary" disabled={!duplicateModal.reason.trim() || !duplicateModal.optionalId} onClick={() => {
                                 const reason = duplicateModal.reason.trim();
-                                if (!reason) return;
+                                const target = getRequests().find(r => r.id === duplicateModal.optionalId);
+                                if (!reason || !target) return;
                                 const reqId = item.id || item.intakeId || "";
-                                updateRequestStatus(reqId, "Duplicate" as RecapRequest["status"]);
-                                updateRequestStatusNotes(reqId, reason);
+                                recommendDuplicate(reqId, reason, duplicateModal.duplicateType, target);
                                 addWorkNote(reqId, reason, currentUser, "Duplicate");
                                 addActivityEntry({
                                     type: "Status Change",

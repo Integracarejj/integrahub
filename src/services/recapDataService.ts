@@ -480,6 +480,21 @@ export function updateRequestStatus(id: string, status: RecapRequest["status"]):
     return patchRequest(id, patch);
 }
 
+export function recommendDuplicate(
+    id: string,
+    reason: string,
+    duplicateType: "Within Package" | "Possible Match",
+    target: Pick<RecapRequest, "requestId" | "title">,
+): RecapRequest | undefined {
+    return patchRequest(id, {
+        status: "Duplicate",
+        _statusNotes: reason,
+        _duplicateType: duplicateType,
+        _duplicateTargetRequestId: target.requestId,
+        _duplicateTargetRequestTitle: target.title,
+    });
+}
+
 export function updateRequestOwner(id: string, owner: string | null): RecapRequest | undefined {
     if (isDemoLoaded()) {
         const result = Demo.updateDemoRequest(id, { owner, assignedTo: owner, _needsReassignment: false, _misassignedReason: null });

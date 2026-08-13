@@ -247,7 +247,7 @@ function ReviewEngine() {
         return { withinPkg, possibleMatch, existingReq };
     }, [allRequests]);
 
-    const getDupType = (id: string): string => {
+    const getDupType = (id: string): NonNullable<RecapRequest["_duplicateType"]> => {
         if (duplicateInfo.existingReq.has(id)) return "Existing Request";
         if (duplicateInfo.withinPkg.has(id)) return "Within Package";
         if (duplicateInfo.possibleMatch.has(id)) return "Possible Match";

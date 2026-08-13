@@ -69,6 +69,10 @@ export interface RecapRequest {
     _misassignedReason?: string | null;
     _needsReassignment?: boolean;
     _statusNotes?: string | null;
+    /** Duplicate recommendation relationship captured by the contributor. */
+    _duplicateType?: "Within Package" | "Possible Match" | "Existing Request" | "None" | null;
+    _duplicateTargetRequestId?: string | null;
+    _duplicateTargetRequestTitle?: string | null;
     _workNotes?: WorkNoteEntry[];
     _externalMessages?: ExternalMessageEntry[];
     _publishedExternalNote?: string;
