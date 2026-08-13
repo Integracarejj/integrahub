@@ -32,6 +32,12 @@ export const ATLAS_ISOLATION_FILE = "project-atlas-isolation.xlsx";
 export const ATLAS_ISOLATION_TITLE = "Project Atlas Isolation Request";
 export const SUMMIT_ISOLATION_FILE = "project-summit-isolation.xlsx";
 export const SUMMIT_ISOLATION_TITLE = "Project Summit Isolation Request";
+export const KPI_RECONCILIATION_FILE = "project-kpi-reconciliation.xlsx";
+export const KPI_IN_PROGRESS_TITLE = "KPI Active Request";
+export const KPI_DD_REVIEW_TITLE = "KPI DD Review Request";
+export const KPI_READY_TITLE = "KPI Ready to Publish Request";
+export const KPI_EXCEPTION_TITLE = "KPI Exception Request";
+export const KPI_PUBLISHED_TITLE = "KPI Published Request";
 
 // Playwright workers are separate Node processes. Keep generated files in a
 // process-scoped directory so concurrent workers never rewrite a fixture while
@@ -48,6 +54,7 @@ interface FixtureSet {
     notMine: string;
     atlasIsolation: string;
     summitIsolation: string;
+    kpiReconciliation: string;
 }
 
 function buildWorkbook(rows: (string | number)[][]): Buffer {
@@ -69,6 +76,7 @@ function ensureFixtures(): FixtureSet {
     const notMine = path.join(FIXTURE_DIR, NOT_MINE_FILE);
     const atlasIsolation = path.join(FIXTURE_DIR, ATLAS_ISOLATION_FILE);
     const summitIsolation = path.join(FIXTURE_DIR, SUMMIT_ISOLATION_FILE);
+    const kpiReconciliation = path.join(FIXTURE_DIR, KPI_RECONCILIATION_FILE);
 
     fs.writeFileSync(keystone, buildWorkbook([
         ["#", "Request Title"],
@@ -106,8 +114,16 @@ function ensureFixtures(): FixtureSet {
         ["#", "Request Title"],
         [1, SUMMIT_ISOLATION_TITLE],
     ]));
+    fs.writeFileSync(kpiReconciliation, buildWorkbook([
+        ["#", "Request Title"],
+        [1, KPI_IN_PROGRESS_TITLE],
+        [2, KPI_DD_REVIEW_TITLE],
+        [3, KPI_READY_TITLE],
+        [4, KPI_EXCEPTION_TITLE],
+        [5, KPI_PUBLISHED_TITLE],
+    ]));
 
-    return { keystone, liberty, rework, reworkArtifact, notApplicable, duplicate, notMine, atlasIsolation, summitIsolation };
+    return { keystone, liberty, rework, reworkArtifact, notApplicable, duplicate, notMine, atlasIsolation, summitIsolation, kpiReconciliation };
 }
 
 let cached: FixtureSet | null = null;
