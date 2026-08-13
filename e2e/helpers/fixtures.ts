@@ -28,6 +28,10 @@ export const DUPLICATE_PRIMARY_TITLE = "Project Duplicate Primary Request";
 export const DUPLICATE_CANDIDATE_TITLE = "Project Duplicate Candidate Request";
 export const NOT_MINE_FILE = "project-not-mine-reassignment.xlsx";
 export const NOT_MINE_TITLE = "Project Not Mine Reassignment Request";
+export const ATLAS_ISOLATION_FILE = "project-atlas-isolation.xlsx";
+export const ATLAS_ISOLATION_TITLE = "Project Atlas Isolation Request";
+export const SUMMIT_ISOLATION_FILE = "project-summit-isolation.xlsx";
+export const SUMMIT_ISOLATION_TITLE = "Project Summit Isolation Request";
 
 // Playwright workers are separate Node processes. Keep generated files in a
 // process-scoped directory so concurrent workers never rewrite a fixture while
@@ -42,6 +46,8 @@ interface FixtureSet {
     notApplicable: string;
     duplicate: string;
     notMine: string;
+    atlasIsolation: string;
+    summitIsolation: string;
 }
 
 function buildWorkbook(rows: (string | number)[][]): Buffer {
@@ -61,6 +67,8 @@ function ensureFixtures(): FixtureSet {
     const notApplicable = path.join(FIXTURE_DIR, NOT_APPLICABLE_FILE);
     const duplicate = path.join(FIXTURE_DIR, DUPLICATE_FILE);
     const notMine = path.join(FIXTURE_DIR, NOT_MINE_FILE);
+    const atlasIsolation = path.join(FIXTURE_DIR, ATLAS_ISOLATION_FILE);
+    const summitIsolation = path.join(FIXTURE_DIR, SUMMIT_ISOLATION_FILE);
 
     fs.writeFileSync(keystone, buildWorkbook([
         ["#", "Request Title"],
@@ -90,8 +98,16 @@ function ensureFixtures(): FixtureSet {
         ["#", "Request Title"],
         [1, NOT_MINE_TITLE],
     ]));
+    fs.writeFileSync(atlasIsolation, buildWorkbook([
+        ["#", "Request Title"],
+        [1, ATLAS_ISOLATION_TITLE],
+    ]));
+    fs.writeFileSync(summitIsolation, buildWorkbook([
+        ["#", "Request Title"],
+        [1, SUMMIT_ISOLATION_TITLE],
+    ]));
 
-    return { keystone, liberty, rework, reworkArtifact, notApplicable, duplicate, notMine };
+    return { keystone, liberty, rework, reworkArtifact, notApplicable, duplicate, notMine, atlasIsolation, summitIsolation };
 }
 
 let cached: FixtureSet | null = null;
