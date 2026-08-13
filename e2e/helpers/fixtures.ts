@@ -21,6 +21,8 @@ export const LIBERTY_TITLE = "E2E Liberty Request";
 export const REWORK_FILE = "project-rework-approval.xlsx";
 export const REWORK_TITLE = "Project Rework Approval Request";
 export const REWORK_ARTIFACT_FILE = "rework-approval-artifact.txt";
+export const NOT_APPLICABLE_FILE = "project-not-applicable.xlsx";
+export const NOT_APPLICABLE_TITLE = "Project Not Applicable Request";
 
 // Playwright workers are separate Node processes. Keep generated files in a
 // process-scoped directory so concurrent workers never rewrite a fixture while
@@ -32,6 +34,7 @@ interface FixtureSet {
     liberty: string;
     rework: string;
     reworkArtifact: string;
+    notApplicable: string;
 }
 
 function buildWorkbook(rows: (string | number)[][]): Buffer {
@@ -48,6 +51,7 @@ function ensureFixtures(): FixtureSet {
     const liberty = path.join(FIXTURE_DIR, LIBERTY_FILE);
     const rework = path.join(FIXTURE_DIR, REWORK_FILE);
     const reworkArtifact = path.join(FIXTURE_DIR, REWORK_ARTIFACT_FILE);
+    const notApplicable = path.join(FIXTURE_DIR, NOT_APPLICABLE_FILE);
 
     fs.writeFileSync(keystone, buildWorkbook([
         ["#", "Request Title"],
@@ -64,8 +68,12 @@ function ensureFixtures(): FixtureSet {
         [1, REWORK_TITLE],
     ]));
     fs.writeFileSync(reworkArtifact, "IntegraIQ deterministic external rework approval artifact.\n", "utf8");
+    fs.writeFileSync(notApplicable, buildWorkbook([
+        ["#", "Request Title"],
+        [1, NOT_APPLICABLE_TITLE],
+    ]));
 
-    return { keystone, liberty, rework, reworkArtifact };
+    return { keystone, liberty, rework, reworkArtifact, notApplicable };
 }
 
 let cached: FixtureSet | null = null;
