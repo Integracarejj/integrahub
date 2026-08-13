@@ -26,6 +26,8 @@ export const NOT_APPLICABLE_TITLE = "Project Not Applicable Request";
 export const DUPLICATE_FILE = "project-duplicate.xlsx";
 export const DUPLICATE_PRIMARY_TITLE = "Project Duplicate Primary Request";
 export const DUPLICATE_CANDIDATE_TITLE = "Project Duplicate Candidate Request";
+export const NOT_MINE_FILE = "project-not-mine-reassignment.xlsx";
+export const NOT_MINE_TITLE = "Project Not Mine Reassignment Request";
 
 // Playwright workers are separate Node processes. Keep generated files in a
 // process-scoped directory so concurrent workers never rewrite a fixture while
@@ -39,6 +41,7 @@ interface FixtureSet {
     reworkArtifact: string;
     notApplicable: string;
     duplicate: string;
+    notMine: string;
 }
 
 function buildWorkbook(rows: (string | number)[][]): Buffer {
@@ -57,6 +60,7 @@ function ensureFixtures(): FixtureSet {
     const reworkArtifact = path.join(FIXTURE_DIR, REWORK_ARTIFACT_FILE);
     const notApplicable = path.join(FIXTURE_DIR, NOT_APPLICABLE_FILE);
     const duplicate = path.join(FIXTURE_DIR, DUPLICATE_FILE);
+    const notMine = path.join(FIXTURE_DIR, NOT_MINE_FILE);
 
     fs.writeFileSync(keystone, buildWorkbook([
         ["#", "Request Title"],
@@ -82,8 +86,12 @@ function ensureFixtures(): FixtureSet {
         [1, DUPLICATE_PRIMARY_TITLE],
         [2, DUPLICATE_CANDIDATE_TITLE],
     ]));
+    fs.writeFileSync(notMine, buildWorkbook([
+        ["#", "Request Title"],
+        [1, NOT_MINE_TITLE],
+    ]));
 
-    return { keystone, liberty, rework, reworkArtifact, notApplicable, duplicate };
+    return { keystone, liberty, rework, reworkArtifact, notApplicable, duplicate, notMine };
 }
 
 let cached: FixtureSet | null = null;
