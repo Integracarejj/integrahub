@@ -120,3 +120,19 @@ test("connectivity check composes each read and reports sanitized state", async 
     assert.deepEqual(result, { ok: true, sites: [{ key: "working", siteResolved: true, libraryResolved: true, rootReadable: true, rootItemCount: 1, error: null }] });
     assert.deepEqual(calls.map(([operation]) => operation), ["site", "drive", "root"]);
 });
+
+test("folder creation uses only the narrow drive-item children endpoint and sanitizes failures", async () => {
+    const calls = [];
+    const client = new SharePointGraphClient({ getAccessToken: async () => "private-token" }, async (url, options) => {
+        calls.push({ url, options });
+        return response(201, { id: "folder-1", name: "Transactions", webUrl: "https://site/folder", folder: {}, parentReference: { id: "root" } });
+    });
+    const folder = await client.createChildFolder("drive/1", "parent/1", "Transactions");
+    assert.equal(folder.type, "folder");
+    assert.equal(calls[0].url, "https://graph.microsoft.com/v1.0/drives/drive%2F1/items/parent%2F1/children");
+    assert.equal(calls[0].options.method, "POST");
+    assert.deepEqual(JSON.parse(calls[0].options.body), { name: "Transactions", folder: {}, "@microsoft.graph.conflictBehavior": "fail" });
+
+    const failing = new SharePointGraphClient({ getAccessToken: async () => "private-token" }, async () => response(403, { error: { code: "accessDenied", message: "private-token must not leak" } }));
+    await assert.rejects(failing.createChildFolder("drive", "parent", "Folder"), (error) => error.graphCode === "accessDenied" && !error.message.includes("private-token"));
+});

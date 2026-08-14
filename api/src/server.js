@@ -17,6 +17,7 @@ import portalRouter from "./routes/portal.js";
 import graphDiagnosticsRouter from "./routes/graphDiagnostics.js";
 import sharepointHealthRouter from "./routes/sharepointHealth.js";
 import recapTransactionsRouter from "./routes/recapTransactions.js";
+import recapWorkspaceRouter from "./routes/recapWorkspace.js";
 import { resolveCurrentUser } from "./middleware/resolveCurrentUser.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -76,6 +77,7 @@ app.use("/api/portal", portalRouter);
 app.use("/api/admin/graph", graphDiagnosticsRouter);
 app.use("/api/admin/sharepoint", sharepointHealthRouter);
 app.use("/api/recapitalization/transactions", recapTransactionsRouter);
+app.use("/api/recapitalization/transactions", recapWorkspaceRouter);
 
 app.use((req, res, _next) => {
     if (req.path.startsWith("/health") || req.path.startsWith("/api")) return res.status(404).json({ error: "Not found" });

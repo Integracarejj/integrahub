@@ -51,6 +51,17 @@ export class SharePointGraphClient {
         }
     }
 
+    normalizeDriveItem(item, operation) {
+        if (!item?.id || !item?.name) throw new GraphRequestError(operation, 200, "malformed_response");
+        return {
+            id: item.id,
+            name: item.name,
+            webUrl: item.webUrl || null,
+            type: item.folder ? "folder" : item.file ? "file" : "other",
+            parentId: item.parentReference?.id || null,
+        };
+    }
+
     async resolveSite(hostname, sitePath) {
         const normalizedPath = sitePath.startsWith("/") ? sitePath : `/${sitePath}`;
         const data = await this.request(
@@ -99,5 +110,77 @@ export class SharePointGraphClient {
             size: typeof item.size === "number" ? item.size : null,
             lastModifiedDateTime: item.lastModifiedDateTime || null,
         }));
+    }
+
+
+    async getDriveRoot(driveId) {
+        const data = await this.request(
+            `/drives/${encodeURIComponent(driveId)}/root?$select=id,name,webUrl,folder,parentReference`,
+            "SharePoint drive root resolution",
+        );
+        return this.normalizeDriveItem(data, "SharePoint drive root resolution");
+    }
+
+    async getItem(driveId, itemId) {
+        const data = await this.request(
+            `/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}?$select=id,name,webUrl,folder,file,parentReference`,
+            "SharePoint item resolution",
+        );
+        return this.normalizeDriveItem(data, "SharePoint item resolution");
+    }
+
+    async listChildren(driveId, parentItemId) {
+        const items = [];
+        let nextPage = `/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(parentItemId)}/children?$select=id,name,webUrl,folder,file,parentReference`;
+        while (nextPage) {
+            const data = await this.request(nextPage, "SharePoint child folder lookup");
+            if (!Array.isArray(data?.value)) throw new GraphRequestError("SharePoint child folder lookup", 200, "malformed_response");
+            items.push(...data.value.map((item) => this.normalizeDriveItem(item, "SharePoint child folder lookup")));
+            nextPage = data["@odata.nextLink"] || null;
+        }
+        return items;
+    }
+
+    async findChildByExactName(driveId, parentItemId, name) {
+        const children = await this.listChildren(driveId, parentItemId);
+        return children.find((item) => item.name.localeCompare(name, undefined, { sensitivity: "accent" }) === 0) || null;
+    }
+
+    async createChildFolder(driveId, parentItemId, name) {
+        const token = await this.authProvider.getAccessToken();
+        const url = `${GRAPH_BASE_URL}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(parentItemId)}/children`;
+        let response;
+        try {
+            response = await this.fetch(url, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    Accept: "application/json",
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ name, folder: {}, "@microsoft.graph.conflictBehavior": "fail" }),
+            });
+        } catch {
+            throw new GraphRequestError("SharePoint child folder creation", null, "network_error");
+        }
+        if (!response.ok) {
+            let graphCode = null;
+            try {
+                const body = await response.json();
+                graphCode = body?.error?.code || null;
+            } catch {
+                // Raw Graph response details are deliberately omitted.
+            }
+            throw new GraphRequestError("SharePoint child folder creation", response.status, graphCode);
+        }
+        let data;
+        try {
+            data = await response.json();
+        } catch {
+            throw new GraphRequestError("SharePoint child folder creation", response.status, "malformed_response");
+        }
+        const item = this.normalizeDriveItem(data, "SharePoint child folder creation");
+        if (item.type !== "folder") throw new GraphRequestError("SharePoint child folder creation", 200, "malformed_response");
+        return item;
     }
 }
