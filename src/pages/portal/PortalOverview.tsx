@@ -7,8 +7,11 @@ import {
     parseUploadedXLSX, extractCategoriesFromParsedRows,
     saveParsedRows, toExternalStatusInput,
     getPersonaIdentity, getLastCreatedTransactionId, clearLastCreatedTransactionId,
-    createPortalTransaction,
+    createPortalTransaction, getTransactionsList,
+    associateAuthoritativeTransaction, getAuthoritativeTransactionId,
 } from "../../services/portalMockData";
+import { createAuthoritativeRecapTransaction, persistIncomingPackage } from "../../services/portalPackagePersistence";
+import { diag } from "../../utils/diagnostics";
 import { getExternalStatusInfo, getStatusPillStyle, getExceptionContext } from "../../services/externalStatusMapping";
 import ProjectBadge from "../../components/common/ProjectBadge";
 import "./PortalOverview.css";
@@ -52,6 +55,7 @@ interface AnalysisResult {
     followUp: number;
     categories: string[];
     packageName: string;
+    transactionId?: string;
 }
 
 type UploadState = "idle" | "selected" | "analyzing" | "complete" | "submitted";
@@ -314,10 +318,27 @@ export default function PortalOverview() {
         }
     };
 
-    const handleSubmitPackage = () => {
-        if (!analysis) return;
-        confirmBrokerPackage(analysis.submissionId);
-        setUploadState("submitted");
+    const handleSubmitPackage = async () => {
+        if (!analysis || !selectedFile || !analysis.transactionId) return;
+        setBanner(null);
+        try {
+            let businessTransactionId = getAuthoritativeTransactionId(analysis.transactionId);
+            if (!businessTransactionId) {
+                const browserTransaction = getTransactionsList().find(row => row.id === analysis.transactionId);
+                if (!browserTransaction) throw new Error("The selected project is unavailable");
+                businessTransactionId = await createAuthoritativeRecapTransaction(browserTransaction.name);
+                associateAuthoritativeTransaction(analysis.transactionId, businessTransactionId, analysis.submissionId);
+            }
+            diag("PACKAGE_SHAREPOINT_UPLOAD_STARTED", "incoming package persistence started", { transactionId: businessTransactionId, submissionId: analysis.submissionId, fileName: selectedFile.name });
+            await persistIncomingPackage(businessTransactionId, analysis.submissionId, selectedFile);
+            diag("PACKAGE_SHAREPOINT_UPLOAD_SUCCEEDED", "incoming package persistence succeeded", { transactionId: businessTransactionId, submissionId: analysis.submissionId, fileName: selectedFile.name });
+            confirmBrokerPackage(analysis.submissionId);
+            setUploadState("submitted");
+        } catch (error) {
+            diag("PACKAGE_SHAREPOINT_UPLOAD_FAILED", "incoming package persistence failed", { submissionId: analysis.submissionId, fileName: selectedFile.name });
+            setBanner(`Package could not be persisted: ${error instanceof Error ? error.message : "Unknown error"}. Please retry.`);
+            return;
+        }
         // The destination choice applies to ONE additional package cycle; the
         // next "Upload Another Package" asks again.
         setShowDestPanel(false);

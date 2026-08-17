@@ -35,6 +35,7 @@ interface SubmissionRecord {
     userName?: string;
     submittedAt: string;
     requestCount: number;
+    businessTransactionId?: string;
 }
 
 interface PortalSnapshot {
@@ -55,6 +56,10 @@ test("Test A — additional package chosen as Different Project creates a distin
 
     const fixtures = getFixturePaths();
     const evidence: Record<string, unknown> = {};
+    const incomingUploads: string[] = [];
+    page.on("request", request => {
+        if (request.method() === "POST" && request.url().includes("/incoming-documents")) incomingUploads.push(request.url());
+    });
 
     try {
         /* ── Clean slate ── */
@@ -64,14 +69,16 @@ test("Test A — additional package chosen as Different Project creates a distin
         /* ── First package: keystone.xlsx (auto-creates its own project) ── */
         await gotoApp(page, "/portal");
         await expect(page.getByRole("heading", { name: "Upload your due diligence request list to begin" })).toBeVisible();
-        await uploadFirstPackage(page, fixtures.keystone);
+        await uploadFirstPackage(page, fixtures.keystone, async () => expect(incomingUploads).toHaveLength(0));
+        expect(incomingUploads).toHaveLength(1);
 
         /* ── Additional package: EXPLICIT Different Project → name "Liberty" ── */
         await page.getByRole("button", { name: "Upload Another Package" }).click();
         await expect(page.getByText("Is this package for the same project or a different project?")).toBeVisible({ timeout: 15_000 });
         await page.getByRole("radio", { name: "Different Project" }).check();
         await page.getByLabel("Project Name", { exact: true }).fill("Liberty");
-        await uploadAdditionalPackage(page, fixtures.liberty);
+        await uploadAdditionalPackage(page, fixtures.liberty, async () => expect(incomingUploads).toHaveLength(1));
+        expect(incomingUploads).toHaveLength(2);
 
         /* ── Assert routing: DISTINCT transactions ── */
         const snap = await capturePortalSnapshot(page);
@@ -89,6 +96,8 @@ test("Test A — additional package chosen as Different Project creates a distin
         expect(subB!.transactionName).toBe("Liberty");
         expect(subA!.orgId).toBe("org-atlas");
         expect(subB!.orgId).toBe("org-atlas");
+        expect(subA!.businessTransactionId).toMatch(/^REC-2026-\d{8}$/);
+        expect(subB!.businessTransactionId).toMatch(/^REC-2026-\d{8}$/);
 
         // Atlas (org-atlas / broker) is authorized for BOTH transactions.
         expect(authorizedTxnIds(snap)).toEqual([txnA!, txnB!].sort());
@@ -186,17 +195,19 @@ test("Test B — additional package chosen as Same Project reuses the selected t
 
 /* ── Helpers ── */
 
-async function uploadFirstPackage(page: Page, fixturePath: string): Promise<void> {
+async function uploadFirstPackage(page: Page, fixturePath: string, beforeSubmit?: () => Promise<void>): Promise<void> {
     await page.locator('input[type="file"]').first().setInputFiles(fixturePath);
     await expect(page.getByRole("heading", { name: "Package Successfully Analyzed" })).toBeVisible({ timeout: 30_000 });
+    await beforeSubmit?.();
     await page.getByRole("button", { name: "Submit Package" }).click();
     await expect(page.getByText("Package Submitted Successfully")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("button", { name: "Upload Another Package" })).toBeVisible();
 }
 
-async function uploadAdditionalPackage(page: Page, fixturePath: string): Promise<void> {
+async function uploadAdditionalPackage(page: Page, fixturePath: string, beforeSubmit?: () => Promise<void>): Promise<void> {
     await page.locator('input[type="file"]').first().setInputFiles(fixturePath);
     await expect(page.getByRole("heading", { name: "Package Successfully Analyzed" })).toBeVisible({ timeout: 30_000 });
+    await beforeSubmit?.();
     await page.getByRole("button", { name: "Submit Package" }).click();
     await expect(page.getByText("Package Submitted Successfully")).toBeVisible({ timeout: 30_000 });
 }

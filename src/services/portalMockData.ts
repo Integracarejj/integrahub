@@ -78,6 +78,8 @@ export interface ExternalTransaction {
     description: string;
     status: "Active" | "Pending" | "Completed";
     createdAt: string;
+    /** Transitional bridge to the authoritative SQL recap transaction. */
+    businessTransactionId?: string;
 }
 
 export interface ExternalTransactionAccess {
@@ -223,6 +225,26 @@ export function addTransaction(txn: ExternalTransaction): void {
     const txns = getTransactionsList();
     txns.push(txn);
     writeJsonArray(TRANSACTIONS_KEY, txns);
+}
+
+export function associateAuthoritativeTransaction(transactionId: string, businessTransactionId: string, submissionId?: string): void {
+    const transactions = getTransactionsList();
+    const transaction = transactions.find(row => row.id === transactionId);
+    if (!transaction) throw new Error("Browser transaction was not found");
+    transaction.businessTransactionId = businessTransactionId;
+    writeJsonArray(TRANSACTIONS_KEY, transactions);
+    if (submissionId) {
+        const submissions = getPortalSubmissions();
+        const submission = submissions.find(row => row.id === submissionId);
+        if (submission) {
+            submission.businessTransactionId = businessTransactionId;
+            localStorage.setItem("integrasource.recap.demo.portalSubmissions", JSON.stringify(submissions));
+        }
+    }
+}
+
+export function getAuthoritativeTransactionId(transactionId: string): string | undefined {
+    return getTransactionsList().find(row => row.id === transactionId)?.businessTransactionId;
 }
 
 export function getTransactionAccessList(): ExternalTransactionAccess[] {
@@ -910,6 +932,7 @@ export interface PortalPackageSubmission {
     userName?: string;
     /** Stable transaction ID linking this package to an ExternalTransaction */
     transactionId?: string;
+    businessTransactionId?: string;
 }
 
 /* ── XLSX Parsing ───────────────────────────────────────────── */

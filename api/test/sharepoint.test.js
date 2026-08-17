@@ -136,3 +136,23 @@ test("folder creation uses only the narrow drive-item children endpoint and sani
     const failing = new SharePointGraphClient({ getAccessToken: async () => "private-token" }, async () => response(403, { error: { code: "accessDenied", message: "private-token must not leak" } }));
     await assert.rejects(failing.createChildFolder("drive", "parent", "Folder"), (error) => error.graphCode === "accessDenied" && !error.message.includes("private-token"));
 });
+
+test("small-file upload targets one encoded parent/name and never exposes remote failure content", async () => {
+    const calls = [];
+    const client = new SharePointGraphClient({ getAccessToken: async () => "private-token" }, async (url, options) => {
+        calls.push({ url, options });
+        return response(201, { id: "file-1", name: "Package #1.xlsx", webUrl: "https://site/file", size: 3, file: {}, parentReference: { id: "incoming" } });
+    });
+    const content = Buffer.from("abc");
+    const item = await client.uploadNewFile("drive/1", "incoming/1", "Package #1.xlsx", content);
+    assert.equal(item.id, "file-1");
+    assert.equal(item.size, 3);
+    assert.equal(calls[0].url, "https://graph.microsoft.com/v1.0/drives/drive%2F1/items/incoming%2F1:/Package%20%231.xlsx:/content");
+    assert.equal(calls[0].options.method, "PUT");
+    assert.equal(calls[0].options.headers.Authorization, "Bearer private-token");
+    assert.equal(calls[0].options.headers["If-Match"], "0");
+    assert.equal(calls[0].options.body, content);
+
+    const failing = new SharePointGraphClient({ getAccessToken: async () => "private-token" }, async () => response(500, { error: { code: "serviceUnavailable", message: "private-token secret" } }));
+    await assert.rejects(failing.uploadNewFile("drive", "incoming", "file.xlsx", content), (error) => error.graphCode === "serviceUnavailable" && !error.message.includes("private-token"));
+});

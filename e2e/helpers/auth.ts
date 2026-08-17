@@ -33,6 +33,17 @@ export const PREVIEW_USER = {
 };
 
 export async function mockAuth(page: Page): Promise<void> {
+    let transactionSequence = 1;
+    await page.route("**/api/portal/recapitalization/transactions", async (route) => {
+        if (route.request().method() !== "POST") return route.fallback();
+        const id = `REC-2026-${String(transactionSequence++).padStart(8, "0")}`;
+        const body = route.request().postDataJSON();
+        return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id, name: body?.name, status: "Active", owningExternalOrganizationId: "org-atlas" }) });
+    });
+    await page.route("**/api/portal/recapitalization/transactions/*/incoming-documents", async (route) => {
+        if (route.request().method() !== "POST") return route.fallback();
+        return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ documentId: "doc-e2e", status: "Uploaded" }) });
+    });
     await page.route("**/api/me/permissions", (route) =>
         route.fulfill({
             status: 200,

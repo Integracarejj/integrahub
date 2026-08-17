@@ -18,7 +18,10 @@ import {
     saveParsedRows,
     createPortalTransaction,
     getLastCreatedTransactionId,
+    getTransactionsList, associateAuthoritativeTransaction, getAuthoritativeTransactionId,
 } from "../../services/portalMockData";
+import { createAuthoritativeRecapTransaction, persistIncomingPackage } from "../../services/portalPackagePersistence";
+import { diag } from "../../utils/diagnostics";
 import "./PortalSubmit.css";
 
 const QUESTION_TYPES = ["Financial", "Operational", "Legal", "Compliance", "Regulatory", "Clinical", "Workforce", "General"];
@@ -271,7 +274,7 @@ function BrokerUploadForm() {
     const dropZoneRef = useRef<HTMLDivElement>(null);
     const [uploadState, setUploadState] = useState<"idle" | "selected" | "analyzing" | "complete" | "submitted">("idle");
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [analysis, setAnalysis] = useState<{ submissionId: string; detected: number; needsReview: number; duplicates: number; followUp: number; categories: string[]; packageName: string; isABCDemo: boolean } | null>(null);
+    const [analysis, setAnalysis] = useState<{ submissionId: string; detected: number; needsReview: number; duplicates: number; followUp: number; categories: string[]; packageName: string; isABCDemo: boolean; transactionId?: string } | null>(null);
     const [banner, setBanner] = useState<string | null>(null);
 
     const personaTxns = getPortalTransactions();
@@ -403,11 +406,33 @@ function BrokerUploadForm() {
         }, 1200);
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!analysis) return;
-        confirmBrokerPackage(analysis.submissionId);
-        setUploadState("submitted");
-        setBanner("Package submitted successfully!");
+        if (analysis.isABCDemo) {
+            confirmBrokerPackage(analysis.submissionId);
+            setUploadState("submitted");
+            setBanner("Package submitted successfully!");
+            return;
+        }
+        if (!selectedFile || !analysis.transactionId) return;
+        try {
+            let businessTransactionId = getAuthoritativeTransactionId(analysis.transactionId);
+            if (!businessTransactionId) {
+                const browserTransaction = getTransactionsList().find(row => row.id === analysis.transactionId);
+                if (!browserTransaction) throw new Error("The selected project is unavailable");
+                businessTransactionId = await createAuthoritativeRecapTransaction(browserTransaction.name);
+                associateAuthoritativeTransaction(analysis.transactionId, businessTransactionId, analysis.submissionId);
+            }
+            diag("PACKAGE_SHAREPOINT_UPLOAD_STARTED", "incoming package persistence started", { transactionId: businessTransactionId, submissionId: analysis.submissionId, fileName: selectedFile.name });
+            await persistIncomingPackage(businessTransactionId, analysis.submissionId, selectedFile);
+            diag("PACKAGE_SHAREPOINT_UPLOAD_SUCCEEDED", "incoming package persistence succeeded", { transactionId: businessTransactionId, submissionId: analysis.submissionId, fileName: selectedFile.name });
+            confirmBrokerPackage(analysis.submissionId);
+            setUploadState("submitted");
+            setBanner("Package submitted successfully!");
+        } catch (error) {
+            diag("PACKAGE_SHAREPOINT_UPLOAD_FAILED", "incoming package persistence failed", { submissionId: analysis.submissionId, fileName: selectedFile.name });
+            setBanner(`Package could not be persisted: ${error instanceof Error ? error.message : "Unknown error"}. Please retry.`);
+        }
     };
 
     if (uploadState === "submitted") {

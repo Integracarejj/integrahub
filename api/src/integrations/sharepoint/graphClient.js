@@ -59,6 +59,7 @@ export class SharePointGraphClient {
             webUrl: item.webUrl || null,
             type: item.folder ? "folder" : item.file ? "file" : "other",
             parentId: item.parentReference?.id || null,
+            size: typeof item.size === "number" ? item.size : null,
         };
     }
 
@@ -131,7 +132,7 @@ export class SharePointGraphClient {
 
     async listChildren(driveId, parentItemId) {
         const items = [];
-        let nextPage = `/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(parentItemId)}/children?$select=id,name,webUrl,folder,file,parentReference`;
+        let nextPage = `/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(parentItemId)}/children?$select=id,name,webUrl,folder,file,parentReference,size`;
         while (nextPage) {
             const data = await this.request(nextPage, "SharePoint child folder lookup");
             if (!Array.isArray(data?.value)) throw new GraphRequestError("SharePoint child folder lookup", 200, "malformed_response");
@@ -181,6 +182,40 @@ export class SharePointGraphClient {
         }
         const item = this.normalizeDriveItem(data, "SharePoint child folder creation");
         if (item.type !== "folder") throw new GraphRequestError("SharePoint child folder creation", 200, "malformed_response");
+        return item;
+    }
+
+    async uploadNewFile(driveId, parentItemId, fileName, content) {
+        const token = await this.authProvider.getAccessToken();
+        const url = `${GRAPH_BASE_URL}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(parentItemId)}:/${encodeURIComponent(fileName)}:/content`;
+        let response;
+        try {
+            response = await this.fetch(url, {
+                method: "PUT",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    Accept: "application/json",
+                    "Content-Type": "application/octet-stream",
+                    // An impossible eTag makes path-based PUT create-only: an
+                    // item appearing after the preflight check fails with 412.
+                    "If-Match": "0",
+                },
+                body: content,
+            });
+        } catch {
+            throw new GraphRequestError("SharePoint incoming file upload", null, "network_error");
+        }
+        if (!response.ok) {
+            let graphCode = null;
+            try { graphCode = (await response.json())?.error?.code || null; } catch { /* Omit remote content. */ }
+            throw new GraphRequestError("SharePoint incoming file upload", response.status, graphCode);
+        }
+        let data;
+        try { data = await response.json(); } catch {
+            throw new GraphRequestError("SharePoint incoming file upload", response.status, "malformed_response");
+        }
+        const item = this.normalizeDriveItem(data, "SharePoint incoming file upload");
+        if (item.type !== "file") throw new GraphRequestError("SharePoint incoming file upload", 200, "malformed_response");
         return item;
     }
 }
