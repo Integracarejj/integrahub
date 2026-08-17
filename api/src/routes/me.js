@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { query } from "../db.js";
+import { externalUserContextService } from "../services/externalUserContextService.js";
 
 const router = Router();
 
@@ -51,6 +52,7 @@ router.get("/", async (req, res) => {
             accessReason: req.authInfo.reason,
             portalRole: null,
             isPortalUser: false,
+            externalContext: null,
         });
     }
 
@@ -70,6 +72,10 @@ router.get("/", async (req, res) => {
             };
         }
 
+        const externalContext = ["ExternalBroker", "ExternalBuyer"].includes(req.user.globalRole)
+            ? await externalUserContextService.getForUser(req.user.id)
+            : null;
+
         return res.json({
             isAuthenticated: true,
             hasAppAccess: true,
@@ -81,6 +87,7 @@ router.get("/", async (req, res) => {
             accessReason: null,
             portalRole,
             isPortalUser,
+            externalContext,
         });
     }
 
@@ -95,6 +102,7 @@ router.get("/", async (req, res) => {
         accessReason: null,
         portalRole: null,
         isPortalUser: false,
+        externalContext: null,
     });
 });
 

@@ -33,8 +33,8 @@ export function requireInternalUser(req, res, next) {
 
     // TODO: Check against proper role table. For now, portal-only users
     //       are identified by the absence of an internal role or a specific flag.
-    const internalRoles = ["PlatformAdmin", "Editor", "Viewer"];
-    if (!internalRoles.includes(req.user.globalRole) && req.user.portalRole) {
+    const internalRoles = ["PlatformAdmin", "Editor", "Viewer", "DDTeam"];
+    if (!internalRoles.includes(req.user.globalRole)) {
         return res.status(403).json({ error: "Access denied. Internal user access required." });
     }
 

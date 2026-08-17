@@ -4,6 +4,7 @@ import { useCurrentUser } from "../hooks/useCurrentUser";
 import PortalNav from "../components/PortalNav";
 import { getActivePersona, getPersonas, setActivePersona, clearPortalSubmissions, getPersonaIdentity, clearLastCreatedTransactionId } from "../services/portalMockData";
 import type { ExternalDemoPersona } from "../services/portalMockData";
+import { isAuthenticatedExternalMode } from "../services/portalRuntimeContext";
 import logo from "../assets/logo.png";
 import "./PortalLayout.css";
 
@@ -14,6 +15,7 @@ export default function PortalLayout() {
     const { user } = useCurrentUser();
 
     const isPreviewMode = user?.hasAppAccess && !user?.isPortalUser;
+    const isRealExternalMode = isAuthenticatedExternalMode();
 
     const allPersonas = getPersonas();
     const identity = getPersonaIdentity();
@@ -54,8 +56,8 @@ export default function PortalLayout() {
                     <div className="portal-topnav-right" style={{ gap: 12 }}>
                         <div
                             className="portal-user-profile"
-                            style={{ cursor: "pointer", position: "relative" }}
-                            onClick={() => setPersonaSwitcherOpen((prev) => !prev)}
+                            style={{ cursor: isRealExternalMode ? "default" : "pointer", position: "relative" }}
+                            onClick={() => { if (!isRealExternalMode) setPersonaSwitcherOpen((prev) => !prev); }}
                         >
                             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0 }}>
                                 <span className="portal-user-name" style={{ fontSize: 13 }}>{currentPersona.displayName}</span>
@@ -73,7 +75,7 @@ export default function PortalLayout() {
                             </div>
                         </div>
 
-                        {personaSwitcherOpen && (
+                        {!isRealExternalMode && personaSwitcherOpen && (
                             <>
                                 <div
                                     style={{ position: "fixed", inset: 0, zIndex: 999 }}

@@ -1,4 +1,6 @@
 import { useEffect, useState, createContext, useContext } from "react";
+import { setAuthenticatedExternalContext } from "../services/portalRuntimeContext";
+import { isExternalOnlyRole } from "../utils/accessRouting";
 
 export interface UserRecord {
     id: string;
@@ -21,6 +23,11 @@ export interface CurrentUserResponse {
     portalRole: string | null;
     /** True if the user has any portal-level role assignment. */
     isPortalUser: boolean;
+    externalContext: {
+        organizations: { id: string; isDefault: boolean }[];
+        defaultOrganizationId: string | null;
+        isConfigured: boolean;
+    } | null;
 }
 
 export interface CurrentUser {
@@ -47,10 +54,23 @@ export function CurrentUserProvider({ children }: { children: React.ReactNode })
                 return res.json();
             })
             .then((data) => {
+                if (isExternalOnlyRole(data.userRecord?.role) && data.userRecord) {
+                    setAuthenticatedExternalContext({
+                        userId: data.userRecord.id,
+                        email: data.userRecord.email,
+                        displayName: data.userRecord.displayName || data.userRecord.email,
+                        role: data.userRecord.role,
+                        organizations: data.externalContext?.organizations || [],
+                        defaultOrganizationId: data.externalContext?.defaultOrganizationId || null,
+                    });
+                } else {
+                    setAuthenticatedExternalContext(null);
+                }
                 setUser(data);
                 setError(null);
             })
             .catch((err) => {
+                setAuthenticatedExternalContext(null);
                 setError(err.message);
             })
             .finally(() => {

@@ -45,6 +45,7 @@ import RecapitalizationDocuments from "../pages/recapitalization/Recapitalizatio
 import RecapitalizationReports from "../pages/recapitalization/RecapitalizationReports";
 import RecapitalizationSettings from "../pages/recapitalization/RecapitalizationSettings";
 import RecapitalizationWorkspace from "../pages/recapitalization/RecapitalizationWorkspace";
+import { shouldRedirectFromInternal } from "../utils/accessRouting";
 
 /**
  * Guards internal routes from external portal users.
@@ -56,7 +57,7 @@ function InternalGuard({ children }: { children: React.ReactNode }) {
 
     if (loading) return null;
 
-    if (user?.isPortalUser && !user?.hasAppAccess) {
+    if (shouldRedirectFromInternal(user?.userRecord?.role)) {
         return <Navigate to="/portal" replace />;
     }
 
@@ -92,12 +93,20 @@ function PortalGuard({ children }: { children: React.ReactNode }) {
         );
     }
 
+    if (shouldRedirectFromInternal(user.userRecord?.role) && !user.externalContext?.isConfigured) {
+        return (
+            <div className="no-access-screen">
+                <h2>External organization access required</h2>
+                <p>Your account is authenticated, but no external organization membership has been configured.</p>
+            </div>
+        );
+    }
+
     return <>{children}</>;
 }
 
 function NoAccessScreen() {
     const [showRequest, setShowRequest] = useState(false);
-
     return (
         <div className="no-access-screen">
             <h2>You do not currently have access to IntegraSource.</h2>
@@ -154,6 +163,7 @@ function AuthAwareRouter() {
     if (user.isAuthenticated && !user.hasAppAccess && !user.isPortalUser) {
         return <NoAccessScreen />;
     }
+
 
     return (
         <Routes>

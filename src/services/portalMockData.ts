@@ -2,6 +2,7 @@ import { getTransactions, getRequests, getDocuments, isDemoActive, initDemo, get
 import type { RecapRequest, RecapDocument, RecapTransaction, RecapIntakeItem } from "./recapDataService";
 import { getExternalStatusInfo } from "./externalStatusMapping";
 import { diag, evaluateExternalSelector } from "../utils/diagnostics";
+import { getAuthenticatedExternalContext } from "./portalRuntimeContext";
 
 const PERSONA_KEY = "integrasource.recap.portalPersona";
 const PARSED_ROWS_KEY = "integrasource.recap.demo.parsedRows";
@@ -34,6 +35,17 @@ export function getPersonas(): ExternalDemoPersona[] {
 }
 
 export function getActivePersona(): ExternalDemoPersona {
+    const authenticated = getAuthenticatedExternalContext();
+    if (authenticated) {
+        return {
+            id: `authenticated-${authenticated.userId}`,
+            email: authenticated.email,
+            displayName: authenticated.displayName || authenticated.email,
+            companyName: authenticated.defaultOrganizationId || "Organization access not configured",
+            role: authenticated.role === "ExternalBuyer" ? "Buyer" : "Broker",
+            description: "Authenticated external user",
+        };
+    }
     try {
         const raw = localStorage.getItem(PERSONA_KEY);
         if (raw) {
@@ -45,6 +57,7 @@ export function getActivePersona(): ExternalDemoPersona {
 }
 
 export function setActivePersona(id: string): void {
+    if (getAuthenticatedExternalContext()) return;
     localStorage.setItem(PERSONA_KEY, id);
 }
 
@@ -327,6 +340,25 @@ export interface PortalIdentityContext {
 }
 
 export function getPersonaIdentity(): PortalIdentityContext | null {
+    const authenticated = getAuthenticatedExternalContext();
+    if (authenticated) {
+        const organizationId = authenticated.defaultOrganizationId;
+        if (!organizationId) return null;
+        const role = authenticated.role === "ExternalBuyer" ? "Buyer" : "Broker";
+        return {
+            user: {
+                id: authenticated.userId,
+                email: authenticated.email,
+                displayName: authenticated.displayName || authenticated.email,
+                organizationId,
+                organizationName: organizationId,
+                roleAssignments: authenticated.organizations.map((organization) => ({ orgId: organization.id, role })),
+            },
+            organization: { id: organizationId, name: organizationId, status: "Active" },
+            authorizedTransactions: [],
+            allTransactions: [],
+        };
+    }
     const persona = getActivePersona();
     const users = getExternalUsers();
     const user = users.find(u => u.email === persona.email);
