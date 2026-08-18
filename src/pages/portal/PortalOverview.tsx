@@ -291,7 +291,13 @@ export default function PortalOverview() {
                     effectiveTxnId = createPortalTransaction(txnName);
                 }
             }
-            const result = submitBrokerUploadPackage(file.name, parsed.count, cats, effectiveTxnId);
+            const recoverable = personaTxns.find(transaction => transaction.id === effectiveTxnId)?.recoverablePackage;
+            const recoverySourcePackageId = recoverable
+                && recoverable.originalFileName === file.name
+                && recoverable.contentSize === file.size
+                ? recoverable.sourcePackageId
+                : undefined;
+            const result = submitBrokerUploadPackage(file.name, parsed.count, cats, effectiveTxnId, recoverySourcePackageId);
             setAnalysis(result);
             setUploadState("complete");
         } catch (err) {
@@ -328,6 +334,7 @@ export default function PortalOverview() {
         if (isPersisting || !analysis || !selectedFile || !analysis.transactionId) return;
         setIsPersisting(true);
         setBanner(null);
+        let uploadSucceeded = false;
         try {
             let businessTransactionId = getAuthoritativeTransactionId(analysis.transactionId);
             if (!businessTransactionId) {
@@ -340,13 +347,16 @@ export default function PortalOverview() {
             }
             diag("PACKAGE_SHAREPOINT_UPLOAD_STARTED", "incoming package persistence started", { transactionId: businessTransactionId, submissionId: analysis.submissionId, fileName: selectedFile.name });
             await persistIncomingPackage(businessTransactionId, analysis.submissionId, selectedFile);
+            uploadSucceeded = true;
             diag("PACKAGE_SHAREPOINT_UPLOAD_SUCCEEDED", "incoming package persistence succeeded", { transactionId: businessTransactionId, submissionId: analysis.submissionId, fileName: selectedFile.name });
             await persistAuthoritativeIntake(businessTransactionId, analysis.submissionId, getBrokerPackageRequests(analysis.submissionId));
             confirmBrokerPackage(analysis.submissionId);
             setUploadState("submitted");
         } catch (error) {
             diag("PACKAGE_SHAREPOINT_UPLOAD_FAILED", "incoming package persistence failed", { submissionId: analysis.submissionId, fileName: selectedFile.name });
-            setBanner(`Package could not be persisted: ${error instanceof Error ? error.message : "Unknown error"}. Please retry.`);
+            setBanner(uploadSucceeded
+                ? `Your package was securely uploaded, but Intake finalization failed: ${error instanceof Error ? error.message : "Unknown error"}. Select this existing project and the same file to retry safely.`
+                : `Package could not be persisted: ${error instanceof Error ? error.message : "Unknown error"}. Please retry.`);
             return;
         } finally {
             setIsPersisting(false);
@@ -595,7 +605,7 @@ export default function PortalOverview() {
                             <select id="dest-project-select" className="po-dest-input" value={destTxnId} onChange={e => setDestTxnId(e.target.value)}>
                                 {personaTxns.length === 0 && <option value="">No existing projects available</option>}
                                 {personaTxns.map(t => (
-                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                    <option key={t.id} value={t.id}>{t.name}{t.businessTransactionId ? ` — ${t.businessTransactionId}` : ""}</option>
                                 ))}
                             </select>
                         </div>

@@ -56,10 +56,25 @@ test("authorized transaction listing is SQL-scoped through user organization mem
         name: "Project Liberty",
         status: "Active",
         owningExternalOrganizationId: "TEST-BROKER-ORG",
+        recoverablePackage: null,
     }]);
     assert.match(sql, /ExternalUserOrganizations/);
+    assert.match(sql, /RecapIncomingDocuments/);
+    assert.match(sql, /RecapIntakePackages/);
     assert.match(sql, /membership\.externalOrganizationId = transactionRow\.owningExternalOrganizationId/);
     assert.deepEqual(parameters, { userId: "external-user" });
+});
+
+test("authorized transaction listing exposes only durable incomplete package recovery identity", async () => {
+    const service = createExternalUserContextService({ query: async () => [{
+        id: "REC-2026-00000003", name: "Project Keystone", status: "Active",
+        owningExternalOrganizationId: "TEST-BROKER-ORG", recoverableSourcePackageId: "sub-keystone",
+        recoverableOriginalFileName: "Project Keystone.xlsx", recoverableContentSize: 184442,
+    }] });
+    const [transaction] = await service.listAuthorizedTransactions("external-user");
+    assert.deepEqual(transaction.recoverablePackage, {
+        sourcePackageId: "sub-keystone", originalFileName: "Project Keystone.xlsx", contentSize: 184442,
+    });
 });
 
 test("internal middleware rejects external-only roles and preserves DDTeam internal access", () => {

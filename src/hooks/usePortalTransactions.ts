@@ -9,6 +9,7 @@ import type { AuthoritativePortalTransaction } from "../services/portalPackagePe
 function toPortalTransaction(transaction: ExternalTransaction): PortalTransaction {
     return {
         id: transaction.id,
+        businessTransactionId: transaction.businessTransactionId,
         name: transaction.name,
         description: transaction.description,
         status: transaction.status,
@@ -21,6 +22,7 @@ function toPortalTransaction(transaction: ExternalTransaction): PortalTransactio
         inProgressCount: 0,
         clarificationNeededCount: 0,
         communities: [],
+        recoverablePackage: transaction.recoverablePackage,
     };
 }
 

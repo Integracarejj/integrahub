@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { getFixturePaths } from "./helpers/fixtures";
+import { statSync } from "node:fs";
 
 const EXTERNAL_USER = {
     isAuthenticated: true,
@@ -108,9 +109,9 @@ test("real external existing project selection uses the authorized SQL transacti
     await page.route("**/api/portal/recapitalization/transactions/*/intake", route => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "intake-2", created: true, requestCount: route.request().postDataJSON().requests.length }) }));
 
     await page.goto("/portal/submit?type=upload-package", { waitUntil: "domcontentloaded" });
-    const transactionSelect = page.locator("select").filter({ has: page.getByRole("option", { name: "Authorized Project" }) });
-    await expect(transactionSelect.getByRole("option", { name: "Authorized Project" })).toHaveCount(1);
-    await transactionSelect.selectOption({ label: "Authorized Project" });
+    const transactionSelect = page.locator("select").filter({ has: page.getByRole("option", { name: /Authorized Project/ }) });
+    await expect(transactionSelect.getByRole("option", { name: /Authorized Project/ })).toHaveCount(1);
+    await transactionSelect.selectOption({ label: "Authorized Project — REC-2026-00000007" });
     await page.locator('input[type="file"]').setInputFiles(fixture);
     await page.getByRole("button", { name: "Analyze Package" }).click();
     await expect(page.getByRole("heading", { name: "Package Analyzed" })).toBeVisible();
@@ -118,4 +119,43 @@ test("real external existing project selection uses the authorized SQL transacti
     await expect(page.getByText(/Package submitted successfully!/)).toBeVisible();
     expect(createCount).toBe(0);
     expect(uploadedTransaction).toContain("REC-2026-00000007");
+});
+
+test("fresh browser recovers an uploaded package through Existing Project without creating or duplicating it", async ({ page }) => {
+    const fixture = getFixturePaths().liberty;
+    const sourcePackageId = "sub-durable-prior-session";
+    let createCount = 0;
+    let uploadCount = 0;
+    let intakeCount = 0;
+    await mockIdentity(page);
+    await page.route("**/api/portal/recapitalization/transactions", route => {
+        if (route.request().method() === "POST") createCount++;
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ transactions: [{
+            id: "REC-2026-00000003", name: "Project Keystone", status: "Active",
+            owningExternalOrganizationId: "TEST-BROKER-ORG",
+            recoverablePackage: { sourcePackageId, originalFileName: "liberty.xlsx", contentSize: statSync(fixture).size },
+        }] }) });
+    });
+    await page.route("**/api/portal/recapitalization/transactions/*/incoming-documents", route => {
+        uploadCount++;
+        expect(route.request().headers()["x-package-id"]).toBe(sourcePackageId);
+        return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ documentId: "existing-doc", sourcePackageId, status: "Uploaded" }) });
+    });
+    await page.route("**/api/portal/recapitalization/transactions/*/intake", route => {
+        intakeCount++;
+        expect(route.request().postDataJSON().sourcePackageId).toBe(sourcePackageId);
+        return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "intake-recovered", created: true, requestCount: route.request().postDataJSON().requests.length }) });
+    });
+
+    // Each Playwright test receives a fresh browser context: no localStorage from
+    // the session that originally uploaded the durable package exists here.
+    await page.goto("/portal/submit?type=upload-package", { waitUntil: "domcontentloaded" });
+    await page.locator("select").filter({ has: page.getByRole("option", { name: /Project Keystone/ }) }).selectOption({ label: "Project Keystone — REC-2026-00000003" });
+    await page.locator('input[type="file"]').setInputFiles(fixture);
+    await page.getByRole("button", { name: "Analyze Package" }).click();
+    await page.getByRole("button", { name: "Submit Package to IntegraCare" }).click();
+    await expect(page.getByText(/Package submitted successfully!/)).toBeVisible();
+    expect(createCount).toBe(0);
+    expect(uploadCount).toBe(1);
+    expect(intakeCount).toBe(1);
 });

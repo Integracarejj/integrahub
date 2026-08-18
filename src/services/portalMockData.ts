@@ -93,6 +93,7 @@ export interface ExternalTransaction {
     createdAt: string;
     /** Transitional bridge to the authoritative SQL recap transaction. */
     businessTransactionId?: string;
+    recoverablePackage?: { sourcePackageId: string; originalFileName: string; contentSize: number } | null;
 }
 
 export interface ExternalTransactionAccess {
@@ -314,6 +315,7 @@ export function registerAuthoritativePortalTransaction(transaction: {
     name: string;
     status: "Active" | "Pending" | "Completed" | "Cancelled";
     owningExternalOrganizationId: string;
+    recoverablePackage?: { sourcePackageId: string; originalFileName: string; contentSize: number } | null;
 }): ExternalTransaction | null {
     const identity = getPersonaIdentity();
     if (!identity) return null;
@@ -331,8 +333,12 @@ export function registerAuthoritativePortalTransaction(transaction: {
             status: transaction.status === "Cancelled" ? "Completed" : transaction.status,
             createdAt: new Date().toISOString(),
             businessTransactionId: transaction.id,
+            recoverablePackage: transaction.recoverablePackage,
         };
         transactions.push(projected);
+        writeJsonArray(TRANSACTIONS_KEY, transactions);
+    } else if (JSON.stringify(projected.recoverablePackage) !== JSON.stringify(transaction.recoverablePackage)) {
+        projected.recoverablePackage = transaction.recoverablePackage;
         writeJsonArray(TRANSACTIONS_KEY, transactions);
     }
 
@@ -421,6 +427,7 @@ export interface PortalCommunity {
 
 export interface PortalTransaction {
     id: string;
+    businessTransactionId?: string;
     name: string;
     description: string;
     status: string;
@@ -433,6 +440,7 @@ export interface PortalTransaction {
     inProgressCount: number;
     clarificationNeededCount: number;
     communities: PortalCommunity[];
+    recoverablePackage?: { sourcePackageId: string; originalFileName: string; contentSize: number } | null;
 }
 
 export interface PortalRequest {
@@ -1627,6 +1635,7 @@ export function submitBrokerUploadPackage(
     parsedCount?: number,
     parsedCategories?: string[],
     transactionId?: string,
+    sourcePackageId?: string,
 ): {
     submissionId: string;
     detected: number;
@@ -1638,7 +1647,7 @@ export function submitBrokerUploadPackage(
     isABCDemo: boolean;
     transactionId?: string;
 } {
-    const submissionId = `sub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const submissionId = sourcePackageId || `sub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
     // ABC Demo flow — unchanged
     if (!fileName || fileName === "ABC Gold Standard Demo Package") {

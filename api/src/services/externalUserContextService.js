@@ -29,8 +29,23 @@ export function createExternalUserContextService({ query = defaultQuery } = {}) 
                        transactionRow.name,
                        transactionRow.status,
                        transactionRow.owningExternalOrganizationId,
-                       transactionRow.updatedAt
+                       transactionRow.updatedAt,
+                       documentRow.sourcePackageId AS recoverableSourcePackageId,
+                       documentRow.originalFileName AS recoverableOriginalFileName,
+                       documentRow.contentSize AS recoverableContentSize
                 FROM cmdb.RecapTransactions transactionRow
+                OUTER APPLY (
+                    SELECT TOP (1) document.sourcePackageId, document.originalFileName, document.contentSize
+                    FROM cmdb.RecapIncomingDocuments document
+                    WHERE document.recapTransactionId = transactionRow.id
+                      AND document.status = 'Uploaded'
+                      AND NOT EXISTS (
+                        SELECT 1 FROM cmdb.RecapIntakePackages intakeRow
+                        WHERE intakeRow.recapTransactionId = document.recapTransactionId
+                          AND intakeRow.sourcePackageId = document.sourcePackageId
+                      )
+                    ORDER BY document.uploadedAt DESC, document.createdAt DESC
+                ) documentRow
                 WHERE EXISTS (
                     SELECT 1
                     FROM cmdb.ExternalUserOrganizations membership
@@ -45,6 +60,11 @@ export function createExternalUserContextService({ query = defaultQuery } = {}) 
                 name: row.name,
                 status: row.status,
                 owningExternalOrganizationId: row.owningExternalOrganizationId,
+                recoverablePackage: row.recoverableSourcePackageId ? {
+                    sourcePackageId: row.recoverableSourcePackageId,
+                    originalFileName: row.recoverableOriginalFileName,
+                    contentSize: Number(row.recoverableContentSize),
+                } : null,
             }));
         },
     };

@@ -21,6 +21,7 @@ import recapWorkspaceRouter from "./routes/recapWorkspace.js";
 import recapIntakeRouter from "./routes/recapIntake.js";
 import { resolveCurrentUser } from "./middleware/resolveCurrentUser.js";
 import { denyExternalOnlyUser } from "./middleware/authorization.js";
+import { configureJsonBodyParsing, jsonBodyErrorHandler } from "./middleware/jsonBodyParsing.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
@@ -42,7 +43,7 @@ if (existsSync(distPath)) {
     console.log("dist folder not found - frontend assets not served");
 }
 
-app.use(express.json());
+configureJsonBodyParsing(app);
 
 app.use(resolveCurrentUser);
 
@@ -87,6 +88,8 @@ app.use("/api/admin/sharepoint", sharepointHealthRouter);
 app.use("/api/recapitalization/transactions", recapTransactionsRouter);
 app.use("/api/recapitalization/transactions", recapWorkspaceRouter);
 app.use("/api/recapitalization/intake", recapIntakeRouter);
+
+app.use(jsonBodyErrorHandler);
 
 app.use((req, res, _next) => {
     if (req.path.startsWith("/health") || req.path.startsWith("/api")) return res.status(404).json({ error: "Not found" });

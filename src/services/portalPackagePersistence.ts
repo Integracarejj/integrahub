@@ -13,6 +13,11 @@ export interface AuthoritativePortalTransaction {
     name: string;
     status: "Active" | "Pending" | "Completed" | "Cancelled";
     owningExternalOrganizationId: string;
+    recoverablePackage?: {
+        sourcePackageId: string;
+        originalFileName: string;
+        contentSize: number;
+    } | null;
 }
 
 export async function listAuthoritativeRecapTransactions(): Promise<AuthoritativePortalTransaction[]> {

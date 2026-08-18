@@ -393,7 +393,13 @@ function BrokerUploadForm() {
             const parsed = await parseUploadedXLSX(selectedFile);
             saveParsedRows(parsed.rows);
             const cats = extractCategoriesFromParsedRows(parsed.rows);
-            const result = submitBrokerUploadPackage(selectedFile.name, parsed.count, cats, txnId);
+            const recoverable = personaTxns.find(transaction => transaction.id === txnId)?.recoverablePackage;
+            const recoverySourcePackageId = !showNewTxn && recoverable
+                && recoverable.originalFileName === selectedFile.name
+                && recoverable.contentSize === selectedFile.size
+                ? recoverable.sourcePackageId
+                : undefined;
+            const result = submitBrokerUploadPackage(selectedFile.name, parsed.count, cats, txnId, recoverySourcePackageId);
             setAnalysis(result);
             setUploadState("complete");
         } catch (err) {
@@ -427,6 +433,7 @@ function BrokerUploadForm() {
         }
         if (!selectedFile || !analysis.transactionId) return;
         setIsPersisting(true);
+        let uploadSucceeded = false;
         try {
             let businessTransactionId = getAuthoritativeTransactionId(analysis.transactionId);
             if (!businessTransactionId) {
@@ -439,6 +446,7 @@ function BrokerUploadForm() {
             }
             diag("PACKAGE_SHAREPOINT_UPLOAD_STARTED", "incoming package persistence started", { transactionId: businessTransactionId, submissionId: analysis.submissionId, fileName: selectedFile.name });
             await persistIncomingPackage(businessTransactionId, analysis.submissionId, selectedFile);
+            uploadSucceeded = true;
             diag("PACKAGE_SHAREPOINT_UPLOAD_SUCCEEDED", "incoming package persistence succeeded", { transactionId: businessTransactionId, submissionId: analysis.submissionId, fileName: selectedFile.name });
             await persistAuthoritativeIntake(businessTransactionId, analysis.submissionId, getBrokerPackageRequests(analysis.submissionId));
             confirmBrokerPackage(analysis.submissionId);
@@ -446,7 +454,9 @@ function BrokerUploadForm() {
             setBanner("Package submitted successfully!");
         } catch (error) {
             diag("PACKAGE_SHAREPOINT_UPLOAD_FAILED", "incoming package persistence failed", { submissionId: analysis.submissionId, fileName: selectedFile.name });
-            setBanner(`Package could not be persisted: ${error instanceof Error ? error.message : "Unknown error"}. Please retry.`);
+            setBanner(uploadSucceeded
+                ? `Your package was securely uploaded, but Intake finalization failed: ${error instanceof Error ? error.message : "Unknown error"}. Select this existing project and the same file to retry safely.`
+                : `Package could not be persisted: ${error instanceof Error ? error.message : "Unknown error"}. Please retry.`);
         } finally {
             setIsPersisting(false);
         }
@@ -499,7 +509,7 @@ function BrokerUploadForm() {
                             style={{ flex: 1 }}
                         >
                             {personaTxns.map(t => (
-                                <option key={t.id} value={t.id}>{t.name}</option>
+                                <option key={t.id} value={t.id}>{t.name}{t.businessTransactionId ? ` — ${t.businessTransactionId}` : ""}</option>
                             ))}
                         </select>
                         <button className="rc-btn rc-btn-secondary rc-btn-sm" onClick={() => setShowNewTxn(true)}>New Transaction</button>
