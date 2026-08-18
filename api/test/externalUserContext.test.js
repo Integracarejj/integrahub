@@ -35,6 +35,33 @@ test("external context fails closed when the user has no organization membership
     });
 });
 
+test("authorized transaction listing is SQL-scoped through user organization membership", async () => {
+    let sql;
+    let parameters;
+    const service = createExternalUserContextService({
+        query: async (statement, values) => {
+            sql = statement;
+            parameters = values;
+            return [{
+                id: "REC-2026-00000002",
+                name: "Project Liberty",
+                status: "Active",
+                owningExternalOrganizationId: "TEST-BROKER-ORG",
+            }];
+        },
+    });
+
+    assert.deepEqual(await service.listAuthorizedTransactions("external-user"), [{
+        id: "REC-2026-00000002",
+        name: "Project Liberty",
+        status: "Active",
+        owningExternalOrganizationId: "TEST-BROKER-ORG",
+    }]);
+    assert.match(sql, /ExternalUserOrganizations/);
+    assert.match(sql, /membership\.externalOrganizationId = transactionRow\.owningExternalOrganizationId/);
+    assert.deepEqual(parameters, { userId: "external-user" });
+});
+
 test("internal middleware rejects external-only roles and preserves DDTeam internal access", () => {
     const status = [];
     const response = { status(code) { status.push(code); return this; }, json() {} };

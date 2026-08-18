@@ -20,7 +20,8 @@ import {
     getLastCreatedTransactionId,
     getTransactionsList, associateAuthoritativeTransaction, getAuthoritativeTransactionId,
 } from "../../services/portalMockData";
-import { createAuthoritativeRecapTransaction, persistIncomingPackage } from "../../services/portalPackagePersistence";
+import { createAuthoritativeRecapTransactionRecord, persistIncomingPackage } from "../../services/portalPackagePersistence";
+import { usePortalTransactions } from "../../hooks/usePortalTransactions";
 import { diag } from "../../utils/diagnostics";
 import "./PortalSubmit.css";
 
@@ -276,8 +277,9 @@ function BrokerUploadForm() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [analysis, setAnalysis] = useState<{ submissionId: string; detected: number; needsReview: number; duplicates: number; followUp: number; categories: string[]; packageName: string; isABCDemo: boolean; transactionId?: string } | null>(null);
     const [banner, setBanner] = useState<string | null>(null);
+    const [isPersisting, setIsPersisting] = useState(false);
 
-    const personaTxns = getPortalTransactions();
+    const { transactions: personaTxns, isRealExternal, loadError: transactionLoadError, addAuthoritative } = usePortalTransactions();
     // Default to last-created transaction if available, otherwise first authorized
     const lastCreatedTxnId = getLastCreatedTransactionId();
     const txnIds = new Set(personaTxns.map(t => t.id));
@@ -287,6 +289,13 @@ function BrokerUploadForm() {
     const [selectedTxnId, setSelectedTxnId] = useState<string>(defaultTxnId);
     const [newTxnName, setNewTxnName] = useState("");
     const [showNewTxn, setShowNewTxn] = useState(false);
+
+    useEffect(() => {
+        if (transactionLoadError) setBanner(`Projects could not be loaded: ${transactionLoadError}. Please retry.`);
+    }, [transactionLoadError]);
+    useEffect(() => {
+        if (!selectedTxnId && personaTxns[0]?.id) setSelectedTxnId(personaTxns[0].id);
+    }, [personaTxns, selectedTxnId]);
 
     const submissions = getPortalSubmissionsList();
 
@@ -407,7 +416,7 @@ function BrokerUploadForm() {
     };
 
     const handleSubmit = async () => {
-        if (!analysis) return;
+        if (isPersisting || !analysis) return;
         if (analysis.isABCDemo) {
             confirmBrokerPackage(analysis.submissionId);
             setUploadState("submitted");
@@ -415,13 +424,16 @@ function BrokerUploadForm() {
             return;
         }
         if (!selectedFile || !analysis.transactionId) return;
+        setIsPersisting(true);
         try {
             let businessTransactionId = getAuthoritativeTransactionId(analysis.transactionId);
             if (!businessTransactionId) {
                 const browserTransaction = getTransactionsList().find(row => row.id === analysis.transactionId);
                 if (!browserTransaction) throw new Error("The selected project is unavailable");
-                businessTransactionId = await createAuthoritativeRecapTransaction(browserTransaction.name);
+                const created = await createAuthoritativeRecapTransactionRecord(browserTransaction.name);
+                businessTransactionId = created.id;
                 associateAuthoritativeTransaction(analysis.transactionId, businessTransactionId, analysis.submissionId);
+                if (isRealExternal) addAuthoritative(created);
             }
             diag("PACKAGE_SHAREPOINT_UPLOAD_STARTED", "incoming package persistence started", { transactionId: businessTransactionId, submissionId: analysis.submissionId, fileName: selectedFile.name });
             await persistIncomingPackage(businessTransactionId, analysis.submissionId, selectedFile);
@@ -432,6 +444,8 @@ function BrokerUploadForm() {
         } catch (error) {
             diag("PACKAGE_SHAREPOINT_UPLOAD_FAILED", "incoming package persistence failed", { submissionId: analysis.submissionId, fileName: selectedFile.name });
             setBanner(`Package could not be persisted: ${error instanceof Error ? error.message : "Unknown error"}. Please retry.`);
+        } finally {
+            setIsPersisting(false);
         }
     };
 
@@ -564,7 +578,7 @@ function BrokerUploadForm() {
                             ))}
                         </div>
                         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                            <button className="rc-btn rc-btn-primary" onClick={handleSubmit}>Submit Package to IntegraCare</button>
+                            <button className="rc-btn rc-btn-primary" onClick={handleSubmit} disabled={isPersisting}>{isPersisting ? "Submitting..." : "Submit Package to IntegraCare"}</button>
                             <button className="rc-btn rc-btn-secondary" onClick={resetUpload}>Start Over</button>
                         </div>
                     </div>
@@ -601,7 +615,7 @@ export default function PortalSubmit() {
     const persona = getActivePersona();
     const typeParam = searchParams.get("type") || "question";
 
-    const transactions = getPortalTransactions();
+    const { transactions } = usePortalTransactions();
     const questions = getPortalQuestions();
     const clarifications = getPortalClarifications();
 

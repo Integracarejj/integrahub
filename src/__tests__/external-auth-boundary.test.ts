@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { isExternalOnlyRole, shouldRedirectFromInternal } from "../utils/accessRouting";
-import { getActivePersona, getPersonaIdentity, getPersonas, setActivePersona } from "../services/portalMockData";
+import { createPortalTransaction, getActivePersona, getAuthoritativeTransactionId, getPersonaIdentity, getPersonas, getTransactionsList, registerAuthoritativePortalTransaction, setActivePersona } from "../services/portalMockData";
 import { setAuthenticatedExternalContext } from "../services/portalRuntimeContext";
 
 const storage = new Map<string, string>();
@@ -64,6 +64,48 @@ describe("authenticated external portal context", () => {
         });
         expect(getActivePersona().companyName).toBe("Organization access not configured");
         expect(getPersonaIdentity()).toBeNull();
+    });
+
+    it("creates a real-session workflow transaction using authenticated organization identity", () => {
+        setAuthenticatedExternalContext({
+            userId: "real-broker",
+            email: "broker@example.com",
+            displayName: "Real Broker",
+            role: "ExternalBroker",
+            organizations: [{ id: "TEST-BROKER-ORG", isDefault: true }],
+            defaultOrganizationId: "TEST-BROKER-ORG",
+        });
+        const transactionId = createPortalTransaction("Project Liberty");
+        expect(getTransactionsList().find(row => row.id === transactionId)).toMatchObject({
+            name: "Project Liberty",
+            orgId: "TEST-BROKER-ORG",
+        });
+    });
+
+    it("registers only backend-returned transactions from an authorized organization", () => {
+        setAuthenticatedExternalContext({
+            userId: "real-broker",
+            email: "broker@example.com",
+            displayName: "Real Broker",
+            role: "ExternalBroker",
+            organizations: [{ id: "TEST-BROKER-ORG", isDefault: true }],
+            defaultOrganizationId: "TEST-BROKER-ORG",
+        });
+        const registered = registerAuthoritativePortalTransaction({
+            id: "REC-2026-00000002",
+            name: "Project Liberty",
+            status: "Active",
+            owningExternalOrganizationId: "TEST-BROKER-ORG",
+        });
+        expect(registered?.businessTransactionId).toBe("REC-2026-00000002");
+        expect(getAuthoritativeTransactionId(registered!.id)).toBe("REC-2026-00000002");
+
+        expect(registerAuthoritativePortalTransaction({
+            id: "REC-2026-00000003",
+            name: "Foreign Project",
+            status: "Active",
+            owningExternalOrganizationId: "OTHER-ORG",
+        })).toBeNull();
     });
 
     it("preserves explicit Atlas, Harbor, and Summit demo personas outside real external mode", () => {

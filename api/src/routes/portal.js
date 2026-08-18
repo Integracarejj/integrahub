@@ -6,6 +6,7 @@ import { recapIncomingDocumentService, IncomingDocumentConflictError, IncomingDo
 import { GraphAuthenticationError } from "../integrations/sharepoint/auth.js";
 import { GraphRequestError } from "../integrations/sharepoint/graphClient.js";
 import { SharePointConfigError } from "../integrations/sharepoint/config.js";
+import { externalUserContextService } from "../services/externalUserContextService.js";
 
 const router = Router();
 
@@ -32,6 +33,16 @@ router.post("/recapitalization/transactions", requireRole("ExternalBroker"), asy
         if (error instanceof TransactionValidationError) return res.status(400).json({ error: "Invalid transaction", field: error.field });
         console.error("External recap transaction creation failed", error instanceof Error ? error.message : "Unknown error");
         return res.status(500).json({ error: "Transaction creation failed" });
+    }
+});
+
+router.get("/recapitalization/transactions", async (req, res) => {
+    try {
+        const transactions = await externalUserContextService.listAuthorizedTransactions(req.user.id);
+        return res.json({ transactions });
+    } catch (error) {
+        console.error("External recap transaction listing failed", error instanceof Error ? error.message : "Unknown error");
+        return res.status(500).json({ error: "Transaction listing failed" });
     }
 });
 

@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-    getPortalRequests, getPortalTransactions,
+    getPortalRequests,
     getActivePersona, submitBrokerUploadPackage, confirmBrokerPackage,
     getPortalSubmissionsList,
     parseUploadedXLSX, extractCategoriesFromParsedRows,
@@ -10,7 +10,8 @@ import {
     createPortalTransaction, getTransactionsList,
     associateAuthoritativeTransaction, getAuthoritativeTransactionId,
 } from "../../services/portalMockData";
-import { createAuthoritativeRecapTransaction, persistIncomingPackage } from "../../services/portalPackagePersistence";
+import { createAuthoritativeRecapTransactionRecord, persistIncomingPackage } from "../../services/portalPackagePersistence";
+import { usePortalTransactions } from "../../hooks/usePortalTransactions";
 import { diag } from "../../utils/diagnostics";
 import { getExternalStatusInfo, getStatusPillStyle, getExceptionContext } from "../../services/externalStatusMapping";
 import ProjectBadge from "../../components/common/ProjectBadge";
@@ -72,12 +73,11 @@ export default function PortalOverview() {
     const identity = getPersonaIdentity();
     const portalRequests = getPortalRequests();
     const submissions = getPortalSubmissionsList();
+    const { transactions, isRealExternal, loadError: transactionLoadError, addAuthoritative } = usePortalTransactions();
 
     // Transaction selector: filter requests by authorized transaction
-    const authorizedTxns = identity?.authorizedTransactions || [];
-    const allPortalTxns = identity?.allTransactions || [];
-    const authorizedTxnIds = new Set(authorizedTxns.map(a => a.transactionId));
-    const personaTxns = allPortalTxns.filter(t => authorizedTxnIds.has(t.id));
+    const personaTxns = transactions;
+    const authorizedTxnIds = new Set(personaTxns.map(transaction => transaction.id));
     const orgName = identity?.organization?.name || persona.companyName;
 
     // "All Transactions" uses empty string as sentinel
@@ -91,7 +91,6 @@ export default function PortalOverview() {
     // Consume the "last created" hint once so it doesn't persist across future visits
     useEffect(() => { if (lastCreatedTxnId) clearLastCreatedTransactionId(); }, [lastCreatedTxnId]);
 
-    const transactions = getPortalTransactions();
     const isAllSelected = selectedTxnId === ALL_TXN_SENTINEL;
     const txn = isAllSelected ? null : transactions.find(t => t.id === selectedTxnId) || null;
 
@@ -106,6 +105,11 @@ export default function PortalOverview() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
     const [banner, setBanner] = useState<string | null>(null);
+    const [isPersisting, setIsPersisting] = useState(false);
+
+    useEffect(() => {
+        if (transactionLoadError) setBanner(`Projects could not be loaded: ${transactionLoadError}. Please retry.`);
+    }, [transactionLoadError]);
 
     // Destination routing for ADDITIONAL packages: the user explicitly picks
     // New Project or an Existing Project before uploading. Defaults to a NEW
@@ -319,15 +323,18 @@ export default function PortalOverview() {
     };
 
     const handleSubmitPackage = async () => {
-        if (!analysis || !selectedFile || !analysis.transactionId) return;
+        if (isPersisting || !analysis || !selectedFile || !analysis.transactionId) return;
+        setIsPersisting(true);
         setBanner(null);
         try {
             let businessTransactionId = getAuthoritativeTransactionId(analysis.transactionId);
             if (!businessTransactionId) {
                 const browserTransaction = getTransactionsList().find(row => row.id === analysis.transactionId);
                 if (!browserTransaction) throw new Error("The selected project is unavailable");
-                businessTransactionId = await createAuthoritativeRecapTransaction(browserTransaction.name);
+                const created = await createAuthoritativeRecapTransactionRecord(browserTransaction.name);
+                businessTransactionId = created.id;
                 associateAuthoritativeTransaction(analysis.transactionId, businessTransactionId, analysis.submissionId);
+                if (isRealExternal) addAuthoritative(created);
             }
             diag("PACKAGE_SHAREPOINT_UPLOAD_STARTED", "incoming package persistence started", { transactionId: businessTransactionId, submissionId: analysis.submissionId, fileName: selectedFile.name });
             await persistIncomingPackage(businessTransactionId, analysis.submissionId, selectedFile);
@@ -338,6 +345,8 @@ export default function PortalOverview() {
             diag("PACKAGE_SHAREPOINT_UPLOAD_FAILED", "incoming package persistence failed", { submissionId: analysis.submissionId, fileName: selectedFile.name });
             setBanner(`Package could not be persisted: ${error instanceof Error ? error.message : "Unknown error"}. Please retry.`);
             return;
+        } finally {
+            setIsPersisting(false);
         }
         // The destination choice applies to ONE additional package cycle; the
         // next "Upload Another Package" asks again.
@@ -447,7 +456,7 @@ export default function PortalOverview() {
                                 </div>
                             </div>
                             <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-                                <button className="rc-btn rc-btn-primary" onClick={handleSubmitPackage} style={{ padding: "14px 40px", fontSize: 16, fontWeight: 700, borderRadius: 12 }}>Submit Package</button>
+                                <button className="rc-btn rc-btn-primary" onClick={handleSubmitPackage} disabled={isPersisting} style={{ padding: "14px 40px", fontSize: 16, fontWeight: 700, borderRadius: 12 }}>{isPersisting ? "Submitting..." : "Submit Package"}</button>
                                 <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ padding: "14px 24px", fontSize: 14, borderRadius: 12, border: "1px solid #d1d5db", color: "#0f172a", background: "#fff" }}>Upload Different Package</button>
                             </div>
                         </div>

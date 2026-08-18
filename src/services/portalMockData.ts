@@ -203,6 +203,9 @@ export function deleteMembership(userId: string, orgId: string): void {
 export function getTransactionsList(): ExternalTransaction[] {
     const stored = readJsonArray<ExternalTransaction>(TRANSACTIONS_KEY);
     if (stored.length === 0) {
+        // Real authenticated sessions start empty and are populated only from
+        // authoritative API results or an explicit new-project workflow.
+        if (getAuthenticatedExternalContext()) return [];
         if (isRecapDataWiped()) return [];
         // Initialize demo transactions on first call
         const demoTxns: ExternalTransaction[] = [
@@ -280,9 +283,7 @@ export function addTransactionAccess(access: ExternalTransactionAccess): void {
  *  Returns the new transaction ID for use in package/request linkage. */
 export function createPortalTransaction(name: string, description?: string): string {
     const txnId = `txn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const persona = getActivePersona();
-    const users = getExternalUsers();
-    const identityUser = users.find(u => u.email === persona.email);
+    const identityUser = getPersonaIdentity()?.user;
     if (!identityUser) return txnId;
     const txn: ExternalTransaction = {
         id: txnId,
@@ -301,6 +302,46 @@ export function createPortalTransaction(name: string, description?: string): str
     // Store so Overview can default to this transaction
     localStorage.setItem(LAST_CREATED_TXN_KEY, txnId);
     return txnId;
+}
+
+/**
+ * Creates a browser workflow projection for a transaction returned by the
+ * authoritative portal API. The business ID remains the persistence target;
+ * this local ID only preserves the existing intake/request workflow shape.
+ */
+export function registerAuthoritativePortalTransaction(transaction: {
+    id: string;
+    name: string;
+    status: "Active" | "Pending" | "Completed" | "Cancelled";
+    owningExternalOrganizationId: string;
+}): ExternalTransaction | null {
+    const identity = getPersonaIdentity();
+    if (!identity) return null;
+    const authorizedOrgIds = new Set(identity.user.roleAssignments.map(assignment => assignment.orgId));
+    if (!authorizedOrgIds.has(transaction.owningExternalOrganizationId)) return null;
+
+    const transactions = getTransactionsList();
+    let projected = transactions.find(row => row.businessTransactionId === transaction.id);
+    if (!projected) {
+        projected = {
+            id: `txn-authoritative-${transaction.id}`,
+            orgId: transaction.owningExternalOrganizationId,
+            name: transaction.name,
+            description: `Authoritative transaction ${transaction.id}`,
+            status: transaction.status === "Cancelled" ? "Completed" : transaction.status,
+            createdAt: new Date().toISOString(),
+            businessTransactionId: transaction.id,
+        };
+        transactions.push(projected);
+        writeJsonArray(TRANSACTIONS_KEY, transactions);
+    }
+
+    const access = getTransactionAccessList();
+    if (!access.some(row => row.transactionId === projected!.id && row.userId === identity.user.id)) {
+        access.push({ transactionId: projected.id, orgId: projected.orgId, userId: identity.user.id });
+        writeJsonArray(TXN_ACCESS_KEY, access);
+    }
+    return projected;
 }
 
 /** Get the last transaction ID created by the active persona (or null). */
@@ -918,9 +959,7 @@ export function submitPortalNewRequest(data: {
     priority: string;
     neededBy: string;
 }): void {
-    const persona = getActivePersona();
-    const users = getExternalUsers();
-    const identityUser = users.find(u => u.email === persona.email);
+    const identityUser = getPersonaIdentity()?.user;
     const newReq: PortalRequest = {
         id: `pr-${Date.now()}`,
         requestId: `DD-PORTAL-${Math.floor(Math.random() * 9000) + 1000}`,
@@ -938,7 +977,7 @@ export function submitPortalNewRequest(data: {
         communityNames: data.communityNames,
         owner: null,
         team: "DD Management",
-        brokerBuyer: persona.companyName,
+        brokerBuyer: identityUser?.organizationName || "External",
         _rawStatus: "Intake Review",
         _workNotes: [],
         orgId: identityUser?.organizationId,
@@ -1634,9 +1673,7 @@ export function submitBrokerUploadPackage(
     const packageName = fileBaseName;
     const requestCount = parsedCount ?? 0;
 
-    const persona = getActivePersona();
-    const users = getExternalUsers();
-    const identityUser = users.find(u => u.email === persona.email);
+    const identityUser = getPersonaIdentity()?.user;
 
     // Auto-create transaction if not provided
     const resolvedTxnId = transactionId || createPortalTransaction(packageName);
@@ -1684,9 +1721,7 @@ export function confirmBrokerPackage(submissionId?: string): void {
     const sub = submissions.find(s => s.id === submissionId);
     if (!sub) return;
 
-    const persona = getActivePersona();
-    const users = getExternalUsers();
-    const identityUser = users.find(u => u.email === persona.email);
+    const identityUser = getPersonaIdentity()?.user;
 
     if (sub.isABCDemo) {
         if (!isRecapDataWiped() && !isDemoActive()) initDemo();
