@@ -44,6 +44,12 @@ export async function mockAuth(page: Page): Promise<void> {
         if (route.request().method() !== "POST") return route.fallback();
         return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ documentId: "doc-e2e", status: "Uploaded" }) });
     });
+    await page.route("**/api/portal/recapitalization/transactions/*/intake", async (route) => {
+        if (route.request().method() !== "POST") return route.fallback();
+        const body = route.request().postDataJSON();
+        return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: `intake-${body.sourcePackageId}`, created: true, requestCount: body.requests?.length || 0 }) });
+    });
+    await page.route("**/api/recapitalization/intake", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ packages: [] }) }));
     await page.route("**/api/me/permissions", (route) =>
         route.fulfill({
             status: 200,

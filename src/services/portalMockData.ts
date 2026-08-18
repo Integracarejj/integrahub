@@ -1721,8 +1721,6 @@ export function confirmBrokerPackage(submissionId?: string): void {
     const sub = submissions.find(s => s.id === submissionId);
     if (!sub) return;
 
-    const identityUser = getPersonaIdentity()?.user;
-
     if (sub.isABCDemo) {
         if (!isRecapDataWiped() && !isDemoActive()) initDemo();
         updatePortalSubmissionStatus(submissionId, "Submitted");
@@ -1740,24 +1738,12 @@ export function confirmBrokerPackage(submissionId?: string): void {
     }
 
     // Custom package: create intake item + review item (not tracker) records
-    const fileBaseName = sub.fileName.replace(/\.[^.]+$/, "").trim();
-    const parsedRows = getParsedRows();
-    const txnId = sub.transactionId; // Stable transaction ID from package creation
-    let reviewItems: RecapRequest[];
-    if (parsedRows.length > 0) {
-        reviewItems = parsedRows.map((row, i) => mapParsedRowToRecapRequest(
-            row, submissionId, i + 1, fileBaseName, sub.packageName,
-            identityUser?.organizationId, identityUser?.organizationName, identityUser?.id, identityUser?.displayName,
-            txnId,
-        ));
-    } else {
-        reviewItems = generatePortalRequests(submissionId, sub.packageName, fileBaseName, sub.requestCount,
-            identityUser?.organizationId, identityUser?.organizationName, identityUser?.id, identityUser?.displayName,
-            txnId);
-    }
+    const reviewItems = getBrokerPackageRequests(submissionId);
+    const txnId = sub.transactionId;
     clearParsedRows();
     // Review items are kept for the intake review grid but have _publishedAt: null so they don't appear in tracker
     addPortalCreatedRequests(reviewItems);
+    const identityUser = getPersonaIdentity()?.user;
     const intakeItem = createPortalIntakeItem(submissionId, sub.packageName, sub.fileName, reviewItems.length, false, txnId, identityUser?.organizationId, identityUser?.organizationName, identityUser?.id, identityUser?.displayName);
 
     addPortalCreatedIntakeItem(intakeItem);
@@ -1772,6 +1758,23 @@ export function confirmBrokerPackage(submissionId?: string): void {
         transactionId: txnId || `txn-portal-${submissionId}`,
         transactionName: sub.transactionName,
     });
+}
+
+export function getBrokerPackageRequests(submissionId: string): RecapRequest[] {
+    const sub = getPortalSubmissions().find(s => s.id === submissionId);
+    if (!sub || sub.isABCDemo) return [];
+    const identityUser = getPersonaIdentity()?.user;
+    const fileBaseName = sub.fileName.replace(/\.[^.]+$/, "").trim();
+    const parsedRows = getParsedRows();
+    return parsedRows.length > 0
+        ? parsedRows.map((row, i) => mapParsedRowToRecapRequest(
+            row, submissionId, i + 1, fileBaseName, sub.packageName,
+            identityUser?.organizationId, identityUser?.organizationName, identityUser?.id, identityUser?.displayName,
+            sub.transactionId,
+        ))
+        : generatePortalRequests(submissionId, sub.packageName, fileBaseName, sub.requestCount,
+            identityUser?.organizationId, identityUser?.organizationName, identityUser?.id, identityUser?.displayName,
+            sub.transactionId);
 }
 
 export function loadABCDemoPackage(): void {

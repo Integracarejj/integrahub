@@ -55,3 +55,24 @@ export async function persistIncomingPackage(businessTransactionId: string, sour
     });
     if (!response.ok) throw new Error(await readError(response));
 }
+
+export interface IntakeRequestInput {
+    category: string;
+    title: string;
+    description: string;
+    team: string;
+    owner: string | null;
+    priority: "High" | "Medium" | "Low";
+    dueDate: string;
+    communityNames: string[];
+}
+
+export async function persistAuthoritativeIntake(businessTransactionId: string, sourcePackageId: string, requests: IntakeRequestInput[]): Promise<void> {
+    const response = await fetch(`/api/portal/recapitalization/transactions/${encodeURIComponent(businessTransactionId)}/intake`, {
+        method: "POST",
+        credentials: "include",
+        headers: headers("application/json"),
+        body: JSON.stringify({ sourcePackageId, requests }),
+    });
+    if (!response.ok) throw new Error(await readError(response));
+}

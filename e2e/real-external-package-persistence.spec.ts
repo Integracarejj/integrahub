@@ -42,6 +42,7 @@ test("real external new project creates once and retry reuses the authoritative 
     const fixture = getFixturePaths().liberty;
     let createCount = 0;
     let uploadCount = 0;
+    let intakeCount = 0;
     await mockIdentity(page);
     await page.route("**/api/portal/recapitalization/transactions", async route => {
         if (route.request().method() === "GET") {
@@ -61,6 +62,14 @@ test("real external new project creates once and retry reuses the authoritative 
         if (uploadCount === 1) return route.fulfill({ status: 502, contentType: "application/json", body: JSON.stringify({ error: "Incoming package persistence failed" }) });
         return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ documentId: "doc-1", status: "Uploaded" }) });
     });
+    await page.route("**/api/portal/recapitalization/transactions/*/intake", async route => {
+        intakeCount++;
+        const body = route.request().postDataJSON();
+        expect(body.sourcePackageId).toMatch(/^sub-/);
+        expect(body.requests.length).toBeGreaterThan(0);
+        await new Promise(resolve => setTimeout(resolve, 250));
+        return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "intake-1", created: true, requestCount: body.requests.length }) });
+    });
 
     await page.goto("/portal", { waitUntil: "domcontentloaded" });
     await page.locator('input[type="file"]').first().setInputFiles(fixture);
@@ -71,9 +80,12 @@ test("real external new project creates once and retry reuses the authoritative 
     expect(uploadCount).toBe(1);
 
     await page.getByRole("button", { name: "Submit Package" }).click();
+    await expect(page.getByRole("status")).toContainText("Creating your project and securely uploading your package");
+    await expect(page.getByRole("button", { name: "Submitting package..." })).toBeDisabled();
     await expect(page.getByText("Package Submitted Successfully")).toBeVisible();
     expect(createCount).toBe(1);
     expect(uploadCount).toBe(2);
+    expect(intakeCount).toBe(1);
 });
 
 test("real external existing project selection uses the authorized SQL transaction without creating another", async ({ page }) => {
@@ -93,6 +105,7 @@ test("real external existing project selection uses the authorized SQL transacti
         uploadedTransaction = route.request().url();
         return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ documentId: "doc-2", status: "Uploaded" }) });
     });
+    await page.route("**/api/portal/recapitalization/transactions/*/intake", route => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "intake-2", created: true, requestCount: route.request().postDataJSON().requests.length }) }));
 
     await page.goto("/portal/submit?type=upload-package", { waitUntil: "domcontentloaded" });
     const transactionSelect = page.locator("select").filter({ has: page.getByRole("option", { name: "Authorized Project" }) });

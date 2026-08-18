@@ -7,6 +7,7 @@ import { GraphAuthenticationError } from "../integrations/sharepoint/auth.js";
 import { GraphRequestError } from "../integrations/sharepoint/graphClient.js";
 import { SharePointConfigError } from "../integrations/sharepoint/config.js";
 import { externalUserContextService } from "../services/externalUserContextService.js";
+import { recapIntakeService, RecapIntakeForbiddenError, RecapIntakeValidationError } from "../services/recapIntakeService.js";
 
 const router = Router();
 
@@ -75,6 +76,22 @@ router.post(
         }
     },
 );
+
+router.post("/recapitalization/transactions/:id/intake", requireRole("ExternalBroker"), async (req, res) => {
+    try {
+        const result = await recapIntakeService.finalizePackage({
+            businessTransactionId: req.params.id,
+            sourcePackageId: req.body?.sourcePackageId,
+            requests: req.body?.requests,
+        }, req.user);
+        return res.status(result.created ? 201 : 200).json(result);
+    } catch (error) {
+        if (error instanceof RecapIntakeValidationError) return res.status(400).json({ error: "Invalid intake package" });
+        if (error instanceof RecapIntakeForbiddenError) return res.status(403).json({ error: "Uploaded package access denied" });
+        console.error("External recap intake finalization failed", error instanceof Error ? error.message : "Unknown error");
+        return res.status(500).json({ error: "Intake package persistence failed" });
+    }
+});
 
 /**
  * GET /api/portal/transactions

@@ -1803,13 +1803,15 @@ export function getPortalSubmissions(): { id: string; fileName: string; packageN
 
 export function addPortalCreatedIntakeItem(item: RecapIntakeItem): void {
     const items = getPortalCreatedIntakeItems();
+    if (items.some(existing => existing.id === item.id)) return;
     items.push(item);
     localStorage.setItem(PORTAL_INTAKE_KEY, JSON.stringify(items));
 }
 
 export function addPortalCreatedRequests(requests: RecapRequest[]): void {
     const existing = getPortalCreatedRequests();
-    const merged = [...existing, ...requests];
+    const ids = new Set(existing.map(request => request.id));
+    const merged = [...existing, ...requests.filter(request => !ids.has(request.id))];
     localStorage.setItem(PORTAL_REQUESTS_KEY, JSON.stringify(merged));
 }
 

@@ -19,10 +19,12 @@ import {
     createPortalTransaction,
     getLastCreatedTransactionId,
     getTransactionsList, associateAuthoritativeTransaction, getAuthoritativeTransactionId,
+    getBrokerPackageRequests,
 } from "../../services/portalMockData";
-import { createAuthoritativeRecapTransactionRecord, persistIncomingPackage } from "../../services/portalPackagePersistence";
+import { createAuthoritativeRecapTransactionRecord, persistAuthoritativeIntake, persistIncomingPackage } from "../../services/portalPackagePersistence";
 import { usePortalTransactions } from "../../hooks/usePortalTransactions";
 import { diag } from "../../utils/diagnostics";
+import PackageSubmissionProgress from "../../components/portal/PackageSubmissionProgress";
 import "./PortalSubmit.css";
 
 const QUESTION_TYPES = ["Financial", "Operational", "Legal", "Compliance", "Regulatory", "Clinical", "Workforce", "General"];
@@ -438,6 +440,7 @@ function BrokerUploadForm() {
             diag("PACKAGE_SHAREPOINT_UPLOAD_STARTED", "incoming package persistence started", { transactionId: businessTransactionId, submissionId: analysis.submissionId, fileName: selectedFile.name });
             await persistIncomingPackage(businessTransactionId, analysis.submissionId, selectedFile);
             diag("PACKAGE_SHAREPOINT_UPLOAD_SUCCEEDED", "incoming package persistence succeeded", { transactionId: businessTransactionId, submissionId: analysis.submissionId, fileName: selectedFile.name });
+            await persistAuthoritativeIntake(businessTransactionId, analysis.submissionId, getBrokerPackageRequests(analysis.submissionId));
             confirmBrokerPackage(analysis.submissionId);
             setUploadState("submitted");
             setBanner("Package submitted successfully!");
@@ -578,7 +581,8 @@ function BrokerUploadForm() {
                             ))}
                         </div>
                         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                            <button className="rc-btn rc-btn-primary" onClick={handleSubmit} disabled={isPersisting}>{isPersisting ? "Submitting..." : "Submit Package to IntegraCare"}</button>
+                            {isPersisting && <PackageSubmissionProgress />}
+                            <button className="rc-btn rc-btn-primary" onClick={handleSubmit} disabled={isPersisting}>{isPersisting ? "Submitting package..." : "Submit Package to IntegraCare"}</button>
                             <button className="rc-btn rc-btn-secondary" onClick={resetUpload}>Start Over</button>
                         </div>
                     </div>

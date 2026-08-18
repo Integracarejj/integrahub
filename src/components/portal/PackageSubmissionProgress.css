@@ -1,0 +1,29 @@
+.package-submission-progress {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin: 14px 0;
+    padding: 14px 16px;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    background: #eff6ff;
+    color: #1e3a8a;
+    line-height: 1.45;
+}
+
+.package-submission-spinner {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    margin-top: 2px;
+    border: 3px solid #bfdbfe;
+    border-top-color: #2563eb;
+    border-radius: 50%;
+    animation: package-submission-spin .8s linear infinite;
+}
+
+@keyframes package-submission-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+    .package-submission-spinner { animation-duration: 1.8s; }
+}

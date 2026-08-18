@@ -9,12 +9,14 @@ import {
     getPersonaIdentity, getLastCreatedTransactionId, clearLastCreatedTransactionId,
     createPortalTransaction, getTransactionsList,
     associateAuthoritativeTransaction, getAuthoritativeTransactionId,
+    getBrokerPackageRequests,
 } from "../../services/portalMockData";
-import { createAuthoritativeRecapTransactionRecord, persistIncomingPackage } from "../../services/portalPackagePersistence";
+import { createAuthoritativeRecapTransactionRecord, persistAuthoritativeIntake, persistIncomingPackage } from "../../services/portalPackagePersistence";
 import { usePortalTransactions } from "../../hooks/usePortalTransactions";
 import { diag } from "../../utils/diagnostics";
 import { getExternalStatusInfo, getStatusPillStyle, getExceptionContext } from "../../services/externalStatusMapping";
 import ProjectBadge from "../../components/common/ProjectBadge";
+import PackageSubmissionProgress from "../../components/portal/PackageSubmissionProgress";
 import "./PortalOverview.css";
 
 const STAT_HELPERS: Record<string, string> = {
@@ -339,6 +341,7 @@ export default function PortalOverview() {
             diag("PACKAGE_SHAREPOINT_UPLOAD_STARTED", "incoming package persistence started", { transactionId: businessTransactionId, submissionId: analysis.submissionId, fileName: selectedFile.name });
             await persistIncomingPackage(businessTransactionId, analysis.submissionId, selectedFile);
             diag("PACKAGE_SHAREPOINT_UPLOAD_SUCCEEDED", "incoming package persistence succeeded", { transactionId: businessTransactionId, submissionId: analysis.submissionId, fileName: selectedFile.name });
+            await persistAuthoritativeIntake(businessTransactionId, analysis.submissionId, getBrokerPackageRequests(analysis.submissionId));
             confirmBrokerPackage(analysis.submissionId);
             setUploadState("submitted");
         } catch (error) {
@@ -456,7 +459,8 @@ export default function PortalOverview() {
                                 </div>
                             </div>
                             <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-                                <button className="rc-btn rc-btn-primary" onClick={handleSubmitPackage} disabled={isPersisting} style={{ padding: "14px 40px", fontSize: 16, fontWeight: 700, borderRadius: 12 }}>{isPersisting ? "Submitting..." : "Submit Package"}</button>
+                                {isPersisting && <PackageSubmissionProgress />}
+                                <button className="rc-btn rc-btn-primary" onClick={handleSubmitPackage} disabled={isPersisting} style={{ padding: "14px 40px", fontSize: 16, fontWeight: 700, borderRadius: 12 }}>{isPersisting ? "Submitting package..." : "Submit Package"}</button>
                                 <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ padding: "14px 24px", fontSize: 14, borderRadius: 12, border: "1px solid #d1d5db", color: "#0f172a", background: "#fff" }}>Upload Different Package</button>
                             </div>
                         </div>

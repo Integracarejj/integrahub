@@ -1,10 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useParams, Routes, Route } from "react-router-dom";
 import { getIntakeItems, isDemoActive, getDemoEngineSummary, publishIntake, publishSelectedRequests, getDemoRequests, getRequests, bulkUpdateDemoRequests, getTeamMembers, getTeams } from "../../services/recapDataService";
 import type { RecapIntakeItem, RecapRequest, RecapTeamMember } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
+import { loadAuthoritativeIntake } from "../../services/recapIntakePersistence";
 
 interface Note {
     id: string;
@@ -1446,8 +1447,17 @@ function IntakeQueue() {
     const [notesByItem, setNotesByItem] = useState<Record<string, Note[]>>({});
     const [importModalOpen, setImportModalOpen] = useState(false);
     const [msg, setMsg] = useState("");
+    const [intakeRevision, setIntakeRevision] = useState(0);
 
-    const allItems = useMemo(() => getIntakeItems(), []);
+    useEffect(() => {
+        let cancelled = false;
+        loadAuthoritativeIntake()
+            .then(() => { if (!cancelled) setIntakeRevision(value => value + 1); })
+            .catch(() => { if (!cancelled) setMsg("Authoritative submissions could not be loaded. Existing intake data remains available."); });
+        return () => { cancelled = true; };
+    }, []);
+
+    const allItems = useMemo(() => getIntakeItems(), [intakeRevision]);
 
     const stats = useMemo(() => {
         return {
