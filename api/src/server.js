@@ -19,6 +19,7 @@ import sharepointHealthRouter from "./routes/sharepointHealth.js";
 import recapTransactionsRouter from "./routes/recapTransactions.js";
 import recapWorkspaceRouter from "./routes/recapWorkspace.js";
 import { resolveCurrentUser } from "./middleware/resolveCurrentUser.js";
+import { denyExternalOnlyUser } from "./middleware/authorization.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
@@ -61,19 +62,25 @@ app.get("/health/db", async (_req, res) => {
     }
 });
 
+// Identity and external portal APIs must remain available to portal-only users.
+app.use("/api/me", meRouter);
+app.use("/api/portal", portalRouter);
+
+// Every other API namespace is internal. Block authenticated external-only roles
+// centrally before any internal router can handle the request.
+app.use("/api", denyExternalOnlyUser);
+
 app.use("/api/applications", applicationsRouter);
 app.use("/api/capabilities", capabilitiesRouter);
 app.use("/api/integrations", integrationsRouter);
 app.use("/api/roles", rolesRouter);
 app.use("/api/role-usage", roleUsageRouter);
-app.use("/api/me", meRouter);
 app.use("/api/admin/users", adminUsersRouter);
 app.use("/api/admin/applications", adminApplicationsRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/business-processes", businessProcessesRouter);
 app.use("/api/departments", departmentsRouter);
 app.use("/api/performance-metrics", performanceMetricsRouter);
-app.use("/api/portal", portalRouter);
 app.use("/api/admin/graph", graphDiagnosticsRouter);
 app.use("/api/admin/sharepoint", sharepointHealthRouter);
 app.use("/api/recapitalization/transactions", recapTransactionsRouter);

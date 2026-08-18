@@ -135,6 +135,24 @@ function LoadingScreen() {
     );
 }
 
+function portalRouteElements() {
+    return (
+        <Route element={<PortalGuard><PortalLayout /></PortalGuard>}>
+            <Route path="/portal" element={<PortalOverview />} />
+            <Route path="/portal/transactions" element={<PortalTransactions />} />
+            <Route path="/portal/requests" element={<PortalRequests />} />
+            <Route path="/portal/requests/:id" element={<PortalRequestDetail />} />
+            <Route path="/portal/submit" element={<PortalSubmit />} />
+            <Route path="/portal/documents" element={<PortalDocuments />} />
+            <Route path="/portal/help" element={<PortalHelp />} />
+
+            <Route path="/portal/questions" element={<Navigate to="/portal/submit?type=question" replace />} />
+            <Route path="/portal/clarifications" element={<Navigate to="/portal/submit?type=clarification" replace />} />
+            <Route path="/portal/new-request" element={<Navigate to="/portal/submit?type=new-request" replace />} />
+        </Route>
+    );
+}
+
 function AuthAwareRouter() {
     const { user, loading, error } = useCurrentUser();
 
@@ -164,6 +182,14 @@ function AuthAwareRouter() {
         return <NoAccessScreen />;
     }
 
+    if (shouldRedirectFromInternal(user.userRecord?.role)) {
+        return (
+            <Routes>
+                {portalRouteElements()}
+                <Route path="*" element={<Navigate to="/portal" replace />} />
+            </Routes>
+        );
+    }
 
     return (
         <Routes>
@@ -215,19 +241,7 @@ function AuthAwareRouter() {
                 <Route path="*" element={<Navigate to="/applications" replace />} />
             </Route>
 
-            <Route element={<PortalGuard><PortalLayout /></PortalGuard>}>
-                <Route path="/portal" element={<PortalOverview />} />
-                <Route path="/portal/transactions" element={<PortalTransactions />} />
-                <Route path="/portal/requests" element={<PortalRequests />} />
-                <Route path="/portal/requests/:id" element={<PortalRequestDetail />} />
-                <Route path="/portal/submit" element={<PortalSubmit />} />
-                <Route path="/portal/documents" element={<PortalDocuments />} />
-                <Route path="/portal/help" element={<PortalHelp />} />
-
-                <Route path="/portal/questions" element={<Navigate to="/portal/submit?type=question" replace />} />
-                <Route path="/portal/clarifications" element={<Navigate to="/portal/submit?type=clarification" replace />} />
-                <Route path="/portal/new-request" element={<Navigate to="/portal/submit?type=new-request" replace />} />
-            </Route>
+            {portalRouteElements()}
         </Routes>
     );
 }

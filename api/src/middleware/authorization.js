@@ -42,6 +42,18 @@ export function requireInternalUser(req, res, next) {
 }
 
 /**
+ * Prevents authenticated external-only users from calling internal application APIs.
+ * Authentication requirements for internal users remain owned by each existing route.
+ */
+export function denyExternalOnlyUser(req, res, next) {
+    const externalOnlyRoles = ["ExternalBroker", "ExternalBuyer"];
+    if (req.user && externalOnlyRoles.includes(req.user.globalRole)) {
+        return res.status(403).json({ error: "Access denied. External portal access only." });
+    }
+    return next();
+}
+
+/**
  * Checks that req.user exists and has a portal role assignment.
  * Portal roles: ExternalBroker, ExternalBuyer, DDTeam
  */

@@ -41,18 +41,18 @@ async function mockCurrentUser(page: Page, body: unknown) {
 }
 
 for (const role of ["ExternalBroker", "ExternalBuyer"] as const) {
-    test(`${role} is redirected from internal recap routes to its real external portal`, async ({ page }) => {
+    test(`${role} is portal-only across every internal route group`, async ({ page }) => {
         await mockCurrentUser(page, externalUser(role));
-        await page.goto("/recapitalization", { waitUntil: "domcontentloaded" });
+        for (const internalPath of ["/", "/applications", "/admin", "/recapitalization/settings"]) {
+            await page.goto(internalPath, { waitUntil: "domcontentloaded" });
+            await expect(page).toHaveURL(/\/portal$/);
+            await expect(page.locator(".app-shell")).toHaveCount(0);
+        }
 
-        await expect(page).toHaveURL(/\/portal$/);
         await expect(page.locator(".portal-user-profile")).toContainText("joyner.jeremy@ymail.com");
         await expect(page.locator(".portal-user-profile")).toContainText("TEST-BROKER-ORG");
         await expect(page.getByText("Morgan Blake", { exact: true })).toHaveCount(0);
         await expect(page.getByText("Atlas Capital Partners", { exact: true })).toHaveCount(0);
-
-        await page.goto("/recapitalization/settings", { waitUntil: "domcontentloaded" });
-        await expect(page).toHaveURL(/\/portal$/);
     });
 }
 

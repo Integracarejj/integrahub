@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createExternalUserContextService } from "../src/services/externalUserContextService.js";
-import { requireInternalUser } from "../src/middleware/authorization.js";
+import { denyExternalOnlyUser, requireInternalUser } from "../src/middleware/authorization.js";
 
 test("external context returns authorized memberships and the authoritative default", async () => {
     let parameters;
@@ -48,4 +48,21 @@ test("internal middleware rejects external-only roles and preserves DDTeam inter
     requireInternalUser({ user: { globalRole: "DDTeam", portalRole: "DDTeam" } }, response, () => { nextCalled = true; });
     assert.deepEqual(status, []);
     assert.equal(nextCalled, true);
+});
+
+test("global internal API boundary blocks external-only roles without changing internal users", () => {
+    for (const role of ["ExternalBroker", "ExternalBuyer"]) {
+        let status;
+        let nextCalled = false;
+        const response = { status(code) { status = code; return this; }, json() {} };
+        denyExternalOnlyUser({ user: { globalRole: role } }, response, () => { nextCalled = true; });
+        assert.equal(status, 403);
+        assert.equal(nextCalled, false);
+    }
+
+    for (const role of ["Viewer", "Editor", "PlatformAdmin", "DDTeam"]) {
+        let nextCalled = false;
+        denyExternalOnlyUser({ user: { globalRole: role } }, {}, () => { nextCalled = true; });
+        assert.equal(nextCalled, true);
+    }
 });
