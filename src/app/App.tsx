@@ -45,6 +45,7 @@ import RecapitalizationDocuments from "../pages/recapitalization/Recapitalizatio
 import RecapitalizationReports from "../pages/recapitalization/RecapitalizationReports";
 import RecapitalizationSettings from "../pages/recapitalization/RecapitalizationSettings";
 import RecapitalizationWorkspace from "../pages/recapitalization/RecapitalizationWorkspace";
+import CosmHomePage from "../pages/cosm/CosmHomePage";
 import { shouldRedirectFromInternal } from "../utils/accessRouting";
 
 /**
@@ -226,6 +227,7 @@ function AuthAwareRouter() {
                 <Route path="/department-view" element={<DepartmentViewPage />} />
                 <Route path="/topics" element={<TopicsPage />} />
                 <Route path="/topics/:topicSlug" element={<TopicDetailPage />} />
+                <Route path="/cosm" element={<CosmHomePage />} />
 
                 <Route path="/recapitalization" element={<RecapitalizationOverview />} />
                 <Route path="/recapitalization/transactions" element={<RecapitalizationTransactions />} />

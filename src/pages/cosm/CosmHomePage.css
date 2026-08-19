@@ -1,0 +1,9 @@
+.cosm-page { max-width: 1000px; margin: 0 auto; padding: 36px 24px 60px; }
+.cosm-header { max-width: 720px; margin-bottom: 28px; }
+.cosm-eyebrow { display: block; margin-bottom: 8px; color: #4338ca; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.cosm-header h1 { margin: 0 0 10px; color: #0f172a; font-size: 36px; line-height: 1.15; letter-spacing: -0.03em; }
+.cosm-header p { margin: 0; color: #334155; font-size: 17px; line-height: 1.55; }
+.cosm-foundation { display: flex; align-items: center; gap: 16px; max-width: 680px; padding: 20px; background: #fff; border: 1px solid #cbd5e1; border-radius: 12px; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05); }
+.cosm-foundation-mark { display: grid; width: 44px; height: 44px; flex: 0 0 44px; place-items: center; border-radius: 10px; background: #eef2ff; color: #3730a3; font-size: 20px; font-weight: 800; }
+.cosm-foundation h2 { margin: 0 0 4px; color: #0f172a; font-size: 17px; }
+.cosm-foundation p { margin: 0; color: #334155; font-size: 14px; line-height: 1.5; }
