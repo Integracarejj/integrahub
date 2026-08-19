@@ -53,6 +53,9 @@ export async function mockAuth(page: Page): Promise<void> {
         return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: `intake-${body.sourcePackageId}`, created: true, requestCount: body.requests?.length || 0 }) });
     });
     await page.route("**/api/recapitalization/intake", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ packages: [] }) }));
+    const emptyWorkItems = (route: Parameters<Parameters<Page["route"]>[1]>[0]) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ workItems: [], assignees: [] }) });
+    await page.route("**/api/recapitalization/work-items", emptyWorkItems);
+    await page.route("**/api/recapitalization/work-items/**", emptyWorkItems);
     await page.route("**/api/me/permissions", (route) =>
         route.fulfill({
             status: 200,

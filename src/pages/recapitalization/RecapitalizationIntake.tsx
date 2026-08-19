@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useParams, Routes, Route } from "react-router-dom";
-import { getIntakeItems, isDemoActive, getDemoEngineSummary, publishIntake, publishSelectedRequests, getDemoRequests, getRequests, bulkUpdateDemoRequests, getTeamMembers, getTeams } from "../../services/recapDataService";
+import { getIntakeItems, isDemoActive, getDemoEngineSummary, publishSelectedRequests, getDemoRequests, getRequests, bulkUpdateDemoRequests, getTeamMembers, getTeams } from "../../services/recapDataService";
 import type { RecapIntakeItem, RecapRequest, RecapTeamMember } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
 import { loadAuthoritativeIntake } from "../../services/recapIntakePersistence";
+import { admitAuthoritativeRequests, isIntakeRequestAdmitted, loadAuthoritativeWorkItems } from "../../services/recapWorkItemPersistence";
 
 interface Note {
     id: string;
@@ -181,6 +182,8 @@ function ReviewEngine() {
     const [bulkCategory, setBulkCategory] = useState("");
     const [bulkPriority, setBulkPriority] = useState("");
 
+    useEffect(() => { loadAuthoritativeWorkItems().then(() => setUpdateCount(k => k + 1)).catch(() => undefined); }, []);
+
     // If intakeId provided, look up the intake item and scope to its transaction
     const scope = useMemo(() => {
         if (!intakeId) return null;
@@ -212,7 +215,7 @@ function ReviewEngine() {
         if (scope) {
             // Filter by the intake's transactionId
             const merged = getRequests();
-            return merged.filter(r => r.transactionId === scope.transactionId);
+            return merged.filter(r => r.transactionId === scope.transactionId && !isIntakeRequestAdmitted(r.intakeRequestId));
         }
         return allDemoRequests;
     }, [updateCount, scope, allDemoRequests]);
@@ -342,37 +345,47 @@ function ReviewEngine() {
         else setSelectedIds(new Set(paginated.map(r => r.id)));
     };
 
-    const handleMoveToWorkQueue = () => {
+    const handleMoveToWorkQueue = async () => {
         const ids = enriched.filter(r => r._reviewState === "Move to Work Queue").map(r => r.id);
         if (ids.length === 0) return;
         setPublishing(true);
-        setTimeout(() => {
-            const result = publishSelectedRequests(ids, { sourceIntakeId: scope?.id || intakeId, sourcePackageId: scope?.id || intakeId });
-            setPublishedCount(result.publishedCount);
-            setPublishedBatchId(result.publishedBatchId);
-            setPublishing(false);
+        try {
+            const selected = enriched.filter(r => ids.includes(r.id));
+            const authoritative = selected.filter(r => r.origin === "authoritative");
+            const demo = selected.filter(r => r.origin !== "authoritative");
+            const authoritativeCount = authoritative.length ? await admitAuthoritativeRequests(authoritative) : 0;
+            const demoResult = demo.length ? publishSelectedRequests(demo.map(r => r.id), { sourceIntakeId: scope?.id || intakeId, sourcePackageId: scope?.id || intakeId }) : { publishedCount: 0, publishedIds: [] };
+            setPublishedCount(authoritativeCount + demoResult.publishedCount);
+            setPublishedBatchId(demoResult.publishedBatchId);
+            setUpdateCount(k => k + 1);
             setPublished(true);
             setSelectedIds(new Set());
-        }, 1500);
+        } catch {
+            showToast("Unable to move durable requests. No local fallback was used.");
+        } finally {
+            setPublishing(false);
+        }
     };
 
-    const handlePublishAll = () => {
+    const handlePublishAll = async () => {
         setPublishAll(true);
         setPublishing(true);
-        setTimeout(() => {
-            let result: { publishedCount: number; publishedIds: string[]; publishedBatchId?: string };
-            if (scope) {
-                // Portal scope: publish all unpublished requests for this transaction
-                const ids = allRequests.filter(r => !r._publishedAt).map(r => r.id);
-                result = publishSelectedRequests(ids, { sourceIntakeId: scope.id, sourcePackageId: scope.id });
-            } else {
-                result = publishIntake();
-            }
-            setPublishedCount(result.publishedCount);
-            setPublishedBatchId(result.publishedBatchId);
-            setPublishing(false);
+        try {
+            const authoritative = allRequests.filter(r => r.origin === "authoritative");
+            const demo = allRequests.filter(r => r.origin !== "authoritative" && !r._publishedAt);
+            const authoritativeCount = authoritative.length ? await admitAuthoritativeRequests(authoritative) : 0;
+            const demoResult = demo.length
+                ? publishSelectedRequests(demo.map(r => r.id), { sourceIntakeId: scope?.id || intakeId, sourcePackageId: scope?.id || intakeId })
+                : { publishedCount: 0, publishedIds: [] as string[] };
+            setPublishedCount(authoritativeCount + demoResult.publishedCount);
+            setPublishedBatchId(demoResult.publishedBatchId);
+            setUpdateCount(k => k + 1);
             setPublished(true);
-        }, 1500);
+        } catch {
+            showToast("Unable to move durable requests. No local fallback was used.");
+        } finally {
+            setPublishing(false);
+        }
     };
 
     const handleBulkApply = () => {
@@ -403,7 +416,7 @@ function ReviewEngine() {
         }
     };
 
-    const handleBulkMoveToWorkQueue = () => {
+    const handleBulkMoveToWorkQueue = async () => {
         if (selectedIds.size === 0) return;
         const bulkReady = [...selectedIds].filter(id => {
             const r = enriched.find(e => e.id === id);
@@ -414,14 +427,22 @@ function ReviewEngine() {
             return;
         }
         setPublishing(true);
-        setTimeout(() => {
-            const result = publishSelectedRequests(bulkReady, { sourceIntakeId: scope?.id || intakeId, sourcePackageId: scope?.id || intakeId });
-            setPublishedCount(result.publishedCount);
-            setPublishedBatchId(result.publishedBatchId);
-            setPublishing(false);
+        try {
+            const selected = enriched.filter(r => bulkReady.includes(r.id));
+            const authoritative = selected.filter(r => r.origin === "authoritative");
+            const demo = selected.filter(r => r.origin !== "authoritative");
+            const authoritativeCount = authoritative.length ? await admitAuthoritativeRequests(authoritative) : 0;
+            const demoResult = demo.length ? publishSelectedRequests(demo.map(r => r.id), { sourceIntakeId: scope?.id || intakeId, sourcePackageId: scope?.id || intakeId }) : { publishedCount: 0, publishedIds: [] };
+            setPublishedCount(authoritativeCount + demoResult.publishedCount);
+            setPublishedBatchId(demoResult.publishedBatchId);
+            setUpdateCount(k => k + 1);
             setPublished(true);
             setSelectedIds(new Set());
-        }, 1500);
+        } catch {
+            showToast("Unable to move durable requests. No local fallback was used.");
+        } finally {
+            setPublishing(false);
+        }
     };
 
     const CARD_STYLE = (borderColor: string, isActive: boolean) => ({
@@ -1451,7 +1472,7 @@ function IntakeQueue() {
 
     useEffect(() => {
         let cancelled = false;
-        loadAuthoritativeIntake()
+        Promise.all([loadAuthoritativeIntake(), loadAuthoritativeWorkItems()])
             .then(() => { if (!cancelled) setIntakeRevision(value => value + 1); })
             .catch(() => { if (!cancelled) setMsg("Authoritative submissions could not be loaded. Existing intake data remains available."); });
         return () => { cancelled = true; };

@@ -1,10 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getRequests, getTeamMembers, updateRequestStatus, updateRequestOwner, getDocuments, updateRequestReturnToOwner, getActivity, addActivityEntry, getWorkArtifactsByRequest, updateRequestStatusNotes, isDemoActive, sendExceptionRecommendation, clearExceptionFields, resolveBlockerInternal, requestExternalBlockerHelp } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
+import { assignAuthoritativeWorkItem, getAuthoritativeAssignees, loadAuthoritativeWorkItems } from "../../services/recapWorkItemPersistence";
 
 const STATUS_OPTIONS = ["Open", "Assigned", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate", "Waiting Partner Review", "Needs Rework", "Completed"];
 
@@ -26,13 +27,18 @@ export default function RecapitalizationDdOperations() {
     const [refreshKey, setRefreshKey] = useState(0);
     const [returnToTeam, setReturnToTeam] = useState<{ req: RecapRequest; reason: string } | null>(null);
     const members = getTeamMembers();
+    const authoritativeAssignees = getAuthoritativeAssignees();
+    useEffect(() => { loadAuthoritativeWorkItems().then(() => setRefreshKey(k => k + 1)).catch(() => undefined); }, []);
     const ddMembers = useMemo(() => members.filter(m => m.team === "DD Management"), [members]);
 
     const allRequests = useMemo(() => getRequests(), [refreshKey]);
 
     const workItems = useMemo(() => {
         const published = allRequests.filter(r => r._publishedAt || r._createdFromReview);
-        return published.length > 0 ? published : allRequests;
+        const source = published.length > 0 ? published : allRequests;
+        // Authoritative SQL work items only support reassignment in DD Operations
+        // during this slice. Keep later demo workflow actions out of their path.
+        return source.filter(r => r.origin !== "authoritative" || r._needsReassignment);
     }, [allRequests]);
 
     /* ── KPIs ── */
@@ -652,11 +658,11 @@ export default function RecapitalizationDdOperations() {
                                             <select
                                                 aria-label={`Assign ${req.requestId}`}
                                                 value=""
-                                                onChange={e => {
+                                                onChange={async e => {
                                                     const newOwner = e.target.value;
                                                     if (newOwner) {
-                                                        updateRequestOwner(req.id, newOwner);
-                                                        updateRequestStatus(req.id, "Open" as RecapRequest["status"]);
+                                                        if (req.origin === "authoritative") await assignAuthoritativeWorkItem(req.id, newOwner);
+                                                        else { updateRequestOwner(req.id, newOwner); updateRequestStatus(req.id, "Open" as RecapRequest["status"]); }
                                                         req._needsReassignment = false;
                                                         req._misassignedReason = null;
                                                         addActivityEntry({
@@ -679,7 +685,7 @@ export default function RecapitalizationDdOperations() {
                                                 style={{ fontSize: 10, padding: "2px 4px", borderRadius: 4, border: "1px solid #d1d5db", cursor: "pointer", minWidth: 110 }}
                                             >
                                                 <option value="">Assign...</option>
-                                                {members.filter(m => m.team !== "DD Management").map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                                                {req.origin === "authoritative" ? authoritativeAssignees.map(m => <option key={m.id} value={m.id}>{m.displayName || m.email || m.id}</option>) : members.filter(m => m.team !== "DD Management").map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                                             </select>
                                         )}
                                     </td>
@@ -757,11 +763,11 @@ export default function RecapitalizationDdOperations() {
                                             <select
                                                 aria-label={`Assign ${req.requestId}`}
                                                 value=""
-                                                onChange={e => {
+                                                onChange={async e => {
                                                     const newOwner = e.target.value;
                                                     if (newOwner) {
-                                                        updateRequestOwner(req.id, newOwner);
-                                                        updateRequestStatus(req.id, "Open" as RecapRequest["status"]);
+                                                        if (req.origin === "authoritative") await assignAuthoritativeWorkItem(req.id, newOwner);
+                                                        else { updateRequestOwner(req.id, newOwner); updateRequestStatus(req.id, "Open" as RecapRequest["status"]); }
                                                         addActivityEntry({
                                                             type: "Assignment",
                                                             description: `${req.requestId}: Assigned to ${newOwner} by ${activeUser}`,
@@ -782,7 +788,7 @@ export default function RecapitalizationDdOperations() {
                                                 style={{ fontSize: 10, padding: "2px 4px", borderRadius: 4, border: "1px solid #d1d5db", cursor: "pointer", minWidth: 110 }}
                                             >
                                                 <option value="">Assign...</option>
-                                                {members.filter(m => m.team !== "DD Management").map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                                                {req.origin === "authoritative" ? authoritativeAssignees.map(m => <option key={m.id} value={m.id}>{m.displayName || m.email || m.id}</option>) : members.filter(m => m.team !== "DD Management").map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                                             </select>
                                         )}
                                     </td>

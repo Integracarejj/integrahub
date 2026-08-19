@@ -1,6 +1,7 @@
 import { isDemoLoaded, isRecapWiped } from "./recapDemoData";
 import * as Demo from "./recapDemoData";
 import * as Mock from "./recapMockData";
+import { getCachedAuthoritativeWorkItems, getAuthoritativeWorkItem } from "./recapWorkItemPersistence";
 import { diag, diagRequestState } from "../utils/diagnostics";
 import type {
     RecapTransaction, RecapRequest, RecapIntakeItem,
@@ -252,6 +253,8 @@ export function getRequestsByTransaction(transactionId: string): RecapRequest[] 
 }
 
 export function getRequestById(id: string): RecapRequest | undefined {
+    const authoritative = getAuthoritativeWorkItem(id);
+    if (authoritative) return authoritative;
     if (isDemoLoaded()) return Demo.getDemoRequestById(id);
     const portalReq = getPortalCreatedRequests().find(r => r.id === id || r.requestId === id || r.intakeId === id);
     if (portalReq) return portalReq;
@@ -273,13 +276,14 @@ export function getIntakeItemsByType(type: RecapIntakeItem["type"]): RecapIntake
 }
 
 export function getRequests(): RecapRequest[] {
+    const authoritative = getCachedAuthoritativeWorkItems();
     const portalReqs = getPortalCreatedRequests();
-    if (isRecapWiped()) return portalReqs;
+    if (isRecapWiped()) return [...portalReqs, ...authoritative];
     if (isDemoLoaded()) {
         const demo = Demo.getDemoRequests();
-        return [...demo, ...portalReqs];
+        return [...demo, ...portalReqs, ...authoritative];
     }
-    return [...Mock.getRequests(), ...portalReqs];
+    return [...Mock.getRequests(), ...portalReqs, ...authoritative];
 }
 
 export function getTrackerRequests(): RecapRequest[] {
@@ -369,6 +373,8 @@ function makePortalTransaction(transactionId: string, transactionName: string): 
 }
 
 export function lookupWorkspaceItem(id: string): { type: "intake"; item: RecapIntakeItem; transaction: RecapTransaction } | { type: "request"; item: RecapRequest; transaction: RecapTransaction } | null {
+    const authoritative = getAuthoritativeWorkItem(id);
+    if (authoritative) return { type: "request", item: authoritative, transaction: makePortalTransaction(authoritative.transactionId, authoritative.transactionName) };
     if (isRecapWiped()) {
         const portalIntakes = getPortalCreatedIntakeItems();
         const foundPortal = portalIntakes.find(i => i.id === id || i.intakeId === id);

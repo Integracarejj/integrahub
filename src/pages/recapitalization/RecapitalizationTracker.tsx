@@ -9,6 +9,7 @@ import {
 } from "../../services/recapDataService";
 
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
+import { assignAuthoritativeWorkItem, getAuthoritativeAssignees, loadAuthoritativeWorkItems } from "../../services/recapWorkItemPersistence";
 import RecapSubNav from "./RecapSubNav";
 import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
@@ -28,10 +29,13 @@ export default function RecapitalizationTracker() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const transactions = getTransactions();
-    const members = getTeamMembers();
+    const demoMembers = getTeamMembers();
     const teams = getTeams();
     const [refreshKey, setRefreshKey] = useState(0);
     const allRequests = useMemo(() => getRequests(), [refreshKey]);
+    const assignees = getAuthoritativeAssignees();
+    const members = [...demoMembers, ...assignees.filter(user => !demoMembers.some(member => member.id === user.id)).map(user => ({ id: user.id, name: user.displayName || user.email || user.id, team: "" }))];
+    useEffect(() => { loadAuthoritativeWorkItems().then(() => setRefreshKey(k => k + 1)).catch(() => setBulkToast("Durable Work Queue is unavailable.")); }, []);
 
     const [search, setSearch] = useState("");
     const [filterTxn, setFilterTxn] = useState("all");
@@ -168,6 +172,8 @@ export default function RecapitalizationTracker() {
     function handleBulkApply() {
         const ids = [...selectedIds];
         ids.forEach(id => {
+            const request = allRequests.find(row => row.id === id);
+            if (request?.origin === "authoritative") return;
             if (bulkEdit.owner) updateRequestOwner(id, bulkEdit.owner === "__unset" ? null : bulkEdit.owner);
             if (bulkEdit.team) updateRequestTeam(id, bulkEdit.team);
             if (bulkEdit.priority) updateRequestPriority(id, bulkEdit.priority as RecapRequest["priority"]);
@@ -188,6 +194,10 @@ export default function RecapitalizationTracker() {
     }
 
     function handleStatusChange(req: RecapRequest, newStatus: RecapRequest["status"]) {
+        if (req.origin === "authoritative") {
+            setBulkToast("This action is not yet available for durable requests.");
+            return;
+        }
         updateRequestStatus(req.id, newStatus);
         addActivityEntry({
             type: "Status Change",
@@ -429,12 +439,12 @@ export default function RecapitalizationTracker() {
                                 <td><span className={`rc-badge rc-badge-${req.priority.toLowerCase()}`}>{req.priority}</span></td>
                                 <td onClick={e => e.stopPropagation()} style={{ fontSize: 12 }}>
                                     <select
-                                        value={req.owner || ""}
+                                        value={req.origin === "authoritative" ? (req.assignedUserId || "") : (req.owner || "")}
                                         onChange={e => { if (e.target.value !== (req.owner || "")) setPendingAssign({ req, owner: e.target.value }); }}
                                         style={{ fontSize: 12, padding: "1px 18px 1px 4px", borderRadius: 4, background: "#fff", color: req.owner ? "#111827" : "#475569", fontWeight: 500, minWidth: 100, cursor: "pointer", border: "1px solid #cbd5e1", maxWidth: 120 }}
                                     >
                                         <option value="">Unassigned</option>
-                                        {members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                                        {(req.origin === "authoritative" ? assignees : members).map(m => <option key={m.id} value={req.origin === "authoritative" ? m.id : ("name" in m ? m.name : m.displayName || m.email || m.id)}>{"name" in m ? m.name : m.displayName || m.email || m.id}</option>)}
                                     </select>
                                 </td>
                                 <td style={{ fontSize: 12, color: req.category ? "#334155" : "#64748b" }}>{req.category || "\u2014"}</td>
@@ -454,7 +464,9 @@ export default function RecapitalizationTracker() {
                                 </td>
                                 <td>
                                     <div className="rc-cell-actions">
-                                        {(req as any)._publishedExternal && req.status !== "Needs Rework" ? (
+                                        {req.origin === "authoritative" ? (
+                                            <span title="Additional actions will be available in a future release." style={{ fontSize: 11, color: "#475569" }}>Core workflow</span>
+                                        ) : (req as any)._publishedExternal && req.status !== "Needs Rework" ? (
                                             <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "#166534", background: "#f0fdf4", padding: "2px 6px", borderRadius: 4, border: "1px solid #bbf7d0", cursor: "default" }}>
                                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
                                                 Published
@@ -487,17 +499,22 @@ export default function RecapitalizationTracker() {
                         </div>
                         <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
                             <div style={{ fontSize: 14, color: "#1e293b", fontWeight: 500, margin: 0 }}>
-                                Assign <strong>{pendingAssign.req.requestId}</strong> &mdash; {pendingAssign.req.title.split(" - ").slice(1).join(" - ").trim() || pendingAssign.req.title} to <strong>{pendingAssign.owner || "Unassigned"}</strong>?
+                                Assign <strong>{pendingAssign.req.requestId}</strong> &mdash; {pendingAssign.req.title.split(" - ").slice(1).join(" - ").trim() || pendingAssign.req.title} to <strong>{pendingAssign.req.origin === "authoritative" ? (assignees.find(user => user.id === pendingAssign.owner)?.displayName || assignees.find(user => user.id === pendingAssign.owner)?.email || pendingAssign.owner) : pendingAssign.owner || "Unassigned"}</strong>?
                             </div>
                         </div>
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-ghost" onClick={() => setPendingAssign(null)}>Cancel</button>
-                            <button className="rc-btn rc-btn-primary" onClick={() => {
+                            <button className="rc-btn rc-btn-primary" onClick={async () => {
                                 const v = pendingAssign.owner;
-                                updateRequestOwner(pendingAssign.req.id, v || null);
-                                setRefreshKey(k => k + 1);
-                                setBulkToast(v ? `Assigned ${pendingAssign.req.requestId} to ${v}` : `${pendingAssign.req.requestId}: Unassigned`);
-                                setPendingAssign(null);
+                                try {
+                                    if (pendingAssign.req.origin === "authoritative") {
+                                        if (!v) throw new Error("Choose an assignee");
+                                        await assignAuthoritativeWorkItem(pendingAssign.req.id, v);
+                                    } else updateRequestOwner(pendingAssign.req.id, v || null);
+                                    setRefreshKey(k => k + 1);
+                                    setBulkToast(v ? `Assigned ${pendingAssign.req.requestId}` : `${pendingAssign.req.requestId}: Unassigned`);
+                                    setPendingAssign(null);
+                                } catch (error) { setBulkToast(error instanceof Error ? error.message : "Assignment failed"); }
                             }}>Assign</button>
                         </div>
                     </div>

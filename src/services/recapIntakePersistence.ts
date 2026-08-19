@@ -8,7 +8,7 @@ interface AuthoritativePackage {
     submittedBy: string; submittedByName: string; submittedByEmail?: string;
     externalOrganizationId: string; submittedAt: string;
     transactionId: string; transactionName: string;
-    requests: Array<{ rowNumber: number; category: string; title: string; description: string; team: string; owner: string | null; priority: RecapRequest["priority"]; dueDate?: string; communityNames: string[] }>;
+    requests: Array<{ intakeRequestId: string; rowNumber: number; category: string; title: string; description: string; team: string; owner: string | null; priority: RecapRequest["priority"]; dueDate?: string; communityNames: string[] }>;
 }
 
 export async function loadAuthoritativeIntake(): Promise<number> {
@@ -43,6 +43,7 @@ export async function loadAuthoritativeIntake(): Promise<number> {
             source: "External", createdDate: String(pkg.submittedAt).slice(0, 10), assignedTo: row.owner,
             orgId: pkg.externalOrganizationId, orgName: pkg.externalOrganizationId,
             userId: pkg.submittedBy, userName: pkg.submittedByName || pkg.submittedByEmail,
+            origin: "authoritative", intakeRequestId: row.intakeRequestId,
             _sourcePackageId: intakeId, _sourcePackageName: pkg.packageName,
             _sourceFileName: pkg.fileName.replace(/\.[^.]+$/, ""), _publishedAt: null,
         }));

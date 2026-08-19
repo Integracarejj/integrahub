@@ -73,6 +73,7 @@ export function createRecapIntakeRepository({ query = defaultQuery, generateUuid
                        packageRow.submittedByName, packageRow.submittedByEmail,
                        packageRow.externalOrganizationId, packageRow.createdAt,
                        transactionRow.businessTransactionId, transactionRow.name AS transactionName,
+                       CONVERT(varchar(36), requestRow.id) AS intakeRequestId,
                        requestRow.sourceRowNumber, requestRow.category, requestRow.title,
                        requestRow.description, requestRow.team, requestRow.owner,
                        requestRow.priority, requestRow.dueDate, requestRow.communityNamesJson

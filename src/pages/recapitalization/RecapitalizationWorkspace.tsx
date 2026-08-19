@@ -6,6 +6,7 @@ import ClarificationThread, { getClarificationSummary } from "../../components/c
 import RecapSubNav from "./RecapSubNav";
 import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
+import { acceptAuthoritativeWorkItem, loadAuthoritativeWorkItems, markAuthoritativeWorkItemNotMine } from "../../services/recapWorkItemPersistence";
 
 const TEAM_MEMBERS = ["Sarah Chen", "James Wright", "Lisa Park", "Tom Davies", "Mike O'Brien", "Anna Patel", "David Park", "Carlos Rivera", "Demo User (Test)"];
 
@@ -99,6 +100,7 @@ export default function RecapitalizationWorkspace() {
     const location = useLocation();
     const [wsRefreshKey, setWsRefreshKey] = useState(0);
     const result = useMemo(() => id ? lookupWorkspaceItem(id) : null, [id, wsRefreshKey]);
+    useEffect(() => { loadAuthoritativeWorkItems().then(() => setWsRefreshKey(k => k + 1)).catch(() => undefined); }, []);
 
     const [internalOwner, setInternalOwner] = useState("");
 
@@ -407,9 +409,16 @@ function WorkflowStateCard({
 
 
 
-    function doStatusChange(newStatus: RecapRequest["status"]) {
+    async function doStatusChange(newStatus: RecapRequest["status"]) {
         const reqId = item.id || item.intakeId || "";
-        updateRequestStatus(reqId, newStatus);
+        if (item.origin === "authoritative") {
+            if (newStatus !== "In Progress") {
+                setActionFeedback("This action is not yet available for durable requests.");
+                return;
+            }
+            try { await acceptAuthoritativeWorkItem(reqId); }
+            catch (error) { setActionFeedback(error instanceof Error ? error.message : "Unable to accept work"); return; }
+        } else updateRequestStatus(reqId, newStatus);
         addActivityEntry({
             type: "Status Change",
             description: `Status changed to ${newStatus}`,
@@ -1157,6 +1166,7 @@ function WorkflowStateCard({
                           {/* Primary Action Tiles */}
                           {displayStatus !== "Complete" && (
                           <div style={{ display: "flex", gap: 16, marginBottom: 28 }}>
+                            {item.origin !== "authoritative" && (
                             <div
                               onClick={() => document.getElementById("artifact-upload-hidden")?.click()}
                               onDragOver={e => { e.preventDefault(); setDragOverUpload(true); }}
@@ -1172,8 +1182,9 @@ function WorkflowStateCard({
                               <div style={{ fontSize: 12, color: "#475569", textAlign: "center" }}>{dragOverUpload ? "" : "Drag files here or click to browse"}</div>
                               <input id="artifact-upload-hidden" type="file" multiple style={{ display: "none" }} onChange={e => { const files = Array.from(e.target.files || []); if (files.length > 0) handleArtifactUpload(files); e.target.value = ""; }} />
                             </div>
+                            )}
 
-                            {(displayStatus === "Open" || displayStatus === "Assigned" || displayStatus === "Needs Rework") && (
+                            {(item.origin === "authoritative" ? displayStatus === "Assigned" : (displayStatus === "Open" || displayStatus === "Assigned" || displayStatus === "Needs Rework")) && (
                               <div onClick={() => doStatusChange("In Progress")} style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bfdbfe", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
                                 onMouseEnter={e => { e.currentTarget.style.borderColor = "#3b82f6"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(37,99,235,0.1)"; }}
                                 onMouseLeave={e => { e.currentTarget.style.borderColor = "#bfdbfe"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}>
@@ -1182,7 +1193,7 @@ function WorkflowStateCard({
                                 <div><div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Accept Work</div><div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Start working on this item</div></div>
                               </div>
                             )}
-                            {displayStatus === "In Progress" && (
+                            {item.origin !== "authoritative" && displayStatus === "In Progress" && (
                               <div onClick={() => setCompletionModal({ step: "input", note: "", readyForReview: false })} style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bbf7d0", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
                                 onMouseEnter={e => { e.currentTarget.style.borderColor = "#22c55e"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(34,197,94,0.1)"; }}
                                 onMouseLeave={e => { e.currentTarget.style.borderColor = "#bbf7d0"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}>
@@ -1222,7 +1233,7 @@ function WorkflowStateCard({
                           <div style={{ marginBottom: 14 }}>
                             <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 12 }}>Other Actions</div>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-                              {["Open", "Assigned", "In Progress"].includes(displayStatus) && (
+                              {item.origin !== "authoritative" && ["Open", "Assigned", "In Progress"].includes(displayStatus) && (
                                 <>
                                   <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0891b2" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>} label="Clarification Support" desc="Ask DD Operations for help" onClick={() => setNeedClarificationOpen(true)} />
                                   <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>} label="Block Work" desc="Waiting on something" onClick={() => setBlockModal({ step: "input", reason: "" })} />
@@ -1230,7 +1241,8 @@ function WorkflowStateCard({
                                   <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>} label="Mark Not Applicable" desc="Not needed" onClick={() => setNotApplicableModal({ reason: "" })} />
                                 </>
                               )}
-                              <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>} label="Not Mine" desc="Return for reassignment" onClick={() => setNotMine({ req: result.item as RecapRequest, reason: "" })} />
+                              {item.origin !== "authoritative" || item.assignedUserId ? <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>} label="Not Mine" desc="Return for reassignment" onClick={() => setNotMine({ req: result.item as RecapRequest, reason: "" })} /> : null}
+                              {item.origin === "authoritative" && <div style={{ gridColumn: "1 / -1", padding: 12, borderRadius: 8, background: "#f8fafc", color: "#334155", fontSize: 12 }}>Additional workflow actions will be available in a future release.</div>}
                             </div>
                           </div>
                         </div>
@@ -2736,10 +2748,13 @@ function WorkflowStateCard({
                         </div>
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-ghost" onClick={() => setNotMine(null)}>Cancel</button>
-                            <button className="rc-btn rc-btn-primary" disabled={!notMine.reason.trim()} onClick={() => {
+                            <button className="rc-btn rc-btn-primary" disabled={!notMine.reason.trim()} onClick={async () => {
                                 const reason = notMine.reason.trim();
                                 if (!reason) return;
-                                updateRequestNotMine(notMine.req.id, reason, currentUser);
+                                if (notMine.req.origin === "authoritative") {
+                                    try { await markAuthoritativeWorkItemNotMine(notMine.req.id, reason); }
+                                    catch (error) { setActionFeedback(error instanceof Error ? error.message : "Reassignment request failed"); return; }
+                                } else updateRequestNotMine(notMine.req.id, reason, currentUser);
                                 setWsRefreshKey(k => k + 1);
                                 setNotMine(null);
                                 setCompletionDialog("not-mine");

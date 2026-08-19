@@ -1,22 +1,26 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getRequests, isDemoActive, getTeamMembers } from "../../services/recapDataService";
 import type { RecapRequest } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
+import { loadAuthoritativeWorkItems } from "../../services/recapWorkItemPersistence";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
 
 type ViewTab = "active-work" | "waiting-dd-ops" | "completed-work" | "my-team" | "returned";
 
 export default function RecapitalizationMyWork() {
     const navigate = useNavigate();
+    const { user: currentIdentity } = useCurrentUser();
     const [activeUser, setActiveUser] = useState("Sarah Chen");
     const [detailItem, setDetailItem] = useState<RecapRequest | null>(null);
-    const [refreshKey, _setRefreshKey] = useState(0);
+    const [refreshKey, setRefreshKey] = useState(0);
     const [successMsg, setSuccessMsg] = useState<{ title: string; body: string } | null>(null);
     const [activeView, setActiveView] = useState<ViewTab>("active-work");
     const members = getTeamMembers();
     const allRequests = useMemo(() => getRequests(), [refreshKey]);
+    useEffect(() => { loadAuthoritativeWorkItems().then(() => setRefreshKey(k => k + 1)).catch(() => undefined); }, []);
 
     const workItems = useMemo(() => {
         const published = allRequests.filter(r => r._publishedAt || r._createdFromReview);
@@ -58,7 +62,9 @@ export default function RecapitalizationMyWork() {
 
     const assignedToMe = useMemo(() => {
         return workItems
-            .filter(r => r.owner === activeUser || r.assignedTo === activeUser)
+            .filter(r => r.origin === "authoritative"
+                ? r.assignedUserId === currentIdentity?.userRecord?.id
+                : r.owner === activeUser || r.assignedTo === activeUser)
             .sort((a, b) => {
                 const aDate = a.lastUpdated || "";
                 const bDate = b.lastUpdated || "";
@@ -69,7 +75,7 @@ export default function RecapitalizationMyWork() {
                 const pMap: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
                 return (pMap[a.priority] || 1) - (pMap[b.priority] || 1);
             });
-    }, [workItems, activeUser]);
+    }, [workItems, activeUser, currentIdentity?.userRecord?.id]);
 
     const activeWork = useMemo(() => {
         return assignedToMe.filter(r =>

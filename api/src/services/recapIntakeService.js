@@ -66,7 +66,7 @@ export function createRecapIntakeService({ repository = recapIntakeRepository, q
                     transactionName: row.transactionName, requests: [],
                 });
                 if (row.sourceRowNumber) packages.get(row.packageId).requests.push({
-                    rowNumber: row.sourceRowNumber, category: row.category, title: row.title,
+                    intakeRequestId: row.intakeRequestId, rowNumber: row.sourceRowNumber, category: row.category, title: row.title,
                     description: row.description, team: row.team || "", owner: row.owner || null,
                     priority: row.priority, dueDate: row.dueDate,
                     communityNames: JSON.parse(row.communityNamesJson || "[]"),

@@ -44,6 +44,11 @@ export interface RecapRequest {
     source: "External" | "Internal" | "Bulk Import";
     createdDate: string;
     assignedTo: string | null;
+    origin?: "authoritative" | "demo";
+    workItemId?: string;
+    intakeRequestId?: string;
+    assignedUserId?: string | null;
+    capabilities?: Record<string, boolean>;
     /** External party identity — captured at upload time from portal persona */
     orgId?: string;
     orgName?: string;
