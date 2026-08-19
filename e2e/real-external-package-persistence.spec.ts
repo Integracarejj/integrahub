@@ -27,6 +27,11 @@ const EXTERNAL_USER = {
 };
 
 async function mockIdentity(page: Page) {
+    await page.route("**/api/portal/recapitalization/read-model*", route => route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ transactions: [] }),
+    }));
     await page.route("**/api/me/permissions", route => route.fulfill({
         status: 200,
         contentType: "application/json",

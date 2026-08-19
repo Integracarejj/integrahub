@@ -28,6 +28,16 @@ function externalUser(role: "ExternalBroker" | "ExternalBuyer", configured = tru
 }
 
 async function mockCurrentUser(page: Page, body: unknown) {
+    await page.route("**/api/portal/recapitalization/read-model*", route => route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ transactions: [] }),
+    }));
+    await page.route("**/api/portal/recapitalization/transactions", route => route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ transactions: [] }),
+    }));
     await page.route("**/api/me/permissions", (route) => route.fulfill({
         status: 200,
         contentType: "application/json",

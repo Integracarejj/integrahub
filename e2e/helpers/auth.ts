@@ -34,6 +34,9 @@ export const PREVIEW_USER = {
 
 export async function mockAuth(page: Page): Promise<void> {
     let transactionSequence = 1;
+    await page.route("**/api/portal/recapitalization/read-model*", route =>
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ transactions: [] }) }),
+    );
     await page.route("**/api/portal/recapitalization/transactions", async (route) => {
         if (route.request().method() !== "POST") return route.fallback();
         const id = `REC-2026-${String(transactionSequence++).padStart(8, "0")}`;
