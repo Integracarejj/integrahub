@@ -6,7 +6,7 @@ import { buildTransactionFolderName, createRecapWorkspaceProvisioningService, RE
 import { createRecapWorkspaceRouter } from "../src/routes/recapWorkspace.js";
 
 const transaction = { databaseId: "11111111-1111-4111-8111-111111111111", businessTransactionId: "REC-2026-00000001", name: "SharePoint Integration Test" };
-const config = { credentials: {}, sites: [{ key: "working", hostname: "working.example", sitePath: "/sites/working", libraryName: "Recapitalization Working" }, { key: "knowledge", hostname: "knowledge.example", sitePath: "/sites/knowledge", libraryName: null }, { key: "external", hostname: "external.example", sitePath: "/sites/external", libraryName: "Documents" }] };
+const config = { credentials: {}, sites: [{ key: "working", hostname: "working.example", sitePath: "/sites/working", libraryName: "Recapitalization Working" }, { key: "knowledge", hostname: "knowledge.example", sitePath: "/sites/knowledge", libraryName: "Documents" }, { key: "external", hostname: "external.example", sitePath: "/sites/external", libraryName: "Documents" }] };
 
 function makeHarness({ transactionExists = true, mapping = null, rootChildren = [], workspaceChildren = [] } = {}) {
     let storedMapping = mapping;

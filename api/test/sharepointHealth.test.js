@@ -7,7 +7,7 @@ const config = {
     credentials: { tenantId: "tenant", clientId: "client", clientSecret: "secret" },
     sites: [
         { key: "working", hostname: "host", sitePath: "/sites/working", libraryName: "Recapitalization Working" },
-        { key: "knowledge", hostname: "host", sitePath: "/sites/knowledge", libraryName: null },
+        { key: "knowledge", hostname: "host", sitePath: "/sites/knowledge", libraryName: "Documents" },
     ],
 };
 
@@ -37,6 +37,12 @@ async function withServer(user, request) {
 
 test("SharePoint health remains PlatformAdmin-only", async () => {
     const result = await withServer({ globalRole: "ExternalBroker" }, "/api/admin/sharepoint/health?site=knowledge");
+    assert.equal(result.status, 403);
+    assert.equal(result.selected.length, 0);
+});
+
+test("SharePoint health rejects ExternalBuyer", async () => {
+    const result = await withServer({ globalRole: "ExternalBuyer" }, "/api/admin/sharepoint/health?site=knowledge");
     assert.equal(result.status, 403);
     assert.equal(result.selected.length, 0);
 });

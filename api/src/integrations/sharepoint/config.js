@@ -15,7 +15,7 @@ const DEFAULT_SITES = Object.freeze([
         key: "knowledge",
         hostname: "integracare.sharepoint.com",
         sitePath: "/sites/tIntegraSourceKnowledge",
-        libraryName: null,
+        libraryName: "Documents",
     }),
     Object.freeze({
         key: "external",

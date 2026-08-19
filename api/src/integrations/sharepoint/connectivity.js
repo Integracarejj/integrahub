@@ -11,6 +11,7 @@ export async function checkSharePointConnectivity(graphClient, sites) {
             libraryResolved: false,
             rootReadable: false,
             rootItemCount: null,
+            rootItems: [],
             error: null,
         };
         try {
@@ -26,6 +27,12 @@ export async function checkSharePointConnectivity(graphClient, sites) {
                 const children = await graphClient.listRootChildren(drive.id);
                 result.rootReadable = true;
                 result.rootItemCount = children.length;
+                result.rootItems = children.map((item) => ({
+                    id: item.id,
+                    name: item.name,
+                    type: item.type,
+                    webUrl: item.webUrl || null,
+                }));
             }
             result.ok = target.libraryName ? result.rootReadable : result.drivesListed;
         } catch (error) {
