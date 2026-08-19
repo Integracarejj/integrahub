@@ -6,7 +6,7 @@ import { buildTransactionFolderName, createRecapWorkspaceProvisioningService, RE
 import { createRecapWorkspaceRouter } from "../src/routes/recapWorkspace.js";
 
 const transaction = { databaseId: "11111111-1111-4111-8111-111111111111", businessTransactionId: "REC-2026-00000001", name: "SharePoint Integration Test" };
-const config = { credentials: {}, sites: [{ key: "working", hostname: "working.example", sitePath: "/sites/working", libraryName: "Recapitalization Working" }, { key: "external", hostname: "external.example", sitePath: "/sites/external", libraryName: "Documents" }] };
+const config = { credentials: {}, sites: [{ key: "working", hostname: "working.example", sitePath: "/sites/working", libraryName: "Recapitalization Working" }, { key: "knowledge", hostname: "knowledge.example", sitePath: "/sites/knowledge", libraryName: null }, { key: "external", hostname: "external.example", sitePath: "/sites/external", libraryName: "Documents" }] };
 
 function makeHarness({ transactionExists = true, mapping = null, rootChildren = [], workspaceChildren = [] } = {}) {
     let storedMapping = mapping;
@@ -78,6 +78,8 @@ test("first provision creates managed root, transaction root, six children, and 
     assert.equal(harness.getMapping().recapTransactionId, transaction.databaseId);
     assert.deepEqual(harness.calls[0], ["lock"]);
     assert.deepEqual(harness.calls.filter((call) => call[0] === "site")[0], ["site", "working.example", "/sites/working"]);
+    assert.deepEqual(harness.calls.filter((call) => call[0] === "drive")[0], ["drive", "site-working", "Recapitalization Working"]);
+    assert.equal(harness.calls.some((call) => JSON.stringify(call).includes("knowledge.example")), false);
     assert.equal(harness.calls.some((call) => JSON.stringify(call).includes("external.example")), false);
 });
 

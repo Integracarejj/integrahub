@@ -12,6 +12,12 @@ const DEFAULT_SITES = Object.freeze([
         libraryName: "Recapitalization Working",
     }),
     Object.freeze({
+        key: "knowledge",
+        hostname: "integracare.sharepoint.com",
+        sitePath: "/sites/tIntegraSourceKnowledge",
+        libraryName: null,
+    }),
+    Object.freeze({
         key: "external",
         hostname: "integracare.sharepoint.com",
         sitePath: "/sites/ICC_External",
@@ -41,7 +47,13 @@ export function loadSharePointConfig(env = process.env) {
             ...site,
             hostname: env[`SHAREPOINT_${site.key.toUpperCase()}_HOSTNAME`]?.trim() || site.hostname,
             sitePath: env[`SHAREPOINT_${site.key.toUpperCase()}_SITE_PATH`]?.trim() || site.sitePath,
-            libraryName: env[`SHAREPOINT_${site.key.toUpperCase()}_LIBRARY`] ?.trim() || site.libraryName,
+            libraryName: env[`SHAREPOINT_${site.key.toUpperCase()}_LIBRARY`]?.trim() || site.libraryName,
         })),
     };
+}
+
+export function getSharePointSiteTarget(config, siteKey) {
+    const target = config.sites.find((site) => site.key === siteKey);
+    if (!target) throw new SharePointConfigError([`site:${siteKey}`]);
+    return target;
 }

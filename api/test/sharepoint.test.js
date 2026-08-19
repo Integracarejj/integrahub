@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loadSharePointConfig, SharePointConfigError } from "../src/integrations/sharepoint/config.js";
+import { getSharePointSiteTarget, loadSharePointConfig, SharePointConfigError } from "../src/integrations/sharepoint/config.js";
 import { ClientSecretGraphAuthProvider, GraphAuthenticationError } from "../src/integrations/sharepoint/auth.js";
 import { SharePointGraphClient, GraphRequestError } from "../src/integrations/sharepoint/graphClient.js";
 import { checkSharePointConnectivity } from "../src/integrations/sharepoint/connectivity.js";
@@ -17,8 +17,12 @@ test("SharePoint config reads only dedicated credentials and defaults", () => {
     assert.deepEqual(config.credentials, { tenantId: "sp-tenant", clientId: "sp-client", clientSecret: "sp-secret" });
     assert.deepEqual(config.sites.map(({ key, sitePath, libraryName }) => ({ key, sitePath, libraryName })), [
         { key: "working", sitePath: "/sites/tIntegraSourceWorking", libraryName: "Recapitalization Working" },
+        { key: "knowledge", sitePath: "/sites/tIntegraSourceKnowledge", libraryName: null },
         { key: "external", sitePath: "/sites/ICC_External", libraryName: "Documents" },
     ]);
+    assert.equal(getSharePointSiteTarget(config, "working").sitePath, "/sites/tIntegraSourceWorking");
+    assert.equal(getSharePointSiteTarget(config, "knowledge").sitePath, "/sites/tIntegraSourceKnowledge");
+    assert.throws(() => getSharePointSiteTarget(config, "unknown"), SharePointConfigError);
 });
 
 test("SharePoint config reports missing variable names without values", () => {
@@ -113,12 +117,36 @@ test("connectivity check composes each read and reports sanitized state", async 
     const calls = [];
     const graphClient = {
         async resolveSite(hostname, sitePath) { calls.push(["site", hostname, sitePath]); return { id: `site-${calls.length}` }; },
-        async findDriveByName(siteId, name) { calls.push(["drive", siteId, name]); return { id: `drive-${calls.length}` }; },
+        async listDrives(siteId) { calls.push(["drives", siteId]); return [{ id: `drive-${calls.length}`, name: "Library", webUrl: "https://site/library" }]; },
         async listRootChildren(driveId) { calls.push(["root", driveId]); return [{ id: "item" }]; },
     };
     const result = await checkSharePointConnectivity(graphClient, [{ key: "working", hostname: "host", sitePath: "/site", libraryName: "Library" }]);
-    assert.deepEqual(result, { ok: true, sites: [{ key: "working", siteResolved: true, libraryResolved: true, rootReadable: true, rootItemCount: 1, error: null }] });
-    assert.deepEqual(calls.map(([operation]) => operation), ["site", "drive", "root"]);
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.sites[0].site, { id: "site-1" });
+    assert.equal(result.sites[0].drives[0].name, "Library");
+    assert.equal(result.sites[0].rootReadable, true);
+    assert.deepEqual(calls.map(([operation]) => operation), ["site", "drives", "root"]);
+});
+
+test("working and knowledge resolve independently through one shared Graph client", async () => {
+    const calls = [];
+    const graphClient = {
+        async resolveSite(hostname, sitePath) { calls.push(["site", hostname, sitePath]); return { id: `id:${sitePath}`, displayName: sitePath, webUrl: `https://${hostname}${sitePath}` }; },
+        async listDrives(siteId) { calls.push(["drives", siteId]); return [{ id: `drive:${siteId}`, name: siteId.includes("Working") ? "Recapitalization Working" : "Knowledge Documents", webUrl: "https://library" }]; },
+        async listRootChildren(driveId) { calls.push(["root", driveId]); return []; },
+    };
+    const config = loadSharePointConfig({ SHAREPOINT_TENANT_ID: "tenant", SHAREPOINT_CLIENT_ID: "client", SHAREPOINT_CLIENT_SECRET: "secret" });
+    const targets = [getSharePointSiteTarget(config, "working"), getSharePointSiteTarget(config, "knowledge")];
+    const result = await checkSharePointConnectivity(graphClient, targets);
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.sites.map(({ key, siteResolved, drivesListed }) => ({ key, siteResolved, drivesListed })), [
+        { key: "working", siteResolved: true, drivesListed: true },
+        { key: "knowledge", siteResolved: true, drivesListed: true },
+    ]);
+    assert.deepEqual(calls.filter(([operation]) => operation === "site").map(([, , path]) => path), [
+        "/sites/tIntegraSourceWorking",
+        "/sites/tIntegraSourceKnowledge",
+    ]);
 });
 
 test("folder creation uses only the narrow drive-item children endpoint and sanitizes failures", async () => {
