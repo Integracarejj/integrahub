@@ -17,6 +17,7 @@ import { diag } from "../../utils/diagnostics";
 import { getExternalStatusInfo, getStatusPillStyle, getExceptionContext } from "../../services/externalStatusMapping";
 import ProjectBadge from "../../components/common/ProjectBadge";
 import PackageSubmissionProgress from "../../components/portal/PackageSubmissionProgress";
+import { usePortalReadModel } from "../../hooks/usePortalReadModel";
 import "./PortalOverview.css";
 
 const STAT_HELPERS: Record<string, string> = {
@@ -73,7 +74,8 @@ export default function PortalOverview() {
     const navigate = useNavigate();
     const persona = getActivePersona();
     const identity = getPersonaIdentity();
-    const portalRequests = getPortalRequests();
+    const readModel = usePortalReadModel();
+    const portalRequests = readModel.isRealExternal ? readModel.requests : getPortalRequests();
     const submissions = getPortalSubmissionsList();
     const { transactions, isRealExternal, loadError: transactionLoadError, addAuthoritative } = usePortalTransactions();
 
@@ -96,10 +98,12 @@ export default function PortalOverview() {
     const isAllSelected = selectedTxnId === ALL_TXN_SENTINEL;
     const txn = isAllSelected ? null : transactions.find(t => t.id === selectedTxnId) || null;
 
+    const selectedAuthoritativeId = txn?.businessTransactionId || txn?.id;
+    const scopedPackages = readModel.packages.filter(item => isAllSelected || item.transactionId === selectedAuthoritativeId);
     const scopedRequests = isAllSelected
         ? portalRequests
-        : selectedTxnId
-            ? portalRequests.filter(r => r.transactionId === selectedTxnId)
+        : selectedAuthoritativeId
+            ? portalRequests.filter(r => r.transactionId === selectedAuthoritativeId)
             : portalRequests;
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -369,11 +373,12 @@ export default function PortalOverview() {
         setPendingDropFile(null);
     };
 
-    const hasSubmitted = isAllSelected
+    const authoritativeHasSubmitted = readModel.isRealExternal && readModel.packages.some(item => isAllSelected || item.transactionId === selectedAuthoritativeId);
+    const hasSubmitted = authoritativeHasSubmitted || (isAllSelected
         ? submissions.length > 0 || uploadState === "submitted"
         : selectedTxnId
             ? submissions.some(s => s.transactionId === selectedTxnId) || uploadState === "submitted"
-            : submissions.length > 0 || uploadState === "submitted";
+            : submissions.length > 0 || uploadState === "submitted");
     const showOnlyUpload = !hasSubmitted && uploadState !== "submitted";
 
     /* ── Scroll ref and state ── */
@@ -403,8 +408,9 @@ export default function PortalOverview() {
                 </div>
                 {personaTxns.length >= 1 && (
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <label style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Transaction:</label>
+                        <label htmlFor="portal-transaction-selector" style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Transaction:</label>
                         <select
+                            id="portal-transaction-selector"
                             value={selectedTxnId}
                             onChange={(e) => { setSelectedTxnId(e.target.value); setDashboardFilterStatus("all"); setDashboardFilterCategory("all"); setDashboardSearch(""); }}
                             style={{ fontSize: 12, padding: "4px 8px", borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff" }}
@@ -413,7 +419,7 @@ export default function PortalOverview() {
                                 <option value={ALL_TXN_SENTINEL}>All {orgName} Transactions</option>
                             )}
                             {personaTxns.map(t => (
-                                <option key={t.id} value={t.id}>{t.name}</option>
+                                <option key={t.id} value={t.id}>{t.name}{t.businessTransactionId ? ` — ${t.businessTransactionId}` : ""}</option>
                             ))}
                         </select>
                     </div>
@@ -468,11 +474,12 @@ export default function PortalOverview() {
                                     <span>&bull; Approved documents will be returned through this portal for your review</span>
                                 </div>
                             </div>
-                            <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-                                {isPersisting && <PackageSubmissionProgress />}
-                                <button className="rc-btn rc-btn-primary" onClick={handleSubmitPackage} disabled={isPersisting} style={{ padding: "14px 40px", fontSize: 16, fontWeight: 700, borderRadius: 12 }}>{isPersisting ? "Submitting package..." : "Submit Package"}</button>
-                                <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ padding: "14px 24px", fontSize: 14, borderRadius: 12, border: "1px solid #d1d5db", color: "#0f172a", background: "#fff" }}>Upload Different Package</button>
-                            </div>
+                            {isPersisting ? <PackageSubmissionProgress /> : (
+                                <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+                                    <button className="rc-btn rc-btn-primary" onClick={handleSubmitPackage} style={{ padding: "14px 40px", fontSize: 16, fontWeight: 700, borderRadius: 12 }}>Submit Package</button>
+                                    <button className="rc-btn rc-btn-secondary" onClick={resetUpload} style={{ padding: "14px 24px", fontSize: 14, borderRadius: 12, border: "1px solid #d1d5db", color: "#0f172a", background: "#fff" }}>Upload Different Package</button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -636,6 +643,13 @@ export default function PortalOverview() {
             {hasSubmitted && (
             <>
             <div className="po-stats-row">
+                {readModel.isRealExternal && (
+                    <div className="po-stat-card">
+                        <span className="po-stat-value po-stat-value--blue">{scopedPackages.length}</span>
+                        <span className="po-stat-label">Submitted Packages</span>
+                        <span className="po-stat-helper">Durable packages received by IntegraCare</span>
+                    </div>
+                )}
                 <div className={`po-stat-card${dashboardFilterStatus === "all" && dashboardFilterCategory === "all" ? " po-stat-card--active" : ""}`} style={{ cursor: "pointer" }} onClick={() => { setDashboardFilterStatus("all"); setDashboardFilterCategory("all"); setDashboardSearch(""); }}>
                     <span className="po-stat-value">{visibleRequests.length}</span>
                     <span className="po-stat-label">Total Requests</span>

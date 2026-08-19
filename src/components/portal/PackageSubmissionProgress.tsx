@@ -7,7 +7,7 @@ export default function PackageSubmissionProgress() {
             <div>
                 <strong>Submitting package...</strong>
                 <div>Creating your project and securely uploading your package.</div>
-                <div>This may take a few moments.</div>
+                <div>This may take a moment.</div>
             </div>
         </div>
     );

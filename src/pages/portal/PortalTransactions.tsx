@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { getPortalTransactions, getActivePersona, getPortalRequests, getPersonaIdentity, getAggregateTransactionStats } from "../../services/portalMockData";
+import { getActivePersona, getPersonaIdentity, getAggregateTransactionStats } from "../../services/portalMockData";
+import { usePortalReadModel } from "../../hooks/usePortalReadModel";
 import "./PortalOverview.css";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -12,20 +13,25 @@ export default function PortalTransactions() {
     const navigate = useNavigate();
     const persona = getActivePersona();
     const identity = getPersonaIdentity();
-    const allRequests = getPortalRequests();
+    const readModel = usePortalReadModel();
+    const allRequests = readModel.requests;
+    const allPackages = readModel.packages;
 
     // getPortalTransactions() now returns only authorized transactions
-    const transactions = getPortalTransactions();
+    const transactions = readModel.transactions;
     const orgName = identity?.organization?.name || persona.companyName;
 
     // Build aggregate stats for "All Transactions" view
-    const aggregateStats = getAggregateTransactionStats();
+    const aggregateStats = readModel.isRealExternal
+        ? { totalRequests: allRequests.length, byStatus: { Submitted: allRequests.length }, transactionCount: transactions.length }
+        : getAggregateTransactionStats();
 
     const txnCounts = transactions.map((txn) => {
         const txnRequests = allRequests.filter((r) => r.transactionId === txn.id);
         return {
             id: txn.id,
             total: txnRequests.length,
+            packages: allPackages.filter((item) => item.transactionId === txn.id).length,
             inProgress: txnRequests.filter((r) => r.status === "In Progress").length,
             qualityReview: txnRequests.filter((r) => r.status === "Quality Review").length,
             published: txnRequests.filter((r) => r._publishedExternal || r.externalStatus === "Published External").length,
@@ -44,11 +50,14 @@ export default function PortalTransactions() {
                 {persona.role === "Broker" && `Active transactions you are coordinating. Monitor status and manage DD packages.`}
             </p>
 
-            {transactions.length === 0 ? (
+            {readModel.loading && <div className="po-empty-state"><p>Loading authorized transactions...</p></div>}
+            {readModel.error && <div className="po-empty-state"><p>{readModel.error}</p></div>}
+
+            {!readModel.loading && !readModel.error && transactions.length === 0 ? (
                 <div className="po-empty-state">
                     <p style={{ fontSize: 16, color: "#334155", margin: 0 }}>No transactions available for your account.</p>
                 </div>
-            ) : (
+            ) : !readModel.loading && !readModel.error ? (
                 <>
                     {/* Aggregate "All Transactions" card */}
                     <div className="po-txn-summary" style={{ marginBottom: 20, border: "2px solid #e0e7ff", background: "#f8faff" }}>
@@ -96,6 +105,7 @@ export default function PortalTransactions() {
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
                                     <div>
                                         <div style={{ fontSize: 22, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>{txn.name}</div>
+                                        {txn.businessTransactionId && <div style={{ fontSize: 13, fontWeight: 700, color: "#4f46e5", marginBottom: 4 }}>{txn.businessTransactionId}</div>}
                                         <p style={{ fontSize: 14, color: "#334155", margin: 0 }}>{txn.description}</p>
                                     </div>
                                     <span className="po-status-badge" style={{
@@ -114,6 +124,12 @@ export default function PortalTransactions() {
                                             <div className="po-txn-stat-value" style={{ color: "#0f172a" }}>{c.total}</div>
                                             <div className="po-txn-stat-label">Total</div>
                                         </div>
+                                        {readModel.isRealExternal && (
+                                            <div className="po-txn-stat">
+                                                <div className="po-txn-stat-value" style={{ color: "#1d4ed8" }}>{c.packages}</div>
+                                                <div className="po-txn-stat-label">Packages</div>
+                                            </div>
+                                        )}
                                         <div className="po-txn-stat">
                                             <div className="po-txn-stat-value" style={{ color: "#4338ca" }}>{c.intake}</div>
                                             <div className="po-txn-stat-label">Intake Review</div>
@@ -148,7 +164,7 @@ export default function PortalTransactions() {
                         );
                     })}
                 </>
-            )}
+            ) : null}
         </div>
     );
 }

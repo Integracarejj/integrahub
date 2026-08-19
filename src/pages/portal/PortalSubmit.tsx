@@ -590,11 +590,12 @@ function BrokerUploadForm() {
                                 <span key={cat} style={{ fontSize: 10, padding: "2px 8px", background: "#eef2ff", color: "#4338ca", borderRadius: 4, fontWeight: 600 }}>{cat}</span>
                             ))}
                         </div>
-                        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                            {isPersisting && <PackageSubmissionProgress />}
-                            <button className="rc-btn rc-btn-primary" onClick={handleSubmit} disabled={isPersisting}>{isPersisting ? "Submitting package..." : "Submit Package to IntegraCare"}</button>
-                            <button className="rc-btn rc-btn-secondary" onClick={resetUpload}>Start Over</button>
-                        </div>
+                        {isPersisting ? <PackageSubmissionProgress /> : (
+                            <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                                <button className="rc-btn rc-btn-primary" onClick={handleSubmit}>Submit Package to IntegraCare</button>
+                                <button className="rc-btn rc-btn-secondary" onClick={resetUpload}>Start Over</button>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

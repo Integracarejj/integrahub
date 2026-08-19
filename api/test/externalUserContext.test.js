@@ -77,6 +77,27 @@ test("authorized transaction listing exposes only durable incomplete package rec
     });
 });
 
+test("recap read model keeps duplicate names distinct and nests only authorized package requests", async () => {
+    let sql;
+    let params;
+    const service = createExternalUserContextService({ query: async (statement, values) => {
+        sql = statement; params = values;
+        return [
+            { transactionId: "REC-2026-00000003", transactionName: "Project Keystone", transactionStatus: "Active", owningExternalOrganizationId: "TEST-BROKER-ORG", packageId: "pkg-3", sourcePackageId: "sub-3", packageName: "Project Keystone", originalFileName: "Keystone.xlsx", requestCount: 2, packageStatus: "Awaiting Review", submittedBy: "real-user", submittedByName: "Jeremy", submittedByEmail: "j@example.com", packageSubmittedAt: "2026-08-18", sourceRowNumber: 1, category: "Legal", title: "Contracts", description: "All", team: "Legal", priority: "High", communityNamesJson: "[]" },
+            { transactionId: "REC-2026-00000003", transactionName: "Project Keystone", transactionStatus: "Active", owningExternalOrganizationId: "TEST-BROKER-ORG", packageId: "pkg-3", sourcePackageId: "sub-3", packageName: "Project Keystone", originalFileName: "Keystone.xlsx", requestCount: 2, packageStatus: "Awaiting Review", submittedBy: "real-user", submittedByName: "Jeremy", submittedByEmail: "j@example.com", packageSubmittedAt: "2026-08-18", sourceRowNumber: 2, category: "Finance", title: "Rent roll", description: "Current", team: "Finance", priority: "Medium", communityNamesJson: "[]" },
+            { transactionId: "REC-2026-00000004", transactionName: "Project Keystone", transactionStatus: "Active", owningExternalOrganizationId: "TEST-BROKER-ORG", packageId: null },
+        ];
+    } });
+    const model = await service.getRecapReadModel("real-user", "REC-2026-00000003");
+    assert.deepEqual(model.transactions.map(row => row.id), ["REC-2026-00000003", "REC-2026-00000004"]);
+    assert.equal(model.transactions[0].packages[0].requests.length, 2);
+    assert.notEqual(model.transactions[0].id, model.transactions[1].id);
+    assert.match(sql, /ExternalUserOrganizations/);
+    assert.match(sql, /membership\.externalOrganizationId = transactionRow\.owningExternalOrganizationId/);
+    assert.match(sql, /businessTransactionId = @businessTransactionId/);
+    assert.deepEqual(params, { userId: "real-user", businessTransactionId: "REC-2026-00000003" });
+});
+
 test("internal middleware rejects external-only roles and preserves DDTeam internal access", () => {
     const status = [];
     const response = { status(code) { status.push(code); return this; }, json() {} };

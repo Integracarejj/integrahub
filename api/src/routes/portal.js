@@ -47,6 +47,17 @@ router.get("/recapitalization/transactions", async (req, res) => {
     }
 });
 
+router.get("/recapitalization/read-model", async (req, res) => {
+    try {
+        const transactionId = String(req.query.transactionId || "").trim() || null;
+        if (transactionId && !/^REC-\d{4}-\d{8}$/.test(transactionId)) return res.status(400).json({ error: "Invalid transaction ID" });
+        return res.json(await externalUserContextService.getRecapReadModel(req.user.id, transactionId));
+    } catch (error) {
+        console.error("External recap read failed", error instanceof Error ? error.message : "Unknown error");
+        return res.status(500).json({ error: "Recapitalization data could not be loaded" });
+    }
+});
+
 router.post(
     "/recapitalization/transactions/:id/incoming-documents",
     requireRole("ExternalBroker"),

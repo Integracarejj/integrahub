@@ -82,7 +82,7 @@ test("real external new project creates once and retry reuses the authoritative 
 
     await page.getByRole("button", { name: "Submit Package" }).click();
     await expect(page.getByRole("status")).toContainText("Creating your project and securely uploading your package");
-    await expect(page.getByRole("button", { name: "Submitting package..." })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /Submit Package/ })).toHaveCount(0);
     await expect(page.getByText("Package Submitted Successfully")).toBeVisible();
     expect(createCount).toBe(1);
     expect(uploadCount).toBe(2);

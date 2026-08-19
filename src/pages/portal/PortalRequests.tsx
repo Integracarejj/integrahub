@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getPortalRequests, getActivePersona, getPortalTransactions, getPersonaIdentity, toExternalStatusInput } from "../../services/portalMockData";
+import { getActivePersona, getPersonaIdentity, toExternalStatusInput } from "../../services/portalMockData";
 import { getExternalStatusInfo, getStatusPillStyle, getExceptionContext } from "../../services/externalStatusMapping";
 import ProjectBadge from "../../components/common/ProjectBadge";
+import { usePortalReadModel } from "../../hooks/usePortalReadModel";
 import "./PortalOverview.css";
 
 function StatusBadge({ status }: { status: string }) {
@@ -17,9 +18,10 @@ function StatusBadge({ status }: { status: string }) {
 export default function PortalRequests() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const allRequests = getPortalRequests();
+    const readModel = usePortalReadModel();
+    const allRequests = readModel.requests;
     const persona = getActivePersona();
-    const allTxns = getPortalTransactions();
+    const allTxns = readModel.transactions;
     const identity = getPersonaIdentity();
     const orgName = identity?.organization?.name || persona.companyName;
 
@@ -140,7 +142,10 @@ export default function PortalRequests() {
                 )}
             </div>
 
-            <div className="rc-card">
+            {readModel.loading && <div className="po-empty-state"><p>Loading submitted requests...</p></div>}
+            {readModel.error && <div className="po-empty-state"><p>{readModel.error}</p></div>}
+
+            {!readModel.loading && !readModel.error && <div className="rc-card">
                 <div className="po-requests-table">
                     <div className="po-requests-header" style={{ gridTemplateColumns: "0.5fr 2.2fr 0.9fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr" }}>
                         <span>ID</span><span>Request</span><span>Project</span><span>Status</span><span>Review Type</span><span>Category</span><span>Community</span><span>Updated</span>
@@ -155,7 +160,7 @@ export default function PortalRequests() {
                         const isClarResp = req._rawStatus === "Clarification Needed" && extInfo.status === "Under Review" && !!req._workNotes?.some(n => n.action === "Clarification Response") && !req._returnReason;
                         const isReworking = req._partnerDecision === "Rework Required" && extInfo.status === "Under Review";
                         return (
-                            <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.5fr 2.2fr 0.9fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr" }} onClick={() => navigate(`/portal/requests/${req.id}`)} title={req.requestId}>
+                            <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.5fr 2.2fr 0.9fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr", cursor: readModel.isRealExternal ? "default" : "pointer" }} onClick={() => { if (!readModel.isRealExternal) navigate(`/portal/requests/${req.id}`); }} title={req.requestId}>
                                 <span className="po-requests-id">{req.requestId.split("-").length >= 3 ? req.requestId.split("-")[0] + "-" + req.requestId.split("-").slice(-1)[0] : req.requestId}</span>
                                 <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
                                     <span className="po-requests-title" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={req.title}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</span>
@@ -200,7 +205,7 @@ export default function PortalRequests() {
                         );
                     })}
                 </div>
-            </div>
+            </div>}
         </div>
     );
 }
