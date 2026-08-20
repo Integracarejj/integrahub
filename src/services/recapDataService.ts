@@ -225,6 +225,17 @@ export function getActiveTransactions(): RecapTransaction[] {
     return getTransactions().filter((t) => t.status === "Active");
 }
 
+export function getWorkQueueTransactions(requests: RecapRequest[]): RecapTransaction[] {
+    const result = [...getTransactions()];
+    const seen = new Set(result.map(transaction => transaction.id));
+    for (const request of requests) {
+        if (!request.transactionId || seen.has(request.transactionId)) continue;
+        seen.add(request.transactionId);
+        result.push(makePortalTransaction(request.transactionId, request.transactionName));
+    }
+    return result;
+}
+
 export function getTransactionById(id: string): RecapTransaction | undefined {
     // Check demo first
     if (isDemoLoaded()) {
@@ -1818,6 +1829,31 @@ export function addPortalCreatedRequests(requests: RecapRequest[]): void {
     const existing = getPortalCreatedRequests();
     const ids = new Set(existing.map(request => request.id));
     const merged = [...existing, ...requests.filter(request => !ids.has(request.id))];
+    localStorage.setItem(PORTAL_REQUESTS_KEY, JSON.stringify(merged));
+}
+
+export function upsertAuthoritativeIntakeRequests(requests: RecapRequest[]): void {
+    const existing = getPortalCreatedRequests();
+    const authoritativeById = new Map(requests.map(request => [request.id, request]));
+    const merged = existing.map(request => {
+        const authoritative = authoritativeById.get(request.id);
+        if (!authoritative) return request;
+        return {
+            ...request,
+            origin: "authoritative" as const,
+            intakeRequestId: authoritative.intakeRequestId,
+            transactionId: authoritative.transactionId,
+            transactionName: authoritative.transactionName,
+            orgId: authoritative.orgId,
+            orgName: authoritative.orgName,
+            _sourcePackageId: authoritative._sourcePackageId,
+            _sourcePackageName: authoritative._sourcePackageName,
+            _sourceFileName: authoritative._sourceFileName,
+            _publishedAt: request.origin === "authoritative" ? request._publishedAt : null,
+        };
+    });
+    const existingIds = new Set(existing.map(request => request.id));
+    merged.push(...requests.filter(request => !existingIds.has(request.id)));
     localStorage.setItem(PORTAL_REQUESTS_KEY, JSON.stringify(merged));
 }
 

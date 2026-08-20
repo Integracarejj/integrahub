@@ -1,6 +1,6 @@
 import { getAuthHeaders } from "../utils/apiFetch";
 import type { RecapIntakeItem, RecapRequest } from "./recapMockData";
-import { addPortalCreatedIntakeItem, addPortalCreatedRequests, getPortalCreatedIntakeItems, getPortalCreatedRequests } from "./recapDataService";
+import { addPortalCreatedIntakeItem, getPortalCreatedIntakeItems, upsertAuthoritativeIntakeRequests } from "./recapDataService";
 
 interface AuthoritativePackage {
     id: string; sourcePackageId: string; packageName: string; fileName: string;
@@ -16,7 +16,6 @@ export async function loadAuthoritativeIntake(): Promise<number> {
     if (!response.ok) throw new Error("Intake listing failed");
     const packages: AuthoritativePackage[] = (await response.json()).packages || [];
     const existingPackages = new Set(getPortalCreatedIntakeItems().map(item => item.id));
-    const existingRequests = new Set(getPortalCreatedRequests().map(request => request.id));
     for (const pkg of packages) {
         const intakeId = `intake-${pkg.id}`;
         if (!existingPackages.has(intakeId)) addPortalCreatedIntakeItem({
@@ -30,7 +29,7 @@ export async function loadAuthoritativeIntake(): Promise<number> {
             userId: pkg.submittedBy, userName: pkg.submittedByName || pkg.submittedByEmail,
             rowsFound: pkg.requestCount,
         });
-        const additions: RecapRequest[] = pkg.requests.filter(row => !existingRequests.has(`intake-request-${pkg.id}-${row.rowNumber}`)).map(row => ({
+        const authoritativeRequests: RecapRequest[] = pkg.requests.map(row => ({
             id: `intake-request-${pkg.id}-${row.rowNumber}`,
             requestId: `DD-${pkg.sourcePackageId}-${row.rowNumber}`,
             intakeId, transactionId: pkg.transactionId, transactionName: pkg.transactionName,
@@ -47,7 +46,7 @@ export async function loadAuthoritativeIntake(): Promise<number> {
             _sourcePackageId: intakeId, _sourcePackageName: pkg.packageName,
             _sourceFileName: pkg.fileName.replace(/\.[^.]+$/, ""), _publishedAt: null,
         }));
-        if (additions.length) addPortalCreatedRequests(additions);
+        upsertAuthoritativeIntakeRequests(authoritativeRequests);
     }
     return packages.length;
 }

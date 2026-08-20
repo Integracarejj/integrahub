@@ -360,6 +360,7 @@ function ReviewEngine() {
             setUpdateCount(k => k + 1);
             setPublished(true);
             setSelectedIds(new Set());
+            showToast(`${authoritativeCount + demoResult.publishedCount} request${authoritativeCount + demoResult.publishedCount === 1 ? "" : "s"} moved to Work Queue`);
         } catch {
             showToast("Unable to move durable requests. No local fallback was used.");
         } finally {
@@ -381,6 +382,7 @@ function ReviewEngine() {
             setPublishedBatchId(demoResult.publishedBatchId);
             setUpdateCount(k => k + 1);
             setPublished(true);
+            showToast(`${authoritativeCount + demoResult.publishedCount} request${authoritativeCount + demoResult.publishedCount === 1 ? "" : "s"} moved to Work Queue`);
         } catch {
             showToast("Unable to move durable requests. No local fallback was used.");
         } finally {
@@ -438,6 +440,7 @@ function ReviewEngine() {
             setUpdateCount(k => k + 1);
             setPublished(true);
             setSelectedIds(new Set());
+            showToast(`${authoritativeCount + demoResult.publishedCount} request${authoritativeCount + demoResult.publishedCount === 1 ? "" : "s"} moved to Work Queue`);
         } catch {
             showToast("Unable to move durable requests. No local fallback was used.");
         } finally {

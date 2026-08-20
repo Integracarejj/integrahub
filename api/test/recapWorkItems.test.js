@@ -44,6 +44,25 @@ test("work item service validates UUIDs and whitelists reviewed snapshots", asyn
     assert.equal("organizationId" in admitted[0], false);
 });
 
+test("admitted work items remain listable in a subsequent session and repeated admission is idempotent", async () => {
+    const stored = new Map();
+    const repository = {
+        async admit(items) {
+            for (const item of items) if (!stored.has(item.intakeRequestId)) stored.set(item.intakeRequestId, { ...WORK, intakeRequestId: item.intakeRequestId });
+            return items.map(item => stored.get(item.intakeRequestId));
+        },
+        async list() { return { workItems: [...stored.values()], assignees: [] }; },
+    };
+    const sessionA = createRecapWorkItemService({ repository });
+    await sessionA.admit({ intakeRequestIds: [ID2] });
+    await sessionA.admit({ intakeRequestIds: [ID2] });
+    const sessionB = createRecapWorkItemService({ repository });
+    const listed = await sessionB.list();
+    assert.equal(stored.size, 1);
+    assert.equal(listed.workItems.length, 1);
+    assert.equal(listed.workItems[0].intakeRequestId, ID2);
+});
+
 test("assignment, accept, and Not Mine use server actor identity and atomic transition predicates", async () => {
     const calls = [];
     const repository = createRecapWorkItemRepository({ query: async (sql, values) => { calls.push({ sql, values }); return [WORK]; } });

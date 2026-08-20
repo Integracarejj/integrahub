@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-    getRequests, getTransactions, getTeamMembers, getTeams, getDocuments,
+    getRequests, getWorkQueueTransactions, getTeamMembers, getTeams, getDocuments,
     updateRequestStatus, updateRequestOwner, updateRequestTeam, addActivityEntry,
     updateRequestPriority, updateRequestDueDate, updateRequestExternalStatus, isDemoActive,
     bulkUpdateDemoRequests, getWorkArtifactsByRequest, promoteToReusableKnowledge, getReusableKnowledgeRecommendation,
@@ -28,11 +28,11 @@ const STATUS_OPTIONS = ["Open", "Assigned", "In Progress", "Blocked", "Complete"
 export default function RecapitalizationTracker() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const transactions = getTransactions();
     const demoMembers = getTeamMembers();
     const teams = getTeams();
     const [refreshKey, setRefreshKey] = useState(0);
     const allRequests = useMemo(() => getRequests(), [refreshKey]);
+    const transactions = useMemo(() => getWorkQueueTransactions(allRequests), [allRequests]);
     const assignees = getAuthoritativeAssignees();
     const members = [...demoMembers, ...assignees.filter(user => !demoMembers.some(member => member.id === user.id)).map(user => ({ id: user.id, name: user.displayName || user.email || user.id, team: "" }))];
     useEffect(() => { loadAuthoritativeWorkItems().then(() => setRefreshKey(k => k + 1)).catch(() => setBulkToast("Durable Work Queue is unavailable.")); }, []);
