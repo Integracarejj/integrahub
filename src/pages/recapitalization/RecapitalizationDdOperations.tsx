@@ -1,11 +1,13 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getRequests, getTeamMembers, updateRequestStatus, updateRequestOwner, getDocuments, updateRequestReturnToOwner, getActivity, addActivityEntry, getWorkArtifactsByRequest, updateRequestStatusNotes, isDemoActive, sendExceptionRecommendation, clearExceptionFields, resolveBlockerInternal, requestExternalBlockerHelp } from "../../services/recapDataService";
+import { getRequests, getTeamMembers, updateRequestStatus, updateRequestOwner, getDocuments, updateRequestReturnToOwner, getActivity, addActivityEntry, getWorkArtifactsByRequest, updateRequestStatusNotes, isDemoPresentationActive, sendExceptionRecommendation, clearExceptionFields, resolveBlockerInternal, requestExternalBlockerHelp } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
 import { assignAuthoritativeWorkItem, getAuthoritativeAssignees, loadAuthoritativeWorkItems } from "../../services/recapWorkItemPersistence";
+import { getPresentedRecapRequests, isRealInternalRecapMode } from "../../services/recapPresentation";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
 
 const STATUS_OPTIONS = ["Open", "Assigned", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate", "Waiting Partner Review", "Needs Rework", "Completed"];
 
@@ -13,6 +15,7 @@ type ViewTab = "needs-dd-review" | "ready-to-publish" | "partner-action" | "exce
 
 export default function RecapitalizationDdOperations() {
     const navigate = useNavigate();
+    const { user: currentIdentity } = useCurrentUser();
     const [activeUser, setActiveUser] = useState("David Park");
     const [activeView, setActiveView] = useState<ViewTab>("full-work-queue");
     const [statusConfirm, setStatusConfirm] = useState<{ req: RecapRequest; newStatus: string; reason?: string } | null>(null);
@@ -28,18 +31,19 @@ export default function RecapitalizationDdOperations() {
     const [returnToTeam, setReturnToTeam] = useState<{ req: RecapRequest; reason: string } | null>(null);
     const members = getTeamMembers();
     const authoritativeAssignees = getAuthoritativeAssignees();
+    const demoActive = isDemoPresentationActive();
+    const realInternalMode = isRealInternalRecapMode(currentIdentity, demoActive);
     useEffect(() => { loadAuthoritativeWorkItems().then(() => setRefreshKey(k => k + 1)).catch(() => undefined); }, []);
     const ddMembers = useMemo(() => members.filter(m => m.team === "DD Management"), [members]);
 
-    const allRequests = useMemo(() => getRequests(), [refreshKey]);
+    const allRequests = useMemo(() => getPresentedRecapRequests(getRequests(), realInternalMode), [refreshKey, realInternalMode]);
 
     const workItems = useMemo(() => {
+        if (realInternalMode) return allRequests;
         const published = allRequests.filter(r => r._publishedAt || r._createdFromReview);
         const source = published.length > 0 ? published : allRequests;
-        // Authoritative SQL work items only support reassignment in DD Operations
-        // during this slice. Keep later demo workflow actions out of their path.
-        return source.filter(r => r.origin !== "authoritative" || r._needsReassignment);
-    }, [allRequests]);
+        return source;
+    }, [allRequests, realInternalMode]);
 
     /* ── KPIs ── */
     const NEEDS_DD_REVIEW_STATUSES = ["Blocked", "Clarification Needed"];
@@ -106,8 +110,8 @@ export default function RecapitalizationDdOperations() {
     }, [workItems]);
 
     const activityFeed = useMemo(() => {
-        return getActivity(50);
-    }, [refreshKey]);
+        return realInternalMode ? [] : getActivity(50);
+    }, [refreshKey, realInternalMode]);
 
     const fullWorkQueue = useMemo(() => {
         return workItems.sort((a, b) => {
@@ -704,7 +708,9 @@ export default function RecapitalizationDdOperations() {
                                     <td><PriorityBadge priority={req.priority} /></td>
                                     <td onClick={e => e.stopPropagation()}>
                                         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                            {req.status === "Blocked" ? (
+                                            {req.origin === "authoritative" ? (
+                                                <span style={{ fontSize: 10, fontWeight: 600, color: "#334155" }}>{req.status}</span>
+                                            ) : req.status === "Blocked" ? (
                                                 <div><IssueExceptionBadge req={req} /></div>
                                             ) : (
                                                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -810,15 +816,19 @@ export default function RecapitalizationDdOperations() {
                     <h1>DD Operations</h1>
                 </div>
                 <div className="rc-header-actions">
-                    {isDemoActive() && (
+                    {demoActive ? (
                         <span style={{ fontSize: 11, color: "#475569", display: "inline-flex", alignItems: "center", gap: 4, marginRight: 8 }}>
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
                             Testing as: <strong>{activeUser}</strong>
                         </span>
+                    ) : realInternalMode ? (
+                        <span style={{ fontSize: 11, color: "#475569" }}>Signed in as <strong>{currentIdentity?.userRecord?.displayName || currentIdentity?.userRecord?.email || "Current user"}</strong></span>
+                    ) : null}
+                    {demoActive && (
+                        <select className="rc-filter-select" aria-label="Switch user" value={activeUser} onChange={e => setActiveUser(e.target.value)}>
+                            {ddMembers.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                        </select>
                     )}
-                    <select className="rc-filter-select" aria-label="Switch user" value={activeUser} onChange={e => setActiveUser(e.target.value)}>
-                        {ddMembers.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
-                    </select>
                 </div>
             </div>
 

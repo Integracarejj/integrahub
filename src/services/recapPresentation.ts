@@ -6,7 +6,7 @@ export function isRealInternalRecapMode(identity: CurrentUserResponse | null, de
 }
 
 export function getPresentedRecapRequests(requests: RecapRequest[], realInternalMode: boolean): RecapRequest[] {
-    return realInternalMode ? requests.filter(request => request.origin === "authoritative") : requests;
+    return realInternalMode ? requests.filter(request => request.origin === "authoritative" && !!request.workItemId) : requests;
 }
 
 export function getMyWorkRequests(requests: RecapRequest[], userId: string | undefined, demoUserName: string, realInternalMode: boolean): RecapRequest[] {

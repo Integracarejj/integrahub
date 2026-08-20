@@ -7,14 +7,15 @@ const identity = {
     isAuthenticated: true, hasAppAccess: true, isPortalUser: false,
     userRecord: { id: "test-jeremy-001", displayName: "Jeremy Joyner" },
 } as CurrentUserResponse;
-const authoritative = { id: "work-1", origin: "authoritative", assignedUserId: "test-jeremy-001" } as RecapRequest;
-const otherAuthoritative = { id: "work-2", origin: "authoritative", assignedUserId: "another-user" } as RecapRequest;
+const authoritative = { id: "work-1", workItemId: "work-1", origin: "authoritative", assignedUserId: "test-jeremy-001" } as RecapRequest;
+const otherAuthoritative = { id: "work-2", workItemId: "work-2", origin: "authoritative", assignedUserId: "another-user" } as RecapRequest;
+const intakeOnlyProjection = { id: "intake-1", intakeRequestId: "intake-1", origin: "authoritative" } as RecapRequest;
 const sarahDemo = { id: "demo-1", origin: "demo", owner: "Sarah Chen", assignedTo: "Sarah Chen" } as RecapRequest;
 
 describe("Recap authenticated and demo presentation boundary", () => {
     it("uses authenticated identity and excludes browser legacy rows in real internal mode", () => {
         const realMode = isRealInternalRecapMode(identity, false);
-        const presented = getPresentedRecapRequests([sarahDemo, authoritative, otherAuthoritative], realMode);
+        const presented = getPresentedRecapRequests([sarahDemo, intakeOnlyProjection, authoritative, otherAuthoritative], realMode);
         expect(presented.map(row => row.id)).toEqual(["work-1", "work-2"]);
         expect(getMyWorkRequests(presented, "test-jeremy-001", "Sarah Chen", realMode)).toEqual([authoritative]);
     });

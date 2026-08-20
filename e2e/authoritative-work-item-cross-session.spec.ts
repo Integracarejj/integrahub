@@ -100,6 +100,12 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     await contributorContext.close();
 
     const freshContext = await browser.newContext();
+    await freshContext.addInitScript(() => {
+        localStorage.setItem("integrasource.recap.demo.portalRequests", JSON.stringify([{
+            id: "stale-intake-projection", intakeRequestId: "stale-intake-projection", requestId: "DD-sub-stale",
+            origin: "authoritative", title: "Stale browser intake projection", status: "Open", priority: "Low", communityNames: [],
+        }]));
+    });
     const freshPage = await freshContext.newPage();
     await setup(freshPage, USER_ID);
     await freshPage.goto("/recapitalization/my-work", { waitUntil: "domcontentloaded" });
@@ -107,5 +113,18 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     await expect(freshPage.getByRole("combobox", { name: "Demo work persona" })).toHaveCount(0);
     const persistedRow = freshPage.getByRole("row").filter({ hasText: "DD-2026-000001" });
     await expect(persistedRow).toContainText("In Progress");
+    await freshPage.goto("/recapitalization/dd-operations", { waitUntil: "domcontentloaded" });
+    await expect(freshPage.getByText("Signed in as")).toContainText("Durable Contributor");
+    await expect(freshPage.getByRole("combobox", { name: "Switch user" })).toHaveCount(0);
+    await expect(freshPage.getByText("DD-sub-stale")).toHaveCount(0);
+    await expect(freshPage.getByRole("row").filter({ hasText: "DD-2026-000001" })).toContainText("In Progress");
     await freshContext.close();
+
+    const cleanDdContext = await browser.newContext();
+    const cleanDdPage = await cleanDdContext.newPage();
+    await setup(cleanDdPage, USER_ID);
+    await cleanDdPage.goto("/recapitalization/dd-operations", { waitUntil: "domcontentloaded" });
+    await expect(cleanDdPage.getByRole("row").filter({ hasText: "DD-2026-000001" })).toContainText("In Progress");
+    await expect(cleanDdPage.getByText("DD-sub-stale")).toHaveCount(0);
+    await cleanDdContext.close();
 });
