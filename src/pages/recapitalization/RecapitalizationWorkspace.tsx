@@ -1,12 +1,13 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, getRequests, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoActive, addExternalMessage, getExternalMessages, updateRequestNotMine, updateRequestReturnToOwner, updateRequestReturnReason, sendExceptionRecommendation, recommendDuplicate, blockRequest, resolveBlockerInternal, requestExternalBlockerHelp, submitClarificationToDdOperations, returnClarificationToContributor } from "../../services/recapDataService";
+import { lookupWorkspaceItem, updateRequestStatus, updateRequestOwner, updateRequestExternalStatus, updateRequestCompletion, addActivityEntry, getWorkArtifactsByRequest, getActivity, getRequests, saveWorkArtifacts, removeWorkArtifact, generateDisplayFileName, updateRequestStatusNotes, promoteToReusableKnowledge, getReusableKnowledgeRecommendation, addWorkNote, editWorkNote, deleteWorkNote, isDemoPresentationActive, addExternalMessage, getExternalMessages, updateRequestNotMine, updateRequestReturnToOwner, updateRequestReturnReason, sendExceptionRecommendation, recommendDuplicate, blockRequest, resolveBlockerInternal, requestExternalBlockerHelp, submitClarificationToDdOperations, returnClarificationToContributor } from "../../services/recapDataService";
 import type { RecapRequest, WorkArtifact, WorkNoteEntry } from "../../services/recapDataService";
 import ClarificationThread, { getClarificationSummary } from "../../components/common/ClarificationThread";
 import RecapSubNav from "./RecapSubNav";
 import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
 import { acceptAuthoritativeWorkItem, loadAuthoritativeWorkItems, markAuthoritativeWorkItemNotMine } from "../../services/recapWorkItemPersistence";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
 
 const TEAM_MEMBERS = ["Sarah Chen", "James Wright", "Lisa Park", "Tom Davies", "Mike O'Brien", "Anna Patel", "David Park", "Carlos Rivera", "Demo User (Test)"];
 
@@ -95,6 +96,7 @@ function ActionTile({ icon, label, desc, onClick }: { icon: React.ReactNode; lab
 }
 
 export default function RecapitalizationWorkspace() {
+    const { user: currentIdentity } = useCurrentUser();
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const location = useLocation();
@@ -629,8 +631,11 @@ function WorkflowStateCard({
                     </button>
                 </div>
 
+                {item.origin === "authoritative" && currentIdentity?.userRecord && (
+                    <div style={{ marginBottom: 12, fontSize: 11, color: "#475569" }}>Working as <strong>{currentIdentity.userRecord.displayName || currentIdentity.userRecord.email}</strong></div>
+                )}
                 {/* Test identity hint (demo/preview only) */}
-                {isDemoActive() && (
+                {isDemoPresentationActive() && (
                     <div style={{ marginBottom: 12, fontSize: 11, color: "#475569", display: "flex", alignItems: "center", gap: 6 }}>
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
                         Testing as: <strong>{currentUser}</strong>

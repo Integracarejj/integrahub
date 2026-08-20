@@ -14,6 +14,7 @@ export type {
 };
 
 const DD_OPS_LEAD = "David Park";
+const DEMO_PRESENTATION_KEY = "integrasource.recap.demoPresentation";
 
 /**
  * Returns fields to clear when a new active workflow begins.
@@ -1613,18 +1614,25 @@ export function resetRequestTracker(): { clearedCount: number } {
 export function initDemo(): void {
     if (isRecapWiped()) return;
     Demo.initDemo();
+    sessionStorage.setItem(DEMO_PRESENTATION_KEY, "true");
 }
 
 export function resetDemo(): void {
     Demo.resetDemo();
+    sessionStorage.removeItem(DEMO_PRESENTATION_KEY);
 }
 
 export function resetAllRecapData(): void {
     Demo.resetAllRecapData();
+    sessionStorage.removeItem(DEMO_PRESENTATION_KEY);
 }
 
 export function isDemoActive(): boolean {
     return Demo.isDemoLoaded();
+}
+
+export function isDemoPresentationActive(): boolean {
+    return sessionStorage.getItem(DEMO_PRESENTATION_KEY) === "true";
 }
 
 export function getDemoTransaction(): RecapTransaction | null {
@@ -1885,6 +1893,7 @@ export function clearAllPortalCreatedData(): void {
 
 export function setRecapWiped(): void {
     Demo.setRecapWiped();
+    sessionStorage.removeItem(DEMO_PRESENTATION_KEY);
 }
 
 export function clearRecapWiped(): void {

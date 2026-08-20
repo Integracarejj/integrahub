@@ -3,13 +3,15 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import {
     getRequests, getWorkQueueTransactions, getTeamMembers, getTeams, getDocuments,
     updateRequestStatus, updateRequestOwner, updateRequestTeam, addActivityEntry,
-    updateRequestPriority, updateRequestDueDate, updateRequestExternalStatus, isDemoActive,
+    updateRequestPriority, updateRequestDueDate, updateRequestExternalStatus, isDemoActive, isDemoPresentationActive,
     bulkUpdateDemoRequests, getWorkArtifactsByRequest, promoteToReusableKnowledge, getReusableKnowledgeRecommendation,
     archiveRequest, isPlatformAdminActive, permanentlyDeleteRequest,
 } from "../../services/recapDataService";
 
 import type { RecapRequest, WorkArtifact } from "../../services/recapDataService";
 import { assignAuthoritativeWorkItem, getAuthoritativeAssignees, loadAuthoritativeWorkItems } from "../../services/recapWorkItemPersistence";
+import { getPresentedRecapRequests, isRealInternalRecapMode } from "../../services/recapPresentation";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
 import RecapSubNav from "./RecapSubNav";
 import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
@@ -27,11 +29,14 @@ const STATUS_OPTIONS = ["Open", "Assigned", "In Progress", "Blocked", "Complete"
 
 export default function RecapitalizationTracker() {
     const navigate = useNavigate();
+    const { user: currentIdentity } = useCurrentUser();
     const [searchParams] = useSearchParams();
     const demoMembers = getTeamMembers();
     const teams = getTeams();
     const [refreshKey, setRefreshKey] = useState(0);
-    const allRequests = useMemo(() => getRequests(), [refreshKey]);
+    const demoActive = isDemoPresentationActive();
+    const realInternalMode = isRealInternalRecapMode(currentIdentity, demoActive);
+    const allRequests = useMemo(() => getPresentedRecapRequests(getRequests(), realInternalMode), [refreshKey, realInternalMode]);
     const transactions = useMemo(() => getWorkQueueTransactions(allRequests), [allRequests]);
     const assignees = getAuthoritativeAssignees();
     const members = [...demoMembers, ...assignees.filter(user => !demoMembers.some(member => member.id === user.id)).map(user => ({ id: user.id, name: user.displayName || user.email || user.id, team: "" }))];

@@ -1,25 +1,28 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getRequests, isDemoActive, getTeamMembers } from "../../services/recapDataService";
+import { getRequests, isDemoPresentationActive, getTeamMembers } from "../../services/recapDataService";
 import type { RecapRequest } from "../../services/recapDataService";
 import RecapSubNav from "./RecapSubNav";
 import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
 import { loadAuthoritativeWorkItems } from "../../services/recapWorkItemPersistence";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { getMyWorkRequests, getPresentedRecapRequests, isRealInternalRecapMode } from "../../services/recapPresentation";
 
 type ViewTab = "active-work" | "waiting-dd-ops" | "completed-work" | "my-team" | "returned";
 
 export default function RecapitalizationMyWork() {
     const navigate = useNavigate();
     const { user: currentIdentity } = useCurrentUser();
-    const [activeUser, setActiveUser] = useState("Sarah Chen");
+    const [activeUser, setActiveUser] = useState(() => localStorage.getItem("integrasource.recap.myWorkUser") || "Sarah Chen");
     const [detailItem, setDetailItem] = useState<RecapRequest | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
     const [successMsg, setSuccessMsg] = useState<{ title: string; body: string } | null>(null);
     const [activeView, setActiveView] = useState<ViewTab>("active-work");
     const members = getTeamMembers();
-    const allRequests = useMemo(() => getRequests(), [refreshKey]);
+    const demoActive = isDemoPresentationActive();
+    const realInternalMode = isRealInternalRecapMode(currentIdentity, demoActive);
+    const allRequests = useMemo(() => getPresentedRecapRequests(getRequests(), realInternalMode), [refreshKey, realInternalMode]);
     useEffect(() => { loadAuthoritativeWorkItems().then(() => setRefreshKey(k => k + 1)).catch(() => undefined); }, []);
 
     const workItems = useMemo(() => {
@@ -61,10 +64,7 @@ export default function RecapitalizationMyWork() {
     }
 
     const assignedToMe = useMemo(() => {
-        return workItems
-            .filter(r => r.origin === "authoritative"
-                ? r.assignedUserId === currentIdentity?.userRecord?.id
-                : r.owner === activeUser || r.assignedTo === activeUser)
+        return getMyWorkRequests(workItems, currentIdentity?.userRecord?.id, activeUser, realInternalMode)
             .sort((a, b) => {
                 const aDate = a.lastUpdated || "";
                 const bDate = b.lastUpdated || "";
@@ -75,7 +75,7 @@ export default function RecapitalizationMyWork() {
                 const pMap: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
                 return (pMap[a.priority] || 1) - (pMap[b.priority] || 1);
             });
-    }, [workItems, activeUser, currentIdentity?.userRecord?.id]);
+    }, [workItems, activeUser, currentIdentity?.userRecord?.id, realInternalMode]);
 
     const activeWork = useMemo(() => {
         return assignedToMe.filter(r =>
@@ -234,18 +234,23 @@ export default function RecapitalizationMyWork() {
             <div className="rc-header">
                 <div className="rc-header-left">
                     <h1>My Work</h1>
-                    {isDemoActive() && <span className="rc-badge rc-badge-visible" style={{ fontSize: 10, marginLeft: 8 }}>Live Demo Data</span>}
-                    {isDemoActive() && (
+                    {demoActive && <span className="rc-badge rc-badge-visible" style={{ fontSize: 10, marginLeft: 8 }}>Live Demo Data</span>}
+                    {demoActive && (
                         <span style={{ fontSize: 11, color: "#475569", display: "inline-flex", alignItems: "center", gap: 4, marginLeft: 8 }}>
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
                             Testing as: <strong>{activeUser}</strong>
                         </span>
                     )}
+                    {realInternalMode && currentIdentity?.userRecord && (
+                        <span style={{ fontSize: 12, color: "#475569", marginLeft: 8 }}>Signed in as <strong>{currentIdentity.userRecord.displayName || currentIdentity.userRecord.email}</strong></span>
+                    )}
                 </div>
                 <div className="rc-header-actions">
-                    <select className="rc-filter-select" value={activeUser} onChange={e => setActiveUser(e.target.value)}>
-                        {members.map(m => <option key={m.id} value={m.name}>{m.name}{m.id === "user-demo" ? " (Test Persona)" : ""}</option>)}
-                    </select>
+                    {demoActive && (
+                        <select aria-label="Demo work persona" className="rc-filter-select" value={activeUser} onChange={e => { setActiveUser(e.target.value); localStorage.setItem("integrasource.recap.myWorkUser", e.target.value); }}>
+                            {members.map(m => <option key={m.id} value={m.name}>{m.name}{m.id === "user-demo" ? " (Test Persona)" : ""}</option>)}
+                        </select>
+                    )}
                 </div>
             </div>
 

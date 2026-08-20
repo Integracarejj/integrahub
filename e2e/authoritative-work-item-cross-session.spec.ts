@@ -7,6 +7,7 @@ const USER_ID = "33333333-3333-4333-8333-333333333333";
 
 test("authoritative admission, assignment, and acceptance survive isolated browser sessions", async ({ browser }) => {
     let item: Record<string, unknown> | null = null;
+    let acceptPostData: string | null = "not-called";
     const assignee = { id: USER_ID, displayName: "Durable Contributor", email: "durable@integracare.com", role: "Contributor" };
     const projection = () => ({
         workItemId: WORK_ID, intakeRequestId: INTAKE_ID, requestNumber: "DD-2026-000001", status: "Queued",
@@ -25,6 +26,7 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
 
     async function setup(page: Page, userId = PREVIEW_USER.userRecord.id) {
         await mockAuth(page);
+        await page.addInitScript(() => sessionStorage.removeItem("integrasource.recap.demoPresentation"));
         await page.route("**/api/me", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
             ...PREVIEW_USER, userRecord: { ...PREVIEW_USER.userRecord, id: userId, displayName: userId === USER_ID ? "Durable Contributor" : "E2E Preview Admin" },
         }) }));
@@ -43,7 +45,10 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
             const method = route.request().method();
             if (method === "POST" && url.endsWith("/admit")) item = projection();
             if (method === "POST" && url.endsWith("/assign")) item = { ...(item || projection()), status: "Assigned", assignedUserId: USER_ID, assignedUserName: "Durable Contributor", assignedUserEmail: assignee.email, assignedAt: "2026-08-19T12:05:00.000Z", capabilities: { ...(projection().capabilities as object), canAccept: true, canMarkNotMine: true } };
-            if (method === "POST" && url.endsWith("/accept")) item = { ...(item || projection()), status: "In Progress", acceptedAt: "2026-08-19T12:10:00.000Z" };
+            if (method === "POST" && url.endsWith("/accept")) {
+                acceptPostData = route.request().postData();
+                item = { ...(item || projection()), status: "In Progress", acceptedAt: "2026-08-19T12:10:00.000Z" };
+            }
             const body = url.endsWith("/admit") ? { workItems: item ? [item] : [] }
                 : method === "GET" ? { workItems: item ? [item] : [], assignees: [assignee] }
                     : { workItem: item };
@@ -56,7 +61,7 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     const intakeContext = await browser.newContext();
     const intakePage = await intakeContext.newPage();
     await setup(intakePage);
-    await intakePage.goto("/recapitalization/intake");
+    await intakePage.goto("/recapitalization/intake", { waitUntil: "domcontentloaded" });
     await expect(intakePage.getByRole("heading", { name: "Intake Queue" })).toBeVisible();
     await intakePage.evaluate(async intakeRequestId => {
         await fetch("/api/recapitalization/work-items/admit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ intakeRequestIds: [intakeRequestId] }) });
@@ -66,7 +71,7 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     const queueContext = await browser.newContext();
     const queuePage = await queueContext.newPage();
     await setup(queuePage);
-    await queuePage.goto("/recapitalization/tracker");
+    await queuePage.goto("/recapitalization/tracker", { waitUntil: "domcontentloaded" });
     const row = queuePage.getByRole("row").filter({ hasText: "DD-2026-000001" });
     await expect(row).toContainText("Durable Keystone Request");
     await row.locator("select").last().selectOption(USER_ID);
@@ -75,19 +80,31 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     await queueContext.close();
 
     const contributorContext = await browser.newContext();
+    await contributorContext.addInitScript(() => {
+        localStorage.setItem("integrasource.recap.myWorkUser", "Sarah Chen");
+        localStorage.setItem("integrasource.recap.demo.portalRequests", JSON.stringify([{ id: "legacy-browser-row", requestId: "DD-26-017", owner: "Sarah Chen", assignedTo: "Sarah Chen", transactionId: "legacy", transactionName: "VALSTONE CORP PORTFOLIO", title: "Legacy row", status: "Assigned", priority: "Low", communityNames: [], _publishedAt: "2026-01-01" }]));
+    });
     const contributorPage = await contributorContext.newPage();
     await setup(contributorPage, USER_ID);
-    await contributorPage.goto("/recapitalization/my-work");
+    await contributorPage.goto("/recapitalization/my-work", { waitUntil: "domcontentloaded" });
+    await expect(contributorPage.getByText("Signed in as")).toContainText("Durable Contributor");
+    await expect(contributorPage.getByRole("combobox", { name: "Demo work persona" })).toHaveCount(0);
+    await expect(contributorPage.getByText("DD-26-017")).toHaveCount(0);
     await expect(contributorPage.getByText("DD-2026-000001").first()).toBeVisible();
     await contributorPage.getByText("DD-2026-000001").first().click();
+    await expect(contributorPage.getByText("Working as")).toContainText("Durable Contributor");
+    await expect(contributorPage.getByText("Testing as:")).toHaveCount(0);
     await contributorPage.getByText("Accept Work", { exact: true }).click();
     await expect(contributorPage.getByText("In Progress", { exact: true }).first()).toBeVisible();
+    expect(acceptPostData).toBeNull();
     await contributorContext.close();
 
     const freshContext = await browser.newContext();
     const freshPage = await freshContext.newPage();
     await setup(freshPage, USER_ID);
-    await freshPage.goto("/recapitalization/my-work");
+    await freshPage.goto("/recapitalization/my-work", { waitUntil: "domcontentloaded" });
+    await expect(freshPage.getByText("Signed in as")).toContainText("Durable Contributor");
+    await expect(freshPage.getByRole("combobox", { name: "Demo work persona" })).toHaveCount(0);
     const persistedRow = freshPage.getByRole("row").filter({ hasText: "DD-2026-000001" });
     await expect(persistedRow).toContainText("In Progress");
     await freshContext.close();

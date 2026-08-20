@@ -33,6 +33,7 @@ export const PREVIEW_USER = {
 };
 
 export async function mockAuth(page: Page): Promise<void> {
+    await page.addInitScript(() => sessionStorage.setItem("integrasource.recap.demoPresentation", "true"));
     let transactionSequence = 1;
     await page.route("**/api/portal/recapitalization/read-model*", route =>
         route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ transactions: [] }) }),
