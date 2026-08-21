@@ -107,6 +107,17 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     expect(acceptPostData).toBeNull();
     await contributorContext.close();
 
+    const coldWorkspaceContext = await browser.newContext();
+    const coldWorkspacePage = await coldWorkspaceContext.newPage();
+    const workspaceErrors: string[] = [];
+    coldWorkspacePage.on("pageerror", error => workspaceErrors.push(error.message));
+    await setup(coldWorkspacePage, USER_ID);
+    await coldWorkspacePage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
+    await expect(coldWorkspacePage.getByText("DD-2026-000001").first()).toBeVisible();
+    await expect(coldWorkspacePage.getByText("Working as")).toContainText("Durable Contributor");
+    expect(workspaceErrors.filter(message => message.includes("Rendered more hooks") || message.includes("Minified React error #310"))).toEqual([]);
+    await coldWorkspaceContext.close();
+
     const freshContext = await browser.newContext();
     await freshContext.addInitScript(() => {
         localStorage.setItem("integrasource.recap.demo.portalRequests", JSON.stringify([{

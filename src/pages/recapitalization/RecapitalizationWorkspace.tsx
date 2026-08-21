@@ -96,13 +96,37 @@ function ActionTile({ icon, label, desc, onClick }: { icon: React.ReactNode; lab
 }
 
 export default function RecapitalizationWorkspace() {
-    const { user: currentIdentity } = useCurrentUser();
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const location = useLocation();
     const [wsRefreshKey, setWsRefreshKey] = useState(0);
     const result = useMemo(() => id ? lookupWorkspaceItem(id) : null, [id, wsRefreshKey]);
     useEffect(() => { loadAuthoritativeWorkItems().then(() => setWsRefreshKey(k => k + 1)).catch(() => undefined); }, []);
+
+    if (!result) {
+        return (
+            <div className="rc-page">
+                <RecapSubNav />
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "80px 20px", gap: 12, textAlign: "center" }}>
+                    <h2 style={{ fontSize: 20, color: "#0f172a", margin: 0 }}>Item Not Found</h2>
+                    <p style={{ fontSize: 14, color: "#475569" }}>The requested workspace item could not be found.</p>
+                    <button className="rc-btn rc-btn-primary" onClick={() => navigate("/recapitalization/intake")}>Back to Intake Queue</button>
+                </div>
+            </div>
+        );
+    }
+
+    return <LoadedRecapitalizationWorkspace id={id} result={result} wsRefreshKey={wsRefreshKey} setWsRefreshKey={setWsRefreshKey} />;
+}
+
+function LoadedRecapitalizationWorkspace({ id, result, wsRefreshKey, setWsRefreshKey }: {
+    id: string | undefined;
+    result: NonNullable<ReturnType<typeof lookupWorkspaceItem>>;
+    wsRefreshKey: number;
+    setWsRefreshKey: React.Dispatch<React.SetStateAction<number>>;
+}) {
+    const { user: currentIdentity } = useCurrentUser();
+    const navigate = useNavigate();
+    const location = useLocation();
 
     const [internalOwner, setInternalOwner] = useState("");
 
@@ -181,19 +205,6 @@ export default function RecapitalizationWorkspace() {
     const isDdOps = backFrom === "dd-operations";
     const backLabel = backFrom === "my-work" ? "Back to My Work" : backFrom === "dd-operations" ? "Back to DD Operations" : "Back to Work Queue";
     const backPath = backFrom === "my-work" ? "/recapitalization/my-work" : backFrom === "dd-operations" ? "/recapitalization/dd-operations" : "/recapitalization/tracker";
-
-    if (!result) {
-        return (
-            <div className="rc-page">
-                <RecapSubNav />
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "80px 20px", gap: 12, textAlign: "center" }}>
-                    <h2 style={{ fontSize: 20, color: "#0f172a", margin: 0 }}>Item Not Found</h2>
-                    <p style={{ fontSize: 14, color: "#475569" }}>The requested workspace item could not be found.</p>
-                    <button className="rc-btn rc-btn-primary" onClick={() => navigate("/recapitalization/intake")}>Back to Intake Queue</button>
-            </div>
-        </div>
-    );
-}
 
 /* ── Shared Action Center State Card ── */
 
