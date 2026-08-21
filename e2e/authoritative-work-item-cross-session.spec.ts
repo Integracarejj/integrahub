@@ -4,11 +4,14 @@ import { mockAuth, PREVIEW_USER } from "./helpers/auth";
 const INTAKE_ID = "11111111-1111-4111-8111-111111111111";
 const WORK_ID = "22222222-2222-4222-8222-222222222222";
 const USER_ID = "33333333-3333-4333-8333-333333333333";
+const REASSIGNEE_ID = "77777777-7777-4777-8777-777777777777";
 
 test("authoritative admission, assignment, and acceptance survive isolated browser sessions", async ({ browser }) => {
     let item: Record<string, unknown> | null = null;
     let acceptPostData: string | null = "not-called";
     const assignee = { id: USER_ID, displayName: "Durable Contributor", email: "durable@integracare.com", role: "Contributor" };
+    const reassignee = { id: REASSIGNEE_ID, displayName: "Austin Kiec", email: "austin@integracare.com", role: "Contributor" };
+    const assignmentTargets: string[] = [];
     const projection = () => ({
         workItemId: WORK_ID, intakeRequestId: INTAKE_ID, requestNumber: "DD-2026-000001", status: "Queued",
         assignedUserId: null, assignedUserName: null, assignedUserEmail: null, team: "Financial",
@@ -44,13 +47,18 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
             const url = route.request().url();
             const method = route.request().method();
             if (method === "POST" && url.endsWith("/admit")) item = projection();
-            if (method === "POST" && url.endsWith("/assign")) item = { ...(item || projection()), status: "Assigned", assignedUserId: USER_ID, assignedUserName: "Durable Contributor", assignedUserEmail: assignee.email, assignedAt: "2026-08-19T12:05:00.000Z", capabilities: { ...(projection().capabilities as object), canAccept: true, canMarkNotMine: true } };
+            if (method === "POST" && url.endsWith("/assign")) {
+                const targetId = JSON.parse(route.request().postData() || "{}").assignedUserId;
+                const target = targetId === REASSIGNEE_ID ? reassignee : assignee;
+                assignmentTargets.push(targetId);
+                item = { ...(item || projection()), status: "Assigned", assignedUserId: target.id, assignedUserName: target.displayName, assignedUserEmail: target.email, needsReassignment: false, misassignedReason: null, assignedAt: "2026-08-19T12:05:00.000Z", capabilities: { ...(projection().capabilities as object), canAccept: true, canMarkNotMine: true } };
+            }
             if (method === "POST" && url.endsWith("/accept")) {
                 acceptPostData = route.request().postData();
                 item = { ...(item || projection()), status: "In Progress", acceptedAt: "2026-08-19T12:10:00.000Z" };
             }
             const body = url.endsWith("/admit") ? { workItems: item ? [item] : [] }
-                : method === "GET" ? { workItems: item ? [item] : [], assignees: [assignee] }
+                : method === "GET" ? { workItems: item ? [item] : [], assignees: [assignee, reassignee] }
                     : { workItem: item };
             await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
         };
@@ -127,4 +135,31 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     await expect(cleanDdPage.getByRole("row").filter({ hasText: "DD-2026-000001" })).toContainText("In Progress");
     await expect(cleanDdPage.getByText("DD-sub-stale")).toHaveCount(0);
     await cleanDdContext.close();
+
+    item = { ...(item || projection()), status: "Queued", assignedUserId: null, assignedUserName: null, assignedUserEmail: null, needsReassignment: true, misassignedReason: "Wrong contributor", acceptedAt: null };
+    const reassignmentContext = await browser.newContext();
+    const reassignmentPage = await reassignmentContext.newPage();
+    await setup(reassignmentPage);
+    await reassignmentPage.goto("/recapitalization/dd-operations", { waitUntil: "domcontentloaded" });
+    await reassignmentPage.getByRole("button", { name: "Needs DD Review" }).click();
+    const reassignmentRow = reassignmentPage.getByRole("row").filter({ hasText: "DD-2026-000001" });
+    const assignSelect = reassignmentRow.getByRole("combobox", { name: "Assign DD-2026-000001" });
+    const callsBeforeSelection = assignmentTargets.length;
+    await assignSelect.selectOption(REASSIGNEE_ID);
+    await expect(reassignmentPage.getByRole("dialog", { name: "Reassign Request?" })).toContainText("Austin Kiec");
+    expect(assignmentTargets).toHaveLength(callsBeforeSelection);
+    await expect(reassignmentRow).toContainText("Wrong contributor");
+    await reassignmentPage.getByRole("button", { name: "Cancel" }).click();
+    expect(assignmentTargets).toHaveLength(callsBeforeSelection);
+    await expect(reassignmentRow).toBeVisible();
+
+    await assignSelect.selectOption(REASSIGNEE_ID);
+    expect(assignmentTargets).toHaveLength(callsBeforeSelection);
+    await reassignmentPage.getByRole("button", { name: "Reassign", exact: true }).click();
+    await expect(reassignmentPage.getByRole("dialog", { name: "Reassigned" })).toContainText("DD-2026-000001 has been assigned to Austin Kiec.");
+    expect(assignmentTargets).toEqual([...assignmentTargets.slice(0, callsBeforeSelection), REASSIGNEE_ID]);
+    await expect(reassignmentPage.getByText(REASSIGNEE_ID)).toHaveCount(0);
+    await reassignmentPage.getByRole("button", { name: "OK" }).click();
+    await expect(reassignmentRow).toHaveCount(0);
+    await reassignmentContext.close();
 });
