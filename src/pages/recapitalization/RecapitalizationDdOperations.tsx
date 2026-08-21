@@ -694,7 +694,7 @@ export default function RecapitalizationDdOperations() {
                                                 style={{ fontSize: 10, padding: "2px 4px", borderRadius: 4, border: "1px solid #d1d5db", cursor: "pointer", minWidth: 110 }}
                                             >
                                                 <option value="">Assign...</option>
-                                                {req.origin === "authoritative" ? authoritativeAssignees.map(m => <option key={m.id} value={m.id}>{m.displayName || m.email || m.id}</option>) : members.filter(m => m.team !== "DD Management").map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                                                {req.origin === "authoritative" ? authoritativeAssignees.map(m => <option key={m.id} value={m.id}>{m.displayName || m.email || "Internal user"}</option>) : members.filter(m => m.team !== "DD Management").map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                                             </select>
                                         )}
                                     </td>
@@ -770,7 +770,7 @@ export default function RecapitalizationDdOperations() {
                                         )}
                                     </td>
                                     <td onClick={e => e.stopPropagation()} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                        {activeView === "full-work-queue" && !req.owner && (
+                                        {activeView === "full-work-queue" && (req.origin === "authoritative" || !req.owner) && (
                                             <select
                                                 aria-label={`Assign ${req.requestId}`}
                                                 value=""
@@ -779,7 +779,7 @@ export default function RecapitalizationDdOperations() {
                                                     if (newOwner) {
                                                         if (req.origin === "authoritative") {
                                                             const assignee = authoritativeAssignees.find(user => user.id === newOwner);
-                                                            setPendingAuthoritativeAssignment({ req, userId: newOwner, displayName: assignee?.displayName || assignee?.email || "Selected user", reassignment: false });
+                                                            setPendingAuthoritativeAssignment({ req, userId: newOwner, displayName: assignee?.displayName || assignee?.email || "Selected user", reassignment: !!req.assignedUserId || !!req.owner });
                                                             return;
                                                         }
                                                         updateRequestOwner(req.id, newOwner); updateRequestStatus(req.id, "Open" as RecapRequest["status"]);
@@ -803,7 +803,7 @@ export default function RecapitalizationDdOperations() {
                                                 style={{ fontSize: 10, padding: "2px 4px", borderRadius: 4, border: "1px solid #d1d5db", cursor: "pointer", minWidth: 110 }}
                                             >
                                                 <option value="">Assign...</option>
-                                                {req.origin === "authoritative" ? authoritativeAssignees.map(m => <option key={m.id} value={m.id}>{m.displayName || m.email || m.id}</option>) : members.filter(m => m.team !== "DD Management").map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                                                {req.origin === "authoritative" ? authoritativeAssignees.map(m => <option key={m.id} value={m.id}>{m.displayName || m.email || "Internal user"}</option>) : members.filter(m => m.team !== "DD Management").map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                                             </select>
                                         )}
                                     </td>

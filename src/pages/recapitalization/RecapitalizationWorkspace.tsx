@@ -724,15 +724,17 @@ function WorkflowStateCard({
                                             </>
                                         )}
                                     </div>
-                                    <select
-                                        id="ws-owner-select"
-                                        value={internalOwner || ""}
-                                        onChange={e => doAssign(e.target.value)}
-                                        style={{ position: "absolute", inset: 0, width: "100%", opacity: 0, cursor: "pointer", fontSize: 13 }}
-                                    >
-                                        <option value="">Unassigned</option>
-                                        {TEAM_MEMBERS.map(n => <option key={n} value={n}>{n}</option>)}
-                                    </select>
+                                    {item.origin !== "authoritative" && (
+                                        <select
+                                            id="ws-owner-select"
+                                            value={internalOwner || ""}
+                                            onChange={e => doAssign(e.target.value)}
+                                            style={{ position: "absolute", inset: 0, width: "100%", opacity: 0, cursor: "pointer", fontSize: 13 }}
+                                        >
+                                            <option value="">Unassigned</option>
+                                            {TEAM_MEMBERS.map(n => <option key={n} value={n}>{n}</option>)}
+                                        </select>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -814,7 +816,7 @@ function WorkflowStateCard({
                             <div style={{ marginBottom: 14 }}>
                               <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 12 }}>Other Actions</div>
                               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-                                {!item._blockerStatus && (
+                                {item.origin !== "authoritative" && !item._blockerStatus && (
                                   <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>} label="Reassign Owner" desc="Change the current owner" onClick={() => { const el = document.getElementById("ws-owner-select"); if (el) { (el as HTMLSelectElement).focus(); (el as HTMLSelectElement).click(); }}} />
                                 )}
                               </div>
@@ -987,7 +989,7 @@ function WorkflowStateCard({
                                 const alreadyReturned = !!item._returnReason && displayStatus === "Needs Rework";
                                 const inActiveWorkflow = isClarActive || isBlocked || !!item._blockerStatus || alreadyReturned;
                                 return !inActiveWorkflow;
-                              })() && <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>} label="Reassign Owner" desc="Change the current owner" onClick={() => { const el = document.getElementById("ws-owner-select"); if (el) { (el as HTMLSelectElement).focus(); (el as HTMLSelectElement).click(); }}} />}
+                              })() && item.origin !== "authoritative" && <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>} label="Reassign Owner" desc="Change the current owner" onClick={() => { const el = document.getElementById("ws-owner-select"); if (el) { (el as HTMLSelectElement).focus(); (el as HTMLSelectElement).click(); }}} />}
                               {displayStatus !== "Blocked" && (
                                 <>
                                   <ActionTile icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>} label="Recommend Duplicate to Partner" desc="Validate and send recommendation" onClick={() => setDdOpsRecommendModal({ type: "Duplicate", partnerNote: "" })} />

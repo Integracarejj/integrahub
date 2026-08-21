@@ -79,12 +79,23 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     const queueContext = await browser.newContext();
     const queuePage = await queueContext.newPage();
     await setup(queuePage);
-    await queuePage.goto("/recapitalization/tracker", { waitUntil: "domcontentloaded" });
+    await queuePage.goto("/recapitalization/dd-operations", { waitUntil: "domcontentloaded" });
     const row = queuePage.getByRole("row").filter({ hasText: "DD-2026-000001" });
     await expect(row).toContainText("Durable Keystone Request");
-    await row.locator("select").last().selectOption(USER_ID);
+    const initialAssign = row.getByRole("combobox", { name: "Assign DD-2026-000001" });
+    await initialAssign.selectOption(USER_ID);
+    await expect(queuePage.getByRole("dialog", { name: "Assign Request?" })).toContainText("Durable Contributor");
+    expect(assignmentTargets).toHaveLength(0);
+    await queuePage.getByRole("button", { name: "Cancel" }).click();
+    expect(assignmentTargets).toHaveLength(0);
+    await expect(row.locator("td").nth(6)).toHaveText("—");
+    await initialAssign.selectOption(USER_ID);
     await queuePage.getByRole("button", { name: "Assign", exact: true }).click();
-    await expect(row).toContainText("Durable Contributor");
+    await expect(queuePage.getByRole("dialog", { name: "Assigned" })).toContainText("DD-2026-000001 has been assigned to Durable Contributor.");
+    expect(assignmentTargets).toEqual([USER_ID]);
+    await expect(queuePage.getByText(USER_ID)).toHaveCount(0);
+    await queuePage.getByRole("button", { name: "OK" }).click();
+    await expect(row.locator("td").nth(6)).toHaveText("Durable Contributor");
     await queueContext.close();
 
     const contributorContext = await browser.newContext();
@@ -115,6 +126,8 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     await coldWorkspacePage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
     await expect(coldWorkspacePage.getByText("DD-2026-000001").first()).toBeVisible();
     await expect(coldWorkspacePage.getByText("Working as")).toContainText("Durable Contributor");
+    await expect(coldWorkspacePage.locator("#ws-owner-select")).toHaveCount(0);
+    await expect(coldWorkspacePage.getByText("Reassign Owner", { exact: true })).toHaveCount(0);
     expect(workspaceErrors.filter(message => message.includes("Rendered more hooks") || message.includes("Minified React error #310"))).toEqual([]);
     await coldWorkspaceContext.close();
 
@@ -143,7 +156,24 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     const cleanDdPage = await cleanDdContext.newPage();
     await setup(cleanDdPage, USER_ID);
     await cleanDdPage.goto("/recapitalization/dd-operations", { waitUntil: "domcontentloaded" });
-    await expect(cleanDdPage.getByRole("row").filter({ hasText: "DD-2026-000001" })).toContainText("In Progress");
+    const assignedRow = cleanDdPage.getByRole("row").filter({ hasText: "DD-2026-000001" });
+    await expect(assignedRow).toContainText("In Progress");
+    await expect(assignedRow.locator("td").nth(6)).toHaveText("Durable Contributor");
+    const assignedControl = assignedRow.getByRole("combobox", { name: "Assign DD-2026-000001" });
+    const callsBeforeAssignedSelection = assignmentTargets.length;
+    await assignedControl.selectOption(REASSIGNEE_ID);
+    await expect(cleanDdPage.getByRole("dialog", { name: "Reassign Request?" })).toContainText("Austin Kiec");
+    expect(assignmentTargets).toHaveLength(callsBeforeAssignedSelection);
+    await cleanDdPage.getByRole("button", { name: "Cancel" }).click();
+    await expect(assignedRow.locator("td").nth(6)).toHaveText("Durable Contributor");
+    expect(assignmentTargets).toHaveLength(callsBeforeAssignedSelection);
+    await assignedControl.selectOption(REASSIGNEE_ID);
+    await cleanDdPage.getByRole("button", { name: "Reassign", exact: true }).click();
+    await expect(cleanDdPage.getByRole("dialog", { name: "Reassigned" })).toContainText("DD-2026-000001 has been assigned to Austin Kiec.");
+    expect(assignmentTargets).toEqual([...assignmentTargets.slice(0, callsBeforeAssignedSelection), REASSIGNEE_ID]);
+    await expect(cleanDdPage.getByText(REASSIGNEE_ID)).toHaveCount(0);
+    await cleanDdPage.getByRole("button", { name: "OK" }).click();
+    await expect(assignedRow.locator("td").nth(6)).toHaveText("Austin Kiec");
     await expect(cleanDdPage.getByText("DD-sub-stale")).toHaveCount(0);
     await cleanDdContext.close();
 
