@@ -4,7 +4,7 @@ import type { RecapRequest } from "./recapMockData";
 export interface AuthoritativeAssignee { id: string; displayName: string | null; email: string | null; role: string }
 interface WorkItemResponse {
     workItemId: string; intakeRequestId: string; requestNumber: string;
-    status: "Queued" | "Assigned" | "In Progress"; assignedUserId: string | null;
+    status: "Queued" | "Assigned" | "In Progress" | "Needs DD Review" | "Ready to Publish"; assignedUserId: string | null;
     assignedUserName: string | null; assignedUserEmail: string | null;
     team: string; priority: RecapRequest["priority"]; dueDate: string | null;
     title: string; description: string; category: string; communities: string[];
@@ -84,4 +84,7 @@ export async function assignAuthoritativeWorkItem(id: string, assignedUserId: st
     return upsert(data.workItem);
 }
 export async function acceptAuthoritativeWorkItem(id: string) { const data = await api(`/${id}/accept`, { method: "POST" }); return upsert(data.workItem); }
+export async function submitAuthoritativeWorkItemForDdReview(id: string) { const data = await api(`/${id}/submit-dd-review`, { method: "POST" }); return upsert(data.workItem); }
+export async function returnAuthoritativeWorkItemFromDdReview(id: string) { const data = await api(`/${id}/return-from-dd-review`, { method: "POST" }); return upsert(data.workItem); }
+export async function markAuthoritativeWorkItemReadyToPublish(id: string) { const data = await api(`/${id}/ready-to-publish`, { method: "POST" }); return upsert(data.workItem); }
 export async function markAuthoritativeWorkItemNotMine(id: string, reason: string) { const data = await api(`/${id}/not-mine`, { method: "POST", body: JSON.stringify({ reason }) }); return upsert(data.workItem); }

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createRecapWorkItemRepository } from "../src/services/recapWorkItemRepository.js";
-import { createRecapWorkItemService, RecapWorkItemValidationError } from "../src/services/recapWorkItemService.js";
+import { createRecapWorkItemService, RecapWorkItemAuthorizationError, RecapWorkItemValidationError } from "../src/services/recapWorkItemService.js";
 
 const ID1 = "11111111-1111-4111-8111-111111111111";
 const ID2 = "22222222-2222-4222-8222-222222222222";
@@ -17,6 +17,13 @@ test("migration defines durable identity, constraints, narrow statuses, and rowv
     assert.match(sql, /FOREIGN KEY \(assignedUserId\).*cmdb\.Users/);
     assert.match(sql, /status IN \('Queued', 'Assigned', 'In Progress'\)/);
     assert.match(sql, /ROWVERSION/);
+});
+
+test("migration 013 extends only the normal DD review lifecycle without colliding with COSM 012", async () => {
+    const sql = await readFile(new URL("../src/migrations/013_recap_dd_review_lifecycle.sql", import.meta.url), "utf8");
+    assert.match(sql, /DROP CONSTRAINT CK_RecapWorkItems_Status/);
+    assert.match(sql, /'Queued', 'Assigned', 'In Progress', 'Needs DD Review', 'Ready to Publish'/);
+    assert.doesNotMatch(sql, /Published|Blocked|Clarification/);
 });
 
 test("admission is transactional, idempotent, snapshots reviewed fields, and recalculates package conversion", async () => {
@@ -96,4 +103,50 @@ test("assignment, accept, and Not Mine use server actor identity and atomic tran
     assert.match(calls[1].sql, /acceptedAt = SYSUTCDATETIME\(\)/);
     assert.match(calls[2].sql, /needsReassignment = 1/);
     assert.match(calls[2].sql, /assignedUserId = NULL/);
+});
+
+test("normal DD lifecycle transitions are atomic, owner-preserving, and role-enforced", async () => {
+    const calls = [];
+    const repository = createRecapWorkItemRepository({ query: async (sql, values) => { calls.push({ sql, values }); return [{ ...WORK, assignedUserId: "owner-a" }]; } });
+    await repository.submitForDdReview(ID1, { id: "owner-a" });
+    await repository.returnFromDdReview(ID1);
+    await repository.markReadyToPublish(ID1);
+    assert.match(calls[0].sql, /assignedUserId = @actorId[\s\S]*status = 'In Progress'/);
+    assert.match(calls[0].sql, /status = 'Needs DD Review'/);
+    assert.match(calls[1].sql, /assignedUserId IS NOT NULL[\s\S]*status = 'Needs DD Review'/);
+    assert.match(calls[1].sql, /SET status = 'In Progress'/);
+    assert.doesNotMatch(calls[1].sql, /assignedUserId\s*=/);
+    assert.match(calls[2].sql, /SET status = 'Ready to Publish'/);
+    assert.doesNotMatch(calls[2].sql, /assignedUserId\s*=/);
+
+    const service = createRecapWorkItemService({ repository: {
+        returnFromDdReview: async () => [{ ...WORK, status: "In Progress", assignedUserId: "owner-a" }],
+        markReadyToPublish: async () => [{ ...WORK, status: "Ready to Publish", assignedUserId: "owner-a" }],
+    } });
+    await assert.rejects(() => service.returnFromDdReview(ID1, { id: "owner-a", globalRole: "Viewer" }), RecapWorkItemAuthorizationError);
+    await assert.rejects(() => service.markReadyToPublish(ID1, { id: "owner-a", globalRole: "Editor" }), RecapWorkItemAuthorizationError);
+    assert.equal((await service.returnFromDdReview(ID1, { id: "ops", globalRole: "DDTeam" })).status, "In Progress");
+    assert.equal((await service.markReadyToPublish(ID1, { id: "admin", globalRole: "PlatformAdmin" })).status, "Ready to Publish");
+});
+
+test("authoritative capability projection is state, owner, and operations-role specific", async () => {
+    const rows = [
+        { ...WORK, status: "Assigned", assignedUserId: "owner-a" },
+        { ...WORK, workItemId: ID2, status: "In Progress", assignedUserId: "owner-a" },
+        { ...WORK, workItemId: "33333333-3333-4333-8333-333333333333", status: "Needs DD Review", assignedUserId: "owner-a" },
+        { ...WORK, workItemId: "44444444-4444-4444-8444-444444444444", status: "Ready to Publish", assignedUserId: "owner-a" },
+    ];
+    const service = createRecapWorkItemService({ repository: { list: async () => ({ workItems: rows, assignees: [] }) } });
+    const owner = (await service.list({ id: "owner-a", globalRole: "Viewer" })).workItems;
+    assert.equal(owner[0].capabilities.canAccept, true);
+    assert.equal(owner[1].capabilities.canSubmitForDdReview, true);
+    assert.equal(owner[1].capabilities.canComplete, false);
+    assert.equal(owner[2].capabilities.canSubmitForDdReview, false);
+    assert.equal(owner[2].capabilities.canReturnFromDdReview, false);
+    assert.equal(owner[3].capabilities.canPublish, false);
+    const ops = (await service.list({ id: "ops", globalRole: "DDTeam" })).workItems;
+    assert.equal(ops[1].capabilities.canSubmitForDdReview, false);
+    assert.equal(ops[2].capabilities.canReturnFromDdReview, true);
+    assert.equal(ops[2].capabilities.canMarkReadyToPublish, true);
+    assert.equal(ops[3].capabilities.canMarkReadyToPublish, false);
 });

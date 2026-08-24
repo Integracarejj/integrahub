@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canAcceptAuthoritativeWorkItem, getMyWorkRequests, getPresentedRecapRequests, isRealInternalRecapMode } from "../services/recapPresentation";
+import { canAcceptAuthoritativeWorkItem, canMarkAuthoritativeWorkItemReadyToPublish, canReturnAuthoritativeWorkItemFromDdReview, canSubmitAuthoritativeWorkItemForDdReview, getMyWorkRequests, getPresentedRecapRequests, isRealInternalRecapMode } from "../services/recapPresentation";
 import type { CurrentUserResponse } from "../hooks/useCurrentUser";
 import type { RecapRequest } from "../services/recapDataService";
 
@@ -38,5 +38,24 @@ describe("Recap authenticated and demo presentation boundary", () => {
         expect(canAcceptAuthoritativeWorkItem({ ...assigned, assignedUserId: undefined }, "test-jeremy-001")).toBe(false);
         expect(canAcceptAuthoritativeWorkItem({ ...assigned, status: "In Progress" }, "test-jeremy-001")).toBe(false);
         expect(canAcceptAuthoritativeWorkItem({ ...sarahDemo, status: "Assigned" }, "test-jeremy-001")).toBe(false);
+    });
+
+    it.each([
+        ["Queued", {}, false, false, false],
+        ["Assigned", { canAccept: true }, false, false, false],
+        ["In Progress", { canSubmitForDdReview: true }, true, false, false],
+        ["Needs DD Review", { canReturnFromDdReview: true, canMarkReadyToPublish: true }, false, true, true],
+        ["Ready to Publish", { canPublish: false }, false, false, false],
+    ])("protects the authoritative action matrix for %s", (status, capabilities, submit, returnFromReview, ready) => {
+        const request = { ...authoritative, status, capabilities } as RecapRequest;
+        expect(canSubmitAuthoritativeWorkItemForDdReview(request, "test-jeremy-001")).toBe(submit);
+        expect(canReturnAuthoritativeWorkItemFromDdReview(request)).toBe(returnFromReview);
+        expect(canMarkAuthoritativeWorkItemReadyToPublish(request)).toBe(ready);
+    });
+
+    it("never exposes durable transitions to demo rows or a non-owner", () => {
+        const inProgress = { ...authoritative, status: "In Progress", capabilities: { canSubmitForDdReview: true } } as RecapRequest;
+        expect(canSubmitAuthoritativeWorkItemForDdReview(inProgress, "another-user")).toBe(false);
+        expect(canSubmitAuthoritativeWorkItemForDdReview({ ...inProgress, origin: "demo" }, "test-jeremy-001")).toBe(false);
     });
 });

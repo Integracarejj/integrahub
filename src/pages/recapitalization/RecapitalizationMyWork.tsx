@@ -80,6 +80,8 @@ export default function RecapitalizationMyWork() {
     const activeWork = useMemo(() => {
         return assignedToMe.filter(r =>
             r.status !== "Complete" &&
+            r.status !== "Needs DD Review" &&
+            r.status !== "Ready to Publish" &&
             r._externalStatus !== "Ready to Publish" &&
             r._externalStatus !== "Published External" &&
             !RETURNED_STATUSES.includes(r.status) &&
@@ -89,7 +91,7 @@ export default function RecapitalizationMyWork() {
 
     const waitingOnDDOps = useMemo(() => {
         return workItems
-            .filter(r => ((r.status === "Blocked" || r.status === "Pending External") && r._blockerRaisedBy === activeUser) || (r.status === "Clarification Needed" && r._clarificationRaisedBy === activeUser))
+            .filter(r => (r.origin === "authoritative" && r.assignedUserId === currentIdentity?.userRecord?.id && r.status === "Needs DD Review") || ((r.status === "Blocked" || r.status === "Pending External") && r._blockerRaisedBy === activeUser) || (r.status === "Clarification Needed" && r._clarificationRaisedBy === activeUser))
             .sort((a, b) => {
                 const aDate = a.lastUpdated || "";
                 const bDate = b.lastUpdated || "";
@@ -100,11 +102,12 @@ export default function RecapitalizationMyWork() {
                 const pMap: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
                 return (pMap[a.priority] || 1) - (pMap[b.priority] || 1);
             });
-    }, [workItems, activeUser]);
+    }, [workItems, activeUser, currentIdentity?.userRecord?.id]);
 
     const completedWork = useMemo(() => {
         return assignedToMe.filter(r =>
             r.status === "Complete" ||
+            r.status === "Ready to Publish" ||
             r._externalStatus === "Ready to Publish" ||
             (r._externalStatus === "Published External" && r.status !== "Needs Rework")
         );

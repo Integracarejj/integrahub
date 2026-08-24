@@ -2,10 +2,12 @@ import { recapWorkItemRepository } from "./recapWorkItemRepository.js";
 
 export class RecapWorkItemValidationError extends Error {}
 export class RecapWorkItemConflictError extends Error {}
+export class RecapWorkItemAuthorizationError extends Error {}
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const text = (value, max) => value == null ? null : String(value).trim().slice(0, max);
 
 function mapRow(row, actor) {
+    const isOperations = ["PlatformAdmin", "DDTeam"].includes(actor?.globalRole);
     return {
         ...row,
         communities: JSON.parse(row.communityNamesJson || "[]"),
@@ -14,7 +16,12 @@ function mapRow(row, actor) {
         capabilities: {
             canAssign: true, canAccept: row.status === "Assigned" && !!actor?.id && row.assignedUserId === actor.id,
             canMarkNotMine: !!row.assignedUserId, canReassign: true,
-            canClarify: false, canBlock: false, canComplete: false, canPublish: false,
+            canClarify: false, canBlock: false,
+            canSubmitForDdReview: row.status === "In Progress" && !!actor?.id && row.assignedUserId === actor.id,
+            canComplete: false,
+            canReturnFromDdReview: isOperations && row.status === "Needs DD Review" && !!row.assignedUserId,
+            canMarkReadyToPublish: isOperations && row.status === "Needs DD Review" && !!row.assignedUserId,
+            canPublish: false,
             canMarkDuplicate: false, canMarkNotApplicable: false,
         },
     };
@@ -50,6 +57,20 @@ export function createRecapWorkItemService({ repository = recapWorkItemRepositor
         async accept(id, actor) {
             if (!UUID.test(id)) throw new RecapWorkItemValidationError();
             return mapRow((await repository.accept(id, actor))[0], actor);
+        },
+        async submitForDdReview(id, actor) {
+            if (!UUID.test(id)) throw new RecapWorkItemValidationError();
+            return mapRow((await repository.submitForDdReview(id, actor))[0], actor);
+        },
+        async returnFromDdReview(id, actor) {
+            if (!UUID.test(id)) throw new RecapWorkItemValidationError();
+            if (!["PlatformAdmin", "DDTeam"].includes(actor?.globalRole)) throw new RecapWorkItemAuthorizationError("DD Operations access required");
+            return mapRow((await repository.returnFromDdReview(id))[0], actor);
+        },
+        async markReadyToPublish(id, actor) {
+            if (!UUID.test(id)) throw new RecapWorkItemValidationError();
+            if (!["PlatformAdmin", "DDTeam"].includes(actor?.globalRole)) throw new RecapWorkItemAuthorizationError("DD Operations access required");
+            return mapRow((await repository.markReadyToPublish(id))[0], actor);
         },
         async markNotMine(id, reason, actor) {
             const cleanReason = text(reason, 1000);

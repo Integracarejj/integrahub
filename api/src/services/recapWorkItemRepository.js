@@ -121,6 +121,39 @@ export function createRecapWorkItemRepository({ query = defaultQuery } = {}) {
             `, { id, actorId: actor.id });
         },
 
+        async submitForDdReview(id, actor) {
+            return query(`
+                UPDATE cmdb.RecapWorkItems
+                SET status = 'Needs DD Review', updatedAt = SYSUTCDATETIME()
+                WHERE id = @id AND assignedUserId = @actorId
+                  AND status = 'In Progress';
+                IF @@ROWCOUNT = 0 THROW 51007, 'Work item cannot be submitted for DD review', 1;
+                ${joinedSelect} WHERE workItem.id = @id;
+            `, { id, actorId: actor.id });
+        },
+
+        async returnFromDdReview(id) {
+            return query(`
+                UPDATE cmdb.RecapWorkItems
+                SET status = 'In Progress', updatedAt = SYSUTCDATETIME()
+                WHERE id = @id AND assignedUserId IS NOT NULL
+                  AND status = 'Needs DD Review';
+                IF @@ROWCOUNT = 0 THROW 51008, 'Work item cannot be returned from DD review', 1;
+                ${joinedSelect} WHERE workItem.id = @id;
+            `, { id });
+        },
+
+        async markReadyToPublish(id) {
+            return query(`
+                UPDATE cmdb.RecapWorkItems
+                SET status = 'Ready to Publish', updatedAt = SYSUTCDATETIME()
+                WHERE id = @id AND assignedUserId IS NOT NULL
+                  AND status = 'Needs DD Review';
+                IF @@ROWCOUNT = 0 THROW 51009, 'Work item cannot be marked ready to publish', 1;
+                ${joinedSelect} WHERE workItem.id = @id;
+            `, { id });
+        },
+
         async markNotMine(id, reason, actor) {
             return query(`
                 UPDATE cmdb.RecapWorkItems

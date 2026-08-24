@@ -5,7 +5,7 @@ import type { RecapRequest, WorkArtifact } from "../../services/recapDataService
 import RecapSubNav from "./RecapSubNav";
 import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
-import { assignAuthoritativeWorkItem, getAuthoritativeAssignees, loadAuthoritativeWorkItems } from "../../services/recapWorkItemPersistence";
+import { assignAuthoritativeWorkItem, getAuthoritativeAssignees, loadAuthoritativeWorkItems, markAuthoritativeWorkItemReadyToPublish, returnAuthoritativeWorkItemFromDdReview } from "../../services/recapWorkItemPersistence";
 import { getPresentedRecapRequests, isRealInternalRecapMode } from "../../services/recapPresentation";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 
@@ -30,6 +30,8 @@ export default function RecapitalizationDdOperations() {
     const [refreshKey, setRefreshKey] = useState(0);
     const [returnToTeam, setReturnToTeam] = useState<{ req: RecapRequest; reason: string } | null>(null);
     const [pendingAuthoritativeAssignment, setPendingAuthoritativeAssignment] = useState<{ req: RecapRequest; userId: string; displayName: string; reassignment: boolean } | null>(null);
+    const [pendingAuthoritativeDdAction, setPendingAuthoritativeDdAction] = useState<{ req: RecapRequest; action: "return" | "ready" } | null>(null);
+    const [authoritativeDdActionPending, setAuthoritativeDdActionPending] = useState(false);
     const members = getTeamMembers();
     const authoritativeAssignees = getAuthoritativeAssignees();
     const demoActive = isDemoPresentationActive();
@@ -48,8 +50,8 @@ export default function RecapitalizationDdOperations() {
 
     /* ── KPIs ── */
     const NEEDS_DD_REVIEW_STATUSES = ["Blocked", "Clarification Needed"];
-    const kpiNeedsDDReview = useMemo(() => workItems.filter(r => (NEEDS_DD_REVIEW_STATUSES.includes(r.status) || r._needsReassignment || r._misassignedReason || r._partnerDecision === "Rework Required") && !r._returnReason).length, [workItems]);
-    const kpiReadyToPublish = useMemo(() => workItems.filter(r => r.status === "Complete" && r._externalStatus !== "Published External").length, [workItems]);
+    const kpiNeedsDDReview = useMemo(() => workItems.filter(r => (r.status === "Needs DD Review" || NEEDS_DD_REVIEW_STATUSES.includes(r.status) || r._needsReassignment || r._misassignedReason || r._partnerDecision === "Rework Required") && !r._returnReason).length, [workItems]);
+    const kpiReadyToPublish = useMemo(() => workItems.filter(r => (r.status === "Ready to Publish" || r.status === "Complete") && r._externalStatus !== "Published External").length, [workItems]);
     const kpiExceptions = useMemo(() => workItems.filter(r => (r.status === "Duplicate" || r.status === "Not Applicable") && !r._exceptionSentAt).length, [workItems]);
     const kpiPublishedExternal = useMemo(() => workItems.filter(r => r._externalStatus === "Published External" && (!r._partnerDecision || r._partnerDecision === "Approved") && !r._exceptionSentAt).length, [workItems]);
     const kpiPartnerActionRequired = useMemo(() => workItems.filter(r => ((r._externalStatus === "Published External" && r._partnerDecision && r._partnerDecision !== "Rework Required") || r._exceptionDecision || (r._exceptionSentAt && !r._exceptionDecision) || r._blockerStatus === "Pending External") && r.status !== "Completed").length, [workItems]);
@@ -60,7 +62,7 @@ export default function RecapitalizationDdOperations() {
 
     const needsDDReview = useMemo(() => {
         return workItems
-            .filter(r => (NEEDS_DD_REVIEW_STATUSES.includes(r.status) || r._needsReassignment || r._misassignedReason || r._partnerDecision === "Rework Required") && !r._returnReason)
+            .filter(r => (r.status === "Needs DD Review" || NEEDS_DD_REVIEW_STATUSES.includes(r.status) || r._needsReassignment || r._misassignedReason || r._partnerDecision === "Rework Required") && !r._returnReason)
             .sort((a, b) => {
                 const aDue = a.dueDate || "9999-99-99";
                 const bDue = b.dueDate || "9999-99-99";
@@ -72,7 +74,7 @@ export default function RecapitalizationDdOperations() {
 
     const readyToPublish = useMemo(() => {
         return workItems
-            .filter(r => r.status === "Complete" && r._externalStatus !== "Published External")
+            .filter(r => (r.status === "Ready to Publish" || r.status === "Complete") && r._externalStatus !== "Published External")
             .sort((a, b) => {
                 const aDate = a.lastUpdated || "";
                 const bDate = b.lastUpdated || "";
@@ -183,6 +185,26 @@ export default function RecapitalizationDdOperations() {
             transactionName: req.transactionName,
         });
         setRefreshKey(k => k + 1);
+    }
+
+    async function confirmAuthoritativeDdAction() {
+        if (!pendingAuthoritativeDdAction || authoritativeDdActionPending) return;
+        setAuthoritativeDdActionPending(true);
+        try {
+            const { req, action } = pendingAuthoritativeDdAction;
+            if (action === "return") await returnAuthoritativeWorkItemFromDdReview(req.id);
+            else await markAuthoritativeWorkItemReadyToPublish(req.id);
+            setPendingAuthoritativeDdAction(null);
+            setSuccessMsg({
+                title: action === "return" ? "Returned to Contributor" : "Ready to Publish",
+                body: `${req.requestId} — ${req.title}`,
+            });
+            setRefreshKey(k => k + 1);
+        } catch (error) {
+            setSuccessMsg({ title: "Transition failed", body: error instanceof Error ? error.message : "Unable to update work item" });
+        } finally {
+            setAuthoritativeDdActionPending(false);
+        }
     }
 
     const emptyMessages: Record<ViewTab, string> = {
@@ -647,7 +669,12 @@ export default function RecapitalizationDdOperations() {
                                     <td style={{ fontSize: 12, color: "#475569" }}>{req.owner || "\u2014"}</td>
                                     <td style={{ fontSize: 12, color: "#475569" }}>{req.lastUpdated}</td>
                                     <td onClick={e => e.stopPropagation()} style={{ whiteSpace: "nowrap" }}>
-                                        {req.owner && !req._needsReassignment && !req._misassignedReason ? (
+                                        {req.origin === "authoritative" && req.status === "Needs DD Review" ? (
+                                            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                                                {req.capabilities?.canReturnFromDdReview && <button onClick={() => setPendingAuthoritativeDdAction({ req, action: "return" })} style={{ fontSize: 10, padding: "4px 10px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #fcd34d", cursor: "pointer", fontWeight: 600 }}>Return to Contributor</button>}
+                                                {req.capabilities?.canMarkReadyToPublish && <button onClick={() => setPendingAuthoritativeDdAction({ req, action: "ready" })} style={{ fontSize: 10, padding: "4px 10px", borderRadius: 6, background: "#047857", color: "#fff", border: "1px solid #047857", cursor: "pointer", fontWeight: 600 }}>Mark Ready to Publish</button>}
+                                            </div>
+                                        ) : req.owner && !req._needsReassignment && !req._misassignedReason ? (
                                             <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
                                                 {req.status !== "Blocked" && (
                                                     <button
@@ -998,6 +1025,31 @@ export default function RecapitalizationDdOperations() {
                                 });
                                 setReturnToOwner(null);
                             }}>Return to Owner</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {pendingAuthoritativeDdAction && (
+                <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label={pendingAuthoritativeDdAction.action === "return" ? "Return to Contributor?" : "Mark Ready to Publish?"} onClick={() => { if (!authoritativeDdActionPending) setPendingAuthoritativeDdAction(null); }}>
+                    <div className="rc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="rc-modal-header">
+                            <h2>{pendingAuthoritativeDdAction.action === "return" ? "Return to Contributor?" : "Mark Ready to Publish?"}</h2>
+                            <button className="rc-modal-close" aria-label="Close" disabled={authoritativeDdActionPending} onClick={() => setPendingAuthoritativeDdAction(null)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ fontSize: 14, color: "#1e293b" }}>
+                                <strong>{pendingAuthoritativeDdAction.req.requestId}</strong> &mdash; <strong>{pendingAuthoritativeDdAction.req.title}</strong>
+                            </div>
+                            <div style={{ fontSize: 13, color: "#475569", marginTop: 10 }}>
+                                {pendingAuthoritativeDdAction.action === "return"
+                                    ? `This will return the request to ${pendingAuthoritativeDdAction.req.owner || "the current contributor"} as In Progress.`
+                                    : "This will approve DD review and move the request to Ready to Publish. Publication is not included in this release."}
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" disabled={authoritativeDdActionPending} onClick={() => setPendingAuthoritativeDdAction(null)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={authoritativeDdActionPending} onClick={confirmAuthoritativeDdAction}>{authoritativeDdActionPending ? "Updating..." : "Confirm"}</button>
                         </div>
                     </div>
                 </div>

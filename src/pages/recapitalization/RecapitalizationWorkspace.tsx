@@ -6,9 +6,9 @@ import ClarificationThread, { getClarificationSummary } from "../../components/c
 import RecapSubNav from "./RecapSubNav";
 import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
-import { acceptAuthoritativeWorkItem, loadAuthoritativeWorkItems, markAuthoritativeWorkItemNotMine } from "../../services/recapWorkItemPersistence";
+import { acceptAuthoritativeWorkItem, loadAuthoritativeWorkItems, markAuthoritativeWorkItemNotMine, submitAuthoritativeWorkItemForDdReview } from "../../services/recapWorkItemPersistence";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
-import { canAcceptAuthoritativeWorkItem } from "../../services/recapPresentation";
+import { canAcceptAuthoritativeWorkItem, canSubmitAuthoritativeWorkItemForDdReview } from "../../services/recapPresentation";
 
 const TEAM_MEMBERS = ["Sarah Chen", "James Wright", "Lisa Park", "Tom Davies", "Mike O'Brien", "Anna Patel", "David Park", "Carlos Rivera", "Demo User (Test)"];
 
@@ -161,6 +161,8 @@ function LoadedRecapitalizationWorkspace({ id, result, wsRefreshKey, setWsRefres
     const [actionFeedback, setActionFeedback] = useState<string | null>(null);
     const [pendingAuthoritativeAcceptance, setPendingAuthoritativeAcceptance] = useState(false);
     const [acceptingAuthoritativeWork, setAcceptingAuthoritativeWork] = useState(false);
+    const [pendingAuthoritativeDdReview, setPendingAuthoritativeDdReview] = useState(false);
+    const [submittingAuthoritativeDdReview, setSubmittingAuthoritativeDdReview] = useState(false);
     const [completionDialog, setCompletionDialog] = useState<"blocked" | "clarification" | "dd-review" | "return-to-owner" | "duplicate" | "not-applicable" | "not-mine" | "resolved" | null>(null);
     const [publishExternal, setPublishExternal] = useState<{ step: number; selectedArtifacts: string[]; note: string } | null>(null);
     const [artifactDetail, setArtifactDetail] = useState<WorkArtifact | null>(null);
@@ -277,6 +279,7 @@ function WorkflowStateCard({
     const displayTitle = item.title || item.fileName || "";
     const displayStatus = item.status;
     const canAcceptAuthoritative = canAcceptAuthoritativeWorkItem(item as RecapRequest, currentIdentity?.userRecord?.id);
+    const canSubmitAuthoritativeDdReview = canSubmitAuthoritativeWorkItemForDdReview(item as RecapRequest, currentIdentity?.userRecord?.id);
     const communities = item.communityNames || [];
     const description = item.description || "";
     const submittedDate = item.submittedAt ? new Date(item.submittedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : item.createdDate || "";
@@ -467,6 +470,21 @@ function WorkflowStateCard({
             if (await doStatusChange("In Progress")) setPendingAuthoritativeAcceptance(false);
         } finally {
             setAcceptingAuthoritativeWork(false);
+        }
+    }
+
+    async function confirmAuthoritativeDdReviewSubmission() {
+        if (submittingAuthoritativeDdReview) return;
+        setSubmittingAuthoritativeDdReview(true);
+        try {
+            await submitAuthoritativeWorkItemForDdReview(item.id);
+            setPendingAuthoritativeDdReview(false);
+            setWsRefreshKey(k => k + 1);
+            setActionFeedback("\u2713 Submitted for DD Operations review");
+        } catch (error) {
+            setActionFeedback(error instanceof Error ? error.message : "Unable to submit for DD review");
+        } finally {
+            setSubmittingAuthoritativeDdReview(false);
         }
     }
 
@@ -1235,8 +1253,8 @@ function WorkflowStateCard({
                                 <div><div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Accept Work</div><div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>Start working on this item</div></div>
                               </div>
                             )}
-                            {item.origin !== "authoritative" && displayStatus === "In Progress" && (
-                              <div onClick={() => setCompletionModal({ step: "input", note: "", readyForReview: false })} style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bbf7d0", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
+                            {((item.origin === "authoritative" && canSubmitAuthoritativeDdReview) || (item.origin !== "authoritative" && displayStatus === "In Progress")) && (
+                              <div onClick={() => item.origin === "authoritative" ? setPendingAuthoritativeDdReview(true) : setCompletionModal({ step: "input", note: "", readyForReview: false })} style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bbf7d0", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
                                 onMouseEnter={e => { e.currentTarget.style.borderColor = "#22c55e"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(34,197,94,0.1)"; }}
                                 onMouseLeave={e => { e.currentTarget.style.borderColor = "#bbf7d0"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}>
                                 <div style={{ width: 44, height: 44, borderRadius: 12, background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -1946,6 +1964,27 @@ function WorkflowStateCard({
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-ghost" disabled={acceptingAuthoritativeWork} onClick={() => setPendingAuthoritativeAcceptance(false)}>Cancel</button>
                             <button className="rc-btn rc-btn-primary" disabled={acceptingAuthoritativeWork} onClick={confirmAuthoritativeAcceptance}>{acceptingAuthoritativeWork ? "Accepting..." : "Accept Work"}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {pendingAuthoritativeDdReview && (
+                <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label="Submit for DD Review?" onClick={() => { if (!submittingAuthoritativeDdReview) setPendingAuthoritativeDdReview(false); }}>
+                    <div className="rc-modal" onClick={event => event.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="rc-modal-header">
+                            <h2>Submit for DD Review?</h2>
+                            <button className="rc-modal-close" aria-label="Close" disabled={submittingAuthoritativeDdReview} onClick={() => setPendingAuthoritativeDdReview(false)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ fontSize: 14, color: "#1e293b", fontWeight: 500 }}>
+                                Submit <strong>{displayId}</strong>{displayTitle ? <> &mdash; <strong>{displayTitle}</strong></> : null} to DD Operations?
+                            </div>
+                            <div style={{ fontSize: 13, color: "#475569", marginTop: 10 }}>You will not be able to continue normal work unless DD Operations returns the request.</div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" disabled={submittingAuthoritativeDdReview} onClick={() => setPendingAuthoritativeDdReview(false)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={submittingAuthoritativeDdReview} onClick={confirmAuthoritativeDdReviewSubmission}>{submittingAuthoritativeDdReview ? "Submitting..." : "Submit for DD Review"}</button>
                         </div>
                     </div>
                 </div>

@@ -13,6 +13,8 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     const reassignee = { id: REASSIGNEE_ID, displayName: "Austin Kiec", email: "austin@integracare.com", role: "Contributor" };
     const assignmentTargets: string[] = [];
     const acceptanceActors: string[] = [];
+    const ddReviewSubmissionActors: string[] = [];
+    const ddReviewActions: string[] = [];
     const projection = () => ({
         workItemId: WORK_ID, intakeRequestId: INTAKE_ID, requestNumber: "DD-2026-000001", status: "Queued",
         assignedUserId: null, assignedUserName: null, assignedUserEmail: null, team: "Financial",
@@ -63,6 +65,30 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
                 acceptPostData = route.request().postData();
                 item = { ...(item || projection()), status: "In Progress", acceptedAt: "2026-08-19T12:10:00.000Z" };
             }
+            if (method === "POST" && url.endsWith("/submit-dd-review")) {
+                if (item?.assignedUserId !== userId || item?.status !== "In Progress") {
+                    await route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ error: "Work item transition rejected" }) });
+                    return;
+                }
+                ddReviewSubmissionActors.push(userId);
+                item = { ...(item || projection()), status: "Needs DD Review" };
+            }
+            if (method === "POST" && url.endsWith("/return-from-dd-review")) {
+                ddReviewActions.push("return");
+                item = { ...(item || projection()), status: "In Progress" };
+            }
+            if (method === "POST" && url.endsWith("/ready-to-publish")) {
+                ddReviewActions.push("ready");
+                item = { ...(item || projection()), status: "Ready to Publish" };
+            }
+            if (item) item = { ...item, capabilities: {
+                ...(projection().capabilities as object),
+                canAccept: item.status === "Assigned" && item.assignedUserId === userId,
+                canMarkNotMine: !!item.assignedUserId,
+                canSubmitForDdReview: item.status === "In Progress" && item.assignedUserId === userId,
+                canReturnFromDdReview: item.status === "Needs DD Review" && userId === PREVIEW_USER.userRecord.id,
+                canMarkReadyToPublish: item.status === "Needs DD Review" && userId === PREVIEW_USER.userRecord.id,
+            } };
             const body = url.endsWith("/admit") ? { workItems: item ? [item] : [] }
                 : method === "GET" ? { workItems: item ? [item] : [], assignees: [assignee, reassignee] }
                     : { workItem: item };
@@ -163,6 +189,74 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     await expect(contributorPage.getByText("Durable Contributor", { exact: true }).first()).toBeVisible();
     await expect(contributorPage.getByText(USER_ID)).toHaveCount(0);
     await contributorContext.close();
+
+    const reviewSubmitContext = await browser.newContext();
+    const reviewSubmitPage = await reviewSubmitContext.newPage();
+    await setup(reviewSubmitPage, USER_ID);
+    await reviewSubmitPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
+    await reviewSubmitPage.getByText("Submit for DD Review", { exact: true }).click();
+    const submitDialog = reviewSubmitPage.getByRole("dialog", { name: "Submit for DD Review?" });
+    await expect(submitDialog).toContainText("DD-2026-000001");
+    await expect(submitDialog).toContainText("Durable Keystone Request");
+    expect(ddReviewSubmissionActors).toHaveLength(0);
+    await submitDialog.getByRole("button", { name: "Cancel" }).click();
+    expect(ddReviewSubmissionActors).toHaveLength(0);
+    await reviewSubmitPage.getByText("Submit for DD Review", { exact: true }).click();
+    await submitDialog.getByRole("button", { name: "Submit for DD Review" }).click();
+    await expect(reviewSubmitPage.getByText("Needs DD Review", { exact: true }).first()).toBeVisible();
+    expect(ddReviewSubmissionActors).toEqual([USER_ID]);
+    await expect(reviewSubmitPage.getByText(WORK_ID)).toHaveCount(0);
+    await reviewSubmitContext.close();
+
+    const ddReturnContext = await browser.newContext();
+    const ddReturnPage = await ddReturnContext.newPage();
+    await setup(ddReturnPage);
+    await ddReturnPage.goto("/recapitalization/dd-operations", { waitUntil: "domcontentloaded" });
+    await ddReturnPage.getByRole("button", { name: "Needs DD Review" }).click();
+    const reviewRow = ddReturnPage.getByRole("row").filter({ hasText: "DD-2026-000001" });
+    await expect(reviewRow).toContainText("Durable Contributor");
+    await reviewRow.getByRole("button", { name: "Return to Contributor" }).click();
+    const returnDialog = ddReturnPage.getByRole("dialog", { name: "Return to Contributor?" });
+    expect(ddReviewActions).toHaveLength(0);
+    await returnDialog.getByRole("button", { name: "Cancel" }).click();
+    expect(ddReviewActions).toHaveLength(0);
+    await reviewRow.getByRole("button", { name: "Return to Contributor" }).click();
+    await returnDialog.getByRole("button", { name: "Confirm" }).click();
+    await expect(reviewRow).toHaveCount(0);
+    expect(ddReviewActions).toEqual(["return"]);
+    expect(item?.assignedUserId).toBe(USER_ID);
+    await ddReturnContext.close();
+
+    const resubmitContext = await browser.newContext();
+    const resubmitPage = await resubmitContext.newPage();
+    await setup(resubmitPage, USER_ID);
+    await resubmitPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
+    await expect(resubmitPage.getByText("In Progress", { exact: true }).first()).toBeVisible();
+    await resubmitPage.getByText("Submit for DD Review", { exact: true }).click();
+    await resubmitPage.getByRole("dialog", { name: "Submit for DD Review?" }).getByRole("button", { name: "Submit for DD Review" }).click();
+    await resubmitContext.close();
+
+    const readyContext = await browser.newContext();
+    const readyPage = await readyContext.newPage();
+    await setup(readyPage);
+    await readyPage.goto("/recapitalization/dd-operations", { waitUntil: "domcontentloaded" });
+    await readyPage.getByRole("button", { name: "Needs DD Review" }).click();
+    const readyRow = readyPage.getByRole("row").filter({ hasText: "DD-2026-000001" });
+    await readyRow.getByRole("button", { name: "Mark Ready to Publish" }).click();
+    const readyDialog = readyPage.getByRole("dialog", { name: "Mark Ready to Publish?" });
+    await expect(readyDialog).toContainText("Publication is not included");
+    await readyDialog.getByRole("button", { name: "Confirm" }).click();
+    expect(ddReviewActions).toEqual(["return", "ready"]);
+    expect(item?.assignedUserId).toBe(USER_ID);
+    await expect(readyPage.getByRole("dialog", { name: "Ready to Publish" })).toContainText("DD-2026-000001");
+    await readyPage.getByRole("button", { name: "OK" }).click();
+    await readyPage.getByRole("button", { name: "Ready to Publish" }).click();
+    await expect(readyPage.getByRole("row").filter({ hasText: "DD-2026-000001" })).toBeVisible();
+    await expect(readyPage.getByRole("button", { name: "Publish External" })).toHaveCount(0);
+    await readyContext.close();
+
+    // Restore the in-progress fixture for the existing cold-load/reassignment coverage below.
+    item = { ...(item || projection()), status: "In Progress" };
 
     const coldWorkspaceContext = await browser.newContext();
     const coldWorkspacePage = await coldWorkspaceContext.newPage();
