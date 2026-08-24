@@ -12,6 +12,7 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     const assignee = { id: USER_ID, displayName: "Durable Contributor", email: "durable@integracare.com", role: "Contributor" };
     const reassignee = { id: REASSIGNEE_ID, displayName: "Austin Kiec", email: "austin@integracare.com", role: "Contributor" };
     const assignmentTargets: string[] = [];
+    const acceptanceActors: string[] = [];
     const projection = () => ({
         workItemId: WORK_ID, intakeRequestId: INTAKE_ID, requestNumber: "DD-2026-000001", status: "Queued",
         assignedUserId: null, assignedUserName: null, assignedUserEmail: null, team: "Financial",
@@ -31,7 +32,7 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
         await mockAuth(page);
         await page.addInitScript(() => sessionStorage.removeItem("integrasource.recap.demoPresentation"));
         await page.route("**/api/me", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
-            ...PREVIEW_USER, userRecord: { ...PREVIEW_USER.userRecord, id: userId, displayName: userId === USER_ID ? "Durable Contributor" : "E2E Preview Admin" },
+            ...PREVIEW_USER, userRecord: { ...PREVIEW_USER.userRecord, id: userId, displayName: userId === USER_ID ? "Durable Contributor" : userId === REASSIGNEE_ID ? "Austin Kiec" : "E2E Preview Admin" },
         }) }));
         await page.route("**/api/recapitalization/intake", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ packages: [{
             id: "44444444-4444-4444-8444-444444444444", sourcePackageId: "pkg-keystone", packageName: "Keystone Intake",
@@ -54,6 +55,11 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
                 item = { ...(item || projection()), status: "Assigned", assignedUserId: target.id, assignedUserName: target.displayName, assignedUserEmail: target.email, needsReassignment: false, misassignedReason: null, assignedAt: "2026-08-19T12:05:00.000Z", capabilities: { ...(projection().capabilities as object), canAccept: true, canMarkNotMine: true } };
             }
             if (method === "POST" && url.endsWith("/accept")) {
+                acceptanceActors.push(userId);
+                if (item?.assignedUserId !== userId || item?.status !== "Assigned") {
+                    await route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ error: "Work item transition rejected" }) });
+                    return;
+                }
                 acceptPostData = route.request().postData();
                 item = { ...(item || projection()), status: "In Progress", acceptedAt: "2026-08-19T12:10:00.000Z" };
             }
@@ -98,6 +104,26 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     await expect(row.locator("td").nth(6)).toHaveText("Durable Contributor");
     await queueContext.close();
 
+    const adminContext = await browser.newContext();
+    const adminPage = await adminContext.newPage();
+    await setup(adminPage);
+    await adminPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
+    await expect(adminPage.getByText("Durable Contributor", { exact: true }).first()).toBeVisible();
+    await expect(adminPage.getByText("Accept Work", { exact: true })).toHaveCount(0);
+    await expect(adminPage.getByText(USER_ID)).toHaveCount(0);
+    expect(acceptanceActors).toHaveLength(0);
+    await adminContext.close();
+
+    const otherUserContext = await browser.newContext();
+    const otherUserPage = await otherUserContext.newPage();
+    await setup(otherUserPage, REASSIGNEE_ID);
+    await otherUserPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
+    await expect(otherUserPage.getByText("Durable Contributor", { exact: true }).first()).toBeVisible();
+    await expect(otherUserPage.getByText("Accept Work", { exact: true })).toHaveCount(0);
+    await expect(otherUserPage.getByText(USER_ID)).toHaveCount(0);
+    expect(acceptanceActors).toHaveLength(0);
+    await otherUserContext.close();
+
     const contributorContext = await browser.newContext();
     await contributorContext.addInitScript(() => {
         localStorage.setItem("integrasource.recap.myWorkUser", "Sarah Chen");
@@ -116,6 +142,8 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     await contributorPage.getByText("Accept Work", { exact: true }).click();
     await expect(contributorPage.getByText("In Progress", { exact: true }).first()).toBeVisible();
     expect(acceptPostData).toBeNull();
+    expect(acceptanceActors).toEqual([USER_ID]);
+    await expect(contributorPage.getByText("Accept Work", { exact: true })).toHaveCount(0);
     await contributorContext.close();
 
     const coldWorkspaceContext = await browser.newContext();

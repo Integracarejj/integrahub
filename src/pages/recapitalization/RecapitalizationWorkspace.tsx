@@ -8,6 +8,7 @@ import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
 import { acceptAuthoritativeWorkItem, loadAuthoritativeWorkItems, markAuthoritativeWorkItemNotMine } from "../../services/recapWorkItemPersistence";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { canAcceptAuthoritativeWorkItem } from "../../services/recapPresentation";
 
 const TEAM_MEMBERS = ["Sarah Chen", "James Wright", "Lisa Park", "Tom Davies", "Mike O'Brien", "Anna Patel", "David Park", "Carlos Rivera", "Demo User (Test)"];
 
@@ -264,6 +265,7 @@ function WorkflowStateCard({
     const displayId = item.requestId || item.intakeId || item.id;
     const displayTitle = item.title || item.fileName || "";
     const displayStatus = item.status;
+    const canAcceptAuthoritative = canAcceptAuthoritativeWorkItem(item as RecapRequest, currentIdentity?.userRecord?.id);
     const communities = item.communityNames || [];
     const description = item.description || "";
     const submittedDate = item.submittedAt ? new Date(item.submittedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : item.createdDate || "";
@@ -1202,7 +1204,7 @@ function WorkflowStateCard({
                             </div>
                             )}
 
-                            {(item.origin === "authoritative" ? displayStatus === "Assigned" : (displayStatus === "Open" || displayStatus === "Assigned" || displayStatus === "Needs Rework")) && (
+                            {(item.origin === "authoritative" ? canAcceptAuthoritative : (displayStatus === "Open" || displayStatus === "Assigned" || displayStatus === "Needs Rework")) && (
                               <div onClick={() => doStatusChange("In Progress")} style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bfdbfe", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
                                 onMouseEnter={e => { e.currentTarget.style.borderColor = "#3b82f6"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(37,99,235,0.1)"; }}
                                 onMouseLeave={e => { e.currentTarget.style.borderColor = "#bfdbfe"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}>

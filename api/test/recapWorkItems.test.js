@@ -63,6 +63,23 @@ test("admitted work items remain listable in a subsequent session and repeated a
     assert.equal(listed.workItems[0].intakeRequestId, ID2);
 });
 
+test("accept capability is exposed only for the current assignee while Assigned", async () => {
+    const repository = {
+        async list() {
+            return { workItems: [
+                { ...WORK, status: "Assigned", assignedUserId: "user-a" },
+                { ...WORK, workItemId: ID2, status: "In Progress", assignedUserId: "user-a" },
+            ], assignees: [] };
+        },
+    };
+    const service = createRecapWorkItemService({ repository });
+    const ownerView = await service.list({ id: "user-a", globalRole: "Viewer" });
+    const adminView = await service.list({ id: "admin-b", globalRole: "PlatformAdmin" });
+    assert.equal(ownerView.workItems[0].capabilities.canAccept, true);
+    assert.equal(ownerView.workItems[1].capabilities.canAccept, false);
+    assert.equal(adminView.workItems[0].capabilities.canAccept, false);
+});
+
 test("assignment, accept, and Not Mine use server actor identity and atomic transition predicates", async () => {
     const calls = [];
     const repository = createRecapWorkItemRepository({ query: async (sql, values) => { calls.push({ sql, values }); return [WORK]; } });
@@ -71,8 +88,12 @@ test("assignment, accept, and Not Mine use server actor identity and atomic tran
     await repository.markNotMine(ID1, "Wrong specialty", { id: "target-user", globalRole: "Viewer" });
     assert.match(calls[0].sql, /role IN \('PlatformAdmin', 'Editor', 'Viewer', 'DDTeam'\)/);
     assert.deepEqual(calls[0].values, { id: ID1, targetUserId: "target-user", actorId: "actor-user" });
-    assert.match(calls[1].sql, /assignedUserId = @actorId OR @isOperations = 1/);
-    assert.match(calls[1].sql, /acceptedAt = COALESCE\(acceptedAt/);
+    assert.match(calls[1].sql, /assignedUserId = @actorId/);
+    assert.doesNotMatch(calls[1].sql, /isOperations/);
+    assert.match(calls[1].sql, /status = 'Assigned'/);
+    assert.doesNotMatch(calls[1].sql, /status IN \('Assigned', 'In Progress'\)/);
+    assert.deepEqual(calls[1].values, { id: ID1, actorId: "target-user" });
+    assert.match(calls[1].sql, /acceptedAt = SYSUTCDATETIME\(\)/);
     assert.match(calls[2].sql, /needsReassignment = 1/);
     assert.match(calls[2].sql, /assignedUserId = NULL/);
 });

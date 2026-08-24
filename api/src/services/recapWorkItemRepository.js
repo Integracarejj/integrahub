@@ -112,13 +112,13 @@ export function createRecapWorkItemRepository({ query = defaultQuery } = {}) {
         async accept(id, actor) {
             return query(`
                 UPDATE cmdb.RecapWorkItems
-                SET status = 'In Progress', acceptedAt = COALESCE(acceptedAt, SYSUTCDATETIME()), updatedAt = SYSUTCDATETIME()
+                SET status = 'In Progress', acceptedAt = SYSUTCDATETIME(), updatedAt = SYSUTCDATETIME()
                 WHERE id = @id AND assignedUserId IS NOT NULL
-                  AND (assignedUserId = @actorId OR @isOperations = 1)
-                  AND status IN ('Assigned', 'In Progress');
+                  AND assignedUserId = @actorId
+                  AND status = 'Assigned';
                 IF @@ROWCOUNT = 0 THROW 51005, 'Work item cannot be accepted', 1;
                 ${joinedSelect} WHERE workItem.id = @id;
-            `, { id, actorId: actor.id, isOperations: ["PlatformAdmin", "DDTeam"].includes(actor.globalRole) });
+            `, { id, actorId: actor.id });
         },
 
         async markNotMine(id, reason, actor) {

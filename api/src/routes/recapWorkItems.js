@@ -12,7 +12,7 @@ function failure(res, error) {
     return res.status(503).json({ error: "Work item storage is unavailable" });
 }
 
-router.get("/", async (_req, res) => { try { return res.json(await recapWorkItemService.list()); } catch (error) { return failure(res, error); } });
+router.get("/", async (req, res) => { try { return res.json(await recapWorkItemService.list(req.user)); } catch (error) { return failure(res, error); } });
 router.post("/admit", async (req, res) => { try { return res.status(201).json({ workItems: await recapWorkItemService.admit(req.body) }); } catch (error) { return failure(res, error); } });
 router.post("/:id/assign", async (req, res) => { try { return res.json({ workItem: await recapWorkItemService.assign(req.params.id, req.body?.assignedUserId, req.user) }); } catch (error) { return failure(res, error); } });
 router.post("/:id/accept", async (req, res) => { try { return res.json({ workItem: await recapWorkItemService.accept(req.params.id, req.user) }); } catch (error) { return failure(res, error); } });

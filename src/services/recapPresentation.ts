@@ -14,3 +14,10 @@ export function getMyWorkRequests(requests: RecapRequest[], userId: string | und
         ? !!userId && request.assignedUserId === userId
         : !realInternalMode && (request.owner === demoUserName || request.assignedTo === demoUserName));
 }
+
+export function canAcceptAuthoritativeWorkItem(request: RecapRequest, userId: string | undefined): boolean {
+    return request.origin === "authoritative"
+        && request.status === "Assigned"
+        && !!userId
+        && request.assignedUserId === userId;
+}

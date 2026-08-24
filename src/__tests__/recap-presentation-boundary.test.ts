@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getMyWorkRequests, getPresentedRecapRequests, isRealInternalRecapMode } from "../services/recapPresentation";
+import { canAcceptAuthoritativeWorkItem, getMyWorkRequests, getPresentedRecapRequests, isRealInternalRecapMode } from "../services/recapPresentation";
 import type { CurrentUserResponse } from "../hooks/useCurrentUser";
 import type { RecapRequest } from "../services/recapDataService";
 
@@ -29,5 +29,14 @@ describe("Recap authenticated and demo presentation boundary", () => {
         expect(demoMode).toBe(false);
         expect(getPresentedRecapRequests([sarahDemo, authoritative], demoMode)).toHaveLength(2);
         expect(getMyWorkRequests([sarahDemo, authoritative], "test-jeremy-001", "Sarah Chen", demoMode)).toEqual([sarahDemo, authoritative]);
+    });
+
+    it("offers authoritative acceptance only to the current assigned internal user", () => {
+        const assigned = { ...authoritative, status: "Assigned" } as RecapRequest;
+        expect(canAcceptAuthoritativeWorkItem(assigned, "test-jeremy-001")).toBe(true);
+        expect(canAcceptAuthoritativeWorkItem(assigned, "another-user")).toBe(false);
+        expect(canAcceptAuthoritativeWorkItem({ ...assigned, assignedUserId: undefined }, "test-jeremy-001")).toBe(false);
+        expect(canAcceptAuthoritativeWorkItem({ ...assigned, status: "In Progress" }, "test-jeremy-001")).toBe(false);
+        expect(canAcceptAuthoritativeWorkItem({ ...sarahDemo, status: "Assigned" }, "test-jeremy-001")).toBe(false);
     });
 });
