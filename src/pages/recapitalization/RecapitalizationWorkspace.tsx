@@ -9,6 +9,9 @@ import "./Recapitalization.css";
 import { acceptAuthoritativeWorkItem, loadAuthoritativeWorkItems, markAuthoritativeWorkItemNotMine, submitAuthoritativeWorkItemForDdReview } from "../../services/recapWorkItemPersistence";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { canAcceptAuthoritativeWorkItem, canSubmitAuthoritativeWorkItemForDdReview } from "../../services/recapPresentation";
+import { canUploadAuthoritativeArtifact, canViewAuthoritativeArtifacts } from "../../services/recapPresentation";
+import { downloadAuthoritativeArtifact, downloadAuthoritativeSourceDocument, loadAuthoritativeArtifacts, loadAuthoritativeSourceDocuments, uploadAuthoritativeArtifact } from "../../services/recapWorkArtifactPersistence";
+import type { AuthoritativeSourceDocument } from "../../services/recapWorkArtifactPersistence";
 
 const TEAM_MEMBERS = ["Sarah Chen", "James Wright", "Lisa Park", "Tom Davies", "Mike O'Brien", "Anna Patel", "David Park", "Carlos Rivera", "Demo User (Test)"];
 
@@ -145,6 +148,8 @@ function LoadedRecapitalizationWorkspace({ id, result, wsRefreshKey, setWsRefres
     const [completionModal, setCompletionModal] = useState<{ step: "input" | "completed"; note: string; readyForReview: boolean } | null>(null);
     const [notMine, setNotMine] = useState<{ req: RecapRequest; reason: string } | null>(null);
     const [workArtifacts, setWorkArtifacts] = useState<WorkArtifact[]>([]);
+    const [sourceDocuments, setSourceDocuments] = useState<AuthoritativeSourceDocument[]>([]);
+    const [artifactUploadPending, setArtifactUploadPending] = useState(false);
     const [wnComposerOpen, setWnComposerOpen] = useState(false);
     const [wnText, setWnText] = useState("");
     const [extMsgComposerOpen, setExtMsgComposerOpen] = useState(false);
@@ -187,10 +192,21 @@ function LoadedRecapitalizationWorkspace({ id, result, wsRefreshKey, setWsRefres
         const item = (result as any).item;
         return item?.requestId || item?.intakeId || item?.id || id || "";
     }, [result, id]);
+    const authoritativeArtifactWorkItemId = result?.type === "request" && result.item.origin === "authoritative" ? result.item.id : null;
 
     useEffect(() => {
-        if (artifactStorageKey) setWorkArtifacts(getWorkArtifactsByRequest(artifactStorageKey));
-    }, [artifactStorageKey]);
+        if (!artifactStorageKey) return;
+        if (authoritativeArtifactWorkItemId) {
+            Promise.all([loadAuthoritativeArtifacts(authoritativeArtifactWorkItemId), loadAuthoritativeSourceDocuments(authoritativeArtifactWorkItemId)])
+                .then(([artifacts, sources]) => {
+                    setWorkArtifacts(artifacts.map(artifact => ({ id: artifact.id, name: artifact.fileName, originalFileName: artifact.fileName, displayFileName: artifact.fileName, size: artifact.size, uploadedAt: artifact.uploadedAt || "", uploadedBy: artifact.uploadedBy || undefined, requestId: authoritativeArtifactWorkItemId, artifactType: "Work Artifact", isPrototype: false })));
+                    setSourceDocuments(sources);
+                }).catch(() => { setWorkArtifacts([]); setSourceDocuments([]); });
+        } else {
+            setWorkArtifacts(getWorkArtifactsByRequest(artifactStorageKey));
+            setSourceDocuments([]);
+        }
+    }, [artifactStorageKey, authoritativeArtifactWorkItemId]);
 
     useEffect(() => {
         if (actionFeedback) {
@@ -280,6 +296,8 @@ function WorkflowStateCard({
     const displayStatus = item.status;
     const canAcceptAuthoritative = canAcceptAuthoritativeWorkItem(item as RecapRequest, currentIdentity?.userRecord?.id);
     const canSubmitAuthoritativeDdReview = canSubmitAuthoritativeWorkItemForDdReview(item as RecapRequest, currentIdentity?.userRecord?.id);
+    const canUploadAuthoritative = canUploadAuthoritativeArtifact(item as RecapRequest, currentIdentity?.userRecord?.id);
+    const canViewAuthoritative = canViewAuthoritativeArtifacts(item as RecapRequest);
     const communities = item.communityNames || [];
     const description = item.description || "";
     const submittedDate = item.submittedAt ? new Date(item.submittedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : item.createdDate || "";
@@ -608,7 +626,21 @@ function WorkflowStateCard({
         setWsRefreshKey(k => k + 1);
     }
 
-    function handleArtifactUpload(files: File[]) {
+    async function handleArtifactUpload(files: File[]) {
+        if (item.origin === "authoritative") {
+            if (!canUploadAuthoritative || artifactUploadPending) return;
+            setArtifactUploadPending(true);
+            try {
+                const uploaded = [];
+                for (const file of files) uploaded.push(await uploadAuthoritativeArtifact(item.id, file));
+                setWorkArtifacts(await loadAuthoritativeArtifacts(item.id).then(rows => rows.map(artifact => ({ id: artifact.id, name: artifact.fileName, originalFileName: artifact.fileName, displayFileName: artifact.fileName, size: artifact.size, uploadedAt: artifact.uploadedAt || "", uploadedBy: artifact.uploadedBy || undefined, requestId: item.id, artifactType: "Work Artifact", isPrototype: false }))));
+                setUploadSuccess(uploaded.map(row => row.fileName).join(", "));
+                setActionFeedback(`\u2713 ${uploaded.length} artifact${uploaded.length !== 1 ? "s" : ""} uploaded successfully`);
+            } catch (error) {
+                setActionFeedback(error instanceof Error ? error.message : "Artifact upload failed");
+            } finally { setArtifactUploadPending(false); }
+            return;
+        }
         const idx = workArtifacts.length + 1;
         const newArtifacts = files.map((f, i) => ({
             id: "art-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6),
@@ -1226,7 +1258,7 @@ function WorkflowStateCard({
                           {/* Primary Action Tiles */}
                           {displayStatus !== "Complete" && (
                           <div style={{ display: "flex", gap: 16, marginBottom: 28 }}>
-                            {item.origin !== "authoritative" && (
+                            {(item.origin !== "authoritative" || canUploadAuthoritative) && (
                             <div
                               onClick={() => document.getElementById("artifact-upload-hidden")?.click()}
                               onDragOver={e => { e.preventDefault(); setDragOverUpload(true); }}
@@ -1238,9 +1270,9 @@ function WorkflowStateCard({
                               onMouseLeave={e => { if (!dragOverUpload) { e.currentTarget.style.borderColor = "#bfdbfe"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}}
                             >
                               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={dragOverUpload ? "#2563eb" : "#4f46e5"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
-                              <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{dragOverUpload ? "Drop files to upload" : "Upload Artifact"}</div>
-                              <div style={{ fontSize: 12, color: "#475569", textAlign: "center" }}>{dragOverUpload ? "" : "Drag files here or click to browse"}</div>
-                              <input id="artifact-upload-hidden" type="file" multiple style={{ display: "none" }} onChange={e => { const files = Array.from(e.target.files || []); if (files.length > 0) handleArtifactUpload(files); e.target.value = ""; }} />
+                              <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{artifactUploadPending ? "Uploading..." : dragOverUpload ? "Drop files to upload" : "Upload Artifact"}</div>
+                              <div style={{ fontSize: 12, color: "#475569", textAlign: "center" }}>{dragOverUpload ? "" : "Drag files here or Browse File (10 MiB maximum)"}</div>
+                              <input id="artifact-upload-hidden" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg,.jpeg,.gif,.webp,.tif,.tiff" style={{ display: "none" }} onChange={e => { const files = Array.from(e.target.files || []); if (files.length > 0) void handleArtifactUpload(files); e.target.value = ""; }} />
                             </div>
                             )}
 
@@ -1560,7 +1592,7 @@ function WorkflowStateCard({
                     <div>
                         <AccordionSection
                             icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>}
-                            title={`Artifacts (${(isBulkUpload && item.fileName ? 1 : 0) + workArtifacts.length})`}
+                            title={`Artifacts (${sourceDocuments.length + (isBulkUpload && item.fileName ? 1 : 0) + workArtifacts.length})`}
                             isOpen={sections.artifacts}
                             onToggle={() => toggleSection("artifacts")}
                         >
@@ -1571,6 +1603,13 @@ function WorkflowStateCard({
                                     Original Submission
                                 </div>
                                 <p style={{ fontSize: 13, color: "#334155", lineHeight: 1.7, margin: 0 }}>{description}</p>
+                                {item.origin === "authoritative" && canViewAuthoritative && sourceDocuments.map(source => (
+                                    <div key={source.id} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, padding: "8px 10px", background: "#f8faff", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12 }}>
+                                        <span style={{ flex: 1, fontWeight: 600 }}>{source.fileName}</span>
+                                        <span style={{ color: "#475569" }}>{(source.size / 1024).toFixed(0)} KB</span>
+                                        <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => void downloadAuthoritativeSourceDocument(item.id, source.id, source.fileName)}>Download Original</button>
+                                    </div>
+                                ))}
                                 {isBulkUpload && item.fileName && (
                                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, padding: "8px 10px", background: "#f8faff", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12, color: "#1e293b" }}>
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
@@ -1613,11 +1652,11 @@ function WorkflowStateCard({
                                                         {art.isPrototype && <span style={{ color: "#92400e", background: "#fffbeb", padding: "0 4px", borderRadius: 3, fontSize: 10, fontWeight: 600 }}>PROTOTYPE</span>}
                                                     </div>
                                                 </div>
-                                                <button
+                                                {item.origin === "authoritative" ? <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => void downloadAuthoritativeArtifact(item.id, art.id, art.originalFileName || art.name)}>Download</button> : <button
                                                     onClick={() => { removeWorkArtifact(artifactStorageKey, art.id); setWorkArtifacts(prev => prev.filter(a => a.id !== art.id)); }}
                                                     style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "2px 4px" }}
                                                     title="Remove artifact"
-                                                >&times;</button>
+                                                >&times;</button>}
                                             </div>
                                         ))}
                                     </div>

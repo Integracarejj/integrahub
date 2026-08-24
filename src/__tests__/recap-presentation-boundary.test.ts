@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canAcceptAuthoritativeWorkItem, canMarkAuthoritativeWorkItemReadyToPublish, canReturnAuthoritativeWorkItemFromDdReview, canSubmitAuthoritativeWorkItemForDdReview, getMyWorkRequests, getPresentedRecapRequests, isRealInternalRecapMode } from "../services/recapPresentation";
+import { canAcceptAuthoritativeWorkItem, canMarkAuthoritativeWorkItemReadyToPublish, canReturnAuthoritativeWorkItemFromDdReview, canSubmitAuthoritativeWorkItemForDdReview, canUploadAuthoritativeArtifact, canViewAuthoritativeArtifacts, getMyWorkRequests, getPresentedRecapRequests, isRealInternalRecapMode } from "../services/recapPresentation";
 import type { CurrentUserResponse } from "../hooks/useCurrentUser";
 import type { RecapRequest } from "../services/recapDataService";
 
@@ -58,4 +58,18 @@ describe("Recap authenticated and demo presentation boundary", () => {
         expect(canSubmitAuthoritativeWorkItemForDdReview(inProgress, "another-user")).toBe(false);
         expect(canSubmitAuthoritativeWorkItemForDdReview({ ...inProgress, origin: "demo" }, "test-jeremy-001")).toBe(false);
     });
+
+    it.each([
+        ["Assigned", { canUploadArtifact: false, canViewArtifacts: true }, false, true],
+        ["In Progress", { canUploadArtifact: true, canViewArtifacts: true }, true, true],
+        ["Needs DD Review", { canUploadArtifact: false, canViewArtifacts: true }, false, true],
+        ["Ready to Publish", { canUploadArtifact: false, canViewArtifacts: true }, false, true],
+    ])("locks authoritative artifact availability for %s", (status, capabilities, upload, view) => {
+        const request = { ...authoritative, status, capabilities } as RecapRequest;
+        expect(canUploadAuthoritativeArtifact(request, "test-jeremy-001")).toBe(upload);
+        expect(canViewAuthoritativeArtifacts(request)).toBe(view);
+        expect(canUploadAuthoritativeArtifact(request, "another-user")).toBe(false);
+        expect(canUploadAuthoritativeArtifact({ ...request, origin: "demo" }, "test-jeremy-001")).toBe(false);
+    });
+
 });

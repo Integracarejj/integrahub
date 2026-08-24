@@ -218,4 +218,45 @@ export class SharePointGraphClient {
         if (item.type !== "file") throw new GraphRequestError("SharePoint incoming file upload", 200, "malformed_response");
         return item;
     }
+
+    async downloadFile(driveId, itemId, { maxBytes, expectedSize } = {}) {
+        const token = await this.authProvider.getAccessToken();
+        const url = `${GRAPH_BASE_URL}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}/content`;
+        let response;
+        try {
+            response = await this.fetch(url, { headers: { Authorization: `Bearer ${token}` }, redirect: "follow" });
+        } catch {
+            throw new GraphRequestError("SharePoint file download", null, "network_error");
+        }
+        if (!response.ok) throw new GraphRequestError("SharePoint file download", response.status, null);
+        const limit = Number(maxBytes);
+        const expected = Number(expectedSize);
+        if (!Number.isSafeInteger(limit) || limit <= 0 || !Number.isSafeInteger(expected) || expected <= 0 || expected > limit) {
+            throw new GraphRequestError("SharePoint file download", null, "invalid_size_boundary");
+        }
+        const declaredLength = Number(response.headers.get("content-length"));
+        if (Number.isFinite(declaredLength) && declaredLength > limit) {
+            await response.body?.cancel();
+            throw new GraphRequestError("SharePoint file download", response.status, "response_too_large");
+        }
+        if (!response.body) throw new GraphRequestError("SharePoint file download", response.status, "malformed_response");
+        const reader = response.body.getReader();
+        const chunks = [];
+        let total = 0;
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            total += value.byteLength;
+            if (total > limit) {
+                await reader.cancel();
+                throw new GraphRequestError("SharePoint file download", response.status, "response_too_large");
+            }
+            chunks.push(Buffer.from(value));
+        }
+        if (total !== expected) throw new GraphRequestError("SharePoint file download", response.status, "content_length_mismatch");
+        return {
+            content: Buffer.concat(chunks, total),
+            contentType: response.headers.get("content-type") || "application/octet-stream",
+        };
+    }
 }

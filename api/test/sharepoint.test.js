@@ -192,3 +192,16 @@ test("small-file upload targets one encoded parent/name and never exposes remote
     const failing = new SharePointGraphClient({ getAccessToken: async () => "private-token" }, async () => response(500, { error: { code: "serviceUnavailable", message: "private-token secret" } }));
     await assert.rejects(failing.uploadNewFile("drive", "incoming", "file.xlsx", content), (error) => error.graphCode === "serviceUnavailable" && !error.message.includes("private-token"));
 });
+
+test("file download reads incrementally and enforces expected and maximum sizes", async () => {
+    const client = new SharePointGraphClient({ getAccessToken: async () => "private-token" }, async () => new Response("abcd", { status: 200, headers: { "content-type": "application/pdf" } }));
+    const file = await client.downloadFile("drive", "item", { maxBytes: 4, expectedSize: 4 });
+    assert.equal(file.content.toString(), "abcd");
+    assert.equal(file.contentType, "application/pdf");
+
+    const oversized = new SharePointGraphClient({ getAccessToken: async () => "private-token" }, async () => new Response("abcde", { status: 200 }));
+    await assert.rejects(oversized.downloadFile("drive", "item", { maxBytes: 4, expectedSize: 4 }), error => error.graphCode === "response_too_large");
+
+    const changed = new SharePointGraphClient({ getAccessToken: async () => "private-token" }, async () => new Response("abc", { status: 200 }));
+    await assert.rejects(changed.downloadFile("drive", "item", { maxBytes: 4, expectedSize: 4 }), error => error.graphCode === "content_length_mismatch");
+});

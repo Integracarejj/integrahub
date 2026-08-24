@@ -39,3 +39,12 @@ export function canMarkAuthoritativeWorkItemReadyToPublish(request: RecapRequest
     return request.origin === "authoritative" && request.status === "Needs DD Review"
         && request.capabilities?.canMarkReadyToPublish === true;
 }
+
+export function canUploadAuthoritativeArtifact(request: RecapRequest, userId: string | undefined): boolean {
+    return request.origin === "authoritative" && request.status === "In Progress" && !!userId
+        && request.assignedUserId === userId && request.capabilities?.canUploadArtifact === true;
+}
+
+export function canViewAuthoritativeArtifacts(request: RecapRequest): boolean {
+    return request.origin === "authoritative" && request.capabilities?.canViewArtifacts === true;
+}

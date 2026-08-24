@@ -20,6 +20,7 @@ import recapTransactionsRouter from "./routes/recapTransactions.js";
 import recapWorkspaceRouter from "./routes/recapWorkspace.js";
 import recapIntakeRouter from "./routes/recapIntake.js";
 import recapWorkItemsRouter from "./routes/recapWorkItems.js";
+import { createRecapSourceDocumentRouter, createRecapWorkArtifactRouter } from "./routes/recapWorkArtifacts.js";
 import { resolveCurrentUser } from "./middleware/resolveCurrentUser.js";
 import { denyExternalOnlyUser } from "./middleware/authorization.js";
 import { configureJsonBodyParsing, jsonBodyErrorHandler } from "./middleware/jsonBodyParsing.js";
@@ -90,6 +91,8 @@ app.use("/api/recapitalization/transactions", recapTransactionsRouter);
 app.use("/api/recapitalization/transactions", recapWorkspaceRouter);
 app.use("/api/recapitalization/intake", recapIntakeRouter);
 app.use("/api/recapitalization/work-items", recapWorkItemsRouter);
+app.use("/api/recapitalization/work-items/:id/artifacts", createRecapWorkArtifactRouter());
+app.use("/api/recapitalization/work-items/:id/source-documents", createRecapSourceDocumentRouter());
 
 app.use(jsonBodyErrorHandler);
 

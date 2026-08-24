@@ -8,6 +8,7 @@ const text = (value, max) => value == null ? null : String(value).trim().slice(0
 
 function mapRow(row, actor) {
     const isOperations = ["PlatformAdmin", "DDTeam"].includes(actor?.globalRole);
+    const isOwner = !!actor?.id && row.assignedUserId === actor.id;
     return {
         ...row,
         communities: JSON.parse(row.communityNamesJson || "[]"),
@@ -22,6 +23,9 @@ function mapRow(row, actor) {
             canReturnFromDdReview: isOperations && row.status === "Needs DD Review" && !!row.assignedUserId,
             canMarkReadyToPublish: isOperations && row.status === "Needs DD Review" && !!row.assignedUserId,
             canPublish: false,
+            canUploadArtifact: isOwner && row.status === "In Progress",
+            canViewArtifacts: (isOwner || isOperations) && !!row.assignedUserId,
+            canDownloadArtifacts: (isOwner || isOperations) && !!row.assignedUserId,
             canMarkDuplicate: false, canMarkNotApplicable: false,
         },
     };

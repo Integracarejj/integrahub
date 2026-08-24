@@ -141,12 +141,15 @@ test("authoritative capability projection is state, owner, and operations-role s
     assert.equal(owner[0].capabilities.canAccept, true);
     assert.equal(owner[1].capabilities.canSubmitForDdReview, true);
     assert.equal(owner[1].capabilities.canComplete, false);
+    assert.equal(owner[1].capabilities.canUploadArtifact, true);
     assert.equal(owner[2].capabilities.canSubmitForDdReview, false);
     assert.equal(owner[2].capabilities.canReturnFromDdReview, false);
     assert.equal(owner[3].capabilities.canPublish, false);
+    assert.equal(owner[3].capabilities.canUploadArtifact, false);
     const ops = (await service.list({ id: "ops", globalRole: "DDTeam" })).workItems;
     assert.equal(ops[1].capabilities.canSubmitForDdReview, false);
     assert.equal(ops[2].capabilities.canReturnFromDdReview, true);
     assert.equal(ops[2].capabilities.canMarkReadyToPublish, true);
+    assert.equal(ops[2].capabilities.canViewArtifacts, true);
     assert.equal(ops[3].capabilities.canMarkReadyToPublish, false);
 });
