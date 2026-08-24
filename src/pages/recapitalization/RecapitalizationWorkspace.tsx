@@ -159,6 +159,8 @@ function LoadedRecapitalizationWorkspace({ id, result, wsRefreshKey, setWsRefres
         return localStorage.getItem(workspaceUserKey) || TEAM_MEMBERS[0];
     });
     const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+    const [pendingAuthoritativeAcceptance, setPendingAuthoritativeAcceptance] = useState(false);
+    const [acceptingAuthoritativeWork, setAcceptingAuthoritativeWork] = useState(false);
     const [completionDialog, setCompletionDialog] = useState<"blocked" | "clarification" | "dd-review" | "return-to-owner" | "duplicate" | "not-applicable" | "not-mine" | "resolved" | null>(null);
     const [publishExternal, setPublishExternal] = useState<{ step: number; selectedArtifacts: string[]; note: string } | null>(null);
     const [artifactDetail, setArtifactDetail] = useState<WorkArtifact | null>(null);
@@ -201,6 +203,15 @@ function LoadedRecapitalizationWorkspace({ id, result, wsRefreshKey, setWsRefres
             return () => clearTimeout(t);
         }
     }, [uploadSuccess]);
+
+    useEffect(() => {
+        if (!pendingAuthoritativeAcceptance || acceptingAuthoritativeWork) return;
+        const closeOnEscape = (event: KeyboardEvent) => {
+            if (event.key === "Escape") setPendingAuthoritativeAcceptance(false);
+        };
+        document.addEventListener("keydown", closeOnEscape);
+        return () => document.removeEventListener("keydown", closeOnEscape);
+    }, [pendingAuthoritativeAcceptance, acceptingAuthoritativeWork]);
 
     const backFrom = (location.state as any)?.from || "tracker";
     const isDdOps = backFrom === "dd-operations";
@@ -429,10 +440,10 @@ function WorkflowStateCard({
         if (item.origin === "authoritative") {
             if (newStatus !== "In Progress") {
                 setActionFeedback("This action is not yet available for durable requests.");
-                return;
+                return false;
             }
             try { await acceptAuthoritativeWorkItem(reqId); }
-            catch (error) { setActionFeedback(error instanceof Error ? error.message : "Unable to accept work"); return; }
+            catch (error) { setActionFeedback(error instanceof Error ? error.message : "Unable to accept work"); return false; }
         } else updateRequestStatus(reqId, newStatus);
         addActivityEntry({
             type: "Status Change",
@@ -446,6 +457,17 @@ function WorkflowStateCard({
         });
         setWsRefreshKey(k => k + 1);
         setActionFeedback(`\u2713 Status updated to ${newStatus}`);
+        return true;
+    }
+
+    async function confirmAuthoritativeAcceptance() {
+        if (acceptingAuthoritativeWork) return;
+        setAcceptingAuthoritativeWork(true);
+        try {
+            if (await doStatusChange("In Progress")) setPendingAuthoritativeAcceptance(false);
+        } finally {
+            setAcceptingAuthoritativeWork(false);
+        }
     }
 
     function doAssign(newOwner: string) {
@@ -1205,7 +1227,7 @@ function WorkflowStateCard({
                             )}
 
                             {(item.origin === "authoritative" ? canAcceptAuthoritative : (displayStatus === "Open" || displayStatus === "Assigned" || displayStatus === "Needs Rework")) && (
-                              <div onClick={() => doStatusChange("In Progress")} style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bfdbfe", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
+                              <div onClick={() => item.origin === "authoritative" ? setPendingAuthoritativeAcceptance(true) : void doStatusChange("In Progress")} style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", border: "2px solid #bfdbfe", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}
                                 onMouseEnter={e => { e.currentTarget.style.borderColor = "#3b82f6"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(37,99,235,0.1)"; }}
                                 onMouseLeave={e => { e.currentTarget.style.borderColor = "#bfdbfe"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}>
                                 <div style={{ width: 44, height: 44, borderRadius: 12, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -1904,6 +1926,30 @@ function WorkflowStateCard({
                     </div>
                 </div>
             </div>
+
+            {/* Authoritative Accept Work confirmation */}
+            {pendingAuthoritativeAcceptance && (
+                <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label="Accept Work?" onClick={() => { if (!acceptingAuthoritativeWork) setPendingAuthoritativeAcceptance(false); }}>
+                    <div className="rc-modal" onClick={event => event.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="rc-modal-header">
+                            <h2>Accept Work?</h2>
+                            <button className="rc-modal-close" aria-label="Close" disabled={acceptingAuthoritativeWork} onClick={() => setPendingAuthoritativeAcceptance(false)}>&times;</button>
+                        </div>
+                        <div className="rc-modal-body" style={{ padding: "16px 20px" }}>
+                            <div style={{ fontSize: 14, color: "#1e293b", fontWeight: 500 }}>
+                                You are accepting <strong>{displayId}</strong>{displayTitle ? <> &mdash; <strong>{displayTitle}</strong></> : null}.
+                            </div>
+                            <div style={{ fontSize: 13, color: "#475569", marginTop: 10 }}>
+                                This will move the request into active work and update its status to In Progress.
+                            </div>
+                        </div>
+                        <div className="rc-modal-footer">
+                            <button className="rc-btn rc-btn-ghost" disabled={acceptingAuthoritativeWork} onClick={() => setPendingAuthoritativeAcceptance(false)}>Cancel</button>
+                            <button className="rc-btn rc-btn-primary" disabled={acceptingAuthoritativeWork} onClick={confirmAuthoritativeAcceptance}>{acceptingAuthoritativeWork ? "Accepting..." : "Accept Work"}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Need Clarification Modal - Contributor Simple Form */}
             {needClarificationOpen && (

@@ -140,10 +140,28 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     await expect(contributorPage.getByText("Working as")).toContainText("Durable Contributor");
     await expect(contributorPage.getByText("Testing as:")).toHaveCount(0);
     await contributorPage.getByText("Accept Work", { exact: true }).click();
+    const acceptDialog = contributorPage.getByRole("dialog", { name: "Accept Work?" });
+    await expect(acceptDialog).toContainText("DD-2026-000001");
+    await expect(acceptDialog).toContainText("Durable Keystone Request");
+    await expect(acceptDialog).toContainText("In Progress");
+    expect(acceptanceActors).toHaveLength(0);
+    expect(acceptPostData).toBe("not-called");
+    await expect(contributorPage.getByText("Assigned", { exact: true }).first()).toBeVisible();
+    await acceptDialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(acceptDialog).toHaveCount(0);
+    expect(acceptanceActors).toHaveLength(0);
+    expect(acceptPostData).toBe("not-called");
+    await expect(contributorPage.getByText("Assigned", { exact: true }).first()).toBeVisible();
+    await expect(contributorPage.getByText("Durable Contributor", { exact: true }).first()).toBeVisible();
+    await contributorPage.getByText("Accept Work", { exact: true }).click();
+    await expect(acceptDialog).toBeVisible();
+    await acceptDialog.getByRole("button", { name: "Accept Work", exact: true }).click();
     await expect(contributorPage.getByText("In Progress", { exact: true }).first()).toBeVisible();
     expect(acceptPostData).toBeNull();
     expect(acceptanceActors).toEqual([USER_ID]);
     await expect(contributorPage.getByText("Accept Work", { exact: true })).toHaveCount(0);
+    await expect(contributorPage.getByText("Durable Contributor", { exact: true }).first()).toBeVisible();
+    await expect(contributorPage.getByText(USER_ID)).toHaveCount(0);
     await contributorContext.close();
 
     const coldWorkspaceContext = await browser.newContext();
