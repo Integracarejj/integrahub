@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import DocumentHubPage from "../pages/documents/DocumentHubPage";
-import { beginDocumentUpload, canSubmitDocument, completeDocumentUpload, EMPTY_UPLOAD_STATE, failDocumentUpload, MAX_DOCUMENT_BYTES, removeDocumentFile, selectDocumentFile, validateDocumentFile } from "../pages/documents/documentHubState";
+import { addDocumentFiles, applyDestinationToAll, beginDocumentUpload, canSubmitDocument, canUploadBatch, completeDocumentUpload, EMPTY_UPLOAD_STATE, failDocumentUpload, markDocumentFailed, markDocumentUploaded, MAX_DOCUMENT_BYTES, readyDocuments, removeDocumentFile, removeStagedDocument, selectDocumentFile, setDocumentDestination, uploadDocumentsSequentially, validateDocumentFile } from "../pages/documents/documentHubState";
 import { ArtifactUploadError, uploadArtifact, type ArtifactRecord } from "../services/artifactPersistence";
 import { shouldRedirectFromInternal } from "../utils/accessRouting";
 import { INTERNAL_NAV_ITEMS } from "../navigation/internalNavigation";
@@ -22,11 +22,14 @@ describe("Document Hub shell and navigation", () => {
     it("renders the Provide/Find shell and browse upload affordance", () => {
         const html = renderToStaticMarkup(<DocumentHubPage />);
         expect(html).toContain("Document Hub");
-        expect(html).toContain("Provide");
-        expect(html).toContain("Find");
-        expect(html).toContain("Drop a document here");
+        expect(html).toContain("Provide Documents");
+        expect(html).toContain("Find Documents");
+        expect(html).toContain("Drop documents here");
         expect(html).toContain("Browse files");
-        expect(html).toContain("Projects Working");
+        expect(html).toContain("10 MiB each");
+        expect(html).toContain("multiple");
+        expect(html).not.toContain("Secure Working storage");
+        expect(html).not.toContain("Replace");
         expect(html).not.toContain("SharePoint item ID");
     });
 
@@ -40,6 +43,89 @@ describe("Document Hub shell and navigation", () => {
         expect(shouldRedirectFromInternal("ExternalBroker")).toBe(true);
         expect(shouldRedirectFromInternal("ExternalBuyer")).toBe(true);
         expect(shouldRedirectFromInternal("Editor")).toBe(false);
+    });
+});
+
+describe("Document Hub multi-document staging", () => {
+    it("stages valid and invalid browse/drop selections independently with distinct attempt keys", () => {
+        let sequence = 0;
+        const generate = () => `key-${++sequence}`;
+        const staged = addDocumentFiles([], [textFile("contract.txt"), new File(["x"], "installer.exe", { type: "application/octet-stream" }), textFile("notes.txt")], generate);
+        expect(staged.map(item => item.file.name)).toEqual(["contract.txt", "installer.exe", "notes.txt"]);
+        expect(staged.map(item => item.phase)).toEqual(["ready", "invalid", "ready"]);
+        expect(staged[1].validationError).toMatch(/not supported/i);
+        expect(new Set(staged.map(item => item.idempotencyKey)).size).toBe(3);
+        const dropped = addDocumentFiles(staged, [textFile("drop.txt")], generate);
+        expect(dropped).toHaveLength(4);
+    });
+
+    it("rejects an oversized file individually without discarding a valid neighbor", () => {
+        const oversized = new File([new Uint8Array(MAX_DOCUMENT_BYTES + 1)], "large.txt", { type: "text/plain" });
+        let sequence = 0;
+        const staged = addDocumentFiles([], [textFile(), oversized], () => `key-${++sequence}`);
+        expect(staged[0].phase).toBe("ready");
+        expect(staged[1]).toMatchObject({ phase: "invalid", validationError: expect.stringMatching(/10 MiB/i) });
+    });
+
+    it("supports bulk destinations, individual override, and rotates identity only when destination changes", () => {
+        let sequence = 0;
+        const generate = () => `key-${++sequence}`;
+        const staged = addDocumentFiles([], [textFile("one.txt"), textFile("two.txt")], generate);
+        const bulk = applyDestinationToAll(staged, "Projects", generate);
+        expect(bulk.map(item => item.destination)).toEqual(["Projects", "Projects"]);
+        const bulkKeys = bulk.map(item => item.idempotencyKey);
+        const overridden = setDocumentDestination(bulk, bulk[1].id, "Legal", generate);
+        expect(overridden.map(item => item.destination)).toEqual(["Projects", "Legal"]);
+        expect(overridden[0].idempotencyKey).toBe(bulkKeys[0]);
+        expect(overridden[1].idempotencyKey).not.toBe(bulkKeys[1]);
+    });
+
+    it("removes only the selected item and suppresses obvious same-session duplicates", () => {
+        let sequence = 0;
+        const generate = () => `key-${++sequence}`;
+        const file = textFile("same.txt");
+        const staged = addDocumentFiles([], [file, file], generate);
+        expect(staged).toHaveLength(1);
+        const withSecond = addDocumentFiles(staged, [textFile("other.txt")], generate);
+        expect(removeStagedDocument(withSecond, staged[0].id).map(item => item.file.name)).toEqual(["other.txt"]);
+    });
+
+    it("requires every ready file destination and preserves partial success plus failed retry identity", () => {
+        let sequence = 0;
+        const generate = () => `key-${++sequence}`;
+        const staged = addDocumentFiles([], [textFile("one.txt"), textFile("two.txt")], generate);
+        const oneAssigned = setDocumentDestination(staged, staged[0].id, "Projects", generate);
+        expect(canUploadBatch(oneAssigned, false)).toBe(false);
+        const ready = applyDestinationToAll(oneAssigned, "Projects", generate);
+        expect(canUploadBatch(ready, false)).toBe(true);
+        expect(readyDocuments(ready)).toHaveLength(2);
+        const failedKey = ready[1].idempotencyKey;
+        const partial = markDocumentFailed(markDocumentUploaded(ready, ready[0].id, responseArtifact), ready[1].id, "Temporary failure");
+        expect(partial.map(item => item.phase)).toEqual(["uploaded", "failed"]);
+        expect(partial[1].idempotencyKey).toBe(failedKey);
+        expect(readyDocuments(partial)).toHaveLength(0);
+    });
+
+    it("issues one sequential request per ready file and preserves partial results", async () => {
+        let sequence = 0;
+        const generate = () => `key-${++sequence}`;
+        const staged = applyDestinationToAll(addDocumentFiles([], [textFile("one.txt"), textFile("two.txt")], generate), "Projects", generate);
+        const active = { count: 0, maximum: 0 };
+        const upload = vi.fn(async (item: (typeof staged)[number]) => {
+            active.count += 1; active.maximum = Math.max(active.maximum, active.count);
+            await Promise.resolve();
+            active.count -= 1;
+            if (item.file.name === "two.txt") throw new Error("failed");
+            return responseArtifact;
+        });
+        const successes: string[] = [];
+        const failures: string[] = [];
+        await uploadDocumentsSequentially(staged, upload, () => undefined, item => successes.push(item.id), item => failures.push(item.id));
+        expect(upload).toHaveBeenCalledTimes(2);
+        expect(upload.mock.calls.map(([item]) => item.idempotencyKey)).toEqual(staged.map(item => item.idempotencyKey));
+        expect(active.maximum).toBe(1);
+        expect(successes).toEqual([staged[0].id]);
+        expect(failures).toEqual([staged[1].id]);
     });
 });
 

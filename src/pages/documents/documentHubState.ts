@@ -75,3 +75,106 @@ export function formatDocumentSize(bytes: number): string {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+export interface StagedDocument {
+    id: string;
+    file: File;
+    destination: ArtifactLibraryKey | "";
+    idempotencyKey: string;
+    phase: "ready" | "invalid" | "uploading" | "uploaded" | "failed";
+    validationError: string | null;
+    uploadError: string | null;
+    artifact: ArtifactRecord | null;
+}
+
+type KeyGenerator = () => string;
+
+function localFileKey(file: File): string {
+    return `${file.name}\u0000${file.size}\u0000${file.lastModified}\u0000${file.type}`;
+}
+
+export function addDocumentFiles(items: readonly StagedDocument[], files: Iterable<File>, generateKey: KeyGenerator): StagedDocument[] {
+    const seen = new Set(items.map(item => localFileKey(item.file)));
+    const added: StagedDocument[] = [];
+    for (const file of files) {
+        const fingerprint = localFileKey(file);
+        if (seen.has(fingerprint)) continue;
+        seen.add(fingerprint);
+        const validationError = validateDocumentFile(file);
+        added.push({
+            id: generateKey(), file, destination: "", idempotencyKey: generateKey(),
+            phase: validationError ? "invalid" : "ready", validationError,
+            uploadError: null, artifact: null,
+        });
+    }
+    return [...items, ...added];
+}
+
+export function removeStagedDocument(items: readonly StagedDocument[], id: string): StagedDocument[] {
+    return items.filter(item => item.id !== id);
+}
+
+export function setDocumentDestination(items: readonly StagedDocument[], id: string, destination: ArtifactLibraryKey | "", generateKey: KeyGenerator): StagedDocument[] {
+    return items.map(item => {
+        if (item.id !== id || item.phase === "uploading" || item.phase === "uploaded") return item;
+        return {
+            ...item, destination,
+            idempotencyKey: item.destination === destination ? item.idempotencyKey : generateKey(),
+            uploadError: null, phase: item.validationError ? "invalid" : "ready",
+        };
+    });
+}
+
+export function applyDestinationToAll(items: readonly StagedDocument[], destination: ArtifactLibraryKey, generateKey: KeyGenerator): StagedDocument[] {
+    return items.map(item => {
+        if (item.phase === "uploading" || item.phase === "uploaded" || item.destination === destination) return item;
+        return {
+            ...item, destination, idempotencyKey: generateKey(), uploadError: null,
+            phase: item.validationError ? "invalid" : "ready",
+        };
+    });
+}
+
+export function readyDocuments(items: readonly StagedDocument[]): StagedDocument[] {
+    return items.filter(item => item.phase === "ready" && !item.validationError && !!item.destination);
+}
+
+export async function uploadDocumentsSequentially(
+    items: readonly StagedDocument[],
+    upload: (item: StagedDocument) => Promise<ArtifactRecord>,
+    onStart: (item: StagedDocument) => void,
+    onSuccess: (item: StagedDocument, artifact: ArtifactRecord) => void,
+    onFailure: (item: StagedDocument, error: unknown) => void,
+): Promise<void> {
+    for (const item of readyDocuments(items)) {
+        onStart(item);
+        try {
+            onSuccess(item, await upload(item));
+        } catch (error) {
+            onFailure(item, error);
+        }
+    }
+}
+
+export function canUploadBatch(items: readonly StagedDocument[], batchRunning: boolean): boolean {
+    if (batchRunning) return false;
+    const pending = items.filter(item => item.phase === "ready");
+    return pending.length > 0 && pending.every(item => !item.validationError && !!item.destination);
+}
+
+export function markDocumentUploading(items: readonly StagedDocument[], id: string): StagedDocument[] {
+    return items.map(item => item.id === id ? { ...item, phase: "uploading", uploadError: null } : item);
+}
+
+export function markDocumentFailed(items: readonly StagedDocument[], id: string, message: string): StagedDocument[] {
+    return items.map(item => item.id === id ? { ...item, phase: "failed", uploadError: message, artifact: null } : item);
+}
+
+export function markDocumentUploaded(items: readonly StagedDocument[], id: string, artifact: ArtifactRecord): StagedDocument[] {
+    return items.map(item => item.id === id ? { ...item, phase: "uploaded", uploadError: null, artifact } : item);
+}
+
+export function documentExtension(fileName: string): string {
+    const dot = fileName.lastIndexOf(".");
+    return dot > 0 ? fileName.slice(dot + 1).toUpperCase() : "FILE";
+}

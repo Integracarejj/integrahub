@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { ArtifactUploadError, uploadArtifact, type ArtifactLibraryKey } from "../../services/artifactPersistence";
-import { beginDocumentUpload, canSubmitDocument, completeDocumentUpload, EMPTY_UPLOAD_STATE, failDocumentUpload, formatDocumentSize, removeDocumentFile, selectDocumentFile, type DocumentHubUploadState } from "./documentHubState";
+import { addDocumentFiles, applyDestinationToAll, canUploadBatch, documentExtension, formatDocumentSize, markDocumentFailed, markDocumentUploaded, markDocumentUploading, readyDocuments, removeStagedDocument, setDocumentDestination, uploadDocumentsSequentially, type StagedDocument } from "./documentHubState";
 import "./DocumentHubPage.css";
 
 type HubMode = "provide" | "find";
@@ -12,49 +12,60 @@ function newIdempotencyKey(): string {
 
 export default function DocumentHubPage() {
     const [mode, setMode] = useState<HubMode>("provide");
-    const [state, setState] = useState<DocumentHubUploadState>(EMPTY_UPLOAD_STATE);
+    const [items, setItems] = useState<StagedDocument[]>([]);
     const [dragActive, setDragActive] = useState(false);
+    const [batchRunning, setBatchRunning] = useState(false);
+    const [bulkDestination, setBulkDestination] = useState<ArtifactLibraryKey | "">("");
     const fileInput = useRef<HTMLInputElement>(null);
     const uploadInFlight = useRef(false);
 
-    function chooseFile(file: File | undefined) {
-        if (!file || uploadInFlight.current) return;
-        setState(current => selectDocumentFile(current, file, newIdempotencyKey));
+    function addFiles(files: FileList | File[]) {
+        if (!files.length) return;
+        setItems(current => addDocumentFiles(current, Array.from(files), newIdempotencyKey));
         if (fileInput.current) fileInput.current.value = "";
     }
 
-    function chooseDestination(destination: ArtifactLibraryKey | "") {
-        setState(current => ({
-            ...current,
-            destination,
-            idempotencyKey: current.file ? newIdempotencyKey() : current.idempotencyKey,
-            phase: current.file ? "ready" : current.phase,
-            uploadError: null,
-            artifact: null,
-        }));
+    function applyBulkDestination(destination: ArtifactLibraryKey | "") {
+        setBulkDestination(destination);
+        if (destination) setItems(current => applyDestinationToAll(current, destination, newIdempotencyKey));
     }
 
-    async function submitUpload() {
-        if (uploadInFlight.current || !canSubmitDocument(state) || !state.file || !state.destination || !state.idempotencyKey) return;
+    async function uploadOne(item: StagedDocument) {
+        if (uploadInFlight.current || !item.destination || item.validationError || !["ready", "failed"].includes(item.phase)) return;
         uploadInFlight.current = true;
-        setState(beginDocumentUpload);
+        setItems(current => markDocumentUploading(current, item.id));
         try {
-            const artifact = await uploadArtifact(state.file, state.destination, state.idempotencyKey);
-            setState(current => completeDocumentUpload(current, artifact));
+            const artifact = await uploadArtifact(item.file, item.destination, item.idempotencyKey);
+            setItems(current => markDocumentUploaded(current, item.id, artifact));
         } catch (error) {
             const message = error instanceof ArtifactUploadError ? error.message : "Document Hub could not store this file. Please retry.";
-            setState(current => failDocumentUpload(current, message));
+            setItems(current => markDocumentFailed(current, item.id, message));
         } finally {
             uploadInFlight.current = false;
         }
     }
 
-    function resetUpload() {
+    async function submitBatch() {
+        if (uploadInFlight.current || !canUploadBatch(items, batchRunning)) return;
+        uploadInFlight.current = true;
+        setBatchRunning(true);
+        await uploadDocumentsSequentially(
+            items,
+            item => uploadArtifact(item.file, item.destination as ArtifactLibraryKey, item.idempotencyKey),
+            item => setItems(current => markDocumentUploading(current, item.id)),
+            (item, artifact) => setItems(current => markDocumentUploaded(current, item.id, artifact)),
+            (item, error) => {
+                const message = error instanceof ArtifactUploadError ? error.message : "Document Hub could not store this file. Please retry.";
+                setItems(current => markDocumentFailed(current, item.id, message));
+            },
+        );
         uploadInFlight.current = false;
-        setState(EMPTY_UPLOAD_STATE);
-        setDragActive(false);
-        if (fileInput.current) fileInput.current.value = "";
+        setBatchRunning(false);
     }
+
+    const readyCount = readyDocuments(items).length;
+    const pendingCount = items.filter(item => item.phase === "ready").length;
+    const hasUploaded = items.some(item => item.phase === "uploaded");
 
     return (
         <main className="document-hub-page">
@@ -64,99 +75,77 @@ export default function DocumentHubPage() {
                     <h1>Document Hub</h1>
                     <p>Provide trusted documents now and find them through authoritative IntegraIQ metadata.</p>
                 </div>
-                <div className="document-hub-storage-note"><span aria-hidden="true">●</span> Secure Working storage</div>
             </header>
 
             <nav className="document-hub-tabs" aria-label="Document Hub modes">
-                <button type="button" className={mode === "provide" ? "active" : ""} aria-selected={mode === "provide"} onClick={() => setMode("provide")}>Provide</button>
-                <button type="button" className={mode === "find" ? "active" : ""} aria-selected={mode === "find"} onClick={() => setMode("find")}>Find</button>
+                <button type="button" className={mode === "provide" ? "active" : ""} aria-selected={mode === "provide"} onClick={() => setMode("provide")}><span aria-hidden="true">⇧</span>Provide Documents</button>
+                <button type="button" className={mode === "find" ? "active" : ""} aria-selected={mode === "find"} onClick={() => setMode("find")}><span aria-hidden="true">⌕</span>Find Documents</button>
             </nav>
 
             {mode === "find" ? (
                 <section className="document-hub-find" aria-labelledby="find-title">
                     <div className="document-hub-find-icon" aria-hidden="true">⌕</div>
-                    <h2 id="find-title">Find trusted documents</h2>
-                    <p>Authoritative search and retrieval are coming in the next Document Hub release.</p>
+                    <h2 id="find-title">Find Documents</h2>
+                    <p>Search and retrieval will be available in the next release.</p>
                 </section>
             ) : (
                 <section className="document-hub-provide" aria-labelledby="provide-title">
                     <div className="document-hub-section-heading">
-                        <div><h2 id="provide-title">Provide a document</h2><p>Choose one document and its Working destination before uploading.</p></div>
-                        <span>10 MiB maximum</span>
+                        <div><h2 id="provide-title">Provide Documents</h2><p>Add documents, choose a Working destination for each, then upload.</p></div>
+                        <span>10 MiB each</span>
                     </div>
 
-                    {state.phase === "success" && state.artifact ? (
-                        <div className="document-hub-result document-hub-success" role="status">
-                            <div className="document-hub-result-icon" aria-hidden="true">✓</div>
-                            <div>
-                                <p className="document-hub-result-label">Upload complete</p>
-                                <h3>{state.artifact.fileName}</h3>
-                                <p>Your document is safely stored in <strong>{state.artifact.libraryKey} Working</strong>.</p>
-                                <dl>
-                                    <div><dt>Status</dt><dd>{state.artifact.ingestionState}</dd></div>
-                                    <div><dt>Artifact ID</dt><dd>{state.artifact.id}</dd></div>
-                                </dl>
-                                <button type="button" className="document-hub-primary" onClick={resetUpload}>Upload another document</button>
-                            </div>
+                    <div className={`document-hub-dropzone${dragActive ? " drag-active" : ""}`}
+                        onDragEnter={event => { event.preventDefault(); setDragActive(true); }} onDragOver={event => event.preventDefault()}
+                        onDragLeave={event => { event.preventDefault(); setDragActive(false); }}
+                        onDrop={event => { event.preventDefault(); setDragActive(false); addFiles(event.dataTransfer.files); }}>
+                        <input ref={fileInput} id="document-hub-file" type="file" hidden multiple
+                            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg,.jpeg,.gif,.webp,.tif,.tiff"
+                            onChange={event => event.target.files && addFiles(event.target.files)} />
+                        <div className="document-hub-drop-prompt">
+                            <div className="document-hub-upload-icon" aria-hidden="true">⇧</div>
+                            <h3>Drop documents here</h3><p>or</p>
+                            <button type="button" className="document-hub-browse" onClick={() => fileInput.current?.click()}>Browse files</button>
+                            <small>PDF, Office, text, CSV, and common image formats · Up to 10 MiB each</small>
                         </div>
-                    ) : (
-                        <>
-                            <div
-                                className={`document-hub-dropzone${dragActive ? " drag-active" : ""}${state.file ? " has-file" : ""}`}
-                                onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }}
-                                onDragOver={(event) => event.preventDefault()}
-                                onDragLeave={(event) => { event.preventDefault(); setDragActive(false); }}
-                                onDrop={(event) => { event.preventDefault(); setDragActive(false); chooseFile(event.dataTransfer.files[0]); }}
-                            >
-                                <input ref={fileInput} id="document-hub-file" type="file" hidden
-                                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg,.jpeg,.gif,.webp,.tif,.tiff"
-                                    onChange={(event) => chooseFile(event.target.files?.[0])} />
-                                {!state.file ? (
-                                    <div className="document-hub-drop-prompt">
-                                        <div className="document-hub-upload-icon" aria-hidden="true">⇧</div>
-                                        <h3>Drop a document here</h3>
-                                        <p>or</p>
-                                        <button type="button" className="document-hub-browse" onClick={() => fileInput.current?.click()}>Browse files</button>
-                                        <small>PDF, Office, text, CSV, and common image formats · Up to 10 MiB</small>
-                                    </div>
-                                ) : (
-                                    <div className="document-hub-file-summary">
-                                        <div className="document-hub-file-icon" aria-hidden="true">DOC</div>
-                                        <div><strong>{state.file.name}</strong><span>{formatDocumentSize(state.file.size)} · {state.file.type}</span></div>
-                                        <div className="document-hub-file-actions">
-                                            <button type="button" onClick={() => fileInput.current?.click()} disabled={state.phase === "uploading"}>Replace</button>
-                                            <button type="button" onClick={() => setState(current => removeDocumentFile(current))} disabled={state.phase === "uploading"}>Remove</button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                    </div>
 
-                            {state.validationError && <div className="document-hub-message error" role="alert">{state.validationError}</div>}
-
-                            <div className="document-hub-controls">
-                                <label htmlFor="document-hub-destination">Working destination</label>
-                                <select id="document-hub-destination" value={state.destination} disabled={state.phase === "uploading"}
-                                    onChange={(event) => chooseDestination(event.target.value as ArtifactLibraryKey | "")}>
-                                    <option value="">Choose a destination</option>
+                    {items.length > 0 && <div className="document-hub-staging">
+                        <div className="document-hub-staging-header">
+                            <div><h3>Staged documents</h3><p>{items.length} {items.length === 1 ? "document" : "documents"}</p></div>
+                            <label>Apply destination to all
+                                <select value={bulkDestination} disabled={batchRunning} onChange={event => applyBulkDestination(event.target.value as ArtifactLibraryKey | "")}>
+                                    <option value="">Choose destination</option>
                                     {DESTINATIONS.map(destination => <option key={destination} value={destination}>{destination} Working</option>)}
                                 </select>
-                                <p>Document Hub chooses the secure SharePoint location. Infrastructure identifiers are never exposed.</p>
-                            </div>
+                            </label>
+                        </div>
+                        <div className="document-hub-file-list">
+                            {items.map(item => <article className={`document-hub-file-row ${item.phase}`} key={item.id}>
+                                <div className="document-hub-file-icon" aria-hidden="true">{documentExtension(item.file.name)}</div>
+                                <div className="document-hub-file-name"><strong>{item.file.name}</strong><span>{formatDocumentSize(item.file.size)} · {item.file.type || "Unknown type"}</span></div>
+                                <label>Store in
+                                    <select value={item.destination} disabled={["uploading", "uploaded"].includes(item.phase)} onChange={event => setItems(current => setDocumentDestination(current, item.id, event.target.value as ArtifactLibraryKey | "", newIdempotencyKey))}>
+                                        <option value="">Choose destination</option>
+                                        {DESTINATIONS.map(destination => <option key={destination} value={destination}>{destination} Working</option>)}
+                                    </select>
+                                </label>
+                                <div className={`document-hub-status ${item.phase}`} role={item.phase === "failed" || item.phase === "invalid" ? "alert" : "status"}>
+                                    {item.phase === "ready" && <><strong>Ready</strong>{!item.destination && <span>Destination required</span>}</>}
+                                    {item.phase === "invalid" && <><strong>Invalid</strong><span>{item.validationError}</span></>}
+                                    {item.phase === "uploading" && <strong><span className="document-hub-spinner" /> Uploading…</strong>}
+                                    {item.phase === "uploaded" && <><strong>✓ Uploaded</strong><span>Artifact ID: {item.artifact?.id}</span></>}
+                                    {item.phase === "failed" && <><strong>Upload failed</strong><span>{item.uploadError}</span><button type="button" onClick={() => uploadOne(item)} disabled={batchRunning}>Retry</button></>}
+                                </div>
+                                <button type="button" className="document-hub-remove" onClick={() => setItems(current => removeStagedDocument(current, item.id))} disabled={item.phase === "uploading"}>Remove</button>
+                            </article>)}
+                        </div>
+                    </div>}
 
-                            {state.phase === "uploading" && (
-                                <div className="document-hub-message uploading" role="status"><span className="document-hub-spinner" /> <div><strong>Uploading securely…</strong><p>Keep this page open while Document Hub stores your file.</p></div></div>
-                            )}
-                            {state.phase === "failure" && (
-                                <div className="document-hub-message error persistent" role="alert"><div><strong>Upload not completed</strong><p>{state.uploadError}</p></div><button type="button" onClick={submitUpload}>Retry upload</button></div>
-                            )}
-
-                            <div className="document-hub-submit-row">
-                                <span>{state.file && !state.destination ? "Choose a destination to enable upload." : "Your document will not upload until you confirm."}</span>
-                                <button type="button" className="document-hub-primary" onClick={submitUpload}
-                                    disabled={!canSubmitDocument(state)}>{state.phase === "uploading" ? "Uploading…" : "Upload document"}</button>
-                            </div>
-                        </>
-                    )}
+                    <div className="document-hub-submit-row">
+                        <span>{hasUploaded ? "Completed uploads remain visible. Add more documents at any time." : pendingCount > 0 && readyCount < pendingCount ? "Choose a destination for every ready document." : "Documents upload only after you confirm."}</span>
+                        <button type="button" className="document-hub-primary" onClick={submitBatch} disabled={!canUploadBatch(items, batchRunning)}>{batchRunning ? "Uploading…" : `Upload ${readyCount === 1 ? "document" : `${readyCount} documents`}`}</button>
+                    </div>
                 </section>
             )}
         </main>
