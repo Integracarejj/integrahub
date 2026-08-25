@@ -1,16 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { usePermissions, isPlatformAdmin } from "../hooks/usePermissions";
+import { INTERNAL_NAV_ITEMS } from "../navigation/internalNavigation";
 import "./Sidebar.css";
-
-const NAV_ITEMS = [
-    { to: "/", label: "Home", icon: "🏠", end: true },
-    { to: "/topics", label: "Business Topics", icon: "🧭" },
-    { to: "/applications", label: "Systems", icon: "🖥️" },
-    { to: "/processes", label: "Processes", icon: "🔄" },
-    { to: "/performance", label: "Performance", icon: "📈" },
-    { to: "/integrations", label: "Explore", icon: "🗺️" },
-    { to: "/recapitalization", label: "Recapitalization", icon: "💼" },
-];
 
 interface SidebarProps {
     open: boolean;
@@ -28,7 +19,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     return (
         <aside className={`sidebar ${open ? "sidebar--open" : ""}`}>
             <nav className="sidebar-nav">
-                {NAV_ITEMS.map(item => (
+                {INTERNAL_NAV_ITEMS.map(item => (
                     <NavLink
                         key={item.to}
                         to={item.to}
