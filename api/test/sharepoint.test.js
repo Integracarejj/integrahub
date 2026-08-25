@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getSharePointSiteTarget, loadSharePointConfig, SharePointConfigError } from "../src/integrations/sharepoint/config.js";
+import { getArtifactDestinationTarget, getSharePointSiteTarget, loadSharePointConfig, SharePointConfigError } from "../src/integrations/sharepoint/config.js";
 import { ClientSecretGraphAuthProvider, GraphAuthenticationError } from "../src/integrations/sharepoint/auth.js";
 import { SharePointGraphClient, GraphRequestError } from "../src/integrations/sharepoint/graphClient.js";
 import { checkSharePointConnectivity } from "../src/integrations/sharepoint/connectivity.js";
@@ -23,6 +23,14 @@ test("SharePoint config reads only dedicated credentials and defaults", () => {
     assert.equal(getSharePointSiteTarget(config, "working").sitePath, "/sites/tIntegraSourceWorking");
     assert.equal(getSharePointSiteTarget(config, "knowledge").sitePath, "/sites/tIntegraSourceKnowledge");
     assert.equal(getSharePointSiteTarget(config, "knowledge").libraryName, "Documents");
+    assert.deepEqual(config.artifactDestinations.map(({ key, libraryName }) => ({ key, libraryName })), [
+        { key: "Projects", libraryName: "Projects Working" },
+        { key: "Legal", libraryName: "Legal Working" },
+        { key: "Operations", libraryName: "Operations Working" },
+    ]);
+    assert.equal(getArtifactDestinationTarget(config, "Projects").sitePath, "/sites/tIntegraSourceWorking");
+    assert.equal(getArtifactDestinationTarget(config, "Legal").libraryName, "Legal Working");
+    assert.throws(() => getArtifactDestinationTarget(config, "Recapitalization"), SharePointConfigError);
     assert.throws(() => getSharePointSiteTarget(config, "unknown"), SharePointConfigError);
 });
 

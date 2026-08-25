@@ -25,6 +25,12 @@ const DEFAULT_SITES = Object.freeze([
     }),
 ]);
 
+const DEFAULT_ARTIFACT_DESTINATIONS = Object.freeze([
+    Object.freeze({ key: "Projects", hostname: "integracare.sharepoint.com", sitePath: "/sites/tIntegraSourceWorking", libraryName: "Projects Working" }),
+    Object.freeze({ key: "Legal", hostname: "integracare.sharepoint.com", sitePath: "/sites/tIntegraSourceWorking", libraryName: "Legal Working" }),
+    Object.freeze({ key: "Operations", hostname: "integracare.sharepoint.com", sitePath: "/sites/tIntegraSourceWorking", libraryName: "Operations Working" }),
+]);
+
 export class SharePointConfigError extends Error {
     constructor(missingKeys) {
         super(`SharePoint integration is not configured. Missing: ${missingKeys.join(", ")}`);
@@ -49,7 +55,20 @@ export function loadSharePointConfig(env = process.env) {
             sitePath: env[`SHAREPOINT_${site.key.toUpperCase()}_SITE_PATH`]?.trim() || site.sitePath,
             libraryName: env[`SHAREPOINT_${site.key.toUpperCase()}_LIBRARY`]?.trim() || site.libraryName,
         })),
+        artifactDestinations: DEFAULT_ARTIFACT_DESTINATIONS.map((target) => ({
+            ...target,
+            hostname: env[`SHAREPOINT_ARTIFACT_${target.key.toUpperCase()}_HOSTNAME`]?.trim() || target.hostname,
+            sitePath: env[`SHAREPOINT_ARTIFACT_${target.key.toUpperCase()}_SITE_PATH`]?.trim() || target.sitePath,
+            libraryName: env[`SHAREPOINT_ARTIFACT_${target.key.toUpperCase()}_LIBRARY`]?.trim() || target.libraryName,
+        })),
     };
+}
+
+
+export function getArtifactDestinationTarget(config, libraryKey) {
+    const target = config.artifactDestinations?.find((candidate) => candidate.key === libraryKey);
+    if (!target) throw new SharePointConfigError([`artifact-destination:${libraryKey}`]);
+    return target;
 }
 
 export function getSharePointSiteTarget(config, siteKey) {
