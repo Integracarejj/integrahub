@@ -25,7 +25,7 @@ function harness({ uploadError = null, finalizeError = null, remote = null, down
         markUploaded: async () => { calls.push(["uploaded"]); if (finalizeError) throw finalizeError; row = { ...row, ingestionState: "Uploaded", uploadedAt: "uploaded" }; return row; },
         markFailed: async (_id, _actor, _key, reason) => { calls.push(["failed", reason]); row = { ...row, ingestionState: "Failed" }; },
         getById: async id => id === ARTIFACT_ID ? row : null,
-        list: async () => row ? [row] : [],
+        list: async filters => { calls.push(["list", filters]); return { rows: row ? [row] : [], total: row ? 1 : 0 }; },
         appendEvent: async event => calls.push(["event", event]),
     };
     const graph = {
@@ -186,16 +186,48 @@ test("unverified deterministic-name collision fails closed", async () => {
 test("read/list/download allow internal roles, omit Graph identity, and audit download", async () => {
     const value = harness(); await value.service.upload(value.request);
     assert.equal((await value.service.get(ARTIFACT_ID, { id: "viewer", globalRole: "Viewer" })).id, ARTIFACT_ID);
-    assert.equal((await value.service.list({}, { id: "dd", globalRole: "DDTeam" }))[0].libraryKey, "Projects");
+    const listed = await value.service.list({}, { id: "dd", globalRole: "DDTeam" });
+    assert.equal(listed.artifacts[0].libraryKey, "Projects");
+    assert.deepEqual({ total: listed.total, page: listed.page, pageSize: listed.pageSize }, { total: 1, page: 1, pageSize: 25 });
     const file = await value.service.download(ARTIFACT_ID, { id: "viewer", globalRole: "Viewer" });
     assert.equal(file.content.toString(), PDF.toString());
     assert.equal(value.calls.some(([name, event]) => name === "event" && event.eventType === "ArtifactDownloaded"), true);
     await assert.rejects(value.service.download(ARTIFACT_ID, { id: "external", globalRole: "ExternalBuyer" }), ArtifactForbiddenError);
 });
 
+test("list validates and maps search, area, type, date, pagination, and newest-first defaults", async () => {
+    const value = harness(); await value.service.upload(value.request);
+    const result = await value.service.list({ q: "Quarterly", libraryKey: "Projects", fileType: "word", dateRange: "7days", page: "2", pageSize: "25", sort: "name" }, { id: "viewer", globalRole: "Viewer" });
+    assert.equal(result.total, 1);
+    const filters = value.calls.find(([name]) => name === "list")[1];
+    assert.equal(filters.q, "Quarterly"); assert.equal(filters.libraryKey, "Projects");
+    assert.deepEqual(filters.extensions, ["doc", "docx"]); assert.equal(filters.offset, 25);
+    assert.match(filters.uploadedFrom, /^\d{4}-\d{2}-\d{2}$/); assert.equal(filters.sort, "name");
+    for (const invalid of [{ pageSize: 101 }, { q: "x".repeat(201) }, { fileType: "video" }, { dateRange: "year" }, { sort: "private" }]) {
+        await assert.rejects(value.service.list(invalid, { id: "viewer", globalRole: "Viewer" }), ArtifactValidationError);
+    }
+    await assert.rejects(value.service.list({}, { id: "external", globalRole: "ExternalBroker" }), ArtifactForbiddenError);
+});
+
+test("repository search is bounded to active uploaded rows with count, filters, pagination, and safe sorting", async () => {
+    const calls = [];
+    const repository = createArtifactRepository({ query: async (statement, params) => {
+        calls.push([statement, params]);
+        return statement.includes("COUNT_BIG") ? [{ total: 3 }] : [];
+    } });
+    const result = await repository.list({ pageSize: 25, offset: 0, libraryKey: "Legal", q: "Agreement", extensions: ["pdf"], uploadedFrom: "2026-08-01", sort: "newest" });
+    assert.equal(result.total, 3); assert.equal(calls.length, 2);
+    for (const [statement] of calls) {
+        assert.match(statement, /lifecycleState = 'Active'/); assert.match(statement, /ingestionState = 'Uploaded'/);
+        assert.match(statement, /originalFileName LIKE/); assert.match(statement, /fileExtension IN \(@extension0\)/);
+    }
+    assert.match(calls[1][0], /ORDER BY artifact\.uploadedAt DESC/);
+    assert.match(calls[1][0], /OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY/);
+});
+
 test("HTTP routes fail closed for external users and preserve application-only download contract", async () => {
     const calls = [];
-    const service = { list: async () => [], get: async () => ({}), upload: async input => { calls.push(input); return { id: ARTIFACT_ID }; },
+    const service = { list: async () => ({ artifacts: [], total: 0, page: 1, pageSize: 25 }), get: async () => ({}), upload: async input => { calls.push(input); return { id: ARTIFACT_ID }; },
         download: async () => ({ content: PDF, contentType: "application/pdf", fileName: "report.pdf" }) };
     const app = express();
     app.use((req, _res, next) => { req.user = req.headers["x-role"] ? { id: "actor", globalRole: req.headers["x-role"] } : null; next(); });

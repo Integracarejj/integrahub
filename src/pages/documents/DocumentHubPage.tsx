@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 import { ArtifactUploadError, uploadArtifact, type ArtifactLibraryKey } from "../../services/artifactPersistence";
-import { addDocumentFiles, applyDestinationToAll, canUploadBatch, documentExtension, formatDocumentSize, markDocumentFailed, markDocumentUploaded, markDocumentUploading, readyDocuments, removeStagedDocument, setDocumentDestination, uploadDocumentsSequentially, type StagedDocument } from "./documentHubState";
+import { addDocumentFiles, applyDestinationToAll, canUploadBatch, documentExtension, documentStatusLabel, formatDocumentSize, markDocumentFailed, markDocumentUploaded, markDocumentUploading, readyDocuments, removeStagedDocument, setDocumentDestination, uploadDocumentsSequentially, type StagedDocument } from "./documentHubState";
 import "./DocumentHubPage.css";
+import DocumentHubFind from "./DocumentHubFind";
 
 type HubMode = "provide" | "find";
 const DESTINATIONS: ArtifactLibraryKey[] = ["Projects", "Legal", "Operations"];
@@ -71,7 +72,6 @@ export default function DocumentHubPage() {
         <main className="document-hub-page">
             <header className="document-hub-header">
                 <div>
-                    <p className="document-hub-eyebrow">IntegraIQ</p>
                     <h1>Document Hub</h1>
                     <p>Provide trusted documents now and find them through authoritative IntegraIQ metadata.</p>
                 </div>
@@ -83,15 +83,11 @@ export default function DocumentHubPage() {
             </nav>
 
             {mode === "find" ? (
-                <section className="document-hub-find" aria-labelledby="find-title">
-                    <div className="document-hub-find-icon" aria-hidden="true">⌕</div>
-                    <h2 id="find-title">Find Documents</h2>
-                    <p>Search and retrieval will be available in the next release.</p>
-                </section>
+                <DocumentHubFind />
             ) : (
                 <section className="document-hub-provide" aria-labelledby="provide-title">
                     <div className="document-hub-section-heading">
-                        <div><h2 id="provide-title">Provide Documents</h2><p>Add documents, choose a Working destination for each, then upload.</p></div>
+                        <div><h2 id="provide-title">Provide Documents</h2><p>Add documents, choose an area for each, then upload.</p></div>
                         <span>10 MiB each</span>
                     </div>
 
@@ -113,10 +109,10 @@ export default function DocumentHubPage() {
                     {items.length > 0 && <div className="document-hub-staging">
                         <div className="document-hub-staging-header">
                             <div><h3>Staged documents</h3><p>{items.length} {items.length === 1 ? "document" : "documents"}</p></div>
-                            <label>Apply destination to all
+                            <label>Set area for all documents
                                 <select value={bulkDestination} disabled={batchRunning} onChange={event => applyBulkDestination(event.target.value as ArtifactLibraryKey | "")}>
                                     <option value="">Choose destination</option>
-                                    {DESTINATIONS.map(destination => <option key={destination} value={destination}>{destination} Working</option>)}
+                                    {DESTINATIONS.map(destination => <option key={destination} value={destination}>{destination}</option>)}
                                 </select>
                             </label>
                         </div>
@@ -124,18 +120,18 @@ export default function DocumentHubPage() {
                             {items.map(item => <article className={`document-hub-file-row ${item.phase}`} key={item.id}>
                                 <div className="document-hub-file-icon" aria-hidden="true">{documentExtension(item.file.name)}</div>
                                 <div className="document-hub-file-name"><strong>{item.file.name}</strong><span>{formatDocumentSize(item.file.size)} · {item.file.type || "Unknown type"}</span></div>
-                                <label>Store in
+                                <label>Area
                                     <select value={item.destination} disabled={["uploading", "uploaded"].includes(item.phase)} onChange={event => setItems(current => setDocumentDestination(current, item.id, event.target.value as ArtifactLibraryKey | "", newIdempotencyKey))}>
                                         <option value="">Choose destination</option>
-                                        {DESTINATIONS.map(destination => <option key={destination} value={destination}>{destination} Working</option>)}
+                                        {DESTINATIONS.map(destination => <option key={destination} value={destination}>{destination}</option>)}
                                     </select>
                                 </label>
                                 <div className={`document-hub-status ${item.phase}`} role={item.phase === "failed" || item.phase === "invalid" ? "alert" : "status"}>
-                                    {item.phase === "ready" && <><strong>Ready</strong>{!item.destination && <span>Destination required</span>}</>}
+                                    {item.phase === "ready" && <strong>{documentStatusLabel(item)}</strong>}
                                     {item.phase === "invalid" && <><strong>Invalid</strong><span>{item.validationError}</span></>}
                                     {item.phase === "uploading" && <strong><span className="document-hub-spinner" /> Uploading…</strong>}
                                     {item.phase === "uploaded" && <><strong>✓ Uploaded</strong><span>Artifact ID: {item.artifact?.id}</span></>}
-                                    {item.phase === "failed" && <><strong>Upload failed</strong><span>{item.uploadError}</span><button type="button" onClick={() => uploadOne(item)} disabled={batchRunning}>Retry</button></>}
+                                    {item.phase === "failed" && <><strong>Failed</strong><span>{item.uploadError}</span><button type="button" onClick={() => uploadOne(item)} disabled={batchRunning}>Retry</button></>}
                                 </div>
                                 <button type="button" className="document-hub-remove" onClick={() => setItems(current => removeStagedDocument(current, item.id))} disabled={item.phase === "uploading"}>Remove</button>
                             </article>)}
@@ -143,7 +139,7 @@ export default function DocumentHubPage() {
                     </div>}
 
                     <div className="document-hub-submit-row">
-                        <span>{hasUploaded ? "Completed uploads remain visible. Add more documents at any time." : pendingCount > 0 && readyCount < pendingCount ? "Choose a destination for every ready document." : "Documents upload only after you confirm."}</span>
+                        <span>{hasUploaded ? "Completed uploads remain visible. Add more documents at any time." : pendingCount > 0 && readyCount < pendingCount ? "Choose an area for every valid document." : "Documents upload only after you confirm."}</span>
                         <button type="button" className="document-hub-primary" onClick={submitBatch} disabled={!canUploadBatch(items, batchRunning)}>{batchRunning ? "Uploading…" : `Upload ${readyCount === 1 ? "document" : `${readyCount} documents`}`}</button>
                     </div>
                 </section>

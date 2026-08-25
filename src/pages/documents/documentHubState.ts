@@ -178,3 +178,11 @@ export function documentExtension(fileName: string): string {
     const dot = fileName.lastIndexOf(".");
     return dot > 0 ? fileName.slice(dot + 1).toUpperCase() : "FILE";
 }
+
+export function documentStatusLabel(item: StagedDocument): string {
+    if (item.phase === "ready") return item.destination ? "Ready" : "Needs area";
+    if (item.phase === "invalid") return "Invalid";
+    if (item.phase === "uploading") return "Uploading";
+    if (item.phase === "uploaded") return "Uploaded";
+    return "Failed";
+}

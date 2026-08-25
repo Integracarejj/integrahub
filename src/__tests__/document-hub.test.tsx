@@ -1,8 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import DocumentHubPage from "../pages/documents/DocumentHubPage";
-import { addDocumentFiles, applyDestinationToAll, beginDocumentUpload, canSubmitDocument, canUploadBatch, completeDocumentUpload, EMPTY_UPLOAD_STATE, failDocumentUpload, markDocumentFailed, markDocumentUploaded, MAX_DOCUMENT_BYTES, readyDocuments, removeDocumentFile, removeStagedDocument, selectDocumentFile, setDocumentDestination, uploadDocumentsSequentially, validateDocumentFile } from "../pages/documents/documentHubState";
-import { ArtifactUploadError, uploadArtifact, type ArtifactRecord } from "../services/artifactPersistence";
+import DocumentHubFind from "../pages/documents/DocumentHubFind";
+import { addDocumentFiles, applyDestinationToAll, beginDocumentUpload, canSubmitDocument, canUploadBatch, completeDocumentUpload, documentStatusLabel, EMPTY_UPLOAD_STATE, failDocumentUpload, markDocumentFailed, markDocumentUploaded, MAX_DOCUMENT_BYTES, readyDocuments, removeDocumentFile, removeStagedDocument, selectDocumentFile, setDocumentDestination, uploadDocumentsSequentially, validateDocumentFile } from "../pages/documents/documentHubState";
+import { ArtifactUploadError, downloadArtifact, listArtifacts, uploadArtifact, type ArtifactRecord } from "../services/artifactPersistence";
 import { shouldRedirectFromInternal } from "../utils/accessRouting";
 import { INTERNAL_NAV_ITEMS } from "../navigation/internalNavigation";
 
@@ -31,6 +32,20 @@ describe("Document Hub shell and navigation", () => {
         expect(html).not.toContain("Secure Working storage");
         expect(html).not.toContain("Replace");
         expect(html).not.toContain("SharePoint item ID");
+        expect(html).not.toContain("document-hub-eyebrow");
+        expect(html).not.toContain(" Working");
+    });
+
+    it("renders the authoritative Find controls with loading state and no raw Graph identity", () => {
+        const html = renderToStaticMarkup(<DocumentHubFind />);
+        expect(html).toContain("Search documents");
+        expect(html).toContain("All areas");
+        expect(html).toContain("All types");
+        expect(html).toContain("Newest uploaded");
+        expect(html).toContain("Loading documents");
+        expect(html).not.toContain("driveId");
+        expect(html).not.toContain("itemId");
+        expect(html).not.toContain("webUrl");
     });
 
     it("adds /documents without replacing existing internal navigation and keeps external users out of the internal tree", () => {
@@ -78,6 +93,8 @@ describe("Document Hub multi-document staging", () => {
         expect(overridden.map(item => item.destination)).toEqual(["Projects", "Legal"]);
         expect(overridden[0].idempotencyKey).toBe(bulkKeys[0]);
         expect(overridden[1].idempotencyKey).not.toBe(bulkKeys[1]);
+        expect(documentStatusLabel(staged[0])).toBe("Needs area");
+        expect(documentStatusLabel(bulk[0])).toBe("Ready");
     });
 
     it("removes only the selected item and suppresses obvious same-session duplicates", () => {
@@ -167,6 +184,27 @@ describe("Document Hub selection and attempt state", () => {
 });
 
 describe("Artifact Hub browser API integration", () => {
+    it("lists authoritative artifacts with search, filters, pagination, and newest-first sorting", async () => {
+        const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({ artifacts: [responseArtifact], total: 26, page: 2, pageSize: 25 }), { headers: { "Content-Type": "application/json" } }));
+        const result = await listArtifacts({ q: "report", libraryKey: "Projects", fileType: "text", dateRange: "7days", sort: "newest", page: 2, pageSize: 25 }, fetchMock as typeof fetch);
+        expect(result.total).toBe(26);
+        const [path, init] = fetchMock.mock.calls[0];
+        expect(path).toContain("/api/artifacts?"); expect(path).toContain("q=report"); expect(path).toContain("libraryKey=Projects");
+        expect(path).toContain("fileType=text"); expect(path).toContain("dateRange=7days"); expect(path).toContain("sort=newest"); expect(path).toContain("page=2");
+        expect(init).toEqual({ credentials: "include" });
+        expect(result.artifacts[0]).not.toHaveProperty("driveId");
+    });
+
+    it("downloads through the application endpoint with the safe display filename and normalizes failures", async () => {
+        const save = vi.fn();
+        const fetchMock = vi.fn(async () => new Response(new Blob(["document"]), { status: 200, headers: { "Content-Type": "text/plain" } }));
+        await downloadArtifact(responseArtifact.id, "report.txt", fetchMock as typeof fetch, save);
+        expect(fetchMock).toHaveBeenCalledWith(`/api/artifacts/${responseArtifact.id}/content`, { credentials: "include" });
+        expect(save).toHaveBeenCalledWith(expect.any(Blob), "report.txt");
+        const failed = vi.fn(async () => new Response(JSON.stringify({ error: "Download unavailable" }), { status: 502, headers: { "Content-Type": "application/json" } }));
+        await expect(downloadArtifact(responseArtifact.id, "report.txt", failed as typeof fetch, save)).rejects.toMatchObject({ message: "Download unavailable", status: 502 });
+    });
+
     it("sends raw file bytes and required headers with one stable idempotency key", async () => {
         const file = textFile();
         const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({ artifact: responseArtifact }), {

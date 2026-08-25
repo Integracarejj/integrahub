@@ -22,6 +22,11 @@ const MIME_BY_EXTENSION = new Map([
     ["gif", new Set(["image/gif"])], ["webp", new Set(["image/webp"])],
     ["tif", new Set(["image/tiff"])], ["tiff", new Set(["image/tiff"])],
 ]);
+const FILE_TYPE_EXTENSIONS = Object.freeze({
+    pdf: ["pdf"], word: ["doc", "docx"], excel: ["xls", "xlsx"],
+    powerpoint: ["ppt", "pptx"], text: ["txt", "csv"],
+    images: ["png", "jpg", "jpeg", "gif", "webp", "tif", "tiff"],
+});
 
 export class ArtifactValidationError extends Error {}
 export class ArtifactForbiddenError extends Error {}
@@ -152,12 +157,21 @@ export function createArtifactService({
             return safeArtifact(row);
         },
 
-        async list({ page = 1, pageSize = 25, libraryKey = null } = {}, actor) {
+        async list({ page = 1, pageSize = 25, libraryKey = null, q = "", fileType = "", dateRange = "all", sort = "newest" } = {}, actor) {
             requireActor(actor, READ_ROLES);
             const safePage = Number(page); const safePageSize = Number(pageSize);
             if (!Number.isInteger(safePage) || safePage < 1 || !Number.isInteger(safePageSize) || safePageSize < 1 || safePageSize > 100) throw new ArtifactValidationError("Invalid pagination");
             if (libraryKey && !["Projects", "Legal", "Operations"].includes(libraryKey)) throw new ArtifactValidationError("Invalid Artifact Hub destination");
-            return (await repository.list({ pageSize: safePageSize, offset: (safePage - 1) * safePageSize, libraryKey })).map(safeArtifact);
+            const safeQuery = String(q || "").trim();
+            if (safeQuery.length > 200) throw new ArtifactValidationError("Search text is too long");
+            if (fileType && !FILE_TYPE_EXTENSIONS[fileType]) throw new ArtifactValidationError("Invalid file type filter");
+            if (!["all", "today", "7days", "30days"].includes(dateRange)) throw new ArtifactValidationError("Invalid uploaded date filter");
+            if (!["newest", "name", "area"].includes(sort)) throw new ArtifactValidationError("Invalid artifact sort");
+            const days = dateRange === "today" ? 0 : dateRange === "7days" ? 7 : dateRange === "30days" ? 30 : null;
+            const uploadedFrom = days == null ? null : new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+            const result = await repository.list({ pageSize: safePageSize, offset: (safePage - 1) * safePageSize,
+                libraryKey, q: safeQuery || null, extensions: FILE_TYPE_EXTENSIONS[fileType] || [], uploadedFrom, sort });
+            return { artifacts: result.rows.map(safeArtifact), total: result.total, page: safePage, pageSize: safePageSize };
         },
 
         async download(id, actor) {

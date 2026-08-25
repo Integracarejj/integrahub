@@ -153,12 +153,27 @@ export function createArtifactRepository({
 
         appendEvent(event) { return appendEventWith(query, event); },
 
-        async list({ pageSize, offset, libraryKey }) {
-            return query(`${SELECT_ARTIFACT}
-                WHERE artifact.lifecycleState = 'Active' AND artifact.ingestionState = 'Uploaded'
-                  AND (@libraryKey IS NULL OR artifact.libraryKey = @libraryKey)
-                ORDER BY artifact.createdAt DESC, artifact.id
-                OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY`, { pageSize, offset, libraryKey: libraryKey || null });
+        async list({ pageSize, offset, libraryKey, q, extensions, uploadedFrom, sort }) {
+            const params = { pageSize, offset, libraryKey: libraryKey || null, q: q || null, uploadedFrom: uploadedFrom || null };
+            const extensionClause = extensions.length
+                ? `AND artifact.fileExtension IN (${extensions.map((extension, index) => {
+                    params[`extension${index}`] = extension;
+                    return `@extension${index}`;
+                }).join(", ")})`
+                : "";
+            const where = `WHERE artifact.lifecycleState = 'Active' AND artifact.ingestionState = 'Uploaded'
+                AND (@libraryKey IS NULL OR artifact.libraryKey = @libraryKey)
+                AND (@q IS NULL OR artifact.originalFileName LIKE '%' + @q + '%' OR artifact.description LIKE '%' + @q + '%')
+                AND (@uploadedFrom IS NULL OR artifact.uploadedAt >= @uploadedFrom)
+                ${extensionClause}`;
+            const orderBy = sort === "name" ? "artifact.originalFileName, artifact.id"
+                : sort === "area" ? "artifact.libraryKey, artifact.originalFileName, artifact.id"
+                    : "artifact.uploadedAt DESC, artifact.id";
+            const countRows = await query(`SELECT COUNT_BIG(*) AS total FROM cmdb.Artifacts artifact ${where}`, params);
+            const rows = await query(`${SELECT_ARTIFACT} ${where}
+                ORDER BY ${orderBy}
+                OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY`, params);
+            return { rows, total: Number(countRows[0]?.total || 0) };
         },
     };
     return repository;

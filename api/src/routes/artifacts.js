@@ -27,7 +27,7 @@ export function createArtifactRouter(service = artifactService) {
     router.use(requireInternalUser);
 
     router.get("/", async (req, res) => {
-        try { return res.json({ artifacts: await service.list(req.query, req.user) }); }
+        try { return res.json(await service.list(req.query, req.user)); }
         catch (error) { return failure(res, error); }
     });
     router.post("/", raw({ type: "application/octet-stream", limit: MAX_ARTIFACT_BYTES }), async (req, res) => {
