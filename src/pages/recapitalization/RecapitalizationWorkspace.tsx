@@ -150,6 +150,7 @@ function LoadedRecapitalizationWorkspace({ id, result, wsRefreshKey, setWsRefres
     const [workArtifacts, setWorkArtifacts] = useState<WorkArtifact[]>([]);
     const [sourceDocuments, setSourceDocuments] = useState<AuthoritativeSourceDocument[]>([]);
     const [artifactUploadPending, setArtifactUploadPending] = useState(false);
+    const [artifactUploadNotice, setArtifactUploadNotice] = useState<{ status: "uploading" | "success" | "error"; fileNames: string; message: string } | null>(null);
     const [wnComposerOpen, setWnComposerOpen] = useState(false);
     const [wnText, setWnText] = useState("");
     const [extMsgComposerOpen, setExtMsgComposerOpen] = useState(false);
@@ -629,15 +630,20 @@ function WorkflowStateCard({
     async function handleArtifactUpload(files: File[]) {
         if (item.origin === "authoritative") {
             if (!canUploadAuthoritative || artifactUploadPending) return;
+            const selectedFileNames = files.map(file => file.name).join(", ");
+            setArtifactUploadNotice({ status: "uploading", fileNames: selectedFileNames, message: "Uploading to SharePoint…" });
             setArtifactUploadPending(true);
             try {
                 const uploaded = [];
                 for (const file of files) uploaded.push(await uploadAuthoritativeArtifact(item.id, file));
                 setWorkArtifacts(await loadAuthoritativeArtifacts(item.id).then(rows => rows.map(artifact => ({ id: artifact.id, name: artifact.fileName, originalFileName: artifact.fileName, displayFileName: artifact.fileName, size: artifact.size, uploadedAt: artifact.uploadedAt || "", uploadedBy: artifact.uploadedBy || undefined, requestId: item.id, artifactType: "Work Artifact", isPrototype: false }))));
                 setUploadSuccess(uploaded.map(row => row.fileName).join(", "));
+                setArtifactUploadNotice({ status: "success", fileNames: selectedFileNames, message: `${uploaded.length} artifact${uploaded.length !== 1 ? "s" : ""} uploaded successfully` });
                 setActionFeedback(`\u2713 ${uploaded.length} artifact${uploaded.length !== 1 ? "s" : ""} uploaded successfully`);
             } catch (error) {
-                setActionFeedback(error instanceof Error ? error.message : "Artifact upload failed");
+                const message = error instanceof Error ? error.message : "Artifact upload failed";
+                setArtifactUploadNotice({ status: "error", fileNames: selectedFileNames, message });
+                setActionFeedback(message);
             } finally { setArtifactUploadPending(false); }
             return;
         }
@@ -1260,18 +1266,26 @@ function WorkflowStateCard({
                           <div style={{ display: "flex", gap: 16, marginBottom: 28 }}>
                             {(item.origin !== "authoritative" || canUploadAuthoritative) && (
                             <div
-                              onClick={() => document.getElementById("artifact-upload-hidden")?.click()}
+                              onClick={() => { if (!artifactUploadPending) document.getElementById("artifact-upload-hidden")?.click(); }}
                               onDragOver={e => { e.preventDefault(); setDragOverUpload(true); }}
                               onDragEnter={e => { e.preventDefault(); setDragOverUpload(true); }}
                               onDragLeave={e => { e.preventDefault(); setDragOverUpload(false); }}
-                              onDrop={e => { e.preventDefault(); setDragOverUpload(false); const files = Array.from(e.dataTransfer.files); if (files.length > 0) handleArtifactUpload(files); }}
-                              style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, padding: "24px 20px", border: `2px ${dragOverUpload ? "solid" : "dashed"} ${dragOverUpload ? "#3b82f6" : "#bfdbfe"}`, borderRadius: 14, background: dragOverUpload ? "#eff6ff" : "#fff", cursor: "pointer", transition: "all 0.15s", boxShadow: dragOverUpload ? "0 4px 16px rgba(37,99,235,0.1)" : "0 1px 4px rgba(0,0,0,0.02)", minHeight: 100 }}
+                              onDrop={e => { e.preventDefault(); setDragOverUpload(false); if (artifactUploadPending) return; const files = Array.from(e.dataTransfer.files); if (files.length > 0) void handleArtifactUpload(files); }}
+                              aria-disabled={artifactUploadPending}
+                              style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, padding: "24px 20px", border: `2px ${dragOverUpload ? "solid" : "dashed"} ${dragOverUpload ? "#3b82f6" : artifactUploadNotice?.status === "error" ? "#fca5a5" : artifactUploadNotice?.status === "success" ? "#86efac" : "#bfdbfe"}`, borderRadius: 14, background: dragOverUpload ? "#eff6ff" : artifactUploadNotice?.status === "error" ? "#fef2f2" : artifactUploadNotice?.status === "success" ? "#f0fdf4" : "#fff", cursor: artifactUploadPending ? "wait" : "pointer", transition: "all 0.15s", boxShadow: dragOverUpload ? "0 4px 16px rgba(37,99,235,0.1)" : "0 1px 4px rgba(0,0,0,0.02)", minHeight: 100 }}
                               onMouseEnter={e => { if (!dragOverUpload) { e.currentTarget.style.borderColor = "#6366f1"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(37,99,235,0.1)"; }}}
                               onMouseLeave={e => { if (!dragOverUpload) { e.currentTarget.style.borderColor = "#bfdbfe"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}}
                             >
                               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={dragOverUpload ? "#2563eb" : "#4f46e5"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
                               <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{artifactUploadPending ? "Uploading..." : dragOverUpload ? "Drop files to upload" : "Upload Artifact"}</div>
                               <div style={{ fontSize: 12, color: "#475569", textAlign: "center" }}>{dragOverUpload ? "" : "Drag files here or Browse File (10 MiB maximum)"}</div>
+                              {artifactUploadNotice && (
+                                <div role="status" aria-live="polite" style={{ width: "100%", maxWidth: 420, padding: "8px 10px", borderRadius: 8, background: "rgba(255,255,255,0.82)", border: `1px solid ${artifactUploadNotice.status === "error" ? "#fecaca" : artifactUploadNotice.status === "success" ? "#bbf7d0" : "#bfdbfe"}`, color: artifactUploadNotice.status === "error" ? "#991b1b" : artifactUploadNotice.status === "success" ? "#166534" : "#1e40af", textAlign: "left" }}>
+                                  <div style={{ fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{artifactUploadNotice.fileNames}</div>
+                                  <div style={{ fontSize: 11, marginTop: 2 }}>{artifactUploadNotice.message}</div>
+                                  {artifactUploadNotice.status === "uploading" && <div className="rc-artifact-upload-track"><div className="rc-artifact-upload-progress" /></div>}
+                                </div>
+                              )}
                               <input id="artifact-upload-hidden" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg,.jpeg,.gif,.webp,.tif,.tiff" style={{ display: "none" }} onChange={e => { const files = Array.from(e.target.files || []); if (files.length > 0) void handleArtifactUpload(files); e.target.value = ""; }} />
                             </div>
                             )}
@@ -1597,15 +1611,15 @@ function WorkflowStateCard({
                             onToggle={() => toggleSection("artifacts")}
                         >
                             {/* ── Original Submission ── */}
-                            <div style={{ marginBottom: 16 }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                            <div style={{ marginBottom: 16, padding: 14, borderRadius: 10, background: "#f8fafc", border: "1px solid #dbeafe" }}>
+                                <div style={{ fontSize: 13, fontWeight: 800, color: "#1e3a8a", textTransform: "uppercase", letterSpacing: "0.045em", marginBottom: 8, display: "flex", alignItems: "center", gap: 7 }}>
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
                                     Original Submission
                                 </div>
                                 <p style={{ fontSize: 13, color: "#334155", lineHeight: 1.7, margin: 0 }}>{description}</p>
                                 {item.origin === "authoritative" && canViewAuthoritative && sourceDocuments.map(source => (
-                                    <div key={source.id} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, padding: "8px 10px", background: "#f8faff", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12 }}>
-                                        <span style={{ flex: 1, fontWeight: 600 }}>{source.fileName}</span>
+                                    <div key={source.id} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, padding: "10px 12px", background: "#fff", border: "1px solid #bfdbfe", borderRadius: 8, fontSize: 12 }}>
+                                        <span style={{ flex: 1, fontWeight: 700, color: "#172554" }}>{source.fileName}</span>
                                         <span style={{ color: "#475569" }}>{(source.size / 1024).toFixed(0)} KB</span>
                                         <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => void downloadAuthoritativeSourceDocument(item.id, source.id, source.fileName)}>Download Original</button>
                                     </div>
@@ -1622,8 +1636,8 @@ function WorkflowStateCard({
                             <div style={{ height: 1, background: "#e2e8f0", marginBottom: 16 }} />
 
                             {/* ── Work Artifacts ── */}
-                            <div>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                            <div style={{ padding: 14, borderRadius: 10, background: "#f8fafc", border: "1px solid #c7d2fe" }}>
+                                <div style={{ fontSize: 13, fontWeight: 800, color: "#3730a3", textTransform: "uppercase", letterSpacing: "0.045em", marginBottom: 8, display: "flex", alignItems: "center", gap: 7 }}>
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
                                     Work Artifacts ({workArtifacts.length})
                                 </div>
@@ -1632,12 +1646,12 @@ function WorkflowStateCard({
                                 {workArtifacts.length > 0 && (
                                     <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
                                         {workArtifacts.map(art => (
-                                            <div key={art.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", background: "#f8faff", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12, color: "#1e293b" }}>
+                                            <div key={art.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "#fff", border: "1px solid #c7d2fe", borderRadius: 8, fontSize: 12, color: "#1e293b", boxShadow: "0 1px 2px rgba(15,23,42,0.04)" }}>
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <span
                                                         onClick={() => setArtifactDetail(art)}
-                                                        style={{ fontWeight: 600, color: "#1d4ed8", cursor: "pointer", textDecoration: "none" }}
+                                                        style={{ fontWeight: 700, color: "#1d4ed8", cursor: "pointer", textDecoration: "none" }}
                                                         title="View artifact details"
                                                     >
                                                         {art.displayFileName || art.name}

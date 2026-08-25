@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createRecapWorkArtifactService, WorkArtifactConflictError, WorkArtifactForbiddenError, WorkArtifactValidationError } from "../src/services/recapWorkArtifactService.js";
 import { GraphRequestError } from "../src/integrations/sharepoint/graphClient.js";
+import express from "express";
+import { createRecapWorkArtifactRouter } from "../src/routes/recapWorkArtifacts.js";
 
 const WORK_ID = "11111111-1111-4111-8111-111111111111";
 const ART_ID = "22222222-2222-4222-8222-222222222222";
@@ -131,4 +133,29 @@ test("listing, artifact download, and original submission access are WorkItem-sc
     await assert.rejects(() => value.service.list(WORK_ID, { id: "other", globalRole: "Viewer" }), WorkArtifactForbiddenError);
     await assert.rejects(() => value.service.downloadArtifact(WORK_ID, DOC_ID, { id: "owner-a" }), /not found/);
     assert.ok(value.calls.some(call => call[0] === "artifact-download" && call[1] === WORK_ID && call[2] === DOC_ID));
+});
+
+test("artifact content route preserves application IDs, authorization actor, and attachment response", async () => {
+    const calls = [];
+    const service = {
+        downloadArtifact: async (workItemId, artifactId, actor) => {
+            calls.push({ workItemId, artifactId, actor });
+            return { content: Buffer.from("document bytes"), contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", fileName: "reviewed-report.docx" };
+        },
+    };
+    const app = express();
+    app.use((req, _res, next) => { req.user = { id: "owner-a", globalRole: "Viewer" }; next(); });
+    app.use("/api/recapitalization/work-items/:id/artifacts", createRecapWorkArtifactRouter(service));
+    const server = app.listen(0, "127.0.0.1");
+    await new Promise(resolve => server.once("listening", resolve));
+    try {
+        const { port } = server.address();
+        const response = await fetch(`http://127.0.0.1:${port}/api/recapitalization/work-items/${WORK_ID}/artifacts/${ART_ID}/content`);
+        assert.equal(response.status, 200);
+        assert.equal(response.headers.get("content-disposition"), 'attachment; filename="reviewed-report.docx"');
+        assert.equal(await response.text(), "document bytes");
+        assert.deepEqual(calls, [{ workItemId: WORK_ID, artifactId: ART_ID, actor: { id: "owner-a", globalRole: "Viewer" } }]);
+    } finally {
+        await new Promise(resolve => server.close(resolve));
+    }
 });

@@ -2019,6 +2019,27 @@
     to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+.rc-artifact-upload-track {
+  height: 4px;
+  margin-top: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dbeafe;
+}
+
+.rc-artifact-upload-progress {
+  width: 38%;
+  height: 100%;
+  border-radius: inherit;
+  background: #2563eb;
+  animation: rc-artifact-upload-indeterminate 1.1s ease-in-out infinite;
+}
+
+@keyframes rc-artifact-upload-indeterminate {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(330%); }
+}
+
 .rc-modal-header {
     display: flex;
     align-items: center;

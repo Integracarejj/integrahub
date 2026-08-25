@@ -59,7 +59,10 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
                 return;
             }
             if (url.endsWith("/artifacts")) {
-                if (method === "POST") artifacts.push({ id: "99999999-9999-4999-8999-999999999999", fileName: decodeURIComponent(route.request().headers()["x-file-name"]), contentType: route.request().headers()["x-file-content-type"], size: route.request().postDataBuffer()?.length || 0, status: "Uploaded", uploadedBy: "Durable Contributor", uploadedAt: "2026-08-19T12:15:00.000Z" });
+                if (method === "POST") {
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    artifacts.push({ id: "99999999-9999-4999-8999-999999999999", fileName: decodeURIComponent(route.request().headers()["x-file-name"]), contentType: route.request().headers()["x-file-content-type"], size: route.request().postDataBuffer()?.length || 0, status: "Uploaded", uploadedBy: "Durable Contributor", uploadedAt: "2026-08-19T12:15:00.000Z" });
+                }
                 await route.fulfill({ status: method === "POST" ? 201 : 200, contentType: "application/json", body: JSON.stringify(method === "POST" ? { artifact: artifacts[0] } : { artifacts }) });
                 return;
             }
@@ -214,7 +217,11 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     expect(await reviewSubmitPage.evaluate(async workId => (await fetch(`/api/recapitalization/work-items/${workId}/source-documents`)).json(), WORK_ID)).toMatchObject({ documents: [{ fileName: "keystone.xlsx" }] });
     await expect(reviewSubmitPage.getByText("keystone.xlsx", { exact: true })).toBeVisible();
     await reviewSubmitPage.locator("#artifact-upload-hidden").setInputFiles({ name: "owner-report.pdf", mimeType: "application/pdf", buffer: Buffer.from("durable artifact") });
+    await expect(reviewSubmitPage.getByRole("status")).toContainText("owner-report.pdf");
+    await expect(reviewSubmitPage.getByRole("status")).toContainText("Uploading to SharePoint");
+    await expect(reviewSubmitPage.locator(".rc-artifact-upload-progress")).toBeVisible();
     await expect(reviewSubmitPage.getByText("owner-report.pdf", { exact: true }).first()).toBeVisible();
+    await expect(reviewSubmitPage.getByRole("status")).toContainText("uploaded successfully");
     expect(artifacts).toHaveLength(1);
     await reviewSubmitContext.close();
 

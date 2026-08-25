@@ -32,8 +32,14 @@ async function download(path: string, fileName: string) {
     const response = await fetch(path, { credentials: "include", headers: getAuthHeaders() });
     if (!response.ok) throw new Error("Download failed");
     const url = URL.createObjectURL(await response.blob());
-    const anchor = document.createElement("a"); anchor.href = url; anchor.download = fileName; anchor.click();
-    URL.revokeObjectURL(url);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.style.display = "none";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 export function downloadAuthoritativeArtifact(workItemId: string, artifactId: string, fileName: string) {
     return download(`/api/recapitalization/work-items/${workItemId}/artifacts/${artifactId}/content`, fileName);
