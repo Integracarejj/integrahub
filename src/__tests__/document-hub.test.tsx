@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import DocumentHubPage from "../pages/documents/DocumentHubPage";
 import DocumentHubFind from "../pages/documents/DocumentHubFind";
-import { addDocumentFiles, applyDestinationToAll, beginDocumentUpload, canSubmitDocument, canUploadBatch, completeDocumentUpload, documentStatusLabel, EMPTY_UPLOAD_STATE, failDocumentUpload, internalWorkUseLabel, markDocumentFailed, markDocumentUploaded, MAX_DOCUMENT_BYTES, readyDocuments, removeDocumentFile, removeStagedDocument, selectDocumentFile, setDocumentDestination, uploadDocumentsSequentially, validateDocumentFile, WORK_AREA_PLACEHOLDER } from "../pages/documents/documentHubState";
+import { addDocumentFiles, applyDestinationToAll, beginDocumentUpload, canSubmitDocument, canUploadBatch, completeDocumentUpload, documentStatusLabel, EMPTY_UPLOAD_STATE, failDocumentUpload, internalWorkUseLabel, markDocumentFailed, markDocumentUploaded, MAX_DOCUMENT_BYTES, readyDocuments, removeDocumentFile, removeStagedDocument, selectDocumentFile, setDocumentDestination, shouldShowBulkWorkAreaControl, uploadDocumentsSequentially, validateDocumentFile, WORK_AREA_PLACEHOLDER } from "../pages/documents/documentHubState";
 import { ArtifactUploadError, downloadArtifact, listArtifacts, uploadArtifact, type ArtifactRecord } from "../services/artifactPersistence";
 import { shouldRedirectFromInternal } from "../utils/accessRouting";
 import { INTERNAL_NAV_ITEMS } from "../navigation/internalNavigation";
@@ -27,12 +27,13 @@ describe("Document Hub shell and navigation", () => {
         expect(html).toContain("Find Documents");
         expect(html).toContain("Drop documents here");
         expect(html).toContain("Browse files");
-        expect(html).toContain("10 MiB each");
+        expect(html).toContain("Up to 10 MiB each");
         expect(html).toContain("Add documents");
         expect(html).toContain("Prepare");
         expect(html).toContain("Store");
-        expect(html).toContain("Internal Work");
-        expect(html).toContain("Choose a work area for each document");
+        expect(html).toContain("Add documents for internal work, choose where they belong, then store them.");
+        expect(html).not.toContain("document-hub-use-context");
+        expect(html).not.toContain("Set work area for all documents");
         expect(html).toContain("multiple");
         expect(html).not.toContain("Secure Working storage");
         expect(html).not.toContain("Replace");
@@ -69,6 +70,13 @@ describe("Document Hub shell and navigation", () => {
         expect(internalWorkUseLabel("Projects")).toBe("Project work");
         expect(internalWorkUseLabel("Legal")).toBe("Legal work");
         expect(internalWorkUseLabel("Operations")).toBe("Operational work");
+    });
+
+    it("shows bulk work-area assignment only when at least two documents are staged", () => {
+        expect(shouldShowBulkWorkAreaControl(0)).toBe(false);
+        expect(shouldShowBulkWorkAreaControl(1)).toBe(false);
+        expect(shouldShowBulkWorkAreaControl(2)).toBe(true);
+        expect(shouldShowBulkWorkAreaControl(3)).toBe(true);
     });
 
     it("adds /documents without replacing existing internal navigation and keeps external users out of the internal tree", () => {

@@ -3,6 +3,10 @@ import type { ArtifactLibraryKey, ArtifactRecord } from "../../services/artifact
 export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 export const WORK_AREA_PLACEHOLDER = "Choose a work area";
 
+export function shouldShowBulkWorkAreaControl(documentCount: number): boolean {
+    return documentCount >= 2;
+}
+
 export const INTERNAL_WORK_USES: ReadonlyArray<{ value: ArtifactLibraryKey; label: string }> = [
     { value: "Projects", label: "Project work" },
     { value: "Legal", label: "Legal work" },

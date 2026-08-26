@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { ArtifactUploadError, uploadArtifact, type ArtifactLibraryKey } from "../../services/artifactPersistence";
-import { addDocumentFiles, applyDestinationToAll, canUploadBatch, documentExtension, documentStatusLabel, formatDocumentSize, INTERNAL_WORK_USES, markDocumentFailed, markDocumentUploaded, markDocumentUploading, readyDocuments, removeStagedDocument, setDocumentDestination, uploadDocumentsSequentially, WORK_AREA_PLACEHOLDER, type StagedDocument } from "./documentHubState";
+import { addDocumentFiles, applyDestinationToAll, canUploadBatch, documentExtension, documentStatusLabel, formatDocumentSize, INTERNAL_WORK_USES, markDocumentFailed, markDocumentUploaded, markDocumentUploading, readyDocuments, removeStagedDocument, setDocumentDestination, shouldShowBulkWorkAreaControl, uploadDocumentsSequentially, WORK_AREA_PLACEHOLDER, type StagedDocument } from "./documentHubState";
 import "./DocumentHubPage.css";
 import DocumentHubFind from "./DocumentHubFind";
 
@@ -86,17 +86,12 @@ export default function DocumentHubPage() {
             ) : (
                 <section className="document-hub-provide" aria-labelledby="provide-title">
                     <div className="document-hub-section-heading">
-                        <div><h2 id="provide-title">Provide Documents</h2><p>Add documents, choose how they will be used, then store them.</p></div>
-                        <span>10 MiB each</span>
+                        <div><h2 id="provide-title">Provide Documents</h2><p>Add documents for internal work, choose where they belong, then store them.</p></div>
                     </div>
 
                     <ol className="document-hub-process" aria-label="Document storage process">
                         <li><strong>1</strong> Add documents</li><li><strong>2</strong> Prepare</li><li><strong>3</strong> Store</li>
                     </ol>
-
-                    <div className="document-hub-use-context" aria-label="Document use">
-                        <span>Use</span><strong>Internal Work</strong><small>Use these documents for active internal work. Choose a work area for each document.</small>
-                    </div>
 
                     <div className={`document-hub-dropzone${dragActive ? " drag-active" : ""}`}
                         onDragEnter={event => { event.preventDefault(); setDragActive(true); }} onDragOver={event => event.preventDefault()}
@@ -116,12 +111,12 @@ export default function DocumentHubPage() {
                     {items.length > 0 && <div className="document-hub-staging">
                         <div className="document-hub-staging-header">
                             <div><h3>Documents to upload</h3><p>{items.length} {items.length === 1 ? "document" : "documents"}</p></div>
-                            <label>Set work area for all documents
+                            {shouldShowBulkWorkAreaControl(items.length) && <label>Set work area for all documents
                                 <select value={bulkDestination} disabled={batchRunning} onChange={event => applyBulkDestination(event.target.value as ArtifactLibraryKey | "")}>
                                     <option value="">{WORK_AREA_PLACEHOLDER}</option>
                                     {INTERNAL_WORK_USES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                                 </select>
-                            </label>
+                            </label>}
                         </div>
                         <div className="document-hub-file-list">
                             {items.map(item => <article className={`document-hub-file-row ${item.phase}`} key={item.id}>

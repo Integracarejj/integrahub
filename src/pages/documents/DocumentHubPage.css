@@ -13,18 +13,13 @@
 .document-hub-section-heading { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 20px; }
 .document-hub-section-heading h2 { margin: 0; font-size: 22px; }
 .document-hub-section-heading p { margin: 5px 0 0; color: #475569; font-size: 14px; }
-.document-hub-section-heading > span { padding: 6px 10px; border-radius: 7px; background: #eff6ff; color: #1e40af; font-size: 12px; font-weight: 700; }
 .document-hub-process { display: flex; align-items: center; gap: 10px; margin: -4px 0 18px; padding: 0; color: #64748b; font-size: 12px; list-style: none; }
 .document-hub-process li { display: flex; align-items: center; gap: 6px; }
 .document-hub-process li:not(:last-child)::after { content: "→"; margin-left: 4px; color: #94a3b8; }
 .document-hub-process strong { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: #dbeafe; color: #1d4ed8; font-size: 11px; }
-.document-hub-use-context { display: grid; gap: 2px; width: fit-content; margin-bottom: 16px; padding: 10px 13px; border-left: 3px solid #60a5fa; background: #f8fbff; }
-.document-hub-use-context > span { color: #334155; font-size: 11px; font-weight: 800; }
-.document-hub-use-context > strong { font-size: 14px; }
-.document-hub-use-context > small { color: #64748b; font-size: 11px; font-weight: 500; line-height: 1.35; }
-.document-hub-dropzone { min-height: 210px; display: flex; align-items: center; justify-content: center; padding: 26px; border: 2px dashed #60a5fa; border-radius: 16px; background: linear-gradient(145deg, #f8fbff, #f5f7ff); transition: border-color .15s, background .15s, transform .15s; }
+.document-hub-dropzone { min-height: 210px; display: flex; align-items: center; justify-content: center; padding: 26px; border: 2px dashed #60a5fa; border-radius: 16px; background: #fff; transition: border-color .15s, background .15s, transform .15s; }
 .document-hub-dropzone.drag-active { border-color: #2563eb; background: #eaf2ff; transform: scale(1.005); }
-.document-hub-dropzone.has-file { min-height: 125px; border-style: solid; background: #f8fafc; }
+.document-hub-dropzone.has-file { min-height: 125px; border-style: solid; background: #fff; }
 .document-hub-drop-prompt { display: flex; flex-direction: column; align-items: center; text-align: center; }
 .document-hub-upload-icon { width: 58px; height: 58px; display: grid; place-items: center; margin-bottom: 12px; border-radius: 16px; background: #dbeafe; color: #1d4ed8; font-size: 30px; font-weight: 700; }
 .document-hub-drop-prompt h3 { margin: 0; font-size: 20px; }
