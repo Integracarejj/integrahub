@@ -13,8 +13,74 @@ const SELECT_ARTIFACT = `SELECT CONVERT(varchar(36), artifact.id) AS id, artifac
     artifact.uploadedAt, artifact.createdAt, artifact.updatedAt
     FROM cmdb.Artifacts artifact`;
 
+const WORKING_PLACEMENT_APPLY = `OUTER APPLY (
+    SELECT COUNT_BIG(*) AS placementCount,
+        MAX(CONVERT(varchar(36), placement.id)) AS placementId,
+        MAX(placement.legacyLibraryKey) AS legacyLibraryKey,
+        MAX(placement.siteId) AS siteId, MAX(placement.driveId) AS driveId,
+        MAX(placement.itemId) AS itemId, MAX(placement.webUrl) AS webUrl
+    FROM cmdb.ArtifactPlacements placement
+    WHERE placement.artifactId = artifact.id
+      AND placement.placementType = 'Working'
+      AND placement.placementStatus = 'Active'
+) working
+CROSS JOIN (
+    SELECT appliedAt FROM cmdb.SchemaMigrations
+    WHERE migrationName = '016_artifact_placements.sql'
+) placementMigration`;
+
+const SELECT_READ_ARTIFACT = `SELECT CONVERT(varchar(36), artifact.id) AS id, artifact.originalFileName,
+    artifact.storedFileName, artifact.fileExtension, artifact.contentType, artifact.contentSize,
+    artifact.contentSha256, artifact.ingestionState, artifact.classificationState,
+    artifact.lifecycleState, artifact.storageDestination,
+    COALESCE(working.legacyLibraryKey, artifact.libraryKey) AS libraryKey,
+    COALESCE(working.siteId, artifact.siteId) AS siteId,
+    COALESCE(working.driveId, artifact.driveId) AS driveId,
+    COALESCE(working.itemId, artifact.itemId) AS itemId,
+    COALESCE(working.webUrl, artifact.webUrl) AS webUrl,
+    artifact.sourceOrigin, artifact.sourceModule, artifact.sourceContext,
+    artifact.submittedByUserId, artifact.idempotencyKey, artifact.description,
+    artifact.effectiveDate, artifact.classificationProvenance, artifact.classificationConfidence,
+    artifact.uploadedAt, artifact.createdAt, artifact.updatedAt,
+    working.placementCount AS workingPlacementCount, working.placementId AS workingPlacementId,
+    working.legacyLibraryKey AS placementLibraryKey,
+    working.siteId AS placementSiteId, working.driveId AS placementDriveId,
+    working.itemId AS placementItemId, working.webUrl AS placementWebUrl,
+    artifact.libraryKey AS legacyArtifactLibraryKey,
+    artifact.siteId AS legacyArtifactSiteId, artifact.driveId AS legacyArtifactDriveId,
+    artifact.itemId AS legacyArtifactItemId, artifact.webUrl AS legacyArtifactWebUrl,
+    placementMigration.appliedAt AS placementMigrationAppliedAt
+    FROM cmdb.Artifacts artifact
+    ${WORKING_PLACEMENT_APPLY}`;
+
 export class ArtifactLockError extends Error {
     constructor() { super("Artifact operation is already in progress"); this.name = "ArtifactLockError"; }
+}
+
+export class ArtifactPlacementReadError extends Error {
+    constructor() { super("Artifact Working placement requires reconciliation"); this.name = "ArtifactPlacementReadError"; }
+}
+
+function sameNullable(left, right) { return (left ?? null) === (right ?? null); }
+
+function validateWorkingPlacement(row) {
+    if (!row || row.ingestionState !== "Uploaded") return row;
+    const count = Number(row.workingPlacementCount || 0);
+    if (count > 1) throw new ArtifactPlacementReadError();
+    if (count === 0) {
+        if (!row.placementMigrationAppliedAt || new Date(row.createdAt) <= new Date(row.placementMigrationAppliedAt)) {
+            throw new ArtifactPlacementReadError();
+        }
+        return row;
+    }
+    if (!sameNullable(row.placementSiteId, row.legacyArtifactSiteId)
+        || !sameNullable(row.placementDriveId, row.legacyArtifactDriveId)
+        || !sameNullable(row.placementItemId, row.legacyArtifactItemId)
+        || !sameNullable(row.placementWebUrl, row.legacyArtifactWebUrl)
+        || (row.placementLibraryKey != null && row.placementLibraryKey !== row.legacyArtifactLibraryKey)) {
+        throw new ArtifactPlacementReadError();
+    }
+    return row;
 }
 
 export function createArtifactRepository({
@@ -55,6 +121,12 @@ export function createArtifactRepository({
         async getById(id) {
             const rows = await query(`${SELECT_ARTIFACT} WHERE artifact.id = @id`, { id });
             return rows[0] || null;
+        },
+
+        async getForRead(id) {
+            const rows = await query(`${SELECT_READ_ARTIFACT} WHERE artifact.id = @id`, { id });
+            if (!rows[0]) return null;
+            return validateWorkingPlacement(rows[0]);
         },
 
         async getByIdempotency(submittedByUserId, idempotencyKey) {
@@ -161,16 +233,31 @@ export function createArtifactRepository({
                     return `@extension${index}`;
                 }).join(", ")})`
                 : "";
+            const inconsistency = `artifact.lifecycleState = 'Active' AND artifact.ingestionState = 'Uploaded'
+                AND (working.placementCount > 1
+                    OR (working.placementCount = 0 AND artifact.createdAt <= placementMigration.appliedAt)
+                    OR (working.placementCount = 1 AND (
+                        ISNULL(working.siteId, '') <> ISNULL(artifact.siteId, '')
+                        OR ISNULL(working.driveId, '') <> ISNULL(artifact.driveId, '')
+                        OR ISNULL(working.itemId, '') <> ISNULL(artifact.itemId, '')
+                        OR ISNULL(working.webUrl, '') <> ISNULL(artifact.webUrl, '')
+                        OR (working.legacyLibraryKey IS NOT NULL AND working.legacyLibraryKey <> artifact.libraryKey)
+                    )))`;
+            const inconsistentRows = await query(`SELECT TOP (1) CONVERT(varchar(36), artifact.id) AS id
+                FROM cmdb.Artifacts artifact ${WORKING_PLACEMENT_APPLY}
+                WHERE ${inconsistency}`, {});
+            if (inconsistentRows[0]) throw new ArtifactPlacementReadError();
             const where = `WHERE artifact.lifecycleState = 'Active' AND artifact.ingestionState = 'Uploaded'
-                AND (@libraryKey IS NULL OR artifact.libraryKey = @libraryKey)
+                AND (@libraryKey IS NULL OR COALESCE(working.legacyLibraryKey, artifact.libraryKey) = @libraryKey)
                 AND (@q IS NULL OR artifact.originalFileName LIKE '%' + @q + '%' OR artifact.description LIKE '%' + @q + '%')
                 AND (@uploadedFrom IS NULL OR artifact.uploadedAt >= @uploadedFrom)
                 ${extensionClause}`;
             const orderBy = sort === "name" ? "artifact.originalFileName, artifact.id"
-                : sort === "area" ? "artifact.libraryKey, artifact.originalFileName, artifact.id"
+                : sort === "area" ? "COALESCE(working.legacyLibraryKey, artifact.libraryKey), artifact.originalFileName, artifact.id"
                     : "artifact.uploadedAt DESC, artifact.id";
-            const countRows = await query(`SELECT COUNT_BIG(*) AS total FROM cmdb.Artifacts artifact ${where}`, params);
-            const rows = await query(`${SELECT_ARTIFACT} ${where}
+            const countRows = await query(`SELECT COUNT_BIG(*) AS total FROM cmdb.Artifacts artifact
+                ${WORKING_PLACEMENT_APPLY} ${where}`, params);
+            const rows = await query(`${SELECT_READ_ARTIFACT} ${where}
                 ORDER BY ${orderBy}
                 OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY`, params);
             return { rows, total: Number(countRows[0]?.total || 0) };

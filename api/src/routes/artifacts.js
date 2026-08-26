@@ -3,7 +3,7 @@ import { requireInternalUser } from "../middleware/authorization.js";
 import { GraphAuthenticationError } from "../integrations/sharepoint/auth.js";
 import { GraphRequestError } from "../integrations/sharepoint/graphClient.js";
 import { SharePointConfigError } from "../integrations/sharepoint/config.js";
-import { ArtifactLockError } from "../services/artifactRepository.js";
+import { ArtifactLockError, ArtifactPlacementReadError } from "../services/artifactRepository.js";
 import { artifactService, MAX_ARTIFACT_BYTES, ArtifactConflictError, ArtifactForbiddenError,
     ArtifactNotFoundError, ArtifactRecoveryRequiredError, ArtifactValidationError } from "../services/artifactService.js";
 
@@ -14,6 +14,7 @@ function failure(res, error) {
     if (error instanceof ArtifactForbiddenError) return res.status(403).json({ error: "Artifact Hub access denied" });
     if (error instanceof ArtifactNotFoundError) return res.status(404).json({ error: error.message });
     if (error instanceof ArtifactConflictError || error instanceof ArtifactLockError) return res.status(409).json({ error: error.message });
+    if (error instanceof ArtifactPlacementReadError) return res.status(503).json({ error: "Artifact placement requires reconciliation" });
     if (error instanceof ArtifactRecoveryRequiredError) return res.status(503).json({ error: "Artifact upload is durable but requires retry before completion" });
     if (error instanceof SharePointConfigError) return res.status(503).json({ error: "Artifact Hub SharePoint integration is not configured" });
     if (error instanceof GraphAuthenticationError) return res.status(502).json({ error: "Microsoft Graph authentication failed" });

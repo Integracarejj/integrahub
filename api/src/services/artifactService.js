@@ -152,7 +152,7 @@ export function createArtifactService({
         async get(id, actor) {
             requireActor(actor, READ_ROLES);
             if (!UUID.test(id)) throw new ArtifactValidationError("Invalid artifact ID");
-            const row = await repository.getById(id);
+            const row = await repository.getForRead(id);
             if (!row || row.lifecycleState === "Removed") throw new ArtifactNotFoundError("Artifact not found");
             return safeArtifact(row);
         },
@@ -177,7 +177,7 @@ export function createArtifactService({
         async download(id, actor) {
             requireActor(actor, READ_ROLES);
             if (!UUID.test(id)) throw new ArtifactValidationError("Invalid artifact ID");
-            const row = await repository.getById(id);
+            const row = await repository.getForRead(id);
             if (!row || row.ingestionState !== "Uploaded" || row.lifecycleState === "Removed" || !row.driveId || !row.itemId) throw new ArtifactNotFoundError("Artifact not found");
             const client = graphClientFactory(loadConfig());
             const file = await client.downloadFile(row.driveId, row.itemId, { maxBytes: MAX_ARTIFACT_BYTES, expectedSize: Number(row.contentSize) });

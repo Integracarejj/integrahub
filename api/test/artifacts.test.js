@@ -6,7 +6,7 @@ import express from "express";
 import { createArtifactService, ArtifactConflictError, ArtifactForbiddenError, ArtifactRecoveryRequiredError, ArtifactValidationError, MAX_ARTIFACT_BYTES } from "../src/services/artifactService.js";
 import { createArtifactRouter } from "../src/routes/artifacts.js";
 import { GraphRequestError } from "../src/integrations/sharepoint/graphClient.js";
-import { createArtifactRepository } from "../src/services/artifactRepository.js";
+import { ArtifactPlacementReadError, createArtifactRepository } from "../src/services/artifactRepository.js";
 
 const ARTIFACT_ID = "11111111-1111-4111-8111-111111111111";
 const EDITOR = { id: "editor-1", globalRole: "Editor" };
@@ -25,6 +25,7 @@ function harness({ uploadError = null, finalizeError = null, remote = null, down
         markUploaded: async () => { calls.push(["uploaded"]); if (finalizeError) throw finalizeError; row = { ...row, ingestionState: "Uploaded", uploadedAt: "uploaded" }; return row; },
         markFailed: async (_id, _actor, _key, reason) => { calls.push(["failed", reason]); row = { ...row, ingestionState: "Failed" }; },
         getById: async id => id === ARTIFACT_ID ? row : null,
+        getForRead: async id => { calls.push(["read", id]); return id === ARTIFACT_ID ? row : null; },
         list: async filters => { calls.push(["list", filters]); return { rows: row ? [row] : [], total: row ? 1 : 0 }; },
         appendEvent: async event => calls.push(["event", event]),
     };
@@ -185,12 +186,17 @@ test("unverified deterministic-name collision fails closed", async () => {
 
 test("read/list/download allow internal roles, omit Graph identity, and audit download", async () => {
     const value = harness(); await value.service.upload(value.request);
-    assert.equal((await value.service.get(ARTIFACT_ID, { id: "viewer", globalRole: "Viewer" })).id, ARTIFACT_ID);
+    const detail = await value.service.get(ARTIFACT_ID, { id: "viewer", globalRole: "Viewer" });
+    assert.equal(detail.id, ARTIFACT_ID);
+    for (const privateField of ["siteId", "driveId", "itemId", "webUrl", "storedFileName", "contentSha256", "idempotencyKey"]) {
+        assert.equal(privateField in detail, false);
+    }
     const listed = await value.service.list({}, { id: "dd", globalRole: "DDTeam" });
     assert.equal(listed.artifacts[0].libraryKey, "Projects");
     assert.deepEqual({ total: listed.total, page: listed.page, pageSize: listed.pageSize }, { total: 1, page: 1, pageSize: 25 });
     const file = await value.service.download(ARTIFACT_ID, { id: "viewer", globalRole: "Viewer" });
     assert.equal(file.content.toString(), PDF.toString());
+    assert.equal(value.calls.filter(([name]) => name === "read").length, 2);
     assert.equal(value.calls.some(([name, event]) => name === "event" && event.eventType === "ArtifactDownloaded"), true);
     await assert.rejects(value.service.download(ARTIFACT_ID, { id: "external", globalRole: "ExternalBuyer" }), ArtifactForbiddenError);
 });
@@ -213,16 +219,75 @@ test("repository search is bounded to active uploaded rows with count, filters, 
     const calls = [];
     const repository = createArtifactRepository({ query: async (statement, params) => {
         calls.push([statement, params]);
-        return statement.includes("COUNT_BIG") ? [{ total: 3 }] : [];
+        if (statement.includes("SELECT TOP (1)")) return [];
+        return statement.includes("SELECT COUNT_BIG(*) AS total") ? [{ total: 3 }] : [];
     } });
     const result = await repository.list({ pageSize: 25, offset: 0, libraryKey: "Legal", q: "Agreement", extensions: ["pdf"], uploadedFrom: "2026-08-01", sort: "newest" });
-    assert.equal(result.total, 3); assert.equal(calls.length, 2);
-    for (const [statement] of calls) {
+    assert.equal(result.total, 3); assert.equal(calls.length, 3);
+    for (const [statement] of calls.slice(1)) {
         assert.match(statement, /lifecycleState = 'Active'/); assert.match(statement, /ingestionState = 'Uploaded'/);
         assert.match(statement, /originalFileName LIKE/); assert.match(statement, /fileExtension IN \(@extension0\)/);
+        assert.match(statement, /OUTER APPLY/); assert.match(statement, /placementType = 'Working'/);
     }
-    assert.match(calls[1][0], /ORDER BY artifact\.uploadedAt DESC/);
-    assert.match(calls[1][0], /OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY/);
+    assert.match(calls[0][0], /placementCount > 1/);
+    assert.match(calls[1][0], /COALESCE\(working\.legacyLibraryKey, artifact\.libraryKey\) = @libraryKey/);
+    assert.match(calls[2][0], /ORDER BY artifact\.uploadedAt DESC/);
+    assert.match(calls[2][0], /OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY/);
+});
+
+test("placement-aware detail fails closed for migrated missing, mismatched, or duplicate Working placements", async () => {
+    const base = { id: ARTIFACT_ID, ingestionState: "Uploaded", createdAt: new Date("2026-01-01"),
+        placementMigrationAppliedAt: new Date("2026-02-01"), legacyArtifactLibraryKey: "Projects",
+        legacyArtifactSiteId: "site", legacyArtifactDriveId: "legacy-drive", legacyArtifactItemId: "legacy-item",
+        legacyArtifactWebUrl: "legacy-url", placementLibraryKey: "Projects", placementSiteId: "site",
+        placementDriveId: "legacy-drive", placementItemId: "legacy-item", placementWebUrl: "legacy-url" };
+    for (const row of [
+        { ...base, workingPlacementCount: 0 },
+        { ...base, workingPlacementCount: 2 },
+        { ...base, workingPlacementCount: 1, placementItemId: "different-item" },
+    ]) {
+        const repository = createArtifactRepository({ query: async () => [row] });
+        await assert.rejects(repository.getForRead(ARTIFACT_ID), ArtifactPlacementReadError);
+    }
+});
+
+test("placement-aware detail prefers exact Working placement and permits explicit post-migration legacy fallback", async () => {
+    const base = { id: ARTIFACT_ID, ingestionState: "Uploaded", createdAt: new Date("2026-01-01"),
+        placementMigrationAppliedAt: new Date("2026-02-01"), workingPlacementCount: 1,
+        legacyArtifactLibraryKey: "Projects", legacyArtifactSiteId: "legacy-site", legacyArtifactDriveId: "legacy-drive",
+        legacyArtifactItemId: "legacy-item", legacyArtifactWebUrl: "legacy-url", placementLibraryKey: "Projects",
+        placementSiteId: "legacy-site", placementDriveId: "legacy-drive", placementItemId: "legacy-item",
+        placementWebUrl: "legacy-url", libraryKey: "Projects", siteId: "legacy-site", driveId: "legacy-drive",
+        itemId: "legacy-item", webUrl: "legacy-url" };
+    const exact = createArtifactRepository({ query: async () => [base] });
+    assert.equal((await exact.getForRead(ARTIFACT_ID)).itemId, "legacy-item");
+
+    const postMigration = { ...base, createdAt: new Date("2026-03-01"), workingPlacementCount: 0,
+        workingPlacementId: null, placementLibraryKey: null, placementSiteId: null, placementDriveId: null,
+        placementItemId: null, placementWebUrl: null };
+    const fallback = createArtifactRepository({ query: async () => [postMigration] });
+    assert.equal((await fallback.getForRead(ARTIFACT_ID)).itemId, "legacy-item");
+});
+
+test("download resolves through placement-aware repository identity and preserves event behavior", async () => {
+    const calls = [];
+    const placementRow = { id: ARTIFACT_ID, originalFileName: "report.pdf", contentType: "application/pdf",
+        contentSize: PDF.length, ingestionState: "Uploaded", lifecycleState: "Active",
+        driveId: "placement-drive", itemId: "placement-item" };
+    const repository = {
+        getForRead: async () => placementRow,
+        getById: async () => { throw new Error("legacy detail lookup must not be used"); },
+        appendEvent: async event => calls.push(["event", event]),
+    };
+    const graph = { downloadFile: async (driveId, itemId, bounds) => {
+        calls.push(["download", driveId, itemId, bounds]);
+        return { content: PDF, contentType: "application/pdf" };
+    } };
+    const service = createArtifactService({ repository, loadConfig: () => ({}), graphClientFactory: () => graph });
+    const file = await service.download(ARTIFACT_ID, { id: "viewer", globalRole: "Viewer" });
+    assert.equal(file.fileName, "report.pdf");
+    assert.deepEqual(calls[0].slice(0, 3), ["download", "placement-drive", "placement-item"]);
+    assert.equal(calls[1][1].eventType, "ArtifactDownloaded");
 });
 
 test("HTTP routes fail closed for external users and preserve application-only download contract", async () => {
