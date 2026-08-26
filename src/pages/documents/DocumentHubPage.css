@@ -14,6 +14,14 @@
 .document-hub-section-heading h2 { margin: 0; font-size: 22px; }
 .document-hub-section-heading p { margin: 5px 0 0; color: #475569; font-size: 14px; }
 .document-hub-section-heading > span { padding: 6px 10px; border-radius: 7px; background: #eff6ff; color: #1e40af; font-size: 12px; font-weight: 700; }
+.document-hub-process { display: flex; align-items: center; gap: 10px; margin: -4px 0 18px; padding: 0; color: #64748b; font-size: 12px; list-style: none; }
+.document-hub-process li { display: flex; align-items: center; gap: 6px; }
+.document-hub-process li:not(:last-child)::after { content: "→"; margin-left: 4px; color: #94a3b8; }
+.document-hub-process strong { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: #dbeafe; color: #1d4ed8; font-size: 11px; }
+.document-hub-use-context { display: grid; gap: 2px; width: fit-content; margin-bottom: 16px; padding: 10px 13px; border-left: 3px solid #60a5fa; background: #f8fbff; }
+.document-hub-use-context > span { color: #334155; font-size: 11px; font-weight: 800; }
+.document-hub-use-context > strong { font-size: 14px; }
+.document-hub-use-context > small { color: #64748b; font-size: 11px; font-weight: 500; line-height: 1.35; }
 .document-hub-dropzone { min-height: 210px; display: flex; align-items: center; justify-content: center; padding: 26px; border: 2px dashed #60a5fa; border-radius: 16px; background: linear-gradient(145deg, #f8fbff, #f5f7ff); transition: border-color .15s, background .15s, transform .15s; }
 .document-hub-dropzone.drag-active { border-color: #2563eb; background: #eaf2ff; transform: scale(1.005); }
 .document-hub-dropzone.has-file { min-height: 125px; border-style: solid; background: #f8fafc; }
@@ -37,6 +45,7 @@
 .document-hub-staging-header p { margin: 3px 0 0; color: #64748b; font-size: 12px; }
 .document-hub-staging-header label, .document-hub-file-row label { display: flex; flex-direction: column; gap: 5px; color: #334155; font-size: 11px; font-weight: 800; }
 .document-hub-staging-header select, .document-hub-file-row select { min-width: 190px; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px; background: #fff; color: #0f172a; }
+.document-hub-preparation { display: grid; gap: 10px; }
 .document-hub-file-list { display: grid; gap: 10px; }
 .document-hub-file-row { display: grid; grid-template-columns: 48px minmax(150px, 1fr) minmax(190px, .75fr) minmax(130px, .65fr) auto; align-items: center; gap: 14px; padding: 14px; border: 1px solid #dbe3ee; border-radius: 11px; background: #fff; }
 .document-hub-file-row.invalid, .document-hub-file-row.failed { border-color: #fecaca; background: #fffafa; }
@@ -89,7 +98,7 @@
 .document-hub-find-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
 .document-hub-find-heading h2 { margin: 0; font-size: 22px; }
 .document-hub-find-heading p { margin: 5px 0 0; color: #475569; font-size: 14px; }
-.document-hub-find-heading > span { padding: 6px 10px; border-radius: 7px; background: #eff6ff; color: #1e40af; font-size: 12px; font-weight: 700; }
+.document-hub-find-heading > span { padding-top: 5px; color: #475569; font-size: 13px; font-weight: 700; }
 .document-hub-search { margin-top: 20px; }
 .document-hub-search > label { display: block; margin-bottom: 7px; font-size: 13px; font-weight: 800; }
 .document-hub-search > div { display: flex; gap: 8px; }
@@ -130,13 +139,15 @@
     .document-hub-tabs { width: 100%; }
     .document-hub-tabs button { flex: 1; min-width: 0; }
     .document-hub-provide { padding: 20px; }
+    .document-hub-process { align-items: flex-start; flex-direction: column; }
+    .document-hub-process li::after { display: none; }
     .document-hub-file-summary { align-items: flex-start; flex-wrap: wrap; }
     .document-hub-file-actions { width: 100%; }
     .document-hub-submit-row .document-hub-primary { width: 100%; }
     .document-hub-tabs { grid-template-columns: 1fr; width: 100%; }
     .document-hub-staging-header { align-items: stretch; flex-direction: column; }
     .document-hub-file-row { grid-template-columns: 44px minmax(0, 1fr); }
-    .document-hub-file-row label, .document-hub-status, .document-hub-remove { grid-column: 1 / -1; }
+    .document-hub-preparation, .document-hub-file-row label, .document-hub-status, .document-hub-remove { grid-column: 1 / -1; }
     .document-hub-staging-header select, .document-hub-file-row select { width: 100%; min-width: 0; }
     .document-hub-find-heading { flex-direction: column; }
     .document-hub-filters { grid-template-columns: repeat(2, 1fr); }

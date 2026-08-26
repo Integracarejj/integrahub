@@ -1,11 +1,10 @@
 import { useRef, useState } from "react";
 import { ArtifactUploadError, uploadArtifact, type ArtifactLibraryKey } from "../../services/artifactPersistence";
-import { addDocumentFiles, applyDestinationToAll, canUploadBatch, documentExtension, documentStatusLabel, formatDocumentSize, markDocumentFailed, markDocumentUploaded, markDocumentUploading, readyDocuments, removeStagedDocument, setDocumentDestination, uploadDocumentsSequentially, type StagedDocument } from "./documentHubState";
+import { addDocumentFiles, applyDestinationToAll, canUploadBatch, documentExtension, documentStatusLabel, formatDocumentSize, INTERNAL_WORK_USES, markDocumentFailed, markDocumentUploaded, markDocumentUploading, readyDocuments, removeStagedDocument, setDocumentDestination, uploadDocumentsSequentially, WORK_AREA_PLACEHOLDER, type StagedDocument } from "./documentHubState";
 import "./DocumentHubPage.css";
 import DocumentHubFind from "./DocumentHubFind";
 
 type HubMode = "provide" | "find";
-const DESTINATIONS: ArtifactLibraryKey[] = ["Projects", "Legal", "Operations"];
 
 function newIdempotencyKey(): string {
     return globalThis.crypto.randomUUID();
@@ -87,8 +86,16 @@ export default function DocumentHubPage() {
             ) : (
                 <section className="document-hub-provide" aria-labelledby="provide-title">
                     <div className="document-hub-section-heading">
-                        <div><h2 id="provide-title">Provide Documents</h2><p>Add documents, choose an area for each, then upload.</p></div>
+                        <div><h2 id="provide-title">Provide Documents</h2><p>Add documents, choose how they will be used, then store them.</p></div>
                         <span>10 MiB each</span>
+                    </div>
+
+                    <ol className="document-hub-process" aria-label="Document storage process">
+                        <li><strong>1</strong> Add documents</li><li><strong>2</strong> Prepare</li><li><strong>3</strong> Store</li>
+                    </ol>
+
+                    <div className="document-hub-use-context" aria-label="Document use">
+                        <span>Use</span><strong>Internal Work</strong><small>Use these documents for active internal work. Choose a work area for each document.</small>
                     </div>
 
                     <div className={`document-hub-dropzone${dragActive ? " drag-active" : ""}`}
@@ -108,11 +115,11 @@ export default function DocumentHubPage() {
 
                     {items.length > 0 && <div className="document-hub-staging">
                         <div className="document-hub-staging-header">
-                            <div><h3>Staged documents</h3><p>{items.length} {items.length === 1 ? "document" : "documents"}</p></div>
-                            <label>Set area for all documents
+                            <div><h3>Documents to upload</h3><p>{items.length} {items.length === 1 ? "document" : "documents"}</p></div>
+                            <label>Set work area for all documents
                                 <select value={bulkDestination} disabled={batchRunning} onChange={event => applyBulkDestination(event.target.value as ArtifactLibraryKey | "")}>
-                                    <option value="">Choose destination</option>
-                                    {DESTINATIONS.map(destination => <option key={destination} value={destination}>{destination}</option>)}
+                                    <option value="">{WORK_AREA_PLACEHOLDER}</option>
+                                    {INTERNAL_WORK_USES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                                 </select>
                             </label>
                         </div>
@@ -120,17 +127,19 @@ export default function DocumentHubPage() {
                             {items.map(item => <article className={`document-hub-file-row ${item.phase}`} key={item.id}>
                                 <div className="document-hub-file-icon" aria-hidden="true">{documentExtension(item.file.name)}</div>
                                 <div className="document-hub-file-name"><strong>{item.file.name}</strong><span>{formatDocumentSize(item.file.size)} · {item.file.type || "Unknown type"}</span></div>
-                                <label>Area
-                                    <select value={item.destination} disabled={["uploading", "uploaded"].includes(item.phase)} onChange={event => setItems(current => setDocumentDestination(current, item.id, event.target.value as ArtifactLibraryKey | "", newIdempotencyKey))}>
-                                        <option value="">Choose destination</option>
-                                        {DESTINATIONS.map(destination => <option key={destination} value={destination}>{destination}</option>)}
-                                    </select>
-                                </label>
+                                <div className="document-hub-preparation">
+                                    <label>Work area
+                                        <select value={item.destination} disabled={["uploading", "uploaded"].includes(item.phase)} onChange={event => setItems(current => setDocumentDestination(current, item.id, event.target.value as ArtifactLibraryKey | "", newIdempotencyKey))}>
+                                            <option value="">{WORK_AREA_PLACEHOLDER}</option>
+                                            {INTERNAL_WORK_USES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                                        </select>
+                                    </label>
+                                </div>
                                 <div className={`document-hub-status ${item.phase}`} role={item.phase === "failed" || item.phase === "invalid" ? "alert" : "status"}>
                                     {item.phase === "ready" && <strong>{documentStatusLabel(item)}</strong>}
                                     {item.phase === "invalid" && <><strong>Invalid</strong><span>{item.validationError}</span></>}
                                     {item.phase === "uploading" && <strong><span className="document-hub-spinner" /> Uploading…</strong>}
-                                    {item.phase === "uploaded" && <><strong>✓ Uploaded</strong><span>Artifact ID: {item.artifact?.id}</span></>}
+                                    {item.phase === "uploaded" && <strong>✓ Stored</strong>}
                                     {item.phase === "failed" && <><strong>Failed</strong><span>{item.uploadError}</span><button type="button" onClick={() => uploadOne(item)} disabled={batchRunning}>Retry</button></>}
                                 </div>
                                 <button type="button" className="document-hub-remove" onClick={() => setItems(current => removeStagedDocument(current, item.id))} disabled={item.phase === "uploading"}>Remove</button>
@@ -139,8 +148,8 @@ export default function DocumentHubPage() {
                     </div>}
 
                     <div className="document-hub-submit-row">
-                        <span>{hasUploaded ? "Completed uploads remain visible. Add more documents at any time." : pendingCount > 0 && readyCount < pendingCount ? "Choose an area for every valid document." : "Documents upload only after you confirm."}</span>
-                        <button type="button" className="document-hub-primary" onClick={submitBatch} disabled={!canUploadBatch(items, batchRunning)}>{batchRunning ? "Uploading…" : `Upload ${readyCount === 1 ? "document" : `${readyCount} documents`}`}</button>
+                        <span>{hasUploaded ? "Stored documents remain visible. Add more documents at any time." : pendingCount > 0 && readyCount < pendingCount ? "Choose a work area for every valid document." : "Documents are stored only after you confirm."}</span>
+                        <button type="button" className="document-hub-primary" onClick={submitBatch} disabled={!canUploadBatch(items, batchRunning)}>{batchRunning ? "Storing…" : readyCount > 0 ? `Store ${readyCount} ${readyCount === 1 ? "document" : "documents"}` : "Store documents"}</button>
                     </div>
                 </section>
             )}

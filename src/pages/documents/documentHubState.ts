@@ -1,6 +1,17 @@
 import type { ArtifactLibraryKey, ArtifactRecord } from "../../services/artifactPersistence";
 
 export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+export const WORK_AREA_PLACEHOLDER = "Choose a work area";
+
+export const INTERNAL_WORK_USES: ReadonlyArray<{ value: ArtifactLibraryKey; label: string }> = [
+    { value: "Projects", label: "Project work" },
+    { value: "Legal", label: "Legal work" },
+    { value: "Operations", label: "Operational work" },
+];
+
+export function internalWorkUseLabel(libraryKey: ArtifactLibraryKey): string {
+    return INTERNAL_WORK_USES.find(option => option.value === libraryKey)?.label || "Internal Work";
+}
 
 const MIME_BY_EXTENSION: Readonly<Record<string, readonly string[]>> = Object.freeze({
     pdf: ["application/pdf"], doc: ["application/msword"],
@@ -180,7 +191,7 @@ export function documentExtension(fileName: string): string {
 }
 
 export function documentStatusLabel(item: StagedDocument): string {
-    if (item.phase === "ready") return item.destination ? "Ready" : "Needs area";
+    if (item.phase === "ready") return item.destination ? "Ready" : "Choose a work area.";
     if (item.phase === "invalid") return "Invalid";
     if (item.phase === "uploading") return "Uploading";
     if (item.phase === "uploaded") return "Uploaded";

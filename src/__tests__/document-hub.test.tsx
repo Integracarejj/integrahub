@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import DocumentHubPage from "../pages/documents/DocumentHubPage";
 import DocumentHubFind from "../pages/documents/DocumentHubFind";
-import { addDocumentFiles, applyDestinationToAll, beginDocumentUpload, canSubmitDocument, canUploadBatch, completeDocumentUpload, documentStatusLabel, EMPTY_UPLOAD_STATE, failDocumentUpload, markDocumentFailed, markDocumentUploaded, MAX_DOCUMENT_BYTES, readyDocuments, removeDocumentFile, removeStagedDocument, selectDocumentFile, setDocumentDestination, uploadDocumentsSequentially, validateDocumentFile } from "../pages/documents/documentHubState";
+import { addDocumentFiles, applyDestinationToAll, beginDocumentUpload, canSubmitDocument, canUploadBatch, completeDocumentUpload, documentStatusLabel, EMPTY_UPLOAD_STATE, failDocumentUpload, internalWorkUseLabel, markDocumentFailed, markDocumentUploaded, MAX_DOCUMENT_BYTES, readyDocuments, removeDocumentFile, removeStagedDocument, selectDocumentFile, setDocumentDestination, uploadDocumentsSequentially, validateDocumentFile, WORK_AREA_PLACEHOLDER } from "../pages/documents/documentHubState";
 import { ArtifactUploadError, downloadArtifact, listArtifacts, uploadArtifact, type ArtifactRecord } from "../services/artifactPersistence";
 import { shouldRedirectFromInternal } from "../utils/accessRouting";
 import { INTERNAL_NAV_ITEMS } from "../navigation/internalNavigation";
@@ -28,24 +28,47 @@ describe("Document Hub shell and navigation", () => {
         expect(html).toContain("Drop documents here");
         expect(html).toContain("Browse files");
         expect(html).toContain("10 MiB each");
+        expect(html).toContain("Add documents");
+        expect(html).toContain("Prepare");
+        expect(html).toContain("Store");
+        expect(html).toContain("Internal Work");
+        expect(html).toContain("Choose a work area for each document");
         expect(html).toContain("multiple");
         expect(html).not.toContain("Secure Working storage");
         expect(html).not.toContain("Replace");
         expect(html).not.toContain("SharePoint item ID");
         expect(html).not.toContain("document-hub-eyebrow");
         expect(html).not.toContain(" Working");
+        expect(html).not.toContain(">Area<");
+        expect(html).not.toContain("Staged documents");
+        expect(html).not.toContain("Needs area");
+        expect(html).not.toContain("Artifact ID");
     });
 
     it("renders the authoritative Find controls with loading state and no raw Graph identity", () => {
         const html = renderToStaticMarkup(<DocumentHubFind />);
         expect(html).toContain("Search documents");
-        expect(html).toContain("All areas");
+        expect(html).toContain("All internal work");
+        expect(html).toContain("Use");
+        expect(html).toContain("Project work");
         expect(html).toContain("All types");
         expect(html).toContain("Newest uploaded");
         expect(html).toContain("Loading documents");
         expect(html).not.toContain("driveId");
         expect(html).not.toContain("itemId");
         expect(html).not.toContain("webUrl");
+        expect(html).not.toContain(">Projects<");
+        expect(html).not.toContain(">Legal<");
+        expect(html).not.toContain(">Operations<");
+        expect(html).not.toContain("Artifact ID");
+        expect(html).not.toContain("Internal Artifact Upload");
+    });
+
+    it("maps business-facing internal work uses to the unchanged backend routing keys", () => {
+        expect(WORK_AREA_PLACEHOLDER).toBe("Choose a work area");
+        expect(internalWorkUseLabel("Projects")).toBe("Project work");
+        expect(internalWorkUseLabel("Legal")).toBe("Legal work");
+        expect(internalWorkUseLabel("Operations")).toBe("Operational work");
     });
 
     it("adds /documents without replacing existing internal navigation and keeps external users out of the internal tree", () => {
@@ -93,7 +116,7 @@ describe("Document Hub multi-document staging", () => {
         expect(overridden.map(item => item.destination)).toEqual(["Projects", "Legal"]);
         expect(overridden[0].idempotencyKey).toBe(bulkKeys[0]);
         expect(overridden[1].idempotencyKey).not.toBe(bulkKeys[1]);
-        expect(documentStatusLabel(staged[0])).toBe("Needs area");
+        expect(documentStatusLabel(staged[0])).toBe("Choose a work area.");
         expect(documentStatusLabel(bulk[0])).toBe("Ready");
     });
 
