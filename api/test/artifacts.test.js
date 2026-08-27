@@ -12,7 +12,7 @@ const ARTIFACT_ID = "11111111-1111-4111-8111-111111111111";
 const EDITOR = { id: "editor-1", globalRole: "Editor" };
 const PDF = Buffer.from("pdf bytes");
 
-function harness({ uploadError = null, finalizeError = null, remote = null, downloadContent = PDF } = {}) {
+function harness({ uploadError = null, receiptError = null, finalizeError = null, remote = null, downloadContent = PDF } = {}) {
     const calls = [];
     let row = null;
     let placement = null;
@@ -22,7 +22,7 @@ function harness({ uploadError = null, finalizeError = null, remote = null, down
         getByIdempotency: async () => row,
         createPending: async values => { calls.push(["pending", values]); row = { ...values, ingestionState: "Pending", classificationState: "Unclassified", lifecycleState: "Active", createdAt: "created", updatedAt: "updated" }; placement = { id: "placement-1", artifactId: values.id, placementType: values.storageDestination, placementStatus: "Pending", siteKey: values.siteKey, legacyLibraryKey: values.libraryKey, createdByUserId: values.submittedByUserId, siteId: null, driveId: null, itemId: null, webUrl: null, activatedAt: null }; return row; },
         restartFailed: async () => { calls.push(["restart"]); row = { ...row, ingestionState: "Pending" }; placement = { ...placement, placementStatus: "Pending" }; return row; },
-        recordGraphReceipt: async (_id, identity) => { calls.push(["receipt", identity]); row = { ...row, ...identity }; placement = { ...placement, ...identity }; return row; },
+        recordGraphReceipt: async (_id, identity) => { calls.push(["receipt", identity]); if (receiptError) throw receiptError; row = { ...row, ...identity }; placement = { ...placement, ...identity }; return row; },
         markUploaded: async () => { calls.push(["uploaded"]); if (finalizeError) throw finalizeError; row = { ...row, ingestionState: "Uploaded", uploadedAt: "uploaded" }; placement = { ...placement, placementStatus: "Active", activatedAt: row.uploadedAt }; return row; },
         markFailed: async (_id, _actor, _key, reason) => { calls.push(["failed", reason]); row = { ...row, ingestionState: "Failed" }; placement = { ...placement, placementStatus: "Failed" }; },
         getById: async id => id === ARTIFACT_ID ? row : null,
@@ -212,6 +212,45 @@ test("Graph success followed by SQL failure remains Pending and retry verifies i
     assert.equal(retry.calls.filter(([name]) => name === "graph-download").length, 1);
     assert.equal(retry.getPlacement().id, "placement-1");
     assert.equal(retry.getPlacement().placementStatus, "Active");
+});
+
+test("Working Operations receipt SQL failure retries the same placement and deterministic remote item", async () => {
+    const value = harness({ receiptError: new Error("Ambiguous column name 'itemId'") });
+    const request = { ...value.request, libraryKey: undefined, destination: "Working", workArea: "Operations" };
+    await assert.rejects(value.service.upload(request), ArtifactRecoveryRequiredError);
+    assert.equal(value.getRow().ingestionState, "Pending");
+    assert.equal(value.getRow().itemId, undefined);
+    assert.equal(value.getPlacement().id, "placement-1");
+    assert.equal(value.getPlacement().placementStatus, "Pending");
+    assert.equal(value.calls.filter(([name]) => name === "graph-upload").length, 1);
+
+    const stored = value.getRow();
+    const retry = harness({ remote: { id: "item", name: stored.storedFileName, size: PDF.length, type: "file", webUrl: "private-url" } });
+    retry.setRow(stored); retry.setPlacement(value.getPlacement());
+    await retry.service.upload(request);
+    assert.equal(retry.calls.filter(([name]) => name === "graph-upload").length, 0);
+    assert.equal(retry.calls.filter(([name]) => name === "graph-download").length, 1);
+    assert.equal(retry.getPlacement().id, "placement-1");
+    assert.equal(retry.getPlacement().placementStatus, "Active");
+    assert.equal(retry.getRow().ingestionState, "Uploaded");
+    assert.deepEqual([retry.getRow().siteId, retry.getRow().driveId, retry.getRow().itemId, retry.getRow().webUrl],
+        [retry.getPlacement().siteId, retry.getPlacement().driveId, retry.getPlacement().itemId, retry.getPlacement().webUrl]);
+});
+
+test("placement update predicates qualify identity columns in joined SQL", async () => {
+    const statements = [];
+    const transaction = { begin: async () => undefined, commit: async () => undefined, rollback: async () => undefined };
+    const repository = createArtifactRepository({ query: async () => [{ id: ARTIFACT_ID }], getPool: async () => ({}), createTransaction: () => transaction,
+        queryInTransaction: async (_transaction, statement) => {
+            statements.push(statement);
+            return statement.includes("UPDATE cmdb.Artifacts") ? [{ id: ARTIFACT_ID }] : [{ id: "placement-1" }];
+        } });
+    await repository.recordGraphReceipt(ARTIFACT_ID, { siteId: "site", driveId: "drive", itemId: "item", webUrl: "url" });
+    const placementUpdate = statements.find(statement => statement.includes("UPDATE placement"));
+    assert.match(placementUpdate, /placement\.itemId IS NULL/);
+    assert.match(placementUpdate, /placement\.siteId = @siteId/);
+    assert.match(placementUpdate, /placement\.driveId = @driveId/);
+    assert.match(placementUpdate, /placement\.itemId = @itemId/);
 });
 
 test("repository rolls back Artifact state when a Working placement is missing or duplicated", async () => {

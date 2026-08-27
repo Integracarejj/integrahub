@@ -215,7 +215,8 @@ export function createArtifactRepository({
                     INNER JOIN cmdb.Artifacts artifact ON artifact.id = placement.artifactId
                     WHERE placement.artifactId = @id AND placement.placementType = artifact.storageDestination
                       AND placement.placementStatus = 'Pending'
-                      AND (itemId IS NULL OR (siteId = @siteId AND driveId = @driveId AND itemId = @itemId))`, params);
+                      AND (placement.itemId IS NULL OR (placement.siteId = @siteId
+                          AND placement.driveId = @driveId AND placement.itemId = @itemId))`, params);
                 if (placements.length !== 1) throw new ArtifactPlacementWriteError();
                 await transaction.commit();
                 return repository.getById(id);
@@ -273,7 +274,8 @@ export function createArtifactRepository({
                         INNER JOIN cmdb.Artifacts artifact ON artifact.id = placement.artifactId
                         WHERE placement.artifactId = @id AND placement.placementType = artifact.storageDestination
                           AND placement.placementStatus = 'Pending'
-                          AND siteId IS NULL AND driveId IS NULL AND itemId IS NULL AND webUrl IS NULL`, { id });
+                          AND placement.siteId IS NULL AND placement.driveId IS NULL
+                          AND placement.itemId IS NULL AND placement.webUrl IS NULL`, { id });
                     if (placements.length !== 1) throw new ArtifactPlacementWriteError();
                     await appendEventWith((statement, params) => queryInTransaction(transaction, statement, params),
                         { artifactId: id, eventType: "ArtifactUploadFailed", actorUserId, correlationId, details: { reason } });
