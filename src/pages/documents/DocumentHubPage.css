@@ -57,6 +57,15 @@
 .document-hub-file-row { display: grid; grid-template-columns: 48px minmax(130px, .55fr) minmax(420px, 1.6fr) minmax(95px, .4fr) auto; align-items: center; gap: 14px; padding: 14px; border: 1px solid #dbe3ee; border-radius: 11px; background: #fff; }
 .document-hub-file-row.invalid, .document-hub-file-row.failed { border-color: #fecaca; background: #fffafa; }
 .document-hub-file-row.uploaded { border-color: #bbf7d0; background: #fbfffc; }
+.document-hub-completion { grid-column: 2 / -2; display: grid; gap: 6px; padding: 15px 17px; border: 1px solid #93c5fd; border-left: 5px solid #2563eb; border-radius: 11px; background: #fff; color: #0f172a; }
+.document-hub-completion > strong { display: flex; align-items: center; gap: 8px; color: #1d4ed8; font-size: 16px; }
+.document-hub-completion > strong span { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: #2563eb; color: #fff; }
+.document-hub-completion-file { margin-top: 2px; overflow-wrap: anywhere; font-weight: 800; }
+.document-hub-completion-location { color: #475569; font-size: 13px; }
+.document-hub-completion-location b { color: #0f172a; }
+.document-hub-completion p { margin: 2px 0; color: #334155; font-size: 13px; }
+.document-hub-completion button { width: fit-content; margin-top: 3px; padding: 8px 12px; border: 1px solid #2563eb; border-radius: 8px; background: #2563eb; color: #fff; font-weight: 800; cursor: pointer; }
+.document-hub-completion button:hover { background: #1d4ed8; }
 .document-hub-file-name { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .document-hub-file-name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .document-hub-file-name span { color: #64748b; font-size: 11px; }
@@ -154,7 +163,7 @@
     .document-hub-tabs { grid-template-columns: 1fr; width: 100%; }
     .document-hub-staging-header { align-items: stretch; flex-direction: column; }
     .document-hub-file-row { grid-template-columns: 44px minmax(0, 1fr); }
-    .document-hub-preparation, .document-hub-file-row label, .document-hub-status, .document-hub-remove { grid-column: 1 / -1; }
+    .document-hub-preparation, .document-hub-file-row label, .document-hub-status, .document-hub-completion, .document-hub-remove { grid-column: 1 / -1; }
     .document-hub-destinations { grid-template-columns: 1fr; }
     .document-hub-destinations label { grid-column: auto; }
     .document-hub-staging-header select, .document-hub-file-row select { width: 100%; min-width: 0; }

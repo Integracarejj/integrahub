@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import DocumentHubPage from "../pages/documents/DocumentHubPage";
+import DocumentHubPage, { StoredDocumentConfirmation } from "../pages/documents/DocumentHubPage";
 import DocumentHubFind from "../pages/documents/DocumentHubFind";
-import { addDocumentFiles, applyDestinationToAll, beginDocumentUpload, BUSINESS_DESTINATIONS, canSubmitDocument, canUploadBatch, completeDocumentUpload, documentStatusLabel, EMPTY_UPLOAD_STATE, failDocumentUpload, internalWorkUseLabel, markDocumentFailed, markDocumentUploaded, MAX_DOCUMENT_BYTES, readyDocuments, removeDocumentFile, removeStagedDocument, selectDocumentFile, setDocumentBusinessDestination, setDocumentDestination, shouldShowBulkWorkAreaControl, uploadDocumentsSequentially, validateDocumentFile, WORK_AREA_PLACEHOLDER } from "../pages/documents/documentHubState";
+import { addDocumentFiles, applyDestinationToAll, beginDocumentUpload, BUSINESS_DESTINATIONS, canSubmitDocument, canUploadBatch, completeDocumentUpload, documentStatusLabel, EMPTY_UPLOAD_STATE, failDocumentUpload, internalWorkUseLabel, markDocumentFailed, markDocumentUploaded, MAX_DOCUMENT_BYTES, readyDocuments, removeDocumentFile, removeStagedDocument, selectDocumentFile, setDocumentBusinessDestination, setDocumentDestination, shouldShowBulkWorkAreaControl, storeButtonLabel, uploadDocumentsSequentially, validateDocumentFile, WORK_AREA_PLACEHOLDER } from "../pages/documents/documentHubState";
 import { ArtifactUploadError, downloadArtifact, listArtifacts, uploadArtifact, type ArtifactRecord } from "../services/artifactPersistence";
 import { shouldRedirectFromInternal } from "../utils/accessRouting";
 import { INTERNAL_NAV_ITEMS } from "../navigation/internalNavigation";
@@ -105,6 +105,55 @@ describe("Document Hub shell and navigation", () => {
 });
 
 describe("Document Hub multi-document staging", () => {
+    it("renders unmistakable Working and Knowledge completion details with the Find next step", () => {
+        let sequence = 0;
+        const generate = () => `key-${++sequence}`;
+        const staged = addDocumentFiles([], [textFile("operations.txt"), textFile("knowledge.txt")], generate);
+        const working = setDocumentDestination(setDocumentBusinessDestination(staged, staged[0].id, "Working", generate), staged[0].id, "Operations", generate);
+        const destinations = setDocumentBusinessDestination(working, staged[1].id, "Knowledge", generate);
+        const completed = markDocumentUploaded(markDocumentUploaded(destinations, staged[0].id, responseArtifact), staged[1].id, { ...responseArtifact, storageDestination: "Knowledge", libraryKey: null });
+
+        const workingHtml = renderToStaticMarkup(<StoredDocumentConfirmation item={completed[0]} onView={() => undefined} />);
+        expect(workingHtml).toContain("Document stored successfully");
+        expect(workingHtml).toContain("operations.txt");
+        expect(workingHtml).toContain("Working · Operational work");
+        expect(workingHtml).toContain("Your document is now available in Document Hub.");
+        expect(workingHtml).toContain("View in Find Documents");
+
+        const knowledgeHtml = renderToStaticMarkup(<StoredDocumentConfirmation item={completed[1]} onView={() => undefined} />);
+        expect(knowledgeHtml).toContain("Document stored successfully");
+        expect(knowledgeHtml).toContain("knowledge.txt");
+        expect(knowledgeHtml).toContain("Available in: <b>Knowledge</b>");
+        expect(knowledgeHtml).not.toContain("work area");
+        expect(knowledgeHtml).toContain("View in Find Documents");
+    });
+
+    it("submits only a new Ready Knowledge document beside a Stored Working document", async () => {
+        let sequence = 0;
+        const generate = () => `key-${++sequence}`;
+        const staged = addDocumentFiles([], [textFile("stored.txt"), textFile("ready.txt")], generate);
+        const working = setDocumentDestination(setDocumentBusinessDestination(staged, staged[0].id, "Working", generate), staged[0].id, "Operations", generate);
+        const mixed = setDocumentBusinessDestination(working, staged[1].id, "Knowledge", generate);
+        const items = markDocumentUploaded(mixed, staged[0].id, responseArtifact);
+        const upload = vi.fn(async (_item: (typeof items)[number]) => ({ ...responseArtifact, storageDestination: "Knowledge" as const, libraryKey: null }));
+
+        expect(readyDocuments(items)).toHaveLength(1);
+        expect(storeButtonLabel(items, false)).toBe("Store 1 document");
+        expect(readyDocuments(items)[0].file.name).toBe("ready.txt");
+        await uploadDocumentsSequentially(items, upload, () => undefined, () => undefined, () => undefined);
+        expect(upload).toHaveBeenCalledOnce();
+        expect(upload.mock.calls[0][0].file.name).toBe("ready.txt");
+    });
+
+    it("labels a batch of two Ready documents with the exact submission count", () => {
+        let sequence = 0;
+        const generate = () => `key-${++sequence}`;
+        const staged = addDocumentFiles([], [textFile("one.txt"), textFile("two.txt")], generate);
+        const ready = staged.reduce((items, item) => setDocumentBusinessDestination(items, item.id, "Knowledge", generate), staged);
+        expect(readyDocuments(ready)).toHaveLength(2);
+        expect(storeButtonLabel(ready, false)).toBe("Store 2 documents");
+    });
+
     it("stages valid and invalid browse/drop selections independently with distinct attempt keys", () => {
         let sequence = 0;
         const generate = () => `key-${++sequence}`;

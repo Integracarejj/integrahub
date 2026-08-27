@@ -25,6 +25,12 @@ export function internalWorkUseLabel(libraryKey: ArtifactLibraryKey): string {
     return INTERNAL_WORK_USES.find(option => option.value === libraryKey)?.label || "Internal Work";
 }
 
+export function documentAvailabilityLabel(item: Pick<StagedDocument, "businessDestination" | "destination">): string {
+    if (item.businessDestination === "Knowledge") return "Knowledge";
+    if (item.businessDestination === "Working" && item.destination) return `Working · ${internalWorkUseLabel(item.destination)}`;
+    return "Document Hub";
+}
+
 const MIME_BY_EXTENSION: Readonly<Record<string, readonly string[]>> = Object.freeze({
     pdf: ["application/pdf"], doc: ["application/msword"],
     docx: ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
@@ -199,6 +205,12 @@ export function canUploadBatch(items: readonly StagedDocument[], batchRunning: b
     const pending = items.filter(item => item.phase === "ready");
     return pending.length > 0 && pending.every(item => !item.validationError
         && (item.businessDestination === "Knowledge" || (item.businessDestination === "Working" && !!item.destination)));
+}
+
+export function storeButtonLabel(items: readonly StagedDocument[], batchRunning: boolean): string {
+    if (batchRunning) return "Storing…";
+    const count = readyDocuments(items).length;
+    return count > 0 ? `Store ${count} ${count === 1 ? "document" : "documents"}` : "Store documents";
 }
 
 export function markDocumentUploading(items: readonly StagedDocument[], id: string): StagedDocument[] {

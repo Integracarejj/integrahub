@@ -1,10 +1,20 @@
 import { useRef, useState } from "react";
 import { ArtifactUploadError, uploadArtifact, type ArtifactLibraryKey } from "../../services/artifactPersistence";
-import { addDocumentFiles, applyDestinationToAll, BUSINESS_DESTINATIONS, canUploadBatch, documentExtension, documentStatusLabel, formatDocumentSize, INTERNAL_WORK_USES, markDocumentFailed, markDocumentUploaded, markDocumentUploading, readyDocuments, removeStagedDocument, setDocumentBusinessDestination, setDocumentDestination, shouldShowBulkWorkAreaControl, uploadDocumentsSequentially, WORK_AREA_PLACEHOLDER, type StagedDocument } from "./documentHubState";
+import { addDocumentFiles, applyDestinationToAll, BUSINESS_DESTINATIONS, canUploadBatch, documentAvailabilityLabel, documentExtension, documentStatusLabel, formatDocumentSize, INTERNAL_WORK_USES, markDocumentFailed, markDocumentUploaded, markDocumentUploading, readyDocuments, removeStagedDocument, setDocumentBusinessDestination, setDocumentDestination, shouldShowBulkWorkAreaControl, storeButtonLabel, uploadDocumentsSequentially, WORK_AREA_PLACEHOLDER, type StagedDocument } from "./documentHubState";
 import "./DocumentHubPage.css";
 import DocumentHubFind from "./DocumentHubFind";
 
 type HubMode = "provide" | "find";
+
+export function StoredDocumentConfirmation({ item, onView }: { item: StagedDocument; onView: () => void }) {
+    return <div className="document-hub-completion" role="status">
+        <strong><span aria-hidden="true">✓</span> Document stored successfully</strong>
+        <span className="document-hub-completion-file">{item.file.name}</span>
+        <span className="document-hub-completion-location">Available in: <b>{documentAvailabilityLabel(item)}</b></span>
+        <p>Your document is now available in Document Hub.</p>
+        <button type="button" onClick={onView}>View in Find Documents</button>
+    </div>;
+}
 
 function newIdempotencyKey(): string {
     return globalThis.crypto.randomUUID();
@@ -121,6 +131,7 @@ export default function DocumentHubPage() {
                         <div className="document-hub-file-list">
                             {items.map(item => <article className={`document-hub-file-row ${item.phase}`} key={item.id}>
                                 <div className="document-hub-file-icon" aria-hidden="true">{documentExtension(item.file.name)}</div>
+                                {item.phase === "uploaded" ? <StoredDocumentConfirmation item={item} onView={() => setMode("find")} /> : <>
                                 <div className="document-hub-file-name"><strong>{item.file.name}</strong><span>{formatDocumentSize(item.file.size)} · {item.file.type || "Unknown type"}</span></div>
                                 <div className="document-hub-preparation">
                                     <fieldset className="document-hub-destinations" disabled={["uploading", "uploaded"].includes(item.phase)}>
@@ -144,9 +155,9 @@ export default function DocumentHubPage() {
                                     {item.phase === "ready" && <strong>{documentStatusLabel(item)}</strong>}
                                     {item.phase === "invalid" && <><strong>Invalid</strong><span>{item.validationError}</span></>}
                                     {item.phase === "uploading" && <strong><span className="document-hub-spinner" /> Uploading…</strong>}
-                                    {item.phase === "uploaded" && <strong>✓ Stored</strong>}
                                     {item.phase === "failed" && <><strong>Failed</strong><span>{item.uploadError}</span><button type="button" onClick={() => uploadOne(item)} disabled={batchRunning}>Retry</button></>}
                                 </div>
+                                </>}
                                 <button type="button" className="document-hub-remove" onClick={() => setItems(current => removeStagedDocument(current, item.id))} disabled={item.phase === "uploading"}>Remove</button>
                             </article>)}
                         </div>
@@ -154,7 +165,7 @@ export default function DocumentHubPage() {
 
                     <div className="document-hub-submit-row">
                         <span>{hasUploaded ? "Stored documents remain visible. Add more documents at any time." : pendingCount > 0 && readyCount < pendingCount ? "Choose an available destination and any required work area for every valid document." : "Documents are stored only after you confirm."}</span>
-                        <button type="button" className="document-hub-primary" onClick={submitBatch} disabled={!canUploadBatch(items, batchRunning)}>{batchRunning ? "Storing…" : readyCount > 0 ? `Store ${readyCount} ${readyCount === 1 ? "document" : "documents"}` : "Store documents"}</button>
+                        <button type="button" className="document-hub-primary" onClick={submitBatch} disabled={!canUploadBatch(items, batchRunning)}>{storeButtonLabel(items, batchRunning)}</button>
                     </div>
                 </section>
             )}
