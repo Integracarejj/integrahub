@@ -6,7 +6,7 @@ import express from "express";
 import { createArtifactService, ArtifactConflictError, ArtifactForbiddenError, ArtifactRecoveryRequiredError, ArtifactValidationError, MAX_ARTIFACT_BYTES } from "../src/services/artifactService.js";
 import { createArtifactRouter } from "../src/routes/artifacts.js";
 import { GraphRequestError } from "../src/integrations/sharepoint/graphClient.js";
-import { ArtifactPlacementReadError, createArtifactRepository } from "../src/services/artifactRepository.js";
+import { ArtifactPlacementReadError, ArtifactPlacementWriteError, createArtifactRepository } from "../src/services/artifactRepository.js";
 
 const ARTIFACT_ID = "11111111-1111-4111-8111-111111111111";
 const EDITOR = { id: "editor-1", globalRole: "Editor" };
@@ -15,15 +15,16 @@ const PDF = Buffer.from("pdf bytes");
 function harness({ uploadError = null, finalizeError = null, remote = null, downloadContent = PDF } = {}) {
     const calls = [];
     let row = null;
+    let placement = null;
     let lockTail = Promise.resolve();
     const repository = {
         withIdempotencyLock: async (_actor, _key, work) => { const prior = lockTail; let release; lockTail = new Promise(resolve => { release = resolve; }); await prior; calls.push(["lock"]); try { return await work(); } finally { release(); } },
         getByIdempotency: async () => row,
-        createPending: async values => { calls.push(["pending", values]); row = { ...values, ingestionState: "Pending", classificationState: "Unclassified", lifecycleState: "Active", storageDestination: "Working", createdAt: "created", updatedAt: "updated" }; return row; },
-        restartFailed: async () => { calls.push(["restart"]); row = { ...row, ingestionState: "Pending" }; return row; },
-        recordGraphReceipt: async (_id, identity) => { calls.push(["receipt", identity]); row = { ...row, ...identity }; return row; },
-        markUploaded: async () => { calls.push(["uploaded"]); if (finalizeError) throw finalizeError; row = { ...row, ingestionState: "Uploaded", uploadedAt: "uploaded" }; return row; },
-        markFailed: async (_id, _actor, _key, reason) => { calls.push(["failed", reason]); row = { ...row, ingestionState: "Failed" }; },
+        createPending: async values => { calls.push(["pending", values]); row = { ...values, ingestionState: "Pending", classificationState: "Unclassified", lifecycleState: "Active", storageDestination: "Working", createdAt: "created", updatedAt: "updated" }; placement = { id: "placement-1", artifactId: values.id, placementType: "Working", placementStatus: "Pending", siteKey: "working", legacyLibraryKey: values.libraryKey, createdByUserId: values.submittedByUserId, siteId: null, driveId: null, itemId: null, webUrl: null, activatedAt: null }; return row; },
+        restartFailed: async () => { calls.push(["restart"]); row = { ...row, ingestionState: "Pending" }; placement = { ...placement, placementStatus: "Pending" }; return row; },
+        recordGraphReceipt: async (_id, identity) => { calls.push(["receipt", identity]); row = { ...row, ...identity }; placement = { ...placement, ...identity }; return row; },
+        markUploaded: async () => { calls.push(["uploaded"]); if (finalizeError) throw finalizeError; row = { ...row, ingestionState: "Uploaded", uploadedAt: "uploaded" }; placement = { ...placement, placementStatus: "Active", activatedAt: row.uploadedAt }; return row; },
+        markFailed: async (_id, _actor, _key, reason) => { calls.push(["failed", reason]); row = { ...row, ingestionState: "Failed" }; placement = { ...placement, placementStatus: "Failed" }; },
         getById: async id => id === ARTIFACT_ID ? row : null,
         getForRead: async id => { calls.push(["read", id]); return id === ARTIFACT_ID ? row : null; },
         list: async filters => { calls.push(["list", filters]); return { rows: row ? [row] : [], total: row ? 1 : 0 }; },
@@ -46,7 +47,9 @@ function harness({ uploadError = null, finalizeError = null, remote = null, down
         ] }), graphClientFactory: () => graph });
     const request = { originalFileName: "Quarterly Report.pdf", contentType: "application/pdf", content: PDF,
         libraryKey: "Projects", idempotencyKey: "request-0001", sourceContext: "effort-42", actor: EDITOR };
-    return { service, repository, graph, request, calls, getRow: () => row, setRow: value => { row = value; } };
+    return { service, repository, graph, request, calls, getRow: () => row, getPlacement: () => placement,
+        setRow: value => { row = value; }, setPlacement: value => { placement = value; },
+        clearUploadError: () => { uploadError = null; } };
 }
 
 test("migration 015 is additive, separates states, protects identity, audit, and manual history", async () => {
@@ -73,7 +76,7 @@ test("migration 015 is additive, separates states, protects identity, audit, and
     assert.doesNotMatch(migration, /RecapWorkArtifacts\s+(SET|DROP|DELETE|UPDATE)/i);
 });
 
-test("repository creates Pending plus initial audit atomically and uses a transaction-owned application lock", async () => {
+test("repository creates Pending Artifact, Working placement, and initial audit atomically and uses a transaction-owned application lock", async () => {
     const statements = []; const transaction = { begin: async () => statements.push("BEGIN"), commit: async () => statements.push("COMMIT"), rollback: async () => statements.push("ROLLBACK") };
     const artifact = { id: ARTIFACT_ID, ingestionState: "Pending" };
     const query = async statement => { statements.push(statement); return statement.includes("FROM cmdb.Artifacts") ? [artifact] : []; };
@@ -90,6 +93,8 @@ test("repository creates Pending plus initial audit atomically and uses a transa
         submittedByUserId: EDITOR.id, idempotencyKey: "request-0001" };
     await repository.createPending(values);
     assert.ok(statements.some(statement => String(statement).includes("INSERT INTO cmdb.Artifacts")));
+    assert.ok(statements.some(statement => String(statement).includes("INSERT INTO cmdb.ArtifactPlacements")));
+    assert.ok(statements.some(statement => String(statement).includes("'Working', 'Pending', 'working'")));
     assert.ok(statements.some(statement => String(statement).includes("INSERT INTO cmdb.ArtifactEvents")));
     assert.ok(statements.indexOf("BEGIN") < statements.findIndex(statement => String(statement).includes("INSERT INTO cmdb.Artifacts")));
     assert.ok(statements.indexOf("COMMIT") > statements.findIndex(statement => String(statement).includes("INSERT INTO cmdb.ArtifactEvents")));
@@ -105,6 +110,11 @@ test("valid Editor upload creates Pending before Graph and persists exact Graph 
     assert.equal(result.libraryKey, "Projects");
     assert.equal(value.calls.findIndex(([name]) => name === "pending") < value.calls.findIndex(([name]) => name === "graph-upload"), true);
     assert.deepEqual(value.calls.find(([name]) => name === "receipt")[1], { siteId: "site", driveId: "drive", itemId: "item", webUrl: "private-url" });
+    assert.deepEqual(value.getPlacement(), { id: "placement-1", artifactId: ARTIFACT_ID, placementType: "Working",
+        placementStatus: "Active", siteKey: "working", legacyLibraryKey: "Projects", createdByUserId: EDITOR.id,
+        siteId: "site", driveId: "drive", itemId: "item", webUrl: "private-url", activatedAt: "uploaded" });
+    assert.deepEqual([value.getRow().siteId, value.getRow().driveId, value.getRow().itemId, value.getRow().webUrl],
+        [value.getPlacement().siteId, value.getPlacement().driveId, value.getPlacement().itemId, value.getPlacement().webUrl]);
     assert.match(value.calls.find(([name]) => name === "graph-upload")[1], new RegExp(`^${ARTIFACT_ID}-[0-9a-f]{12}-Quarterly Report\\.pdf$`));
     assert.equal("siteId" in result, false);
 });
@@ -127,7 +137,17 @@ test("Graph failure records Failed and a retry reuses the same Artifact identity
     const value = harness({ uploadError: new GraphRequestError("upload", 503, "serviceUnavailable") });
     await assert.rejects(value.service.upload(value.request), GraphRequestError);
     assert.equal(value.getRow().ingestionState, "Failed");
+    assert.equal(value.getPlacement().placementStatus, "Failed");
+    assert.equal(value.getPlacement().itemId, null);
     assert.deepEqual(value.calls.find(([name]) => name === "failed"), ["failed", "serviceUnavailable"]);
+    value.clearUploadError();
+    await value.service.upload(value.request);
+    assert.equal(value.calls.filter(([name]) => name === "pending").length, 1);
+    assert.equal(value.calls.filter(([name]) => name === "restart").length, 1);
+    assert.equal(value.getPlacement().id, "placement-1");
+    assert.equal(value.getPlacement().placementStatus, "Active");
+    assert.deepEqual([value.getRow().siteId, value.getRow().driveId, value.getRow().itemId, value.getRow().webUrl],
+        [value.getPlacement().siteId, value.getPlacement().driveId, value.getPlacement().itemId, value.getPlacement().webUrl]);
 });
 
 test("Graph create collision fails closed and never records a remote identity", async () => {
@@ -142,6 +162,7 @@ test("idempotent retries and concurrent requests produce one Graph upload", asyn
     const results = await Promise.all([value.service.upload(value.request), value.service.upload(value.request)]);
     assert.deepEqual(results.map(result => result.id), [ARTIFACT_ID, ARTIFACT_ID]);
     assert.equal(value.calls.filter(([name]) => name === "pending").length, 1);
+    assert.equal(value.getPlacement().id, "placement-1");
     assert.equal(value.calls.filter(([name]) => name === "graph-upload").length, 1);
 });
 
@@ -163,11 +184,32 @@ test("Graph success followed by SQL failure remains Pending and retry verifies i
     assert.equal(value.calls.some(([name]) => name === "failed"), false);
 
     const stored = value.getRow();
+    const storedPlacement = value.getPlacement();
     const retry = harness({ remote: { id: "item", name: stored.storedFileName, size: PDF.length, type: "file", webUrl: "private-url" } });
     retry.setRow(stored);
+    retry.setPlacement(storedPlacement);
     await retry.service.upload(retry.request);
     assert.equal(retry.calls.filter(([name]) => name === "graph-upload").length, 0);
     assert.equal(retry.calls.filter(([name]) => name === "graph-download").length, 1);
+    assert.equal(retry.getPlacement().id, "placement-1");
+    assert.equal(retry.getPlacement().placementStatus, "Active");
+});
+
+test("repository rolls back Artifact state when a Working placement is missing or duplicated", async () => {
+    for (const placementCount of [0, 2]) {
+        const statements = [];
+        const transaction = { begin: async () => statements.push("BEGIN"), commit: async () => statements.push("COMMIT"), rollback: async () => statements.push("ROLLBACK") };
+        const repository = createArtifactRepository({ query: async () => [], getPool: async () => ({}), createTransaction: () => transaction,
+            queryInTransaction: async (_transaction, statement) => {
+                statements.push(statement);
+                if (statement.includes("UPDATE cmdb.Artifacts")) return [{ id: ARTIFACT_ID, uploadedAt: new Date() }];
+                if (statement.includes("ArtifactPlacements placement")) return Array.from({ length: placementCount }, (_, index) => ({ id: String(index) }));
+                return [];
+            } });
+        await assert.rejects(repository.markUploaded(ARTIFACT_ID, EDITOR.id, "request-0001"), ArtifactPlacementWriteError);
+        assert.equal(statements.includes("ROLLBACK"), true);
+        assert.equal(statements.includes("COMMIT"), false);
+    }
 });
 
 test("unverified deterministic-name collision fails closed", async () => {

@@ -61,6 +61,10 @@ export class ArtifactPlacementReadError extends Error {
     constructor() { super("Artifact Working placement requires reconciliation"); this.name = "ArtifactPlacementReadError"; }
 }
 
+export class ArtifactPlacementWriteError extends Error {
+    constructor() { super("Artifact Working placement requires reconciliation"); this.name = "ArtifactPlacementWriteError"; }
+}
+
 function sameNullable(left, right) { return (left ?? null) === (right ?? null); }
 
 function validateWorkingPlacement(row) {
@@ -147,6 +151,10 @@ export function createArtifactRepository({
                     VALUES (@id, @originalFileName, @storedFileName, @fileExtension, @contentType, @contentSize,
                      @contentSha256, @libraryKey, @sourceOrigin, @sourceModule, @sourceContext,
                      @submittedByUserId, @idempotencyKey)`, values);
+                await queryInTransaction(transaction, `INSERT INTO cmdb.ArtifactPlacements
+                    (id, artifactId, placementType, placementStatus, siteKey, legacyLibraryKey, createdByUserId)
+                    VALUES (@placementId, @id, 'Working', 'Pending', 'working', @libraryKey, @submittedByUserId)`,
+                { ...values, placementId: generateUuid() });
                 await appendEventWith((statement, params) => queryInTransaction(transaction, statement, params), {
                     artifactId: values.id, eventType: "ArtifactUploadStarted", actorUserId: values.submittedByUserId,
                     correlationId: values.idempotencyKey, details: { libraryKey: values.libraryKey },
@@ -168,6 +176,11 @@ export function createArtifactRepository({
                     OUTPUT CONVERT(varchar(36), INSERTED.id) AS id
                     WHERE id = @id AND ingestionState = 'Failed'`, { id });
                 if (!changed[0]) throw new ArtifactLockError();
+                const placements = await queryInTransaction(transaction, `UPDATE cmdb.ArtifactPlacements
+                    SET placementStatus = 'Pending', updatedAt = SYSUTCDATETIME()
+                    OUTPUT CONVERT(varchar(36), INSERTED.id) AS id
+                    WHERE artifactId = @id AND placementType = 'Working' AND placementStatus = 'Failed'`, { id });
+                if (placements.length !== 1) throw new ArtifactPlacementWriteError();
                 await appendEventWith((statement, params) => queryInTransaction(transaction, statement, params),
                     { artifactId: id, eventType: "ArtifactUploadStarted", actorUserId, correlationId, details: { retry: true } });
                 await transaction.commit();
@@ -179,12 +192,30 @@ export function createArtifactRepository({
         },
 
         async recordGraphReceipt(id, { siteId, driveId, itemId, webUrl }) {
-            await query(`UPDATE cmdb.Artifacts SET siteId = @siteId, driveId = @driveId, itemId = @itemId,
-                    webUrl = @webUrl, updatedAt = SYSUTCDATETIME()
-                WHERE id = @id AND ingestionState = 'Pending'
-                  AND (itemId IS NULL OR (siteId = @siteId AND driveId = @driveId AND itemId = @itemId))`,
-            { id, siteId, driveId, itemId, webUrl });
-            return repository.getById(id);
+            const transaction = createTransaction(await getPool());
+            await transaction.begin();
+            try {
+                const params = { id, siteId, driveId, itemId, webUrl };
+                const changed = await queryInTransaction(transaction, `UPDATE cmdb.Artifacts
+                    SET siteId = @siteId, driveId = @driveId, itemId = @itemId,
+                        webUrl = @webUrl, updatedAt = SYSUTCDATETIME()
+                    OUTPUT CONVERT(varchar(36), INSERTED.id) AS id
+                    WHERE id = @id AND ingestionState = 'Pending'
+                      AND (itemId IS NULL OR (siteId = @siteId AND driveId = @driveId AND itemId = @itemId))`, params);
+                if (!changed[0]) throw new ArtifactLockError();
+                const placements = await queryInTransaction(transaction, `UPDATE cmdb.ArtifactPlacements
+                    SET siteId = @siteId, driveId = @driveId, itemId = @itemId, webUrl = @webUrl,
+                        updatedAt = SYSUTCDATETIME()
+                    OUTPUT CONVERT(varchar(36), INSERTED.id) AS id
+                    WHERE artifactId = @id AND placementType = 'Working' AND placementStatus = 'Pending'
+                      AND (itemId IS NULL OR (siteId = @siteId AND driveId = @driveId AND itemId = @itemId))`, params);
+                if (placements.length !== 1) throw new ArtifactPlacementWriteError();
+                await transaction.commit();
+                return repository.getById(id);
+            } catch (error) {
+                try { await transaction.rollback(); } catch { /* Preserve original error. */ }
+                throw error;
+            }
         },
 
         async markUploaded(id, actorUserId, correlationId) {
@@ -193,9 +224,22 @@ export function createArtifactRepository({
             try {
                 const changed = await queryInTransaction(transaction, `UPDATE cmdb.Artifacts
                     SET ingestionState = 'Uploaded', uploadedAt = COALESCE(uploadedAt, SYSUTCDATETIME()), updatedAt = SYSUTCDATETIME()
-                    OUTPUT CONVERT(varchar(36), INSERTED.id) AS id
+                    OUTPUT CONVERT(varchar(36), INSERTED.id) AS id, INSERTED.uploadedAt AS uploadedAt
                     WHERE id = @id AND ingestionState = 'Pending' AND siteId IS NOT NULL AND driveId IS NOT NULL AND itemId IS NOT NULL`, { id });
                 if (!changed[0]) throw new ArtifactLockError();
+                const placements = await queryInTransaction(transaction, `UPDATE placement
+                    SET placementStatus = 'Active', activatedAt = @activatedAt, updatedAt = SYSUTCDATETIME()
+                    OUTPUT CONVERT(varchar(36), INSERTED.id) AS id
+                    FROM cmdb.ArtifactPlacements placement
+                    INNER JOIN cmdb.Artifacts artifact ON artifact.id = placement.artifactId
+                    WHERE placement.artifactId = @id AND placement.placementType = 'Working'
+                      AND placement.placementStatus = 'Pending'
+                      AND placement.siteId = artifact.siteId AND placement.driveId = artifact.driveId
+                      AND placement.itemId = artifact.itemId
+                      AND ISNULL(placement.webUrl, '') = ISNULL(artifact.webUrl, '')
+                      AND placement.legacyLibraryKey = artifact.libraryKey`,
+                { id, activatedAt: changed[0].uploadedAt });
+                if (placements.length !== 1) throw new ArtifactPlacementWriteError();
                 await appendEventWith((statement, params) => queryInTransaction(transaction, statement, params),
                     { artifactId: id, eventType: "ArtifactUploaded", actorUserId, correlationId });
                 await transaction.commit();
@@ -214,8 +258,16 @@ export function createArtifactRepository({
                     SET ingestionState = 'Failed', updatedAt = SYSUTCDATETIME()
                     OUTPUT CONVERT(varchar(36), INSERTED.id) AS id
                     WHERE id = @id AND ingestionState = 'Pending' AND itemId IS NULL`, { id });
-                if (changed[0]) await appendEventWith((statement, params) => queryInTransaction(transaction, statement, params),
-                    { artifactId: id, eventType: "ArtifactUploadFailed", actorUserId, correlationId, details: { reason } });
+                if (changed[0]) {
+                    const placements = await queryInTransaction(transaction, `UPDATE cmdb.ArtifactPlacements
+                        SET placementStatus = 'Failed', updatedAt = SYSUTCDATETIME()
+                        OUTPUT CONVERT(varchar(36), INSERTED.id) AS id
+                        WHERE artifactId = @id AND placementType = 'Working' AND placementStatus = 'Pending'
+                          AND siteId IS NULL AND driveId IS NULL AND itemId IS NULL AND webUrl IS NULL`, { id });
+                    if (placements.length !== 1) throw new ArtifactPlacementWriteError();
+                    await appendEventWith((statement, params) => queryInTransaction(transaction, statement, params),
+                        { artifactId: id, eventType: "ArtifactUploadFailed", actorUserId, correlationId, details: { reason } });
+                }
                 await transaction.commit();
             } catch (error) {
                 try { await transaction.rollback(); } catch { /* Preserve original error. */ }
