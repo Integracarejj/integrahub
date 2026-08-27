@@ -21,7 +21,7 @@ const WORKING_PLACEMENT_APPLY = `OUTER APPLY (
         MAX(placement.itemId) AS itemId, MAX(placement.webUrl) AS webUrl
     FROM cmdb.ArtifactPlacements placement
     WHERE placement.artifactId = artifact.id
-      AND placement.placementType = 'Working'
+      AND placement.placementType = artifact.storageDestination
       AND placement.placementStatus = 'Active'
 ) working
 CROSS JOIN (
@@ -72,7 +72,8 @@ function validateWorkingPlacement(row) {
     const count = Number(row.workingPlacementCount || 0);
     if (count > 1) throw new ArtifactPlacementReadError();
     if (count === 0) {
-        if (!row.placementMigrationAppliedAt || new Date(row.createdAt) <= new Date(row.placementMigrationAppliedAt)) {
+        if (row.storageDestination !== "Working" || !row.placementMigrationAppliedAt
+            || new Date(row.createdAt) <= new Date(row.placementMigrationAppliedAt)) {
             throw new ArtifactPlacementReadError();
         }
         return row;
@@ -146,14 +147,14 @@ export function createArtifactRepository({
             try {
                 await queryInTransaction(transaction, `INSERT INTO cmdb.Artifacts
                     (id, originalFileName, storedFileName, fileExtension, contentType, contentSize,
-                     contentSha256, libraryKey, sourceOrigin, sourceModule, sourceContext,
+                     contentSha256, storageDestination, libraryKey, sourceOrigin, sourceModule, sourceContext,
                      submittedByUserId, idempotencyKey)
                     VALUES (@id, @originalFileName, @storedFileName, @fileExtension, @contentType, @contentSize,
-                     @contentSha256, @libraryKey, @sourceOrigin, @sourceModule, @sourceContext,
+                     @contentSha256, @storageDestination, @libraryKey, @sourceOrigin, @sourceModule, @sourceContext,
                      @submittedByUserId, @idempotencyKey)`, values);
                 await queryInTransaction(transaction, `INSERT INTO cmdb.ArtifactPlacements
                     (id, artifactId, placementType, placementStatus, siteKey, legacyLibraryKey, createdByUserId)
-                    VALUES (@placementId, @id, 'Working', 'Pending', 'working', @libraryKey, @submittedByUserId)`,
+                    VALUES (@placementId, @id, @storageDestination, 'Pending', @siteKey, @libraryKey, @submittedByUserId)`,
                 { ...values, placementId: generateUuid() });
                 await appendEventWith((statement, params) => queryInTransaction(transaction, statement, params), {
                     artifactId: values.id, eventType: "ArtifactUploadStarted", actorUserId: values.submittedByUserId,
@@ -176,10 +177,13 @@ export function createArtifactRepository({
                     OUTPUT CONVERT(varchar(36), INSERTED.id) AS id
                     WHERE id = @id AND ingestionState = 'Failed'`, { id });
                 if (!changed[0]) throw new ArtifactLockError();
-                const placements = await queryInTransaction(transaction, `UPDATE cmdb.ArtifactPlacements
+                const placements = await queryInTransaction(transaction, `UPDATE placement
                     SET placementStatus = 'Pending', updatedAt = SYSUTCDATETIME()
                     OUTPUT CONVERT(varchar(36), INSERTED.id) AS id
-                    WHERE artifactId = @id AND placementType = 'Working' AND placementStatus = 'Failed'`, { id });
+                    FROM cmdb.ArtifactPlacements placement
+                    INNER JOIN cmdb.Artifacts artifact ON artifact.id = placement.artifactId
+                    WHERE placement.artifactId = @id AND placement.placementType = artifact.storageDestination
+                      AND placement.placementStatus = 'Failed'`, { id });
                 if (placements.length !== 1) throw new ArtifactPlacementWriteError();
                 await appendEventWith((statement, params) => queryInTransaction(transaction, statement, params),
                     { artifactId: id, eventType: "ArtifactUploadStarted", actorUserId, correlationId, details: { retry: true } });
@@ -203,11 +207,14 @@ export function createArtifactRepository({
                     WHERE id = @id AND ingestionState = 'Pending'
                       AND (itemId IS NULL OR (siteId = @siteId AND driveId = @driveId AND itemId = @itemId))`, params);
                 if (!changed[0]) throw new ArtifactLockError();
-                const placements = await queryInTransaction(transaction, `UPDATE cmdb.ArtifactPlacements
+                const placements = await queryInTransaction(transaction, `UPDATE placement
                     SET siteId = @siteId, driveId = @driveId, itemId = @itemId, webUrl = @webUrl,
                         updatedAt = SYSUTCDATETIME()
                     OUTPUT CONVERT(varchar(36), INSERTED.id) AS id
-                    WHERE artifactId = @id AND placementType = 'Working' AND placementStatus = 'Pending'
+                    FROM cmdb.ArtifactPlacements placement
+                    INNER JOIN cmdb.Artifacts artifact ON artifact.id = placement.artifactId
+                    WHERE placement.artifactId = @id AND placement.placementType = artifact.storageDestination
+                      AND placement.placementStatus = 'Pending'
                       AND (itemId IS NULL OR (siteId = @siteId AND driveId = @driveId AND itemId = @itemId))`, params);
                 if (placements.length !== 1) throw new ArtifactPlacementWriteError();
                 await transaction.commit();
@@ -232,12 +239,12 @@ export function createArtifactRepository({
                     OUTPUT CONVERT(varchar(36), INSERTED.id) AS id
                     FROM cmdb.ArtifactPlacements placement
                     INNER JOIN cmdb.Artifacts artifact ON artifact.id = placement.artifactId
-                    WHERE placement.artifactId = @id AND placement.placementType = 'Working'
+                    WHERE placement.artifactId = @id AND placement.placementType = artifact.storageDestination
                       AND placement.placementStatus = 'Pending'
                       AND placement.siteId = artifact.siteId AND placement.driveId = artifact.driveId
                       AND placement.itemId = artifact.itemId
                       AND ISNULL(placement.webUrl, '') = ISNULL(artifact.webUrl, '')
-                      AND placement.legacyLibraryKey = artifact.libraryKey`,
+                      AND ISNULL(placement.legacyLibraryKey, '') = ISNULL(artifact.libraryKey, '')`,
                 { id, activatedAt: changed[0].uploadedAt });
                 if (placements.length !== 1) throw new ArtifactPlacementWriteError();
                 await appendEventWith((statement, params) => queryInTransaction(transaction, statement, params),
@@ -259,10 +266,13 @@ export function createArtifactRepository({
                     OUTPUT CONVERT(varchar(36), INSERTED.id) AS id
                     WHERE id = @id AND ingestionState = 'Pending' AND itemId IS NULL`, { id });
                 if (changed[0]) {
-                    const placements = await queryInTransaction(transaction, `UPDATE cmdb.ArtifactPlacements
+                    const placements = await queryInTransaction(transaction, `UPDATE placement
                         SET placementStatus = 'Failed', updatedAt = SYSUTCDATETIME()
                         OUTPUT CONVERT(varchar(36), INSERTED.id) AS id
-                        WHERE artifactId = @id AND placementType = 'Working' AND placementStatus = 'Pending'
+                        FROM cmdb.ArtifactPlacements placement
+                        INNER JOIN cmdb.Artifacts artifact ON artifact.id = placement.artifactId
+                        WHERE placement.artifactId = @id AND placement.placementType = artifact.storageDestination
+                          AND placement.placementStatus = 'Pending'
                           AND siteId IS NULL AND driveId IS NULL AND itemId IS NULL AND webUrl IS NULL`, { id });
                     if (placements.length !== 1) throw new ArtifactPlacementWriteError();
                     await appendEventWith((statement, params) => queryInTransaction(transaction, statement, params),
@@ -277,8 +287,8 @@ export function createArtifactRepository({
 
         appendEvent(event) { return appendEventWith(query, event); },
 
-        async list({ pageSize, offset, libraryKey, q, extensions, uploadedFrom, sort }) {
-            const params = { pageSize, offset, libraryKey: libraryKey || null, q: q || null, uploadedFrom: uploadedFrom || null };
+        async list({ pageSize, offset, destination, libraryKey, q, extensions, uploadedFrom, sort }) {
+            const params = { pageSize, offset, destination: destination || null, libraryKey: libraryKey || null, q: q || null, uploadedFrom: uploadedFrom || null };
             const extensionClause = extensions.length
                 ? `AND artifact.fileExtension IN (${extensions.map((extension, index) => {
                     params[`extension${index}`] = extension;
@@ -287,7 +297,7 @@ export function createArtifactRepository({
                 : "";
             const inconsistency = `artifact.lifecycleState = 'Active' AND artifact.ingestionState = 'Uploaded'
                 AND (working.placementCount > 1
-                    OR (working.placementCount = 0 AND artifact.createdAt <= placementMigration.appliedAt)
+                    OR (working.placementCount = 0 AND (artifact.storageDestination <> 'Working' OR artifact.createdAt <= placementMigration.appliedAt))
                     OR (working.placementCount = 1 AND (
                         ISNULL(working.siteId, '') <> ISNULL(artifact.siteId, '')
                         OR ISNULL(working.driveId, '') <> ISNULL(artifact.driveId, '')
@@ -300,6 +310,7 @@ export function createArtifactRepository({
                 WHERE ${inconsistency}`, {});
             if (inconsistentRows[0]) throw new ArtifactPlacementReadError();
             const where = `WHERE artifact.lifecycleState = 'Active' AND artifact.ingestionState = 'Uploaded'
+                AND (@destination IS NULL OR artifact.storageDestination = @destination)
                 AND (@libraryKey IS NULL OR COALESCE(working.legacyLibraryKey, artifact.libraryKey) = @libraryKey)
                 AND (@q IS NULL OR artifact.originalFileName LIKE '%' + @q + '%' OR artifact.description LIKE '%' + @q + '%')
                 AND (@uploadedFrom IS NULL OR artifact.uploadedAt >= @uploadedFrom)

@@ -20,7 +20,7 @@ function harness({ uploadError = null, finalizeError = null, remote = null, down
     const repository = {
         withIdempotencyLock: async (_actor, _key, work) => { const prior = lockTail; let release; lockTail = new Promise(resolve => { release = resolve; }); await prior; calls.push(["lock"]); try { return await work(); } finally { release(); } },
         getByIdempotency: async () => row,
-        createPending: async values => { calls.push(["pending", values]); row = { ...values, ingestionState: "Pending", classificationState: "Unclassified", lifecycleState: "Active", storageDestination: "Working", createdAt: "created", updatedAt: "updated" }; placement = { id: "placement-1", artifactId: values.id, placementType: "Working", placementStatus: "Pending", siteKey: "working", legacyLibraryKey: values.libraryKey, createdByUserId: values.submittedByUserId, siteId: null, driveId: null, itemId: null, webUrl: null, activatedAt: null }; return row; },
+        createPending: async values => { calls.push(["pending", values]); row = { ...values, ingestionState: "Pending", classificationState: "Unclassified", lifecycleState: "Active", createdAt: "created", updatedAt: "updated" }; placement = { id: "placement-1", artifactId: values.id, placementType: values.storageDestination, placementStatus: "Pending", siteKey: values.siteKey, legacyLibraryKey: values.libraryKey, createdByUserId: values.submittedByUserId, siteId: null, driveId: null, itemId: null, webUrl: null, activatedAt: null }; return row; },
         restartFailed: async () => { calls.push(["restart"]); row = { ...row, ingestionState: "Pending" }; placement = { ...placement, placementStatus: "Pending" }; return row; },
         recordGraphReceipt: async (_id, identity) => { calls.push(["receipt", identity]); row = { ...row, ...identity }; placement = { ...placement, ...identity }; return row; },
         markUploaded: async () => { calls.push(["uploaded"]); if (finalizeError) throw finalizeError; row = { ...row, ingestionState: "Uploaded", uploadedAt: "uploaded" }; placement = { ...placement, placementStatus: "Active", activatedAt: row.uploadedAt }; return row; },
@@ -40,7 +40,9 @@ function harness({ uploadError = null, finalizeError = null, remote = null, down
         downloadFile: async (_drive, _item, bounds) => { calls.push(["graph-download", bounds]); return { content: downloadContent, contentType: "application/pdf" }; },
     };
     const service = createArtifactService({ repository, generateUuid: () => ARTIFACT_ID,
-        loadConfig: () => ({ credentials: {}, artifactDestinations: [
+        loadConfig: () => ({ credentials: {}, sites: [
+            { key: "knowledge", hostname: "host", sitePath: "/knowledge", libraryName: "Documents" },
+        ], artifactDestinations: [
             { key: "Projects", hostname: "host", sitePath: "/working", libraryName: "Projects Working" },
             { key: "Legal", hostname: "host", sitePath: "/working", libraryName: "Legal Working" },
             { key: "Operations", hostname: "host", sitePath: "/working", libraryName: "Operations Working" },
@@ -94,7 +96,7 @@ test("repository creates Pending Artifact, Working placement, and initial audit 
     await repository.createPending(values);
     assert.ok(statements.some(statement => String(statement).includes("INSERT INTO cmdb.Artifacts")));
     assert.ok(statements.some(statement => String(statement).includes("INSERT INTO cmdb.ArtifactPlacements")));
-    assert.ok(statements.some(statement => String(statement).includes("'Working', 'Pending', 'working'")));
+    assert.ok(statements.some(statement => String(statement).includes("@storageDestination, 'Pending', @siteKey")));
     assert.ok(statements.some(statement => String(statement).includes("INSERT INTO cmdb.ArtifactEvents")));
     assert.ok(statements.indexOf("BEGIN") < statements.findIndex(statement => String(statement).includes("INSERT INTO cmdb.Artifacts")));
     assert.ok(statements.indexOf("COMMIT") > statements.findIndex(statement => String(statement).includes("INSERT INTO cmdb.ArtifactEvents")));
@@ -119,6 +121,21 @@ test("valid Editor upload creates Pending before Graph and persists exact Graph 
     assert.equal("siteId" in result, false);
 });
 
+test("Knowledge upload uses Documents and creates one Knowledge placement without Work area", async () => {
+    const value = harness();
+    const result = await value.service.upload({ ...value.request, libraryKey: undefined, destination: "Knowledge", workArea: null });
+    assert.equal(result.storageDestination, "Knowledge");
+    assert.equal(result.libraryKey, null);
+    assert.equal(value.calls.filter(([name]) => name === "pending").length, 1);
+    assert.deepEqual(value.calls.find(([name]) => name === "drive"), ["drive", "Documents"]);
+    assert.deepEqual(value.getPlacement(), { id: "placement-1", artifactId: ARTIFACT_ID, placementType: "Knowledge",
+        placementStatus: "Active", siteKey: "knowledge", legacyLibraryKey: null, createdByUserId: EDITOR.id,
+        siteId: "site", driveId: "drive", itemId: "item", webUrl: "private-url", activatedAt: "uploaded" });
+    await value.service.upload({ ...value.request, libraryKey: undefined, destination: "Knowledge", workArea: null });
+    assert.equal(value.calls.filter(([name]) => name === "pending").length, 1);
+    assert.equal(value.calls.filter(([name]) => name === "graph-upload").length, 1);
+});
+
 test("upload rejects external, Viewer, invalid destination, size, and MIME pair before Graph", async () => {
     for (const actor of [{ id: "external", globalRole: "ExternalBroker" }, { id: "viewer", globalRole: "Viewer" }]) {
         const value = harness();
@@ -127,6 +144,8 @@ test("upload rejects external, Viewer, invalid destination, size, and MIME pair 
     }
     const invalid = harness();
     await assert.rejects(invalid.service.upload({ ...invalid.request, libraryKey: "Recapitalization", siteId: "spoof", driveId: "spoof" }), ArtifactValidationError);
+    await assert.rejects(invalid.service.upload({ ...invalid.request, libraryKey: "Knowledge" }), ArtifactValidationError);
+    await assert.rejects(invalid.service.upload({ ...invalid.request, libraryKey: "External" }), ArtifactValidationError);
     await assert.rejects(invalid.service.upload({ ...invalid.request, originalFileName: "payload.exe", contentType: "application/octet-stream" }), ArtifactValidationError);
     await assert.rejects(invalid.service.upload({ ...invalid.request, contentType: "image/png" }), ArtifactValidationError);
     await assert.rejects(invalid.service.upload({ ...invalid.request, content: Buffer.alloc(MAX_ARTIFACT_BYTES + 1) }), ArtifactValidationError);
@@ -269,7 +288,7 @@ test("repository search is bounded to active uploaded rows with count, filters, 
     for (const [statement] of calls.slice(1)) {
         assert.match(statement, /lifecycleState = 'Active'/); assert.match(statement, /ingestionState = 'Uploaded'/);
         assert.match(statement, /originalFileName LIKE/); assert.match(statement, /fileExtension IN \(@extension0\)/);
-        assert.match(statement, /OUTER APPLY/); assert.match(statement, /placementType = 'Working'/);
+        assert.match(statement, /OUTER APPLY/); assert.match(statement, /placementType = artifact\.storageDestination/);
     }
     assert.match(calls[0][0], /placementCount > 1/);
     assert.match(calls[1][0], /COALESCE\(working\.legacyLibraryKey, artifact\.libraryKey\) = @libraryKey/);
@@ -278,7 +297,7 @@ test("repository search is bounded to active uploaded rows with count, filters, 
 });
 
 test("placement-aware detail fails closed for migrated missing, mismatched, or duplicate Working placements", async () => {
-    const base = { id: ARTIFACT_ID, ingestionState: "Uploaded", createdAt: new Date("2026-01-01"),
+    const base = { id: ARTIFACT_ID, ingestionState: "Uploaded", storageDestination: "Working", createdAt: new Date("2026-01-01"),
         placementMigrationAppliedAt: new Date("2026-02-01"), legacyArtifactLibraryKey: "Projects",
         legacyArtifactSiteId: "site", legacyArtifactDriveId: "legacy-drive", legacyArtifactItemId: "legacy-item",
         legacyArtifactWebUrl: "legacy-url", placementLibraryKey: "Projects", placementSiteId: "site",
@@ -294,7 +313,7 @@ test("placement-aware detail fails closed for migrated missing, mismatched, or d
 });
 
 test("placement-aware detail prefers exact Working placement and permits explicit post-migration legacy fallback", async () => {
-    const base = { id: ARTIFACT_ID, ingestionState: "Uploaded", createdAt: new Date("2026-01-01"),
+    const base = { id: ARTIFACT_ID, ingestionState: "Uploaded", storageDestination: "Working", createdAt: new Date("2026-01-01"),
         placementMigrationAppliedAt: new Date("2026-02-01"), workingPlacementCount: 1,
         legacyArtifactLibraryKey: "Projects", legacyArtifactSiteId: "legacy-site", legacyArtifactDriveId: "legacy-drive",
         legacyArtifactItemId: "legacy-item", legacyArtifactWebUrl: "legacy-url", placementLibraryKey: "Projects",
@@ -309,6 +328,10 @@ test("placement-aware detail prefers exact Working placement and permits explici
         placementItemId: null, placementWebUrl: null };
     const fallback = createArtifactRepository({ query: async () => [postMigration] });
     assert.equal((await fallback.getForRead(ARTIFACT_ID)).itemId, "legacy-item");
+
+    const missingKnowledge = { ...postMigration, storageDestination: "Knowledge", libraryKey: null, legacyArtifactLibraryKey: null };
+    const knowledgeRepository = createArtifactRepository({ query: async () => [missingKnowledge] });
+    await assert.rejects(knowledgeRepository.getForRead(ARTIFACT_ID), ArtifactPlacementReadError);
 });
 
 test("download resolves through placement-aware repository identity and preserves event behavior", async () => {

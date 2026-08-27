@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import DocumentHubPage from "../pages/documents/DocumentHubPage";
 import DocumentHubFind from "../pages/documents/DocumentHubFind";
-import { addDocumentFiles, applyDestinationToAll, beginDocumentUpload, canSubmitDocument, canUploadBatch, completeDocumentUpload, documentStatusLabel, EMPTY_UPLOAD_STATE, failDocumentUpload, internalWorkUseLabel, markDocumentFailed, markDocumentUploaded, MAX_DOCUMENT_BYTES, readyDocuments, removeDocumentFile, removeStagedDocument, selectDocumentFile, setDocumentDestination, shouldShowBulkWorkAreaControl, uploadDocumentsSequentially, validateDocumentFile, WORK_AREA_PLACEHOLDER } from "../pages/documents/documentHubState";
+import { addDocumentFiles, applyDestinationToAll, beginDocumentUpload, BUSINESS_DESTINATIONS, canSubmitDocument, canUploadBatch, completeDocumentUpload, documentStatusLabel, EMPTY_UPLOAD_STATE, failDocumentUpload, internalWorkUseLabel, markDocumentFailed, markDocumentUploaded, MAX_DOCUMENT_BYTES, readyDocuments, removeDocumentFile, removeStagedDocument, selectDocumentFile, setDocumentBusinessDestination, setDocumentDestination, shouldShowBulkWorkAreaControl, uploadDocumentsSequentially, validateDocumentFile, WORK_AREA_PLACEHOLDER } from "../pages/documents/documentHubState";
 import { ArtifactUploadError, downloadArtifact, listArtifacts, uploadArtifact, type ArtifactRecord } from "../services/artifactPersistence";
 import { shouldRedirectFromInternal } from "../utils/accessRouting";
 import { INTERNAL_NAV_ITEMS } from "../navigation/internalNavigation";
@@ -20,6 +20,14 @@ function textFile(name = "report.txt", body = "report") {
 }
 
 describe("Document Hub shell and navigation", () => {
+    it("uses business destinations as the primary model and reserves Work area for Working", () => {
+        expect(BUSINESS_DESTINATIONS).toEqual([
+            { value: "Working", description: "Active internal work and collaboration.", enabled: true },
+            { value: "Knowledge", description: "Trusted internal reference.", enabled: true },
+            { value: "External", description: "Controlled sharing with an approved transaction/project.", enabled: false, note: "Coming next" },
+        ]);
+    });
+
     it("renders the Provide/Find shell and browse upload affordance", () => {
         const html = renderToStaticMarkup(<DocumentHubPage />);
         expect(html).toContain("Document Hub");
@@ -49,8 +57,9 @@ describe("Document Hub shell and navigation", () => {
     it("renders the authoritative Find controls with loading state and no raw Graph identity", () => {
         const html = renderToStaticMarkup(<DocumentHubFind />);
         expect(html).toContain("Search documents");
-        expect(html).toContain("All internal work");
-        expect(html).toContain("Use");
+        expect(html).toContain("Availability");
+        expect(html).toContain("Knowledge");
+        expect(html).toContain("All work areas");
         expect(html).toContain("Project work");
         expect(html).toContain("All types");
         expect(html).toContain("Newest uploaded");
@@ -73,10 +82,13 @@ describe("Document Hub shell and navigation", () => {
     });
 
     it("shows bulk work-area assignment only when at least two documents are staged", () => {
-        expect(shouldShowBulkWorkAreaControl(0)).toBe(false);
-        expect(shouldShowBulkWorkAreaControl(1)).toBe(false);
-        expect(shouldShowBulkWorkAreaControl(2)).toBe(true);
-        expect(shouldShowBulkWorkAreaControl(3)).toBe(true);
+        let sequence = 0;
+        const staged = addDocumentFiles([], [textFile("one.txt"), textFile("two.txt")], () => `key-${++sequence}`);
+        expect(shouldShowBulkWorkAreaControl([])).toBe(false);
+        expect(shouldShowBulkWorkAreaControl(staged.slice(0, 1))).toBe(false);
+        expect(shouldShowBulkWorkAreaControl(staged)).toBe(false);
+        const working = staged.reduce((items, item) => setDocumentBusinessDestination(items, item.id, "Working", () => `key-${++sequence}`), staged);
+        expect(shouldShowBulkWorkAreaControl(working)).toBe(true);
     });
 
     it("adds /documents without replacing existing internal navigation and keeps external users out of the internal tree", () => {
@@ -117,15 +129,30 @@ describe("Document Hub multi-document staging", () => {
         let sequence = 0;
         const generate = () => `key-${++sequence}`;
         const staged = addDocumentFiles([], [textFile("one.txt"), textFile("two.txt")], generate);
-        const bulk = applyDestinationToAll(staged, "Projects", generate);
+        const working = staged.reduce((items, item) => setDocumentBusinessDestination(items, item.id, "Working", generate), staged);
+        const bulk = applyDestinationToAll(working, "Projects", generate);
         expect(bulk.map(item => item.destination)).toEqual(["Projects", "Projects"]);
         const bulkKeys = bulk.map(item => item.idempotencyKey);
         const overridden = setDocumentDestination(bulk, bulk[1].id, "Legal", generate);
         expect(overridden.map(item => item.destination)).toEqual(["Projects", "Legal"]);
         expect(overridden[0].idempotencyKey).toBe(bulkKeys[0]);
         expect(overridden[1].idempotencyKey).not.toBe(bulkKeys[1]);
-        expect(documentStatusLabel(staged[0])).toBe("Choose a work area.");
+        expect(documentStatusLabel(staged[0])).toBe("Choose a destination.");
+        expect(documentStatusLabel(working[0])).toBe("Choose a work area.");
         expect(documentStatusLabel(bulk[0])).toBe("Ready");
+    });
+
+    it("allows Knowledge without Work area and keeps mixed staging independent", () => {
+        let sequence = 0;
+        const generate = () => `key-${++sequence}`;
+        const staged = addDocumentFiles([], [textFile("working.txt"), textFile("knowledge.txt")], generate);
+        const working = setDocumentBusinessDestination(staged, staged[0].id, "Working", generate);
+        const mixed = setDocumentBusinessDestination(working, staged[1].id, "Knowledge", generate);
+        const ready = setDocumentDestination(mixed, staged[0].id, "Projects", generate);
+        expect(ready[1]).toMatchObject({ businessDestination: "Knowledge", destination: "" });
+        expect(documentStatusLabel(ready[1])).toBe("Ready");
+        expect(canUploadBatch(ready, false)).toBe(true);
+        expect(shouldShowBulkWorkAreaControl(ready)).toBe(false);
     });
 
     it("removes only the selected item and suppresses obvious same-session duplicates", () => {
@@ -142,7 +169,8 @@ describe("Document Hub multi-document staging", () => {
         let sequence = 0;
         const generate = () => `key-${++sequence}`;
         const staged = addDocumentFiles([], [textFile("one.txt"), textFile("two.txt")], generate);
-        const oneAssigned = setDocumentDestination(staged, staged[0].id, "Projects", generate);
+        const working = staged.reduce((items, item) => setDocumentBusinessDestination(items, item.id, "Working", generate), staged);
+        const oneAssigned = setDocumentDestination(working, working[0].id, "Projects", generate);
         expect(canUploadBatch(oneAssigned, false)).toBe(false);
         const ready = applyDestinationToAll(oneAssigned, "Projects", generate);
         expect(canUploadBatch(ready, false)).toBe(true);
@@ -157,7 +185,9 @@ describe("Document Hub multi-document staging", () => {
     it("issues one sequential request per ready file and preserves partial results", async () => {
         let sequence = 0;
         const generate = () => `key-${++sequence}`;
-        const staged = applyDestinationToAll(addDocumentFiles([], [textFile("one.txt"), textFile("two.txt")], generate), "Projects", generate);
+        const added = addDocumentFiles([], [textFile("one.txt"), textFile("two.txt")], generate);
+        const working = added.reduce((items, item) => setDocumentBusinessDestination(items, item.id, "Working", generate), added);
+        const staged = applyDestinationToAll(working, "Projects", generate);
         const active = { count: 0, maximum: 0 };
         const upload = vi.fn(async (item: (typeof staged)[number]) => {
             active.count += 1; active.maximum = Math.max(active.maximum, active.count);
@@ -241,7 +271,7 @@ describe("Artifact Hub browser API integration", () => {
         const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({ artifact: responseArtifact }), {
             status: 201, headers: { "Content-Type": "application/json" },
         }));
-        const result = await uploadArtifact(file, "Projects", "stable-attempt-key", fetchMock as typeof fetch);
+        const result = await uploadArtifact(file, "Working", "Projects", "stable-attempt-key", fetchMock as typeof fetch);
         expect(result.id).toBe(responseArtifact.id);
         expect(fetchMock).toHaveBeenCalledOnce();
         const [path, init] = fetchMock.mock.calls[0];
@@ -250,17 +280,17 @@ describe("Artifact Hub browser API integration", () => {
         expect(init?.body).toBe(file);
         expect(init?.headers).toMatchObject({
             "Content-Type": "application/octet-stream", "X-File-Name": "report.txt",
-            "X-File-Content-Type": "text/plain", "X-Artifact-Destination": "Projects",
+            "X-File-Content-Type": "text/plain", "X-Artifact-Destination": "Working", "X-Artifact-Work-Area": "Projects",
             "Idempotency-Key": "stable-attempt-key",
         });
     });
 
     it("normalizes backend and network failures into persistent-safe messages", async () => {
         const backendFailure = vi.fn(async () => new Response(JSON.stringify({ error: "Artifact storage collision prevented upload" }), { status: 409, headers: { "Content-Type": "application/json" } }));
-        await expect(uploadArtifact(textFile(), "Projects", "stable-attempt-key", backendFailure as typeof fetch))
+        await expect(uploadArtifact(textFile(), "Working", "Projects", "stable-attempt-key", backendFailure as typeof fetch))
             .rejects.toMatchObject({ name: "ArtifactUploadError", message: "Artifact storage collision prevented upload", status: 409 });
         const networkFailure = vi.fn(async () => { throw new Error("private network detail"); });
-        await expect(uploadArtifact(textFile(), "Projects", "stable-attempt-key", networkFailure as typeof fetch))
+        await expect(uploadArtifact(textFile(), "Working", "Projects", "stable-attempt-key", networkFailure as typeof fetch))
             .rejects.toEqual(expect.objectContaining<Partial<ArtifactUploadError>>({ message: expect.not.stringContaining("private network detail") }));
     });
 });

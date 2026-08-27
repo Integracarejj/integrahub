@@ -2,9 +2,17 @@ import type { ArtifactLibraryKey, ArtifactRecord } from "../../services/artifact
 
 export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 export const WORK_AREA_PLACEHOLDER = "Choose a work area";
+export type DocumentDestination = "Working" | "Knowledge" | "External";
+export const BUSINESS_DESTINATIONS: ReadonlyArray<{
+    value: DocumentDestination; description: string; enabled: boolean; note?: string;
+}> = [
+    { value: "Working", description: "Active internal work and collaboration.", enabled: true },
+    { value: "Knowledge", description: "Trusted internal reference.", enabled: true },
+    { value: "External", description: "Controlled sharing with an approved transaction/project.", enabled: false, note: "Coming next" },
+];
 
-export function shouldShowBulkWorkAreaControl(documentCount: number): boolean {
-    return documentCount >= 2;
+export function shouldShowBulkWorkAreaControl(items: readonly StagedDocument[]): boolean {
+    return items.length >= 2 && items.every(item => item.businessDestination === "Working");
 }
 
 export const INTERNAL_WORK_USES: ReadonlyArray<{ value: ArtifactLibraryKey; label: string }> = [
@@ -95,6 +103,7 @@ export interface StagedDocument {
     id: string;
     file: File;
     destination: ArtifactLibraryKey | "";
+    businessDestination: DocumentDestination | "";
     idempotencyKey: string;
     phase: "ready" | "invalid" | "uploading" | "uploaded" | "failed";
     validationError: string | null;
@@ -117,12 +126,25 @@ export function addDocumentFiles(items: readonly StagedDocument[], files: Iterab
         seen.add(fingerprint);
         const validationError = validateDocumentFile(file);
         added.push({
-            id: generateKey(), file, destination: "", idempotencyKey: generateKey(),
+            id: generateKey(), file, destination: "", businessDestination: "", idempotencyKey: generateKey(),
             phase: validationError ? "invalid" : "ready", validationError,
             uploadError: null, artifact: null,
         });
     }
     return [...items, ...added];
+}
+
+export function setDocumentBusinessDestination(items: readonly StagedDocument[], id: string, businessDestination: DocumentDestination | "", generateKey: KeyGenerator): StagedDocument[] {
+    return items.map(item => {
+        if (item.id !== id || item.phase === "uploading" || item.phase === "uploaded") return item;
+        const changed = item.businessDestination !== businessDestination;
+        return {
+            ...item, businessDestination,
+            destination: businessDestination === "Working" ? item.destination : "",
+            idempotencyKey: changed ? generateKey() : item.idempotencyKey,
+            uploadError: null, phase: item.validationError ? "invalid" : "ready",
+        };
+    });
 }
 
 export function removeStagedDocument(items: readonly StagedDocument[], id: string): StagedDocument[] {
@@ -151,7 +173,8 @@ export function applyDestinationToAll(items: readonly StagedDocument[], destinat
 }
 
 export function readyDocuments(items: readonly StagedDocument[]): StagedDocument[] {
-    return items.filter(item => item.phase === "ready" && !item.validationError && !!item.destination);
+    return items.filter(item => item.phase === "ready" && !item.validationError
+        && (item.businessDestination === "Knowledge" || (item.businessDestination === "Working" && !!item.destination)));
 }
 
 export async function uploadDocumentsSequentially(
@@ -174,7 +197,8 @@ export async function uploadDocumentsSequentially(
 export function canUploadBatch(items: readonly StagedDocument[], batchRunning: boolean): boolean {
     if (batchRunning) return false;
     const pending = items.filter(item => item.phase === "ready");
-    return pending.length > 0 && pending.every(item => !item.validationError && !!item.destination);
+    return pending.length > 0 && pending.every(item => !item.validationError
+        && (item.businessDestination === "Knowledge" || (item.businessDestination === "Working" && !!item.destination)));
 }
 
 export function markDocumentUploading(items: readonly StagedDocument[], id: string): StagedDocument[] {
@@ -195,7 +219,10 @@ export function documentExtension(fileName: string): string {
 }
 
 export function documentStatusLabel(item: StagedDocument): string {
-    if (item.phase === "ready") return item.destination ? "Ready" : "Choose a work area.";
+    if (item.phase === "ready") {
+        if (!item.businessDestination) return "Choose a destination.";
+        return item.businessDestination === "Knowledge" || item.destination ? "Ready" : "Choose a work area.";
+    }
     if (item.phase === "invalid") return "Invalid";
     if (item.phase === "uploading") return "Uploading";
     if (item.phase === "uploaded") return "Uploaded";

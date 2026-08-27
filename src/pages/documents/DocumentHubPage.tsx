@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { ArtifactUploadError, uploadArtifact, type ArtifactLibraryKey } from "../../services/artifactPersistence";
-import { addDocumentFiles, applyDestinationToAll, canUploadBatch, documentExtension, documentStatusLabel, formatDocumentSize, INTERNAL_WORK_USES, markDocumentFailed, markDocumentUploaded, markDocumentUploading, readyDocuments, removeStagedDocument, setDocumentDestination, shouldShowBulkWorkAreaControl, uploadDocumentsSequentially, WORK_AREA_PLACEHOLDER, type StagedDocument } from "./documentHubState";
+import { addDocumentFiles, applyDestinationToAll, BUSINESS_DESTINATIONS, canUploadBatch, documentExtension, documentStatusLabel, formatDocumentSize, INTERNAL_WORK_USES, markDocumentFailed, markDocumentUploaded, markDocumentUploading, readyDocuments, removeStagedDocument, setDocumentBusinessDestination, setDocumentDestination, shouldShowBulkWorkAreaControl, uploadDocumentsSequentially, WORK_AREA_PLACEHOLDER, type StagedDocument } from "./documentHubState";
 import "./DocumentHubPage.css";
 import DocumentHubFind from "./DocumentHubFind";
 
@@ -35,7 +35,7 @@ export default function DocumentHubPage() {
         uploadInFlight.current = true;
         setItems(current => markDocumentUploading(current, item.id));
         try {
-            const artifact = await uploadArtifact(item.file, item.destination, item.idempotencyKey);
+            const artifact = await uploadArtifact(item.file, item.businessDestination as "Working" | "Knowledge", item.destination || null, item.idempotencyKey);
             setItems(current => markDocumentUploaded(current, item.id, artifact));
         } catch (error) {
             const message = error instanceof ArtifactUploadError ? error.message : "Document Hub could not store this file. Please retry.";
@@ -51,7 +51,7 @@ export default function DocumentHubPage() {
         setBatchRunning(true);
         await uploadDocumentsSequentially(
             items,
-            item => uploadArtifact(item.file, item.destination as ArtifactLibraryKey, item.idempotencyKey),
+            item => uploadArtifact(item.file, item.businessDestination as "Working" | "Knowledge", item.destination || null, item.idempotencyKey),
             item => setItems(current => markDocumentUploading(current, item.id)),
             (item, artifact) => setItems(current => markDocumentUploaded(current, item.id, artifact)),
             (item, error) => {
@@ -111,7 +111,7 @@ export default function DocumentHubPage() {
                     {items.length > 0 && <div className="document-hub-staging">
                         <div className="document-hub-staging-header">
                             <div><h3>Documents to upload</h3><p>{items.length} {items.length === 1 ? "document" : "documents"}</p></div>
-                            {shouldShowBulkWorkAreaControl(items.length) && <label>Set work area for all documents
+                            {shouldShowBulkWorkAreaControl(items) && <label>Set work area for all Working documents
                                 <select value={bulkDestination} disabled={batchRunning} onChange={event => applyBulkDestination(event.target.value as ArtifactLibraryKey | "")}>
                                     <option value="">{WORK_AREA_PLACEHOLDER}</option>
                                     {INTERNAL_WORK_USES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -123,12 +123,22 @@ export default function DocumentHubPage() {
                                 <div className="document-hub-file-icon" aria-hidden="true">{documentExtension(item.file.name)}</div>
                                 <div className="document-hub-file-name"><strong>{item.file.name}</strong><span>{formatDocumentSize(item.file.size)} · {item.file.type || "Unknown type"}</span></div>
                                 <div className="document-hub-preparation">
-                                    <label>Work area
+                                    <fieldset className="document-hub-destinations" disabled={["uploading", "uploaded"].includes(item.phase)}>
+                                        <legend>Where should this document be available?</legend>
+                                        {BUSINESS_DESTINATIONS.map(destination => <label key={destination.value}
+                                            className={`${item.businessDestination === destination.value ? "selected" : ""}${destination.enabled ? "" : " disabled"}`.trim()}>
+                                            <input type="radio" name={`destination-${item.id}`} value={destination.value}
+                                                checked={item.businessDestination === destination.value} disabled={!destination.enabled}
+                                                onChange={() => setItems(current => setDocumentBusinessDestination(current, item.id, destination.value, newIdempotencyKey))} />
+                                            <span><strong>{destination.value}</strong><small>{destination.description}</small>{destination.note && <em>{destination.note}</em>}</span>
+                                        </label>)}
+                                    </fieldset>
+                                    {item.businessDestination === "Working" && <label className="document-hub-work-area">Work area
                                         <select value={item.destination} disabled={["uploading", "uploaded"].includes(item.phase)} onChange={event => setItems(current => setDocumentDestination(current, item.id, event.target.value as ArtifactLibraryKey | "", newIdempotencyKey))}>
                                             <option value="">{WORK_AREA_PLACEHOLDER}</option>
                                             {INTERNAL_WORK_USES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                                         </select>
-                                    </label>
+                                    </label>}
                                 </div>
                                 <div className={`document-hub-status ${item.phase}`} role={item.phase === "failed" || item.phase === "invalid" ? "alert" : "status"}>
                                     {item.phase === "ready" && <strong>{documentStatusLabel(item)}</strong>}
@@ -143,7 +153,7 @@ export default function DocumentHubPage() {
                     </div>}
 
                     <div className="document-hub-submit-row">
-                        <span>{hasUploaded ? "Stored documents remain visible. Add more documents at any time." : pendingCount > 0 && readyCount < pendingCount ? "Choose a work area for every valid document." : "Documents are stored only after you confirm."}</span>
+                        <span>{hasUploaded ? "Stored documents remain visible. Add more documents at any time." : pendingCount > 0 && readyCount < pendingCount ? "Choose an available destination and any required work area for every valid document." : "Documents are stored only after you confirm."}</span>
                         <button type="button" className="document-hub-primary" onClick={submitBatch} disabled={!canUploadBatch(items, batchRunning)}>{batchRunning ? "Storing…" : readyCount > 0 ? `Store ${readyCount} ${readyCount === 1 ? "document" : "documents"}` : "Store documents"}</button>
                     </div>
                 </section>

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { loadSharePointConfig, getArtifactDestinationTarget } from "../integrations/sharepoint/config.js";
+import { loadSharePointConfig, getArtifactDestinationTarget, getSharePointSiteTarget } from "../integrations/sharepoint/config.js";
 import { ClientSecretGraphAuthProvider } from "../integrations/sharepoint/auth.js";
 import { GraphRequestError, SharePointGraphClient } from "../integrations/sharepoint/graphClient.js";
 import { artifactRepository } from "./artifactRepository.js";
@@ -64,7 +64,9 @@ function safeArtifact(row) {
 function sameRequest(row, values) {
     return row.contentSha256 === values.contentSha256 && Number(row.contentSize) === values.contentSize
         && row.originalFileName === values.originalFileName && row.contentType === values.contentType
-        && row.libraryKey === values.libraryKey && (row.sourceContext || null) === (values.sourceContext || null);
+        && row.storageDestination === values.storageDestination
+        && (row.libraryKey || null) === (values.libraryKey || null)
+        && (row.sourceContext || null) === (values.sourceContext || null);
 }
 
 export function createArtifactService({
@@ -73,9 +75,11 @@ export function createArtifactService({
     graphClientFactory = config => new SharePointGraphClient(new ClientSecretGraphAuthProvider(config.credentials)),
     generateUuid = randomUUID,
 } = {}) {
-    async function graphContext(libraryKey) {
+    async function graphContext(storageDestination, libraryKey) {
         const config = loadConfig();
-        const target = getArtifactDestinationTarget(config, libraryKey);
+        const target = storageDestination === "Knowledge"
+            ? getSharePointSiteTarget(config, "knowledge")
+            : getArtifactDestinationTarget(config, libraryKey);
         const client = graphClientFactory(config);
         const site = await client.resolveSite(target.hostname, target.sitePath);
         const drive = await client.findDriveByName(site.id, target.libraryName);
@@ -93,15 +97,20 @@ export function createArtifactService({
     }
 
     return {
-        async upload({ originalFileName, contentType, content, libraryKey, idempotencyKey, sourceContext, actor }) {
+        async upload({ originalFileName, contentType, content, destination, workArea, libraryKey, idempotencyKey, sourceContext, actor }) {
             requireActor(actor, UPLOAD_ROLES);
             if (!IDEMPOTENCY_KEY.test(String(idempotencyKey || ""))) throw new ArtifactValidationError("A valid Idempotency-Key is required");
-            if (!["Projects", "Legal", "Operations"].includes(libraryKey)) throw new ArtifactValidationError("Invalid Artifact Hub destination");
+            const storageDestination = destination || (libraryKey ? "Working" : "");
+            const selectedLibraryKey = workArea ?? libraryKey ?? null;
+            if (!["Working", "Knowledge"].includes(storageDestination)) throw new ArtifactValidationError("Invalid Artifact Hub destination");
+            if (storageDestination === "Working" && !["Projects", "Legal", "Operations"].includes(selectedLibraryKey)) throw new ArtifactValidationError("A valid Work area is required");
+            if (storageDestination === "Knowledge" && selectedLibraryKey != null) throw new ArtifactValidationError("Knowledge does not accept a Work area");
             if (!Buffer.isBuffer(content) || content.length < 1 || content.length > MAX_ARTIFACT_BYTES) throw new ArtifactValidationError("Artifacts must be between 1 byte and 10 MiB");
             if (sourceContext != null && (typeof sourceContext !== "string" || sourceContext.length > 255)) throw new ArtifactValidationError("Invalid source context");
             const file = sanitizeFileName(originalFileName, contentType);
             const contentSha256 = createHash("sha256").update(content).digest("hex");
-            const requested = { originalFileName: file.clean, contentType: file.contentType, contentSize: content.length, contentSha256, libraryKey, sourceContext: sourceContext || null };
+            const requested = { originalFileName: file.clean, contentType: file.contentType, contentSize: content.length,
+                contentSha256, storageDestination, libraryKey: selectedLibraryKey, sourceContext: sourceContext || null };
 
             return repository.withIdempotencyLock(actor.id, idempotencyKey, async () => {
                 let row = await repository.getByIdempotency(actor.id, idempotencyKey);
@@ -110,7 +119,7 @@ export function createArtifactService({
                 if (!row) {
                     const id = generateUuid();
                     const storedFileName = `${id}-${contentSha256.slice(0, 12)}-${file.base}.${file.extension}`;
-                    row = await repository.createPending({ id, ...requested, storedFileName, fileExtension: file.extension,
+                    row = await repository.createPending({ id, ...requested, siteKey: storageDestination.toLowerCase(), storedFileName, fileExtension: file.extension,
                         sourceOrigin: "Internal Artifact Upload", sourceModule: "ArtifactHub",
                         submittedByUserId: actor.id, idempotencyKey });
                 } else if (row.ingestionState === "Failed") {
@@ -119,7 +128,7 @@ export function createArtifactService({
 
                 let remoteIsDurable = !!row.itemId;
                 try {
-                    const { client, site, drive, root } = await graphContext(libraryKey);
+                    const { client, site, drive, root } = await graphContext(storageDestination, selectedLibraryKey);
                     let item;
                     if (row.itemId) {
                         if (row.siteId !== site.id || row.driveId !== drive.id) throw new ArtifactConflictError("Recorded Artifact storage destination is inconsistent");
@@ -157,11 +166,12 @@ export function createArtifactService({
             return safeArtifact(row);
         },
 
-        async list({ page = 1, pageSize = 25, libraryKey = null, q = "", fileType = "", dateRange = "all", sort = "newest" } = {}, actor) {
+        async list({ page = 1, pageSize = 25, destination = null, libraryKey = null, q = "", fileType = "", dateRange = "all", sort = "newest" } = {}, actor) {
             requireActor(actor, READ_ROLES);
             const safePage = Number(page); const safePageSize = Number(pageSize);
             if (!Number.isInteger(safePage) || safePage < 1 || !Number.isInteger(safePageSize) || safePageSize < 1 || safePageSize > 100) throw new ArtifactValidationError("Invalid pagination");
             if (libraryKey && !["Projects", "Legal", "Operations"].includes(libraryKey)) throw new ArtifactValidationError("Invalid Artifact Hub destination");
+            if (destination && !["Working", "Knowledge"].includes(destination)) throw new ArtifactValidationError("Invalid Artifact Hub destination");
             const safeQuery = String(q || "").trim();
             if (safeQuery.length > 200) throw new ArtifactValidationError("Search text is too long");
             if (fileType && !FILE_TYPE_EXTENSIONS[fileType]) throw new ArtifactValidationError("Invalid file type filter");
@@ -170,7 +180,7 @@ export function createArtifactService({
             const days = dateRange === "today" ? 0 : dateRange === "7days" ? 7 : dateRange === "30days" ? 30 : null;
             const uploadedFrom = days == null ? null : new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
             const result = await repository.list({ pageSize: safePageSize, offset: (safePage - 1) * safePageSize,
-                libraryKey, q: safeQuery || null, extensions: FILE_TYPE_EXTENSIONS[fileType] || [], uploadedFrom, sort });
+                destination, libraryKey, q: safeQuery || null, extensions: FILE_TYPE_EXTENSIONS[fileType] || [], uploadedFrom, sort });
             return { artifacts: result.rows.map(safeArtifact), total: result.total, page: safePage, pageSize: safePageSize };
         },
 

@@ -1,4 +1,5 @@
 export type ArtifactLibraryKey = "Projects" | "Legal" | "Operations";
+export type ArtifactDestination = "Working" | "Knowledge";
 
 export interface ArtifactRecord {
     id: string;
@@ -9,8 +10,8 @@ export interface ArtifactRecord {
     ingestionState: "Pending" | "Uploaded" | "Failed";
     classificationState: "Unclassified" | "Suggested" | "Confirmed";
     lifecycleState: "Active" | "Archived" | "Removed" | "Superseded";
-    storageDestination: "Working";
-    libraryKey: ArtifactLibraryKey;
+    storageDestination: ArtifactDestination;
+    libraryKey: ArtifactLibraryKey | null;
     sourceOrigin: string;
     sourceModule: string;
     sourceContext: string | null;
@@ -23,6 +24,7 @@ export interface ArtifactRecord {
 }
 
 export interface ArtifactListQuery {
+    destination?: ArtifactDestination | "";
     q?: string;
     libraryKey?: ArtifactLibraryKey | "";
     fileType?: "" | "pdf" | "word" | "excel" | "powerpoint" | "text" | "images";
@@ -53,9 +55,9 @@ function isArtifactRecord(value: unknown): value is ArtifactRecord {
     if (!value || typeof value !== "object") return false;
     const row = value as Partial<ArtifactRecord>;
     return typeof row.id === "string" && typeof row.fileName === "string"
-        && typeof row.size === "number" && typeof row.libraryKey === "string"
+        && typeof row.size === "number" && (row.libraryKey === null || typeof row.libraryKey === "string")
         && typeof row.ingestionState === "string" && typeof row.classificationState === "string"
-        && typeof row.lifecycleState === "string" && row.storageDestination === "Working";
+        && typeof row.lifecycleState === "string" && ["Working", "Knowledge"].includes(String(row.storageDestination));
 }
 
 async function jsonResponse(response: Response): Promise<unknown> {
@@ -111,7 +113,8 @@ export async function downloadArtifact(id: string, fileName: string, fetchImpl: 
 
 export async function uploadArtifact(
     file: File,
-    libraryKey: ArtifactLibraryKey,
+    destination: ArtifactDestination,
+    workArea: ArtifactLibraryKey | null,
     idempotencyKey: string,
     fetchImpl: typeof fetch = fetch,
 ): Promise<ArtifactRecord> {
@@ -124,7 +127,8 @@ export async function uploadArtifact(
                 "Content-Type": "application/octet-stream",
                 "X-File-Name": encodeURIComponent(file.name),
                 "X-File-Content-Type": file.type,
-                "X-Artifact-Destination": libraryKey,
+                "X-Artifact-Destination": destination,
+                ...(workArea ? { "X-Artifact-Work-Area": workArea } : {}),
                 "Idempotency-Key": idempotencyKey,
             },
             body: file,
