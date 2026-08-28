@@ -288,6 +288,7 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     await expect(resubmitPage.getByText("In Progress", { exact: true }).first()).toBeVisible();
     await resubmitPage.getByText("Submit for DD Review", { exact: true }).click();
     await resubmitPage.getByRole("dialog", { name: "Submit for DD Review?" }).getByRole("button", { name: "Submit for DD Review" }).click();
+    await expect(resubmitPage.getByText("Needs DD Review", { exact: true }).first()).toBeVisible();
     await resubmitContext.close();
 
     const readyContext = await browser.newContext();
