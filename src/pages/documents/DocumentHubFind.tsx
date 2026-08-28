@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArtifactUploadError, downloadArtifact, listArtifacts, type ArtifactDestination, type ArtifactLibraryKey, type ArtifactListQuery, type ArtifactRecord } from "../../services/artifactPersistence";
 import { formatDocumentSize, INTERNAL_WORK_USES, internalWorkUseLabel } from "./documentHubState";
 
@@ -27,9 +27,12 @@ function availabilityLabel(artifact: ArtifactRecord): string {
     return artifact.storageDestination === "Knowledge" ? "Knowledge" : `Working · ${internalWorkUseLabel(artifact.libraryKey as ArtifactLibraryKey)}`;
 }
 
-export default function DocumentHubFind() {
+export const FIND_PAGE_SIZE = 10;
+export const SEARCH_DEBOUNCE_MS = 300;
+
+export default function DocumentHubFind({ refreshKey = 0 }: { refreshKey?: number }) {
     const [searchText, setSearchText] = useState("");
-    const [query, setQuery] = useState<ArtifactListQuery>({ q: "", destination: "", libraryKey: "", fileType: "", dateRange: "all", sort: "newest", page: 1, pageSize: 25 });
+    const [query, setQuery] = useState<ArtifactListQuery>({ q: "", destination: "", libraryKey: "", fileType: "", dateRange: "all", sort: "newest", page: 1, pageSize: FIND_PAGE_SIZE });
     const [artifacts, setArtifacts] = useState<ArtifactRecord[]>([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -38,21 +41,36 @@ export default function DocumentHubFind() {
     const [selected, setSelected] = useState<ArtifactRecord | null>(null);
     const [downloadState, setDownloadState] = useState<"idle" | "loading">("idle");
     const [downloadError, setDownloadError] = useState<string | null>(null);
+    const requestSequence = useRef(0);
 
     useEffect(() => {
-        let active = true;
+        const value = searchText.trim();
+        const timer = window.setTimeout(() => setQuery(current => current.q === value ? current : { ...current, q: value, page: 1 }), SEARCH_DEBOUNCE_MS);
+        return () => window.clearTimeout(timer);
+    }, [searchText]);
+
+    useEffect(() => {
+        const sequence = ++requestSequence.current;
+        const controller = new AbortController();
         setLoading(true); setError(null);
-        listArtifacts(query).then(result => {
-            if (!active) return;
+        listArtifacts(query, fetch, controller.signal).then(result => {
+            if (sequence !== requestSequence.current) return;
             setArtifacts(result.artifacts); setTotal(result.total); setLoading(false);
             setSelected(current => current && result.artifacts.some(item => item.id === current.id) ? current : null);
         }).catch(cause => {
-            if (!active) return;
+            if (controller.signal.aborted || sequence !== requestSequence.current) return;
             setError(cause instanceof ArtifactUploadError ? cause.message : "Document Hub could not load documents. Please retry.");
             setLoading(false);
         });
-        return () => { active = false; };
-    }, [query, refresh]);
+        return () => controller.abort();
+    }, [query, refresh, refreshKey]);
+
+    useEffect(() => {
+        if (!selected) return;
+        function closeOnEscape(event: KeyboardEvent) { if (event.key === "Escape") setSelected(null); }
+        window.addEventListener("keydown", closeOnEscape);
+        return () => window.removeEventListener("keydown", closeOnEscape);
+    }, [selected]);
 
     function updateQuery(values: Partial<ArtifactListQuery>) {
         setQuery(current => ({ ...current, ...values, page: values.page ?? 1 }));
@@ -67,7 +85,7 @@ export default function DocumentHubFind() {
     }
 
     const page = query.page || 1;
-    const pageSize = query.pageSize || 25;
+    const pageSize = query.pageSize || FIND_PAGE_SIZE;
     const lastPage = Math.max(1, Math.ceil(total / pageSize));
 
     return <section className="document-hub-find-workspace" aria-labelledby="find-title">
@@ -96,7 +114,7 @@ export default function DocumentHubFind() {
             </div>
             <div className="document-hub-pagination"><span>Page {page} of {lastPage}</span><div><button type="button" disabled={page <= 1} onClick={() => updateQuery({ page: page - 1 })}>Previous</button><button type="button" disabled={page >= lastPage} onClick={() => updateQuery({ page: page + 1 })}>Next</button></div></div>
         </>}
-        {selected && <aside className="document-hub-detail" aria-label="Document details">
+        {selected && <aside className="document-hub-detail" aria-label="Document details" aria-modal="true" role="dialog">
             <div className="document-hub-detail-heading"><div><small>Document details</small><h3>{selected.fileName}</h3></div><button type="button" aria-label="Close document details" onClick={() => setSelected(null)}>×</button></div>
             <dl><div><dt>Availability</dt><dd>{availabilityLabel(selected)}</dd></div><div><dt>Type</dt><dd>{friendlyType(selected.extension)}</dd></div><div><dt>Size</dt><dd>{formatDocumentSize(selected.size)}</dd></div><div><dt>Uploaded</dt><dd>{formatDate(selected.uploadedAt)}</dd></div>{selected.description && <div><dt>Description</dt><dd>{selected.description}</dd></div>}{selected.effectiveDate && <div><dt>Effective date</dt><dd>{formatDate(selected.effectiveDate)}</dd></div>}</dl>
             {downloadError && <p className="document-hub-download-error" role="alert">{downloadError}</p>}

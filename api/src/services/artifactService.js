@@ -74,7 +74,19 @@ export function createArtifactService({
     loadConfig = loadSharePointConfig,
     graphClientFactory = config => new SharePointGraphClient(new ClientSecretGraphAuthProvider(config.credentials)),
     generateUuid = randomUUID,
+    logInfo = (message, fields) => console.info(message, fields),
 } = {}) {
+    function uploadSizeTelemetry(stage, inputByteSize, item, sizeField, matchField) {
+        const observedSize = typeof item.size === "number" && Number.isSafeInteger(item.size) ? item.size : null;
+        logInfo("Artifact upload size telemetry", {
+            stage, inputByteSize, [sizeField]: observedSize,
+            [matchField]: observedSize === inputByteSize,
+            sizeDeltaBytes: observedSize == null ? null : observedSize - inputByteSize,
+            [stage === "artifact-upload-response" ? "uploadResponseLastModifiedDateTime" : "postUploadLastModifiedDateTime"]:
+                item.lastModifiedDateTime || null,
+        });
+    }
+
     async function graphContext(storageDestination, libraryKey) {
         const config = loadConfig();
         const target = storageDestination === "Knowledge"
@@ -142,6 +154,14 @@ export function createArtifactService({
                         } else {
                             item = await client.uploadNewFile(drive.id, root.id, row.storedFileName, content);
                             remoteIsDurable = true;
+                            uploadSizeTelemetry("artifact-upload-response", content.length, item,
+                                "uploadResponseByteSize", "uploadResponseMatchesInput");
+                            const postUploadItem = await client.getItem(drive.id, item.id);
+                            if (!postUploadItem || postUploadItem.id !== item.id || postUploadItem.name !== item.name || postUploadItem.type !== "file") {
+                                throw new ArtifactConflictError("Uploaded Artifact storage identity is inconsistent");
+                            }
+                            uploadSizeTelemetry("artifact-post-upload-metadata", content.length, postUploadItem,
+                                "postUploadDriveItemSize", "postUploadMatchesInput");
                         }
                         row = await repository.recordGraphReceipt(row.id, { siteId: site.id, driveId: drive.id, itemId: item.id, webUrl: item.webUrl });
                         if (!row?.itemId) throw new ArtifactRecoveryRequiredError("Artifact upload requires reconciliation");

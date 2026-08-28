@@ -12,8 +12,10 @@ const ARTIFACT_ID = "11111111-1111-4111-8111-111111111111";
 const EDITOR = { id: "editor-1", globalRole: "Editor" };
 const PDF = Buffer.from("pdf bytes");
 
-function harness({ uploadError = null, receiptError = null, finalizeError = null, remote = null, downloadContent = PDF } = {}) {
+function harness({ uploadError = null, receiptError = null, finalizeError = null, remote = null, downloadContent = PDF,
+    uploadResponseSize = null, postUploadSize = null } = {}) {
     const calls = [];
+    const telemetry = [];
     let row = null;
     let placement = null;
     let lockTail = Promise.resolve();
@@ -35,8 +37,10 @@ function harness({ uploadError = null, receiptError = null, finalizeError = null
         findDriveByName: async (_site, name) => { calls.push(["drive", name]); return { id: "drive" }; },
         getDriveRoot: async () => ({ id: "root", type: "folder" }),
         findChildByExactName: async () => remote,
-        uploadNewFile: async (_drive, _root, name, content) => { calls.push(["graph-upload", name, content.length]); if (uploadError) throw uploadError; return { id: "item", name, size: content.length, type: "file", webUrl: "private-url" }; },
-        getItem: async () => remote,
+        uploadNewFile: async (_drive, _root, name, content) => { calls.push(["graph-upload", name, content.length]); if (uploadError) throw uploadError; return { id: "item", name,
+            size: uploadResponseSize ?? content.length, lastModifiedDateTime: "2026-08-28T12:49:52Z", type: "file", webUrl: "private-url" }; },
+        getItem: async (_drive, itemId) => { calls.push(["graph-metadata", itemId]); return remote || (row ? { id: itemId, name: row.storedFileName,
+            size: postUploadSize ?? row.contentSize, lastModifiedDateTime: "2026-08-28T12:49:53Z", type: "file", webUrl: row.webUrl } : null); },
         downloadFile: async (_drive, _item, bounds) => { calls.push(["graph-download", bounds]); return { content: downloadContent, contentType: "application/pdf" }; },
     };
     const service = createArtifactService({ repository, generateUuid: () => ARTIFACT_ID,
@@ -46,10 +50,10 @@ function harness({ uploadError = null, receiptError = null, finalizeError = null
             { key: "Projects", hostname: "host", sitePath: "/working", libraryName: "Projects Working" },
             { key: "Legal", hostname: "host", sitePath: "/working", libraryName: "Legal Working" },
             { key: "Operations", hostname: "host", sitePath: "/working", libraryName: "Operations Working" },
-        ] }), graphClientFactory: () => graph });
+        ] }), graphClientFactory: () => graph, logInfo: (message, fields) => telemetry.push({ message, ...fields }) });
     const request = { originalFileName: "Quarterly Report.pdf", contentType: "application/pdf", content: PDF,
         libraryKey: "Projects", idempotencyKey: "request-0001", sourceContext: "effort-42", actor: EDITOR };
-    return { service, repository, graph, request, calls, getRow: () => row, getPlacement: () => placement,
+    return { service, repository, graph, request, calls, telemetry, getRow: () => row, getPlacement: () => placement,
         setRow: value => { row = value; }, setPlacement: value => { placement = value; },
         clearUploadError: () => { uploadError = null; } };
 }
@@ -119,6 +123,59 @@ test("valid Editor upload creates Pending before Graph and persists exact Graph 
         [value.getPlacement().siteId, value.getPlacement().driveId, value.getPlacement().itemId, value.getPlacement().webUrl]);
     assert.match(value.calls.find(([name]) => name === "graph-upload")[1], new RegExp(`^${ARTIFACT_ID}-[0-9a-f]{12}-Quarterly Report\\.pdf$`));
     assert.equal("siteId" in result, false);
+});
+
+test("OOXML-like upload catalogs the exact service Buffer length and hash sent to Graph", async () => {
+    const content = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0x00, 0x08, 0xff, 0x80, 0x00, 0x7f]);
+    const value = harness();
+    await value.service.upload({ ...value.request, originalFileName: "report.docx",
+        contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", content });
+    assert.equal(value.getRow().contentSize, content.byteLength);
+    assert.equal(value.getRow().contentSha256, createHash("sha256").update(content).digest("hex"));
+    assert.equal(value.calls.find(([name]) => name === "graph-upload")[2], content.byteLength);
+});
+
+test("upload telemetry reports matching Graph response and immediate metadata sizes", async () => {
+    const content = Buffer.alloc(15196, 0x5a);
+    const value = harness({ uploadResponseSize: 15196, postUploadSize: 15196 });
+    const result = await value.service.upload({ ...value.request, content });
+    assert.equal(result.ingestionState, "Uploaded");
+    assert.deepEqual(value.telemetry, [
+        { message: "Artifact upload size telemetry", stage: "artifact-upload-response", inputByteSize: 15196,
+            uploadResponseByteSize: 15196, uploadResponseMatchesInput: true, sizeDeltaBytes: 0,
+            uploadResponseLastModifiedDateTime: "2026-08-28T12:49:52Z" },
+        { message: "Artifact upload size telemetry", stage: "artifact-post-upload-metadata", inputByteSize: 15196,
+            postUploadDriveItemSize: 15196, postUploadMatchesInput: true, sizeDeltaBytes: 0,
+            postUploadLastModifiedDateTime: "2026-08-28T12:49:53Z" },
+    ]);
+});
+
+test("upload telemetry observes divergence present in the Graph upload response without blocking success", async () => {
+    const value = harness({ uploadResponseSize: 20960, postUploadSize: 20960 });
+    const result = await value.service.upload({ ...value.request, content: Buffer.alloc(15196, 0x5a) });
+    assert.equal(result.ingestionState, "Uploaded");
+    assert.deepEqual(value.telemetry.map(entry => [entry.stage, entry.inputByteSize,
+        entry.uploadResponseByteSize ?? entry.postUploadDriveItemSize,
+        entry.uploadResponseMatchesInput ?? entry.postUploadMatchesInput, entry.sizeDeltaBytes]), [
+        ["artifact-upload-response", 15196, 20960, false, 5764],
+        ["artifact-post-upload-metadata", 15196, 20960, false, 5764],
+    ]);
+});
+
+test("upload telemetry observes divergence after the Graph upload response and exposes no sensitive fields", async () => {
+    const value = harness({ uploadResponseSize: 15196, postUploadSize: 20960 });
+    const result = await value.service.upload({ ...value.request, content: Buffer.alloc(15196, 0x5a) });
+    assert.equal(result.ingestionState, "Uploaded");
+    assert.equal(value.telemetry[0].uploadResponseMatchesInput, true);
+    assert.equal(value.telemetry[1].postUploadMatchesInput, false);
+    assert.equal(value.telemetry[1].sizeDeltaBytes, 5764);
+    const serialized = JSON.stringify(value.telemetry);
+    for (const forbidden of [ARTIFACT_ID, "site", "drive", "item", "Quarterly Report.pdf", "private-url", "token", createHash("sha256").update(Buffer.alloc(15196, 0x5a)).digest("hex")]) {
+        assert.equal(serialized.includes(forbidden), false);
+    }
+    for (const forbiddenKey of ["siteId", "driveId", "itemId", "storedFileName", "originalFileName", "content", "token", "url", "hash"]) {
+        assert.equal(Object.hasOwn(value.telemetry[0], forbiddenKey) || Object.hasOwn(value.telemetry[1], forbiddenKey), false);
+    }
 });
 
 test("Knowledge upload uses Documents and creates one Knowledge placement without Work area", async () => {
@@ -405,6 +462,15 @@ test("HTTP routes fail closed for external users and preserve application-only d
     try {
         const base = `http://127.0.0.1:${server.address().port}/api/artifacts`;
         assert.equal((await fetch(base, { headers: { "x-role": "ExternalBroker" } })).status, 403);
+        const word = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0xff, 0x80, 0x00, 0x7f]);
+        const uploaded = await fetch(base, { method: "POST", headers: { "x-role": "Editor",
+            "content-type": "application/octet-stream", "x-file-name": "report.docx",
+            "x-file-content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "x-artifact-destination": "Knowledge", "idempotency-key": "binary-route-test" }, body: word });
+        assert.equal(uploaded.status, 201);
+        assert.equal(Buffer.isBuffer(calls[0].content), true);
+        assert.equal(calls[0].content.byteLength, word.byteLength);
+        assert.deepEqual(calls[0].content, word);
         const response = await fetch(`${base}/${ARTIFACT_ID}/content`, { headers: { "x-role": "Viewer" } });
         assert.equal(response.status, 200); assert.equal(response.headers.get("content-disposition"), 'attachment; filename="report.pdf"');
         assert.equal(response.headers.has("x-graph-item-id"), false);

@@ -26,6 +26,7 @@ export default function DocumentHubPage() {
     const [dragActive, setDragActive] = useState(false);
     const [batchRunning, setBatchRunning] = useState(false);
     const [bulkDestination, setBulkDestination] = useState<ArtifactLibraryKey | "">("");
+    const [catalogVersion, setCatalogVersion] = useState(0);
     const fileInput = useRef<HTMLInputElement>(null);
     const uploadInFlight = useRef(false);
 
@@ -46,7 +47,7 @@ export default function DocumentHubPage() {
         setItems(current => markDocumentUploading(current, item.id));
         try {
             const artifact = await uploadArtifact(item.file, item.businessDestination as "Working" | "Knowledge", item.destination || null, item.idempotencyKey);
-            setItems(current => markDocumentUploaded(current, item.id, artifact));
+            setItems(current => markDocumentUploaded(current, item.id, artifact)); setCatalogVersion(value => value + 1);
         } catch (error) {
             const message = error instanceof ArtifactUploadError ? error.message : "Document Hub could not store this file. Please retry.";
             setItems(current => markDocumentFailed(current, item.id, message));
@@ -63,7 +64,7 @@ export default function DocumentHubPage() {
             items,
             item => uploadArtifact(item.file, item.businessDestination as "Working" | "Knowledge", item.destination || null, item.idempotencyKey),
             item => setItems(current => markDocumentUploading(current, item.id)),
-            (item, artifact) => setItems(current => markDocumentUploaded(current, item.id, artifact)),
+            (item, artifact) => { setItems(current => markDocumentUploaded(current, item.id, artifact)); setCatalogVersion(value => value + 1); },
             (item, error) => {
                 const message = error instanceof ArtifactUploadError ? error.message : "Document Hub could not store this file. Please retry.";
                 setItems(current => markDocumentFailed(current, item.id, message));
@@ -92,7 +93,7 @@ export default function DocumentHubPage() {
             </nav>
 
             {mode === "find" ? (
-                <DocumentHubFind />
+                <DocumentHubFind refreshKey={catalogVersion} />
             ) : (
                 <section className="document-hub-provide" aria-labelledby="provide-title">
                     <div className="document-hub-section-heading">
@@ -135,9 +136,9 @@ export default function DocumentHubPage() {
                                 <div className="document-hub-file-name"><strong>{item.file.name}</strong><span>{formatDocumentSize(item.file.size)} · {item.file.type || "Unknown type"}</span></div>
                                 <div className="document-hub-preparation">
                                     <fieldset className="document-hub-destinations" disabled={["uploading", "uploaded"].includes(item.phase)}>
-                                        <legend>Where should this document be available?</legend>
+                                        <legend>Choose where this document should be available</legend>
                                         {BUSINESS_DESTINATIONS.map(destination => <label key={destination.value}
-                                            className={`${item.businessDestination === destination.value ? "selected" : ""}${destination.enabled ? "" : " disabled"}`.trim()}>
+                                            className={`destination-${destination.value.toLowerCase()} ${item.businessDestination === destination.value ? "selected" : ""}${destination.enabled ? "" : " disabled"}`.trim()}>
                                             <input type="radio" name={`destination-${item.id}`} value={destination.value}
                                                 checked={item.businessDestination === destination.value} disabled={!destination.enabled}
                                                 onChange={() => setItems(current => setDocumentBusinessDestination(current, item.id, destination.value, newIdempotencyKey))} />
@@ -164,7 +165,7 @@ export default function DocumentHubPage() {
                     </div>}
 
                     <div className="document-hub-submit-row">
-                        <span>{hasUploaded ? "Stored documents remain visible. Add more documents at any time." : pendingCount > 0 && readyCount < pendingCount ? "Choose an available destination and any required work area for every valid document." : "Documents are stored only after you confirm."}</span>
+                        <div className="document-hub-ready-summary">{readyCount > 0 ? <><strong>Ready to store</strong><span>{readyCount === 1 ? <>1 document will be stored in: <b>{documentAvailabilityLabel(readyDocuments(items)[0])}</b></> : <>{readyCount} documents are ready and will be stored in their selected destinations.</>}</span></> : <span>{hasUploaded ? "Stored documents remain visible. Add more documents at any time." : pendingCount > 0 ? "Choose an available destination and any required work area for every valid document." : "Documents are stored only after you confirm."}</span>}</div>
                         <button type="button" className="document-hub-primary" onClick={submitBatch} disabled={!canUploadBatch(items, batchRunning)}>{storeButtonLabel(items, batchRunning)}</button>
                     </div>
                 </section>

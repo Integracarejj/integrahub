@@ -69,11 +69,11 @@ function responseError(payload: unknown, fallback: string): string {
         ? (payload as { error: string }).error : fallback;
 }
 
-export async function listArtifacts(query: ArtifactListQuery = {}, fetchImpl: typeof fetch = fetch): Promise<ArtifactListResult> {
+export async function listArtifacts(query: ArtifactListQuery = {}, fetchImpl: typeof fetch = fetch, signal?: AbortSignal): Promise<ArtifactListResult> {
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(query)) if (value !== "" && value != null) params.set(key, String(value));
     let response: Response;
-    try { response = await fetchImpl(`/api/artifacts${params.size ? `?${params}` : ""}`, { credentials: "include" }); }
+    try { response = await fetchImpl(`/api/artifacts${params.size ? `?${params}` : ""}`, { credentials: "include", cache: "no-store", signal }); }
     catch { throw new ArtifactUploadError("Document Hub could not load documents. Check your connection and retry."); }
     const payload = await jsonResponse(response);
     if (!response.ok) throw new ArtifactUploadError(responseError(payload, "Document Hub could not load documents. Please retry."), response.status);

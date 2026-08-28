@@ -117,6 +117,19 @@ test("Graph errors expose status and code but omit response details and token", 
         && !error.message.includes("private-token"));
 });
 
+test("item metadata lookup requests and returns safe size and modification fields", async () => {
+    const calls = [];
+    const client = new SharePointGraphClient({ getAccessToken: async () => "private-token" }, async (url) => {
+        calls.push(url);
+        return response(200, { id: "private-item", name: "private-name.docx", size: 15196,
+            lastModifiedDateTime: "2026-08-28T12:00:00Z", file: {}, parentReference: { id: "private-parent" } });
+    });
+    const item = await client.getItem("private-drive", "private-item");
+    assert.match(calls[0], /\$select=id,name,webUrl,folder,file,parentReference,size,lastModifiedDateTime/);
+    assert.deepEqual({ size: item.size, type: item.type, lastModifiedDateTime: item.lastModifiedDateTime },
+        { size: 15196, type: "file", lastModifiedDateTime: "2026-08-28T12:00:00Z" });
+});
+
 test("missing library produces a specific sanitized error", async () => {
     const client = new SharePointGraphClient({ getAccessToken: async () => "token" }, async () => response(200, { value: [] }));
     await assert.rejects(client.findDriveByName("site", "Expected"), (error) => error.graphCode === "library_not_found");
@@ -181,21 +194,26 @@ test("folder creation uses only the narrow drive-item children endpoint and sani
     await assert.rejects(failing.createChildFolder("drive", "parent", "Folder"), (error) => error.graphCode === "accessDenied" && !error.message.includes("private-token"));
 });
 
-test("small-file upload targets one encoded parent/name and never exposes remote failure content", async () => {
+test("small-file upload preserves an OOXML-like binary Buffer exactly and never exposes remote failure content", async () => {
     const calls = [];
     const client = new SharePointGraphClient({ getAccessToken: async () => "private-token" }, async (url, options) => {
         calls.push({ url, options });
-        return response(201, { id: "file-1", name: "Package #1.xlsx", webUrl: "https://site/file", size: 3, file: {}, parentReference: { id: "incoming" } });
+        return response(201, { id: "file-1", name: "Package #1.xlsx", webUrl: "https://site/file", size: 12, file: {}, parentReference: { id: "incoming" } });
     });
-    const content = Buffer.from("abc");
+    const content = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0x00, 0x08, 0xff, 0x80, 0x00, 0x7f]);
     const item = await client.uploadNewFile("drive/1", "incoming/1", "Package #1.xlsx", content);
     assert.equal(item.id, "file-1");
-    assert.equal(item.size, 3);
+    assert.equal(item.size, content.length);
     assert.equal(calls[0].url, "https://graph.microsoft.com/v1.0/drives/drive%2F1/items/incoming%2F1:/Package%20%231.xlsx:/content");
     assert.equal(calls[0].options.method, "PUT");
     assert.equal(calls[0].options.headers.Authorization, "Bearer private-token");
+    assert.equal(calls[0].options.headers["Content-Type"], "application/octet-stream");
+    assert.equal(calls[0].options.headers["Content-Length"], undefined);
     assert.equal(calls[0].options.headers["If-Match"], "0");
+    assert.equal(Buffer.isBuffer(calls[0].options.body), true);
+    assert.equal(calls[0].options.body.byteLength, content.byteLength);
     assert.equal(calls[0].options.body, content);
+    assert.deepEqual(calls[0].options.body, content);
 
     const failing = new SharePointGraphClient({ getAccessToken: async () => "private-token" }, async () => response(500, { error: { code: "serviceUnavailable", message: "private-token secret" } }));
     await assert.rejects(failing.uploadNewFile("drive", "incoming", "file.xlsx", content), (error) => error.graphCode === "serviceUnavailable" && !error.message.includes("private-token"));
@@ -212,4 +230,19 @@ test("file download reads incrementally and enforces expected and maximum sizes"
 
     const changed = new SharePointGraphClient({ getAccessToken: async () => "private-token" }, async () => new Response("abc", { status: 200 }));
     await assert.rejects(changed.downloadFile("drive", "item", { maxBytes: 4, expectedSize: 4 }), error => error.graphCode === "content_length_mismatch");
+});
+
+test("binary download ignores non-authoritative transport length but still rejects true truncation", async () => {
+    const word = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00, 0xff, 0x80, 0x7f]);
+    const complete = new SharePointGraphClient({ getAccessToken: async () => "private-token" }, async () =>
+        new Response(word, { status: 200, headers: { "content-length": "3", "content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document" } }));
+    const downloaded = await complete.downloadFile("drive", "item", { maxBytes: 20, expectedSize: word.length });
+    assert.deepEqual(downloaded.content, word);
+
+    const truncated = new SharePointGraphClient({ getAccessToken: async () => "private-token" }, async () =>
+        new Response(word.subarray(0, word.length - 1), { status: 200 }));
+    await assert.rejects(truncated.downloadFile("drive", "item", { maxBytes: 20, expectedSize: word.length }),
+        error => error.graphCode === "content_length_mismatch"
+            && error.diagnostics.expectedSize === word.length && error.diagnostics.observedSize === word.length - 1
+            && error.diagnostics.contentLengthPresent === false);
 });

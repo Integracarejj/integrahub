@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import DocumentHubPage, { StoredDocumentConfirmation } from "../pages/documents/DocumentHubPage";
-import DocumentHubFind from "../pages/documents/DocumentHubFind";
+import DocumentHubFind, { FIND_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "../pages/documents/DocumentHubFind";
 import { addDocumentFiles, applyDestinationToAll, beginDocumentUpload, BUSINESS_DESTINATIONS, canSubmitDocument, canUploadBatch, completeDocumentUpload, documentStatusLabel, EMPTY_UPLOAD_STATE, failDocumentUpload, internalWorkUseLabel, markDocumentFailed, markDocumentUploaded, MAX_DOCUMENT_BYTES, readyDocuments, removeDocumentFile, removeStagedDocument, selectDocumentFile, setDocumentBusinessDestination, setDocumentDestination, shouldShowBulkWorkAreaControl, storeButtonLabel, uploadDocumentsSequentially, validateDocumentFile, WORK_AREA_PLACEHOLDER } from "../pages/documents/documentHubState";
 import { ArtifactUploadError, downloadArtifact, listArtifacts, uploadArtifact, type ArtifactRecord } from "../services/artifactPersistence";
 import { shouldRedirectFromInternal } from "../utils/accessRouting";
@@ -72,6 +72,8 @@ describe("Document Hub shell and navigation", () => {
         expect(html).not.toContain(">Operations<");
         expect(html).not.toContain("Artifact ID");
         expect(html).not.toContain("Internal Artifact Upload");
+        expect(FIND_PAGE_SIZE).toBe(10);
+        expect(SEARCH_DEBOUNCE_MS).toBe(300);
     });
 
     it("maps business-facing internal work uses to the unchanged backend routing keys", () => {
@@ -301,7 +303,7 @@ describe("Artifact Hub browser API integration", () => {
         const [path, init] = fetchMock.mock.calls[0];
         expect(path).toContain("/api/artifacts?"); expect(path).toContain("q=report"); expect(path).toContain("libraryKey=Projects");
         expect(path).toContain("fileType=text"); expect(path).toContain("dateRange=7days"); expect(path).toContain("sort=newest"); expect(path).toContain("page=2");
-        expect(init).toEqual({ credentials: "include" });
+        expect(init).toMatchObject({ credentials: "include", cache: "no-store" });
         expect(result.artifacts[0]).not.toHaveProperty("driveId");
     });
 

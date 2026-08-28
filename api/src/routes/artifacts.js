@@ -9,6 +9,15 @@ import { artifactService, MAX_ARTIFACT_BYTES, ArtifactConflictError, ArtifactFor
 
 function safeName(name) { return String(name || "download").replace(/[\r\n"]/g, "_"); }
 
+function safeGraphDiagnostics(diagnostics) {
+    if (!diagnostics || typeof diagnostics !== "object") return null;
+    const safe = {};
+    for (const key of ["expectedSize", "observedSize", "contentLengthPresent", "contentEncodingPresent"]) {
+        if (typeof diagnostics[key] === "number" || typeof diagnostics[key] === "boolean") safe[key] = diagnostics[key];
+    }
+    return Object.keys(safe).length ? safe : null;
+}
+
 function failure(res, error) {
     if (error instanceof ArtifactValidationError) return res.status(400).json({ error: error.message });
     if (error instanceof ArtifactForbiddenError) return res.status(403).json({ error: "Artifact Hub access denied" });
@@ -18,7 +27,11 @@ function failure(res, error) {
     if (error instanceof ArtifactRecoveryRequiredError) return res.status(503).json({ error: "Artifact upload is durable but requires retry before completion" });
     if (error instanceof SharePointConfigError) return res.status(503).json({ error: "Artifact Hub SharePoint integration is not configured" });
     if (error instanceof GraphAuthenticationError) return res.status(502).json({ error: "Microsoft Graph authentication failed" });
-    if (error instanceof GraphRequestError) return res.status(502).json({ error: "SharePoint artifact operation failed", graphCode: error.graphCode });
+    if (error instanceof GraphRequestError) {
+        console.error("Artifact Hub Graph operation failed", { operation: error.operation, status: error.status,
+            graphCode: error.graphCode, diagnostics: safeGraphDiagnostics(error.diagnostics) });
+        return res.status(502).json({ error: "SharePoint artifact operation failed", graphCode: error.graphCode });
+    }
     console.error("Artifact Hub operation failed", error instanceof Error ? error.message : "Unknown error");
     return res.status(500).json({ error: "Artifact Hub operation failed" });
 }

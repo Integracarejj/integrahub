@@ -1,13 +1,14 @@
 const GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0";
 
 export class GraphRequestError extends Error {
-    constructor(operation, status, graphCode) {
+    constructor(operation, status, graphCode, diagnostics = null) {
         const detail = graphCode ? ` (${graphCode})` : "";
         super(`${operation} failed${status ? ` with HTTP ${status}` : ""}${detail}`);
         this.name = "GraphRequestError";
         this.operation = operation;
         this.status = status || null;
         this.graphCode = graphCode || null;
+        this.diagnostics = diagnostics;
     }
 }
 
@@ -60,6 +61,7 @@ export class SharePointGraphClient {
             type: item.folder ? "folder" : item.file ? "file" : "other",
             parentId: item.parentReference?.id || null,
             size: typeof item.size === "number" ? item.size : null,
+            lastModifiedDateTime: item.lastModifiedDateTime || null,
         };
     }
 
@@ -124,7 +126,7 @@ export class SharePointGraphClient {
 
     async getItem(driveId, itemId) {
         const data = await this.request(
-            `/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}?$select=id,name,webUrl,folder,file,parentReference`,
+            `/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}?$select=id,name,webUrl,folder,file,parentReference,size,lastModifiedDateTime`,
             "SharePoint item resolution",
         );
         return this.normalizeDriveItem(data, "SharePoint item resolution");
@@ -253,7 +255,11 @@ export class SharePointGraphClient {
             }
             chunks.push(Buffer.from(value));
         }
-        if (total !== expected) throw new GraphRequestError("SharePoint file download", response.status, "content_length_mismatch");
+        if (total !== expected) throw new GraphRequestError("SharePoint file download", response.status, "content_length_mismatch", {
+            expectedSize: expected, observedSize: total,
+            contentLengthPresent: response.headers.has("content-length"),
+            contentEncodingPresent: response.headers.has("content-encoding"),
+        });
         return {
             content: Buffer.concat(chunks, total),
             contentType: response.headers.get("content-type") || "application/octet-stream",
