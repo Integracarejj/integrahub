@@ -232,8 +232,10 @@ export class SharePointGraphClient {
         }
         if (!response.ok) throw new GraphRequestError("SharePoint file download", response.status, null);
         const limit = Number(maxBytes);
-        const expected = Number(expectedSize);
-        if (!Number.isSafeInteger(limit) || limit <= 0 || !Number.isSafeInteger(expected) || expected <= 0 || expected > limit) {
+        const hasExpectedSize = expectedSize != null;
+        const expected = hasExpectedSize ? Number(expectedSize) : null;
+        if (!Number.isSafeInteger(limit) || limit <= 0
+            || (hasExpectedSize && (!Number.isSafeInteger(expected) || expected <= 0 || expected > limit))) {
             throw new GraphRequestError("SharePoint file download", null, "invalid_size_boundary");
         }
         const declaredLength = Number(response.headers.get("content-length"));
@@ -255,7 +257,7 @@ export class SharePointGraphClient {
             }
             chunks.push(Buffer.from(value));
         }
-        if (total !== expected) throw new GraphRequestError("SharePoint file download", response.status, "content_length_mismatch", {
+        if (hasExpectedSize && total !== expected) throw new GraphRequestError("SharePoint file download", response.status, "content_length_mismatch", {
             expectedSize: expected, observedSize: total,
             contentLengthPresent: response.headers.has("content-length"),
             contentEncodingPresent: response.headers.has("content-encoding"),

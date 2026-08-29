@@ -18,7 +18,10 @@ const WORKING_PLACEMENT_APPLY = `OUTER APPLY (
         MAX(CONVERT(varchar(36), placement.id)) AS placementId,
         MAX(placement.legacyLibraryKey) AS legacyLibraryKey,
         MAX(placement.siteId) AS siteId, MAX(placement.driveId) AS driveId,
-        MAX(placement.itemId) AS itemId, MAX(placement.webUrl) AS webUrl
+        MAX(placement.itemId) AS itemId, MAX(placement.webUrl) AS webUrl,
+        MAX(placement.storedContentSize) AS storedContentSize,
+        MAX(placement.storedContentSha256) AS storedContentSha256,
+        MAX(placement.storedObservedAt) AS storedObservedAt
     FROM cmdb.ArtifactPlacements placement
     WHERE placement.artifactId = artifact.id
       AND placement.placementType = artifact.storageDestination
@@ -46,6 +49,7 @@ const SELECT_READ_ARTIFACT = `SELECT CONVERT(varchar(36), artifact.id) AS id, ar
     working.legacyLibraryKey AS placementLibraryKey,
     working.siteId AS placementSiteId, working.driveId AS placementDriveId,
     working.itemId AS placementItemId, working.webUrl AS placementWebUrl,
+    working.storedContentSize, working.storedContentSha256, working.storedObservedAt,
     artifact.libraryKey AS legacyArtifactLibraryKey,
     artifact.siteId AS legacyArtifactSiteId, artifact.driveId AS legacyArtifactDriveId,
     artifact.itemId AS legacyArtifactItemId, artifact.webUrl AS legacyArtifactWebUrl,
@@ -63,6 +67,10 @@ export class ArtifactPlacementReadError extends Error {
 
 export class ArtifactPlacementWriteError extends Error {
     constructor() { super("Artifact Working placement requires reconciliation"); this.name = "ArtifactPlacementWriteError"; }
+}
+
+export class ArtifactStoredIdentityConflictError extends Error {
+    constructor() { super("Artifact placement stored identity is inconsistent"); this.name = "ArtifactStoredIdentityConflictError"; }
 }
 
 function sameNullable(left, right) { return (left ?? null) === (right ?? null); }
@@ -252,6 +260,46 @@ export function createArtifactRepository({
                     { artifactId: id, eventType: "ArtifactUploaded", actorUserId, correlationId });
                 await transaction.commit();
                 return repository.getById(id);
+            } catch (error) {
+                try { await transaction.rollback(); } catch { /* Preserve original error. */ }
+                throw error;
+            }
+        },
+
+        async establishStoredIdentity(id, { storedContentSize, storedContentSha256 }) {
+            const transaction = createTransaction(await getPool());
+            await transaction.begin();
+            try {
+                const placements = await queryInTransaction(transaction, `SELECT
+                        CONVERT(varchar(36), placement.id) AS id,
+                        placement.storedContentSize, placement.storedContentSha256, placement.storedObservedAt
+                    FROM cmdb.ArtifactPlacements placement WITH (UPDLOCK, HOLDLOCK)
+                    INNER JOIN cmdb.Artifacts artifact ON artifact.id = placement.artifactId
+                    WHERE placement.artifactId = @id
+                      AND placement.placementType = artifact.storageDestination
+                      AND placement.placementStatus IN ('Pending', 'Active')
+                      AND placement.siteId = artifact.siteId AND placement.driveId = artifact.driveId
+                      AND placement.itemId = artifact.itemId`, { id });
+                if (placements.length !== 1) throw new ArtifactPlacementWriteError();
+                const placement = placements[0];
+                if (placement.storedContentSize == null && placement.storedContentSha256 == null) {
+                    const changed = await queryInTransaction(transaction, `UPDATE cmdb.ArtifactPlacements
+                        SET storedContentSize = @storedContentSize,
+                            storedContentSha256 = @storedContentSha256,
+                            storedObservedAt = SYSUTCDATETIME(), updatedAt = SYSUTCDATETIME()
+                        OUTPUT INSERTED.storedContentSize, INSERTED.storedContentSha256, INSERTED.storedObservedAt
+                        WHERE id = @placementId AND storedContentSize IS NULL AND storedContentSha256 IS NULL`,
+                    { placementId: placement.id, storedContentSize, storedContentSha256 });
+                    if (!changed[0]) throw new ArtifactStoredIdentityConflictError();
+                    await transaction.commit();
+                    return { ...changed[0], established: true };
+                }
+                if (Number(placement.storedContentSize) !== storedContentSize
+                    || String(placement.storedContentSha256).toLowerCase() !== storedContentSha256.toLowerCase()) {
+                    throw new ArtifactStoredIdentityConflictError();
+                }
+                await transaction.commit();
+                return { ...placement, established: false };
             } catch (error) {
                 try { await transaction.rollback(); } catch { /* Preserve original error. */ }
                 throw error;

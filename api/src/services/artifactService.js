@@ -2,9 +2,10 @@ import { createHash, randomUUID } from "node:crypto";
 import { loadSharePointConfig, getArtifactDestinationTarget, getSharePointSiteTarget } from "../integrations/sharepoint/config.js";
 import { ClientSecretGraphAuthProvider } from "../integrations/sharepoint/auth.js";
 import { GraphRequestError, SharePointGraphClient } from "../integrations/sharepoint/graphClient.js";
-import { artifactRepository } from "./artifactRepository.js";
+import { ArtifactStoredIdentityConflictError, artifactRepository } from "./artifactRepository.js";
 
 export const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024;
+export const MAX_STORED_ARTIFACT_BYTES = 20 * 1024 * 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_KEY = /^[A-Za-z0-9._:-]{8,128}$/;
 const READ_ROLES = new Set(["Viewer", "Editor", "PlatformAdmin", "DDTeam"]);
@@ -31,6 +32,9 @@ const FILE_TYPE_EXTENSIONS = Object.freeze({
 export class ArtifactValidationError extends Error {}
 export class ArtifactForbiddenError extends Error {}
 export class ArtifactConflictError extends Error {}
+export class ArtifactIntegrityError extends Error {
+    constructor(diagnostics) { super("Artifact content integrity check failed"); this.name = "ArtifactIntegrityError"; this.diagnostics = diagnostics; }
+}
 export class ArtifactNotFoundError extends Error {}
 export class ArtifactRecoveryRequiredError extends Error {}
 
@@ -99,13 +103,36 @@ export function createArtifactService({
         return { client, site, drive, root };
     }
 
-    async function verifyOwnedRemote(client, row, driveId, item) {
-        if (item.type !== "file" || item.name !== row.storedFileName || Number(item.size) !== Number(row.contentSize)) {
-            throw new ArtifactConflictError("Artifact storage collision could not be verified");
+    function integrityDiagnostics({ expectedStoredSize = null, observedSize = null, sizeMatched = null,
+        hashMatched = null, storedIdentityExisted, lifecycleStage }) {
+        return { expectedStoredSize, observedSize, sizeMatched, hashMatched,
+            storedIdentityExisted: !!storedIdentityExisted, lifecycleStage };
+    }
+
+    async function observeStoredIdentity(client, row, driveId, item, lifecycleStage, verifiedFile = null) {
+        if (!item || item.type !== "file" || item.name !== row.storedFileName) {
+            throw new ArtifactConflictError("Recorded Artifact storage item is inconsistent");
         }
-        const downloaded = await client.downloadFile(driveId, item.id, { maxBytes: MAX_ARTIFACT_BYTES, expectedSize: Number(row.contentSize) });
-        const actualHash = createHash("sha256").update(downloaded.content).digest("hex");
-        if (actualHash !== row.contentSha256) throw new ArtifactConflictError("Artifact storage collision could not be verified");
+        const metadataSize = typeof item.size === "number" && Number.isSafeInteger(item.size) && item.size > 0
+            && item.size <= MAX_STORED_ARTIFACT_BYTES ? item.size : null;
+        if (metadataSize == null) throw new GraphRequestError("SharePoint item metadata", null, "invalid_size_boundary");
+        const file = verifiedFile || await client.downloadFile(driveId, item.id, {
+            maxBytes: MAX_STORED_ARTIFACT_BYTES, expectedSize: metadataSize,
+        });
+        const storedContentSize = file.content.length;
+        const storedContentSha256 = createHash("sha256").update(file.content).digest("hex");
+        try {
+            await repository.establishStoredIdentity(row.id, { storedContentSize, storedContentSha256 });
+        } catch (error) {
+            if (!(error instanceof ArtifactStoredIdentityConflictError)) throw error;
+            throw new ArtifactIntegrityError(integrityDiagnostics({
+                expectedStoredSize: row.storedContentSize == null ? null : Number(row.storedContentSize),
+                observedSize: storedContentSize,
+                sizeMatched: row.storedContentSize == null ? null : Number(row.storedContentSize) === storedContentSize,
+                hashMatched: false, storedIdentityExisted: true, lifecycleStage,
+            }));
+        }
+        return file;
     }
 
     return {
@@ -145,26 +172,32 @@ export function createArtifactService({
                     if (row.itemId) {
                         if (row.siteId !== site.id || row.driveId !== drive.id) throw new ArtifactConflictError("Recorded Artifact storage destination is inconsistent");
                         item = await client.getItem(drive.id, row.itemId);
-                        await verifyOwnedRemote(client, row, drive.id, item);
+                        await observeStoredIdentity(client, row, drive.id, item, "upload-recovery");
                     } else {
                         item = await client.findChildByExactName(drive.id, root.id, row.storedFileName);
                         if (item) {
-                            await verifyOwnedRemote(client, row, drive.id, item);
                             remoteIsDurable = true;
+                            throw new ArtifactRecoveryRequiredError("Artifact upload requires reconciliation");
                         } else {
                             item = await client.uploadNewFile(drive.id, root.id, row.storedFileName, content);
                             remoteIsDurable = true;
                             uploadSizeTelemetry("artifact-upload-response", content.length, item,
                                 "uploadResponseByteSize", "uploadResponseMatchesInput");
+                            row = await repository.recordGraphReceipt(row.id, { siteId: site.id, driveId: drive.id, itemId: item.id, webUrl: item.webUrl });
+                            if (!row?.itemId) throw new ArtifactRecoveryRequiredError("Artifact upload requires reconciliation");
                             const postUploadItem = await client.getItem(drive.id, item.id);
                             if (!postUploadItem || postUploadItem.id !== item.id || postUploadItem.name !== item.name || postUploadItem.type !== "file") {
                                 throw new ArtifactConflictError("Uploaded Artifact storage identity is inconsistent");
                             }
                             uploadSizeTelemetry("artifact-post-upload-metadata", content.length, postUploadItem,
                                 "postUploadDriveItemSize", "postUploadMatchesInput");
+                            item = postUploadItem;
                         }
-                        row = await repository.recordGraphReceipt(row.id, { siteId: site.id, driveId: drive.id, itemId: item.id, webUrl: item.webUrl });
-                        if (!row?.itemId) throw new ArtifactRecoveryRequiredError("Artifact upload requires reconciliation");
+                        if (!row.itemId) {
+                            row = await repository.recordGraphReceipt(row.id, { siteId: site.id, driveId: drive.id, itemId: item.id, webUrl: item.webUrl });
+                            if (!row?.itemId) throw new ArtifactRecoveryRequiredError("Artifact upload requires reconciliation");
+                        }
+                        await observeStoredIdentity(client, row, drive.id, item, "upload-finalization");
                     }
                     const completed = await repository.markUploaded(row.id, actor.id, idempotencyKey);
                     if (!completed || completed.ingestionState !== "Uploaded") throw new ArtifactRecoveryRequiredError("Artifact upload requires reconciliation");
@@ -210,7 +243,52 @@ export function createArtifactService({
             const row = await repository.getForRead(id);
             if (!row || row.ingestionState !== "Uploaded" || row.lifecycleState === "Removed" || !row.driveId || !row.itemId) throw new ArtifactNotFoundError("Artifact not found");
             const client = graphClientFactory(loadConfig());
-            const file = await client.downloadFile(row.driveId, row.itemId, { maxBytes: MAX_ARTIFACT_BYTES, expectedSize: Number(row.contentSize) });
+            const storedIdentityExisted = row.storedContentSize != null && row.storedContentSha256 != null;
+            let file;
+            try {
+                let expectedSize = storedIdentityExisted ? Number(row.storedContentSize) : null;
+                if (!storedIdentityExisted) {
+                    const item = await client.getItem(row.driveId, row.itemId);
+                    if (!item || item.id !== row.itemId || item.name !== row.storedFileName || item.type !== "file") {
+                        throw new ArtifactConflictError("Recorded Artifact storage item is inconsistent");
+                    }
+                    expectedSize = typeof item.size === "number" && Number.isSafeInteger(item.size) && item.size > 0
+                        && item.size <= MAX_STORED_ARTIFACT_BYTES ? item.size : null;
+                    if (expectedSize == null) throw new GraphRequestError("SharePoint item metadata", null, "invalid_size_boundary");
+                }
+                file = await client.downloadFile(row.driveId, row.itemId, {
+                    maxBytes: MAX_STORED_ARTIFACT_BYTES,
+                    expectedSize,
+                });
+            } catch (error) {
+                if (!(storedIdentityExisted && error instanceof GraphRequestError && error.graphCode === "content_length_mismatch")) throw error;
+                throw new ArtifactIntegrityError(integrityDiagnostics({
+                    expectedStoredSize: Number(row.storedContentSize), observedSize: error.diagnostics?.observedSize ?? null,
+                    sizeMatched: false, hashMatched: null, storedIdentityExisted: true, lifecycleStage: "download",
+                }));
+            }
+            const observedSize = file.content.length;
+            const observedHash = createHash("sha256").update(file.content).digest("hex");
+            if (storedIdentityExisted) {
+                const sizeMatched = observedSize === Number(row.storedContentSize);
+                const hashMatched = observedHash === String(row.storedContentSha256).toLowerCase();
+                if (!sizeMatched || !hashMatched) throw new ArtifactIntegrityError(integrityDiagnostics({
+                    expectedStoredSize: Number(row.storedContentSize), observedSize, sizeMatched, hashMatched,
+                    storedIdentityExisted: true, lifecycleStage: "download",
+                }));
+            } else {
+                try {
+                    await repository.establishStoredIdentity(row.id, {
+                        storedContentSize: observedSize, storedContentSha256: observedHash,
+                    });
+                } catch (error) {
+                    if (!(error instanceof ArtifactStoredIdentityConflictError)) throw error;
+                    throw new ArtifactIntegrityError(integrityDiagnostics({
+                        expectedStoredSize: null, observedSize, sizeMatched: null, hashMatched: false,
+                        storedIdentityExisted: true, lifecycleStage: "legacy-download-establishment",
+                    }));
+                }
+            }
             await repository.appendEvent({ artifactId: row.id, eventType: "ArtifactDownloaded", actorUserId: actor.id, correlationId: null });
             return { ...file, fileName: row.originalFileName, contentType: row.contentType };
         },

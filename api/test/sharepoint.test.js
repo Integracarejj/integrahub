@@ -230,6 +230,9 @@ test("file download reads incrementally and enforces expected and maximum sizes"
 
     const changed = new SharePointGraphClient({ getAccessToken: async () => "private-token" }, async () => new Response("abc", { status: 200 }));
     await assert.rejects(changed.downloadFile("drive", "item", { maxBytes: 4, expectedSize: 4 }), error => error.graphCode === "content_length_mismatch");
+
+    const legacy = new SharePointGraphClient({ getAccessToken: async () => "private-token" }, async () => new Response("legacy", { status: 200 }));
+    assert.equal((await legacy.downloadFile("drive", "item", { maxBytes: 10 })).content.toString(), "legacy");
 });
 
 test("binary download ignores non-authoritative transport length but still rejects true truncation", async () => {

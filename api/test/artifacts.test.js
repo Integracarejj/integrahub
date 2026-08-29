@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import express from "express";
-import { createArtifactService, ArtifactConflictError, ArtifactForbiddenError, ArtifactRecoveryRequiredError, ArtifactValidationError, MAX_ARTIFACT_BYTES } from "../src/services/artifactService.js";
+import { createArtifactService, ArtifactConflictError, ArtifactForbiddenError, ArtifactIntegrityError, ArtifactRecoveryRequiredError, ArtifactValidationError, MAX_ARTIFACT_BYTES, MAX_STORED_ARTIFACT_BYTES } from "../src/services/artifactService.js";
 import { createArtifactRouter } from "../src/routes/artifacts.js";
 import { GraphRequestError } from "../src/integrations/sharepoint/graphClient.js";
-import { ArtifactPlacementReadError, ArtifactPlacementWriteError, createArtifactRepository } from "../src/services/artifactRepository.js";
+import { ArtifactPlacementReadError, ArtifactPlacementWriteError, ArtifactStoredIdentityConflictError, createArtifactRepository } from "../src/services/artifactRepository.js";
 
 const ARTIFACT_ID = "11111111-1111-4111-8111-111111111111";
 const EDITOR = { id: "editor-1", globalRole: "Editor" };
@@ -18,17 +18,32 @@ function harness({ uploadError = null, receiptError = null, finalizeError = null
     const telemetry = [];
     let row = null;
     let placement = null;
+    let physicalContent = downloadContent;
     let lockTail = Promise.resolve();
     const repository = {
         withIdempotencyLock: async (_actor, _key, work) => { const prior = lockTail; let release; lockTail = new Promise(resolve => { release = resolve; }); await prior; calls.push(["lock"]); try { return await work(); } finally { release(); } },
         getByIdempotency: async () => row,
-        createPending: async values => { calls.push(["pending", values]); row = { ...values, ingestionState: "Pending", classificationState: "Unclassified", lifecycleState: "Active", createdAt: "created", updatedAt: "updated" }; placement = { id: "placement-1", artifactId: values.id, placementType: values.storageDestination, placementStatus: "Pending", siteKey: values.siteKey, legacyLibraryKey: values.libraryKey, createdByUserId: values.submittedByUserId, siteId: null, driveId: null, itemId: null, webUrl: null, activatedAt: null }; return row; },
+        createPending: async values => { calls.push(["pending", values]); row = { ...values, ingestionState: "Pending", classificationState: "Unclassified", lifecycleState: "Active", createdAt: "created", updatedAt: "updated" }; placement = { id: "placement-1", artifactId: values.id, placementType: values.storageDestination, placementStatus: "Pending", siteKey: values.siteKey, legacyLibraryKey: values.libraryKey, createdByUserId: values.submittedByUserId, siteId: null, driveId: null, itemId: null, webUrl: null, storedContentSize: null, storedContentSha256: null, storedObservedAt: null, activatedAt: null }; return row; },
         restartFailed: async () => { calls.push(["restart"]); row = { ...row, ingestionState: "Pending" }; placement = { ...placement, placementStatus: "Pending" }; return row; },
         recordGraphReceipt: async (_id, identity) => { calls.push(["receipt", identity]); if (receiptError) throw receiptError; row = { ...row, ...identity }; placement = { ...placement, ...identity }; return row; },
         markUploaded: async () => { calls.push(["uploaded"]); if (finalizeError) throw finalizeError; row = { ...row, ingestionState: "Uploaded", uploadedAt: "uploaded" }; placement = { ...placement, placementStatus: "Active", activatedAt: row.uploadedAt }; return row; },
+        establishStoredIdentity: async (_id, identity) => {
+            calls.push(["stored-identity", identity]);
+            if (placement.storedContentSize == null && placement.storedContentSha256 == null) {
+                placement = { ...placement, ...identity, storedObservedAt: "observed" };
+                return { ...identity, storedObservedAt: "observed", established: true };
+            }
+            if (placement.storedContentSize !== identity.storedContentSize || placement.storedContentSha256 !== identity.storedContentSha256) {
+                throw new ArtifactStoredIdentityConflictError();
+            }
+            return { ...placement, established: false };
+        },
         markFailed: async (_id, _actor, _key, reason) => { calls.push(["failed", reason]); row = { ...row, ingestionState: "Failed" }; placement = { ...placement, placementStatus: "Failed" }; },
         getById: async id => id === ARTIFACT_ID ? row : null,
-        getForRead: async id => { calls.push(["read", id]); return id === ARTIFACT_ID ? row : null; },
+        getForRead: async id => { calls.push(["read", id]); return id === ARTIFACT_ID ? { ...row,
+            storedContentSize: placement?.storedContentSize ?? null,
+            storedContentSha256: placement?.storedContentSha256 ?? null,
+            storedObservedAt: placement?.storedObservedAt ?? null } : null; },
         list: async filters => { calls.push(["list", filters]); return { rows: row ? [row] : [], total: row ? 1 : 0 }; },
         appendEvent: async event => calls.push(["event", event]),
     };
@@ -41,7 +56,17 @@ function harness({ uploadError = null, receiptError = null, finalizeError = null
             size: uploadResponseSize ?? content.length, lastModifiedDateTime: "2026-08-28T12:49:52Z", type: "file", webUrl: "private-url" }; },
         getItem: async (_drive, itemId) => { calls.push(["graph-metadata", itemId]); return remote || (row ? { id: itemId, name: row.storedFileName,
             size: postUploadSize ?? row.contentSize, lastModifiedDateTime: "2026-08-28T12:49:53Z", type: "file", webUrl: row.webUrl } : null); },
-        downloadFile: async (_drive, _item, bounds) => { calls.push(["graph-download", bounds]); return { content: downloadContent, contentType: "application/pdf" }; },
+        downloadFile: async (_drive, _item, bounds) => {
+            calls.push(["graph-download", bounds]);
+            if (physicalContent.length > bounds.maxBytes) throw new GraphRequestError("SharePoint file download", 200, "response_too_large");
+            if (bounds.expectedSize != null && physicalContent.length !== bounds.expectedSize) {
+                throw new GraphRequestError("SharePoint file download", 200, "content_length_mismatch", {
+                    expectedSize: bounds.expectedSize, observedSize: physicalContent.length,
+                    contentLengthPresent: false, contentEncodingPresent: false,
+                });
+            }
+            return { content: physicalContent, contentType: "application/pdf" };
+        },
     };
     const service = createArtifactService({ repository, generateUuid: () => ARTIFACT_ID,
         loadConfig: () => ({ credentials: {}, sites: [
@@ -55,6 +80,7 @@ function harness({ uploadError = null, receiptError = null, finalizeError = null
         libraryKey: "Projects", idempotencyKey: "request-0001", sourceContext: "effort-42", actor: EDITOR };
     return { service, repository, graph, request, calls, telemetry, getRow: () => row, getPlacement: () => placement,
         setRow: value => { row = value; }, setPlacement: value => { placement = value; },
+        setDownloadContent: value => { physicalContent = value; },
         clearUploadError: () => { uploadError = null; } };
 }
 
@@ -118,7 +144,9 @@ test("valid Editor upload creates Pending before Graph and persists exact Graph 
     assert.deepEqual(value.calls.find(([name]) => name === "receipt")[1], { siteId: "site", driveId: "drive", itemId: "item", webUrl: "private-url" });
     assert.deepEqual(value.getPlacement(), { id: "placement-1", artifactId: ARTIFACT_ID, placementType: "Working",
         placementStatus: "Active", siteKey: "working", legacyLibraryKey: "Projects", createdByUserId: EDITOR.id,
-        siteId: "site", driveId: "drive", itemId: "item", webUrl: "private-url", activatedAt: "uploaded" });
+        siteId: "site", driveId: "drive", itemId: "item", webUrl: "private-url",
+        storedContentSize: PDF.length, storedContentSha256: createHash("sha256").update(PDF).digest("hex"),
+        storedObservedAt: "observed", activatedAt: "uploaded" });
     assert.deepEqual([value.getRow().siteId, value.getRow().driveId, value.getRow().itemId, value.getRow().webUrl],
         [value.getPlacement().siteId, value.getPlacement().driveId, value.getPlacement().itemId, value.getPlacement().webUrl]);
     assert.match(value.calls.find(([name]) => name === "graph-upload")[1], new RegExp(`^${ARTIFACT_ID}-[0-9a-f]{12}-Quarterly Report\\.pdf$`));
@@ -127,7 +155,7 @@ test("valid Editor upload creates Pending before Graph and persists exact Graph 
 
 test("OOXML-like upload catalogs the exact service Buffer length and hash sent to Graph", async () => {
     const content = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0x00, 0x08, 0xff, 0x80, 0x00, 0x7f]);
-    const value = harness();
+    const value = harness({ downloadContent: content });
     await value.service.upload({ ...value.request, originalFileName: "report.docx",
         contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", content });
     assert.equal(value.getRow().contentSize, content.byteLength);
@@ -137,7 +165,7 @@ test("OOXML-like upload catalogs the exact service Buffer length and hash sent t
 
 test("upload telemetry reports matching Graph response and immediate metadata sizes", async () => {
     const content = Buffer.alloc(15196, 0x5a);
-    const value = harness({ uploadResponseSize: 15196, postUploadSize: 15196 });
+    const value = harness({ uploadResponseSize: 15196, postUploadSize: 15196, downloadContent: content });
     const result = await value.service.upload({ ...value.request, content });
     assert.equal(result.ingestionState, "Uploaded");
     assert.deepEqual(value.telemetry, [
@@ -151,7 +179,8 @@ test("upload telemetry reports matching Graph response and immediate metadata si
 });
 
 test("upload telemetry observes divergence present in the Graph upload response without blocking success", async () => {
-    const value = harness({ uploadResponseSize: 20960, postUploadSize: 20960 });
+    const stored = Buffer.alloc(20960, 0x6b);
+    const value = harness({ uploadResponseSize: 20960, postUploadSize: 20960, downloadContent: stored });
     const result = await value.service.upload({ ...value.request, content: Buffer.alloc(15196, 0x5a) });
     assert.equal(result.ingestionState, "Uploaded");
     assert.deepEqual(value.telemetry.map(entry => [entry.stage, entry.inputByteSize,
@@ -163,7 +192,7 @@ test("upload telemetry observes divergence present in the Graph upload response 
 });
 
 test("upload telemetry observes divergence after the Graph upload response and exposes no sensitive fields", async () => {
-    const value = harness({ uploadResponseSize: 15196, postUploadSize: 20960 });
+    const value = harness({ uploadResponseSize: 15196, postUploadSize: 20960, downloadContent: Buffer.alloc(20960, 0x6b) });
     const result = await value.service.upload({ ...value.request, content: Buffer.alloc(15196, 0x5a) });
     assert.equal(result.ingestionState, "Uploaded");
     assert.equal(value.telemetry[0].uploadResponseMatchesInput, true);
@@ -178,6 +207,93 @@ test("upload telemetry observes divergence after the Graph upload response and e
     }
 });
 
+test("transformed Office upload preserves source identity and records placement physical identity", async () => {
+    const source = Buffer.alloc(15193, 0x31);
+    const stored = Buffer.alloc(21210, 0x42);
+    const value = harness({ uploadResponseSize: stored.length, postUploadSize: stored.length, downloadContent: stored });
+    const result = await value.service.upload({ ...value.request, originalFileName: "DocumentHub_SizeTest.docx",
+        contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", content: source });
+    assert.equal(result.ingestionState, "Uploaded");
+    assert.equal(value.getRow().contentSize, source.length);
+    assert.equal(value.getRow().contentSha256, createHash("sha256").update(source).digest("hex"));
+    assert.equal(value.getPlacement().storedContentSize, stored.length);
+    assert.equal(value.getPlacement().storedContentSha256, createHash("sha256").update(stored).digest("hex"));
+    assert.notEqual(value.getRow().contentSha256, value.getPlacement().storedContentSha256);
+});
+
+test("near-limit source accepts a transformed physical representation through 20 MiB and rejects larger physical content", async () => {
+    const source = Buffer.alloc(MAX_ARTIFACT_BYTES, 0x31);
+    const stored = Buffer.alloc(MAX_ARTIFACT_BYTES + 1, 0x42);
+    const accepted = harness({ uploadResponseSize: stored.length, postUploadSize: stored.length, downloadContent: stored });
+    await accepted.service.upload({ ...accepted.request, content: source });
+    assert.equal(accepted.getRow().contentSize, MAX_ARTIFACT_BYTES);
+    assert.equal(accepted.getPlacement().storedContentSize, MAX_ARTIFACT_BYTES + 1);
+    assert.equal(accepted.calls.find(([name]) => name === "graph-download")[1].maxBytes, MAX_STORED_ARTIFACT_BYTES);
+
+    const rejected = harness({ uploadResponseSize: MAX_STORED_ARTIFACT_BYTES + 1,
+        postUploadSize: MAX_STORED_ARTIFACT_BYTES + 1, downloadContent: Buffer.from("not-read") });
+    await assert.rejects(rejected.service.upload(rejected.request), ArtifactRecoveryRequiredError);
+    assert.equal(rejected.getRow().ingestionState, "Pending");
+    assert.equal(rejected.getPlacement().storedContentSize, null);
+    assert.equal(rejected.calls.some(([name]) => name === "graph-download"), false);
+});
+
+test("transformed placement downloads by stored identity and retains the original browser filename", async () => {
+    const source = Buffer.alloc(15196, 0x31);
+    const stored = Buffer.alloc(20960, 0x42);
+    const value = harness({ uploadResponseSize: stored.length, postUploadSize: stored.length, downloadContent: stored });
+    await value.service.upload({ ...value.request, originalFileName: "Test_DocHub1.docx",
+        contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", content: source });
+    const file = await value.service.download(ARTIFACT_ID, { id: "viewer", globalRole: "Viewer" });
+    assert.equal(file.fileName, "Test_DocHub1.docx");
+    assert.deepEqual(file.content, stored);
+    assert.equal(value.calls.some(([name, event]) => name === "event" && event.eventType === "ArtifactDownloaded"), true);
+});
+
+test("same-size and different-size SharePoint mutation fail against established placement identity", async () => {
+    const original = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x10]);
+    const value = harness({ uploadResponseSize: original.length, postUploadSize: original.length, downloadContent: original });
+    await value.service.upload({ ...value.request, originalFileName: "report.docx",
+        contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", content: original });
+
+    value.setDownloadContent(Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x11]));
+    await assert.rejects(value.service.download(ARTIFACT_ID, { id: "viewer", globalRole: "Viewer" }),
+        error => error instanceof ArtifactIntegrityError && error.diagnostics.sizeMatched === true
+            && error.diagnostics.hashMatched === false);
+
+    value.setDownloadContent(Buffer.concat([original, Buffer.from([0x12])]));
+    await assert.rejects(value.service.download(ARTIFACT_ID, { id: "viewer", globalRole: "Viewer" }),
+        error => error instanceof ArtifactIntegrityError && error.diagnostics.sizeMatched === false
+            && error.diagnostics.expectedStoredSize === original.length);
+});
+
+test("stored SHA casing is normalized without changing physical identity", async () => {
+    const original = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x10]);
+    const value = harness({ uploadResponseSize: original.length, postUploadSize: original.length, downloadContent: original });
+    await value.service.upload({ ...value.request, originalFileName: "case.docx",
+        contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", content: original });
+    value.setPlacement({ ...value.getPlacement(), storedContentSha256: value.getPlacement().storedContentSha256.toUpperCase() });
+    assert.deepEqual((await value.service.download(ARTIFACT_ID,
+        { id: "viewer", globalRole: "Viewer" })).content, original);
+});
+
+test("legacy placement lazily establishes stored identity on first successful download", async () => {
+    const physical = Buffer.alloc(20960, 0x42);
+    const value = harness({ downloadContent: physical, postUploadSize: physical.length });
+    const sourceHash = createHash("sha256").update(Buffer.alloc(15196, 0x31)).digest("hex");
+    value.setRow({ id: ARTIFACT_ID, originalFileName: "legacy.docx", storedFileName: "private-legacy.docx",
+        contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", contentSize: 15196,
+        contentSha256: sourceHash, ingestionState: "Uploaded", classificationState: "Unclassified", lifecycleState: "Active",
+        storageDestination: "Working", libraryKey: "Projects", siteId: "site", driveId: "drive", itemId: "item" });
+    value.setPlacement({ id: "placement-1", artifactId: ARTIFACT_ID, placementType: "Working", placementStatus: "Active",
+        siteId: "site", driveId: "drive", itemId: "item", storedContentSize: null, storedContentSha256: null, storedObservedAt: null });
+    const file = await value.service.download(ARTIFACT_ID, { id: "viewer", globalRole: "Viewer" });
+    assert.deepEqual(file.content, physical);
+    assert.equal(value.getPlacement().storedContentSize, physical.length);
+    assert.equal(value.getPlacement().storedContentSha256, createHash("sha256").update(physical).digest("hex"));
+    assert.equal(value.calls.find(([name]) => name === "graph-download")[1].expectedSize, physical.length);
+});
+
 test("Knowledge upload uses Documents and creates one Knowledge placement without Work area", async () => {
     const value = harness();
     const result = await value.service.upload({ ...value.request, libraryKey: undefined, destination: "Knowledge", workArea: null });
@@ -187,7 +303,9 @@ test("Knowledge upload uses Documents and creates one Knowledge placement withou
     assert.deepEqual(value.calls.find(([name]) => name === "drive"), ["drive", "Documents"]);
     assert.deepEqual(value.getPlacement(), { id: "placement-1", artifactId: ARTIFACT_ID, placementType: "Knowledge",
         placementStatus: "Active", siteKey: "knowledge", legacyLibraryKey: null, createdByUserId: EDITOR.id,
-        siteId: "site", driveId: "drive", itemId: "item", webUrl: "private-url", activatedAt: "uploaded" });
+        siteId: "site", driveId: "drive", itemId: "item", webUrl: "private-url",
+        storedContentSize: PDF.length, storedContentSha256: createHash("sha256").update(PDF).digest("hex"),
+        storedObservedAt: "observed", activatedAt: "uploaded" });
     await value.service.upload({ ...value.request, libraryKey: undefined, destination: "Knowledge", workArea: null });
     assert.equal(value.calls.filter(([name]) => name === "pending").length, 1);
     assert.equal(value.calls.filter(([name]) => name === "graph-upload").length, 1);
@@ -251,9 +369,13 @@ test("same idempotency key with changed bytes conflicts while a different key cr
     assert.equal(other.calls.filter(([name]) => name === "graph-upload").length, 1);
 });
 
-test("Graph success followed by SQL failure remains Pending and retry verifies instead of duplicating bytes", async () => {
-    const value = harness({ finalizeError: new Error("SQL unavailable") });
-    await assert.rejects(value.service.upload(value.request), ArtifactRecoveryRequiredError);
+test("transformed upload with receipt survives finalization failure and retry uses stored rather than source identity", async () => {
+    const source = Buffer.alloc(15193, 0x31); const physical = Buffer.alloc(21210, 0x42);
+    const request = { ...harness().request, originalFileName: "recovery.docx",
+        contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", content: source };
+    const value = harness({ finalizeError: new Error("SQL unavailable"), uploadResponseSize: physical.length,
+        postUploadSize: physical.length, downloadContent: physical });
+    await assert.rejects(value.service.upload(request), ArtifactRecoveryRequiredError);
     assert.equal(value.getRow().ingestionState, "Pending");
     assert.equal(value.getRow().itemId, "item");
     assert.equal(value.calls.filter(([name]) => name === "graph-upload").length, 1);
@@ -261,19 +383,26 @@ test("Graph success followed by SQL failure remains Pending and retry verifies i
 
     const stored = value.getRow();
     const storedPlacement = value.getPlacement();
-    const retry = harness({ remote: { id: "item", name: stored.storedFileName, size: PDF.length, type: "file", webUrl: "private-url" } });
+    const retry = harness({ remote: { id: "item", name: stored.storedFileName, size: physical.length, type: "file", webUrl: "private-url" },
+        downloadContent: physical });
     retry.setRow(stored);
     retry.setPlacement(storedPlacement);
-    await retry.service.upload(retry.request);
+    await retry.service.upload(request);
     assert.equal(retry.calls.filter(([name]) => name === "graph-upload").length, 0);
     assert.equal(retry.calls.filter(([name]) => name === "graph-download").length, 1);
     assert.equal(retry.getPlacement().id, "placement-1");
     assert.equal(retry.getPlacement().placementStatus, "Active");
+    assert.equal(retry.getRow().contentSize, source.length);
+    assert.equal(retry.getPlacement().storedContentSize, physical.length);
 });
 
-test("Working Operations receipt SQL failure retries the same placement and deterministic remote item", async () => {
-    const value = harness({ receiptError: new Error("Ambiguous column name 'itemId'") });
-    const request = { ...value.request, libraryKey: undefined, destination: "Working", workArea: "Operations" };
+test("receipt-less transformed item remains Pending for reconciliation without adoption, failure, or duplicate upload", async () => {
+    const source = Buffer.alloc(15193, 0x31); const physical = Buffer.alloc(21210, 0x42);
+    const value = harness({ receiptError: new Error("SQL unavailable"), uploadResponseSize: physical.length,
+        postUploadSize: physical.length, downloadContent: physical });
+    const request = { ...value.request, originalFileName: "receiptless.docx",
+        contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", content: source,
+        libraryKey: undefined, destination: "Working", workArea: "Operations" };
     await assert.rejects(value.service.upload(request), ArtifactRecoveryRequiredError);
     assert.equal(value.getRow().ingestionState, "Pending");
     assert.equal(value.getRow().itemId, undefined);
@@ -282,16 +411,18 @@ test("Working Operations receipt SQL failure retries the same placement and dete
     assert.equal(value.calls.filter(([name]) => name === "graph-upload").length, 1);
 
     const stored = value.getRow();
-    const retry = harness({ remote: { id: "item", name: stored.storedFileName, size: PDF.length, type: "file", webUrl: "private-url" } });
+    const retry = harness({ remote: { id: "item", name: stored.storedFileName, size: physical.length, type: "file", webUrl: "private-url" },
+        downloadContent: physical });
     retry.setRow(stored); retry.setPlacement(value.getPlacement());
-    await retry.service.upload(request);
+    await assert.rejects(retry.service.upload(request), ArtifactRecoveryRequiredError);
     assert.equal(retry.calls.filter(([name]) => name === "graph-upload").length, 0);
-    assert.equal(retry.calls.filter(([name]) => name === "graph-download").length, 1);
+    assert.equal(retry.calls.filter(([name]) => name === "graph-download").length, 0);
+    assert.equal(retry.calls.filter(([name]) => name === "receipt").length, 0);
+    assert.equal(retry.calls.some(([name]) => name === "failed"), false);
     assert.equal(retry.getPlacement().id, "placement-1");
-    assert.equal(retry.getPlacement().placementStatus, "Active");
-    assert.equal(retry.getRow().ingestionState, "Uploaded");
-    assert.deepEqual([retry.getRow().siteId, retry.getRow().driveId, retry.getRow().itemId, retry.getRow().webUrl],
-        [retry.getPlacement().siteId, retry.getPlacement().driveId, retry.getPlacement().itemId, retry.getPlacement().webUrl]);
+    assert.equal(retry.getPlacement().placementStatus, "Pending");
+    assert.equal(retry.getRow().ingestionState, "Pending");
+    assert.equal(retry.getRow().itemId, undefined);
 });
 
 test("placement update predicates qualify identity columns in joined SQL", async () => {
@@ -308,6 +439,36 @@ test("placement update predicates qualify identity columns in joined SQL", async
     assert.match(placementUpdate, /placement\.siteId = @siteId/);
     assert.match(placementUpdate, /placement\.driveId = @driveId/);
     assert.match(placementUpdate, /placement\.itemId = @itemId/);
+});
+
+test("stored identity establishment locks one placement and cannot overwrite a concurrent different identity", async () => {
+    const statements = [];
+    let stored = { id: "placement-1", storedContentSize: null, storedContentSha256: null, storedObservedAt: null };
+    const transaction = { begin: async () => statements.push("BEGIN"), commit: async () => statements.push("COMMIT"), rollback: async () => statements.push("ROLLBACK") };
+    const repository = createArtifactRepository({ getPool: async () => ({}), createTransaction: () => transaction,
+        queryInTransaction: async (_transaction, statement, params) => {
+            statements.push(statement);
+            if (statement.includes("WITH (UPDLOCK, HOLDLOCK)")) return [{ ...stored }];
+            if (statement.includes("UPDATE cmdb.ArtifactPlacements")) {
+                stored = { ...stored, storedContentSize: params.storedContentSize,
+                    storedContentSha256: params.storedContentSha256, storedObservedAt: "observed" };
+                return [{ ...stored }];
+            }
+            return [];
+        } });
+    const firstHash = "a".repeat(64);
+    const secondHash = "b".repeat(64);
+    assert.equal((await repository.establishStoredIdentity(ARTIFACT_ID,
+        { storedContentSize: 21210, storedContentSha256: firstHash })).established, true);
+    assert.equal((await repository.establishStoredIdentity(ARTIFACT_ID,
+        { storedContentSize: 21210, storedContentSha256: firstHash })).established, false);
+    assert.equal((await repository.establishStoredIdentity(ARTIFACT_ID,
+        { storedContentSize: 21210, storedContentSha256: firstHash.toUpperCase() })).established, false);
+    await assert.rejects(repository.establishStoredIdentity(ARTIFACT_ID,
+        { storedContentSize: 21210, storedContentSha256: secondHash }), ArtifactStoredIdentityConflictError);
+    assert.equal(stored.storedContentSha256, firstHash);
+    assert.ok(statements.some(statement => String(statement).includes("WITH (UPDLOCK, HOLDLOCK)")));
+    assert.ok(statements.includes("ROLLBACK"));
 });
 
 test("repository rolls back Artifact state when a Working placement is missing or duplicated", async () => {
@@ -327,7 +488,7 @@ test("repository rolls back Artifact state when a Working placement is missing o
     }
 });
 
-test("unverified deterministic-name collision fails closed", async () => {
+test("unverified deterministic-name match remains Pending and is never adopted", async () => {
     const hash = createHash("sha256").update(PDF).digest("hex");
     const pending = { id: ARTIFACT_ID, originalFileName: "Quarterly Report.pdf",
         storedFileName: `${ARTIFACT_ID}-${hash.slice(0, 12)}-Quarterly Report.pdf`, fileExtension: "pdf",
@@ -337,8 +498,12 @@ test("unverified deterministic-name collision fails closed", async () => {
         classificationState: "Unclassified", lifecycleState: "Active", storageDestination: "Working" };
     const collision = harness({ remote: { id: "other", name: pending.storedFileName, size: PDF.length, type: "file" }, downloadContent: Buffer.from("bad bytes") });
     collision.setRow(pending);
-    await assert.rejects(collision.service.upload(collision.request), ArtifactConflictError);
+    await assert.rejects(collision.service.upload(collision.request), ArtifactRecoveryRequiredError);
     assert.equal(collision.calls.some(([name]) => name === "receipt"), false);
+    assert.equal(collision.calls.some(([name]) => name === "graph-download"), false);
+    assert.equal(collision.calls.some(([name]) => name === "graph-upload"), false);
+    assert.equal(collision.calls.some(([name]) => name === "failed"), false);
+    assert.equal(collision.getRow().ingestionState, "Pending");
 });
 
 test("read/list/download allow internal roles, omit Graph identity, and audit download", async () => {
@@ -434,10 +599,12 @@ test("download resolves through placement-aware repository identity and preserve
     const calls = [];
     const placementRow = { id: ARTIFACT_ID, originalFileName: "report.pdf", contentType: "application/pdf",
         contentSize: PDF.length, ingestionState: "Uploaded", lifecycleState: "Active",
-        driveId: "placement-drive", itemId: "placement-item" };
+        driveId: "placement-drive", itemId: "placement-item", storedContentSize: PDF.length,
+        storedContentSha256: createHash("sha256").update(PDF).digest("hex") };
     const repository = {
         getForRead: async () => placementRow,
         getById: async () => { throw new Error("legacy detail lookup must not be used"); },
+        establishStoredIdentity: async (_id, identity) => { calls.push(["stored-identity", identity]); return { ...identity, established: true }; },
         appendEvent: async event => calls.push(["event", event]),
     };
     const graph = { downloadFile: async (driveId, itemId, bounds) => {
@@ -475,4 +642,32 @@ test("HTTP routes fail closed for external users and preserve application-only d
         assert.equal(response.status, 200); assert.equal(response.headers.get("content-disposition"), 'attachment; filename="report.pdf"');
         assert.equal(response.headers.has("x-graph-item-id"), false);
     } finally { await new Promise(resolve => server.close(resolve)); }
+});
+
+test("physical integrity mismatch returns sanitized 409 and logs only safe diagnostics", async () => {
+    const diagnostics = { expectedStoredSize: 15196, observedSize: 20960, sizeMatched: false,
+        hashMatched: null, storedIdentityExisted: true, lifecycleStage: "download",
+        itemId: "private-item", hash: "a".repeat(64), url: "https://private" };
+    const service = { download: async () => { throw new ArtifactIntegrityError(diagnostics); } };
+    const app = express();
+    app.use((req, _res, next) => { req.user = { id: "viewer", globalRole: "Viewer" }; next(); });
+    app.use("/api/artifacts", createArtifactRouter(service));
+    const logged = [];
+    const originalError = console.error;
+    console.error = (...values) => logged.push(values);
+    const server = app.listen(0, "127.0.0.1"); await new Promise(resolve => server.once("listening", resolve));
+    try {
+        const response = await fetch(`http://127.0.0.1:${server.address().port}/api/artifacts/${ARTIFACT_ID}/content`);
+        assert.equal(response.status, 409);
+        assert.deepEqual(await response.json(), { error: "Artifact content integrity check failed", code: "artifact_content_mismatch" });
+        const serialized = JSON.stringify(logged);
+        for (const forbidden of ["private-item", "a".repeat(64), "https://private", "itemId", "url"]) {
+            assert.equal(serialized.includes(forbidden), false);
+        }
+        assert.match(serialized, /expectedStoredSize/);
+        assert.match(serialized, /lifecycleStage/);
+    } finally {
+        console.error = originalError;
+        await new Promise(resolve => server.close(resolve));
+    }
 });
