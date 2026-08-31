@@ -14,12 +14,19 @@ const artifact = (id: string, fileName: string, storageDestination: "Working" | 
 test("Document Hub presents business destinations and Working-only routing", async ({ page }) => {
     const listQueries: string[] = [];
     await page.route("**/api/artifacts?*", async route => {
-        const q = new URL(route.request().url()).searchParams.get("q") || "";
+        const params = new URL(route.request().url()).searchParams;
+        const q = params.get("q") || "";
+        const destination = params.get("destination") || "";
         listQueries.push(q);
         const rows = [
             artifact("11111111-1111-4111-8111-111111111111", "working.txt", "Working", "Projects"),
             artifact("22222222-2222-4222-8222-222222222222", "knowledge.txt", "Knowledge", null),
-        ].filter(item => item.fileName.includes(q));
+        ].filter(item => item.fileName.includes(q) && (!destination || item.storageDestination === destination));
+        if (q === "failure") {
+            await new Promise(resolve => setTimeout(resolve, 400));
+            return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Temporary Find failure" }) });
+        }
+        if (destination === "Working") await new Promise(resolve => setTimeout(resolve, 500));
         if (q === "working") await new Promise(resolve => setTimeout(resolve, 700));
         return route.fulfill({
         status: 200, contentType: "application/json",
@@ -74,6 +81,16 @@ test("Document Hub presents business destinations and Working-only routing", asy
     await expect(page.locator(".document-hub-results > button").filter({ hasText: "knowledge.txt" })).toContainText("Knowledge");
     await expect(page.getByLabel("Availability")).toContainText("Working");
     await expect(page.getByLabel("Availability")).toContainText("Knowledge");
+    await page.getByLabel("Availability").selectOption("Working");
+    await expect(page.getByText(/Updating/)).toBeVisible();
+    await expect(page.locator(".document-hub-results > button")).toHaveCount(2);
+    await expect(page.locator(".document-hub-results")).toContainText("knowledge.txt");
+    await expect(page.locator(".document-hub-results > button")).toHaveCount(1);
+    await expect(page.locator(".document-hub-results")).toContainText("working.txt");
+    await page.getByLabel("Availability").selectOption("");
+    await expect(page.locator(".document-hub-results > button")).toHaveCount(2);
+
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await page.locator(".document-hub-results > button").filter({ hasText: "working.txt" }).click();
     const drawer = page.getByRole("dialog", { name: "Document details" });
     await expect(drawer).toBeVisible();
@@ -81,15 +98,27 @@ test("Document Hub presents business destinations and Working-only routing", asy
     await expect(drawer).toContainText("Upload details");
     await expect(drawer).not.toContainText("Provenance");
     await expect(drawer.getByRole("button", { name: "Download" })).toBeVisible();
+    await expect(drawer.locator(".document-hub-detail-body")).toHaveCSS("overflow-y", "auto");
+    await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe("hidden");
+    const lockedScrollY = await page.evaluate(() => window.scrollY);
+    await page.mouse.wheel(0, 800);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(lockedScrollY);
     await drawer.getByText("working.txt").first().click();
     await expect(drawer).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(drawer).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => document.body.style.overflow)).not.toBe("hidden");
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(lockedScrollY);
     await page.locator(".document-hub-results > button").filter({ hasText: "working.txt" }).click();
     await page.locator(".document-hub-detail-backdrop").click({ position: { x: 8, y: 8 } });
     await expect(drawer).toHaveCount(0);
 
     const search = page.getByLabel("Search documents");
+    await search.fill("failure");
+    await expect(page.getByText(/Updating/)).toBeVisible();
+    await expect(page.locator(".document-hub-results > button")).toHaveCount(2);
+    await expect(page.getByRole("alert")).toContainText("Temporary Find failure");
+    await expect(page.locator(".document-hub-results > button")).toHaveCount(2);
     const requestsBeforeTyping = listQueries.length;
     await search.fill("knowledge");
     await page.waitForTimeout(150);
@@ -106,6 +135,9 @@ test("Document Hub presents business destinations and Working-only routing", asy
     await expect(page.locator(".document-hub-results")).toContainText("knowledge.txt");
     await page.waitForTimeout(500);
     await expect(page.locator(".document-hub-results")).toContainText("knowledge.txt");
+    await search.fill("missing");
+    await expect(page.locator(".document-hub-find-state.empty")).toContainText("No documents found");
+    await expect(page.locator(".document-hub-results")).toHaveCount(0);
 });
 
 test("successful upload opens a refreshed newest-first Find list", async ({ page }) => {

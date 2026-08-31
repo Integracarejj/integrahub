@@ -122,6 +122,7 @@
 .document-hub-find-heading h2 { margin: 0; font-size: 22px; }
 .document-hub-find-heading p { margin: 5px 0 0; color: #475569; font-size: 14px; }
 .document-hub-find-heading > span { padding-top: 5px; color: #475569; font-size: 13px; font-weight: 700; }
+.document-hub-find-heading > span[aria-live] { color: #1d4ed8; }
 .document-hub-search { margin-top: 20px; }
 .document-hub-search > label { display: block; margin-bottom: 7px; font-size: 13px; font-weight: 800; }
 .document-hub-search > div { display: flex; gap: 8px; }
@@ -133,8 +134,10 @@
 .document-hub-find-state { min-height: 120px; display: flex; align-items: center; justify-content: center; gap: 9px; padding: 22px; border-radius: 11px; background: #f8fafc; color: #475569; }
 .document-hub-find-state.error, .document-hub-find-state.empty { flex-direction: column; text-align: center; }
 .document-hub-find-state.error { border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; }
+.document-hub-find-state.document-hub-refetch-error { min-height: 0; margin-bottom: 12px; padding: 12px 14px; flex-direction: row; justify-content: flex-start; text-align: left; }
 .document-hub-find-state button { padding: 7px 11px; border: 1px solid currentColor; border-radius: 7px; background: #fff; color: inherit; font-weight: 750; cursor: pointer; }
 .document-hub-results { display: grid; border: 1px solid #dbe3ee; border-radius: 11px; overflow: hidden; }
+.document-hub-results.is-updating { opacity: .82; }
 .document-hub-results > button { display: grid; grid-template-columns: minmax(220px, 1.5fr) repeat(3, minmax(100px, .65fr)); gap: 14px; align-items: center; padding: 13px 15px; border: 0; border-bottom: 1px solid #e2e8f0; background: #fff; color: #0f172a; text-align: left; cursor: pointer; }
 .document-hub-results > button:last-child { border-bottom: 0; }
 .document-hub-results > button:hover, .document-hub-results > button.selected { background: #eff6ff; }

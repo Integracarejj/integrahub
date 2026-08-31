@@ -49,6 +49,7 @@ export default function DocumentHubFind({ refreshKey = 0, canEditMetadata: canEd
     const [artifacts, setArtifacts] = useState<ArtifactRecord[]>([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [hasLoadedResults, setHasLoadedResults] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [refresh, setRefresh] = useState(0);
     const [selected, setSelected] = useState<ArtifactRecord | null>(null);
@@ -60,6 +61,7 @@ export default function DocumentHubFind({ refreshKey = 0, canEditMetadata: canEd
     const [editError, setEditError] = useState<string | null>(null);
     const [saveConfirmation, setSaveConfirmation] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    const drawerOpen = selected !== null;
     const requestSequence = useRef(0);
     const closeButtonRef = useRef<HTMLButtonElement>(null);
     const selectedTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -78,7 +80,7 @@ export default function DocumentHubFind({ refreshKey = 0, canEditMetadata: canEd
         setLoading(true); setError(null);
         listArtifacts(query, fetch, controller.signal).then(result => {
             if (sequence !== requestSequence.current) return;
-            setArtifacts(result.artifacts); setTotal(result.total); setLoading(false);
+            setArtifacts(result.artifacts); setTotal(result.total); setHasLoadedResults(true); setLoading(false);
             setSelected(current => current && result.artifacts.some(item => item.id === current.id) ? current : null);
         }).catch(cause => {
             if (controller.signal.aborted || sequence !== requestSequence.current) return;
@@ -100,6 +102,23 @@ export default function DocumentHubFind({ refreshKey = 0, canEditMetadata: canEd
         if (!selected) return;
         closeButtonRef.current?.focus();
     }, [selected?.id]);
+
+    useEffect(() => {
+        if (!drawerOpen) return;
+        const scrollX = window.scrollX;
+        const scrollY = window.scrollY;
+        const previousOverflow = document.body.style.overflow;
+        const previousPaddingRight = document.body.style.paddingRight;
+        const scrollbarWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+        const bodyPaddingRight = Number.parseFloat(window.getComputedStyle(document.body).paddingRight) || 0;
+        document.body.style.overflow = "hidden";
+        if (scrollbarWidth > 0) document.body.style.paddingRight = `${bodyPaddingRight + scrollbarWidth}px`;
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            document.body.style.paddingRight = previousPaddingRight;
+            window.scrollTo(scrollX, scrollY);
+        };
+    }, [drawerOpen]);
 
     useEffect(() => {
         if (!selected) return;
@@ -145,7 +164,7 @@ export default function DocumentHubFind({ refreshKey = 0, canEditMetadata: canEd
     const lastPage = Math.max(1, Math.ceil(total / pageSize));
 
     return <section className="document-hub-find-workspace" aria-labelledby="find-title">
-        <div className="document-hub-find-heading"><div><h2 id="find-title">Find Documents</h2><p>Search and download documents stored in Document Hub.</p></div><span>{loading ? "Loading…" : total === 0 ? "No documents found" : `${total} ${total === 1 ? "document" : "documents"} found`}</span></div>
+        <div className="document-hub-find-heading"><div><h2 id="find-title">Find Documents</h2><p>Search and download documents stored in Document Hub.</p></div><span aria-live="polite">{loading ? (hasLoadedResults ? `Updating… · ${total} ${total === 1 ? "document" : "documents"}` : "Loading…") : total === 0 ? "No documents found" : `${total} ${total === 1 ? "document" : "documents"} found`}</span></div>
         <form className="document-hub-search" onSubmit={event => { event.preventDefault(); updateQuery({ q: searchText.trim() }); }}>
             <label htmlFor="document-hub-search">Search documents</label>
             <div><input id="document-hub-search" value={searchText} onChange={event => setSearchText(event.target.value)} placeholder="Search documents" maxLength={200} />
@@ -160,11 +179,11 @@ export default function DocumentHubFind({ refreshKey = 0, canEditMetadata: canEd
             <label>Uploaded<select aria-label="Uploaded date" value={query.dateRange} onChange={event => updateQuery({ dateRange: event.target.value as ArtifactListQuery["dateRange"] })}><option value="all">All time</option><option value="today">Today</option><option value="7days">Last 7 days</option><option value="30days">Last 30 days</option></select></label>
             <label>Sort<select aria-label="Sort" value={query.sort} onChange={event => updateQuery({ sort: event.target.value as ArtifactListQuery["sort"] })}><option value="newest">Newest uploaded</option><option value="name">Name</option><option value="area">Use</option></select></label>
         </div>
-        {loading && <div className="document-hub-find-state" role="status"><span className="document-hub-spinner" /> Loading documents…</div>}
-        {!loading && error && <div className="document-hub-find-state error" role="alert"><strong>Documents could not be loaded</strong><span>{error}</span><button type="button" onClick={() => setRefresh(value => value + 1)}>Retry</button></div>}
-        {!loading && !error && artifacts.length === 0 && <div className="document-hub-find-state empty"><strong>No documents found</strong><span>Change the filters, clear the search, or switch to Provide Documents.</span></div>}
-        {!loading && !error && artifacts.length > 0 && <>
-            <div className="document-hub-results" role="list">
+        {loading && !hasLoadedResults && <div className="document-hub-find-state" role="status"><span className="document-hub-spinner" /> Loading documents…</div>}
+        {error && <div className={`document-hub-find-state error${hasLoadedResults ? " document-hub-refetch-error" : ""}`} role="alert"><strong>Documents could not be loaded</strong><span>{error}</span><button type="button" onClick={() => setRefresh(value => value + 1)}>Retry</button></div>}
+        {hasLoadedResults && artifacts.length === 0 && <div className="document-hub-find-state empty"><strong>No documents found</strong><span>Change the filters, clear the search, or switch to Provide Documents.</span></div>}
+        {hasLoadedResults && artifacts.length > 0 && <>
+            <div className={`document-hub-results${loading ? " is-updating" : ""}`} role="list" aria-busy={loading}>
                 {artifacts.map(artifact => <button type="button" role="listitem" key={artifact.id} className={selected?.id === artifact.id ? "selected" : ""} onClick={event => { selectedTriggerRef.current = event.currentTarget; setSelected(artifact); setDownloadError(null); setEditError(null); setSaveConfirmation(null); setEditValues(null); setEditInitialValues(null); }}>
                     <span className="document-hub-result-name"><strong>{artifact.documentTitle || artifact.fileName}</strong><small>{artifact.documentTitle ? artifact.fileName : formatDocumentSize(artifact.size)}</small></span>
                     <span><small>Availability</small>{availabilityLabel(artifact)}</span><span><small>Business context</small>{[artifact.documentType?.displayName, artifact.businessTopic?.name].filter(Boolean).join(" · ") || friendlyType(artifact.extension)}</span><span><small>Uploaded</small>{formatDate(artifact.uploadedAt)}</span>
