@@ -78,8 +78,15 @@ test("Document Hub presents business destinations and Working-only routing", asy
     const drawer = page.getByRole("dialog", { name: "Document details" });
     await expect(drawer).toBeVisible();
     await expect(drawer).toContainText("working.txt");
+    await expect(drawer).toContainText("Upload details");
+    await expect(drawer).not.toContainText("Provenance");
     await expect(drawer.getByRole("button", { name: "Download" })).toBeVisible();
+    await drawer.getByText("working.txt").first().click();
+    await expect(drawer).toBeVisible();
     await page.keyboard.press("Escape");
+    await expect(drawer).toHaveCount(0);
+    await page.locator(".document-hub-results > button").filter({ hasText: "working.txt" }).click();
+    await page.locator(".document-hub-detail-backdrop").click({ position: { x: 8, y: 8 } });
     await expect(drawer).toHaveCount(0);
 
     const search = page.getByLabel("Search documents");
@@ -103,7 +110,7 @@ test("Document Hub presents business destinations and Working-only routing", asy
 
 test("successful upload opens a refreshed newest-first Find list", async ({ page }) => {
     const older = artifact("11111111-1111-4111-8111-111111111111", "older.txt", "Working", "Projects");
-    const newest = { ...artifact("33333333-3333-4333-8333-333333333333", "newest.txt", "Knowledge", null, "2026-08-28T12:00:00.000Z"),
+    let newest = { ...artifact("33333333-3333-4333-8333-333333333333", "newest.txt", "Knowledge", null, "2026-08-28T12:00:00.000Z"),
         documentTitle: "Newest Knowledge Report", documentType: { key: "report-analysis", displayName: "Report / Analysis" },
         businessTopic: { slug: "budget", name: "Budget", group: "Finance" }, documentOrigin: "DHS", description: "Quarterly review context." };
     let uploaded = false;
@@ -113,8 +120,14 @@ test("successful upload opens a refreshed newest-first Find list", async ({ page
         : route.fallback());
     await page.route("**/api/artifacts?*", route => {
         listRequests.push(route.request().url());
-        const rows = uploaded ? [newest, older] : [older];
+        const q = new URL(route.request().url()).searchParams.get("q")?.toLowerCase() || "";
+        const rows = (uploaded ? [newest, older] : [older]).filter(item => `${item.documentTitle || ""} ${item.fileName}`.toLowerCase().includes(q));
         return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ artifacts: rows, total: rows.length, page: 1, pageSize: 10 }) });
+    });
+    await page.route("**/api/artifacts/33333333-3333-4333-8333-333333333333/metadata", async route => {
+        const values = route.request().postDataJSON();
+        newest = { ...newest, documentTitle: values.documentTitle, documentOrigin: values.documentOrigin };
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ artifact: newest }) });
     });
     await page.route("**/api/artifacts/metadata/options", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(metadataOptions) }));
     await mockAuth(page);
@@ -130,15 +143,61 @@ test("successful upload opens a refreshed newest-first Find list", async ({ page
     await expect(page.getByText("Document stored successfully")).toBeVisible();
     await page.getByRole("button", { name: "View in Find Documents" }).click();
     await expect(page.locator(".document-hub-results > button").first()).toContainText("newest.txt");
+    const search = page.getByLabel("Search documents");
+    await search.fill("newest");
+    await expect(page.locator(".document-hub-results > button")).toHaveCount(1);
     await page.locator(".document-hub-results > button").first().click();
-    await expect(page.getByRole("dialog", { name: "Document details" })).toContainText("Report / Analysis");
-    await expect(page.getByRole("dialog", { name: "Document details" })).toContainText("Budget");
-    await expect(page.getByRole("dialog", { name: "Document details" })).toContainText("DHS");
-    await expect(page.getByRole("dialog", { name: "Document details" }).getByRole("button", { name: "Edit details" })).toBeVisible();
-    await expect(page.getByText("2 documents found")).toBeVisible();
+    const drawer = page.getByRole("dialog", { name: "Document details" });
+    await expect(drawer).toContainText("Report / Analysis");
+    await expect(drawer).toContainText("Budget");
+    await expect(drawer).toContainText("DHS");
+    await expect(drawer.getByRole("button", { name: "Close document details" })).toBeVisible();
+    await drawer.getByRole("button", { name: "Edit details" }).click();
+    const save = drawer.getByRole("button", { name: "Save details" });
+    await expect(save).toBeVisible();
+    await expect(save).toHaveCSS("color", "rgb(255, 255, 255)");
+    await drawer.getByLabel("Document title").fill("Updated Knowledge Report");
+    await save.click();
+    await expect(drawer.getByRole("heading", { name: "Updated Knowledge Report" })).toBeVisible();
+    await expect(drawer.getByText("Document details updated")).toBeVisible();
+    await drawer.getByRole("button", { name: "Close document details" }).click();
+    await expect(drawer).toHaveCount(0);
+    await expect(search).toHaveValue("newest");
+    await expect(page.locator(".document-hub-results > button")).toHaveCount(1);
+    await expect(page.getByText("1 document found")).toBeVisible();
     expect(listRequests.length).toBeGreaterThan(0);
     expect(new URL(listRequests[0]).searchParams.get("pageSize")).toBe("10");
     expect(new URL(listRequests[0]).searchParams.get("sort")).toBe("newest");
+});
+
+test("drawer dismissal protects unsaved metadata and permits no-change dismissal", async ({ page }) => {
+    const row = { ...artifact("55555555-5555-4555-8555-555555555555", "protected.txt", "Working", "Projects"), documentTitle: "Protected report" };
+    await page.route("**/api/artifacts?*", route => route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify({ artifacts: [row], total: 1, page: 1, pageSize: 10 }) }));
+    await page.route("**/api/artifacts/metadata/options", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(metadataOptions) }));
+    await mockAuth(page);
+    await page.goto("/documents", { waitUntil: "domcontentloaded", timeout: 90_000 });
+    await page.getByRole("button", { name: /Find Documents/ }).click();
+    await page.locator(".document-hub-results > button").click();
+    let drawer = page.getByRole("dialog", { name: "Document details" });
+    await drawer.getByRole("button", { name: "Edit details" }).click();
+    await drawer.getByRole("button", { name: "Close document details" }).click();
+    await expect(drawer).toHaveCount(0);
+
+    await page.locator(".document-hub-results > button").click();
+    drawer = page.getByRole("dialog", { name: "Document details" });
+    await drawer.getByRole("button", { name: "Edit details" }).click();
+    await drawer.getByLabel("Document title").fill("Unsaved title");
+    await drawer.getByRole("button", { name: "Save details" }).click();
+    await expect(drawer.getByRole("alert")).toContainText("could not be saved");
+    await expect(drawer.getByLabel("Document title")).toHaveValue("Unsaved title");
+    page.once("dialog", async dialog => { expect(dialog.message()).toContain("Discard"); await dialog.dismiss(); });
+    await drawer.getByRole("button", { name: "Close document details" }).click();
+    await expect(drawer).toBeVisible();
+    await expect(drawer.getByLabel("Document title")).toHaveValue("Unsaved title");
+    page.once("dialog", async dialog => dialog.accept());
+    await page.keyboard.press("Escape");
+    await expect(drawer).toHaveCount(0);
 });
 
 test("read-only users do not receive an active metadata edit affordance", async ({ page }) => {

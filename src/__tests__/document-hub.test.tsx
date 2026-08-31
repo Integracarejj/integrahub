@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import DocumentHubPage, { StoredDocumentConfirmation } from "../pages/documents/DocumentHubPage";
-import DocumentHubFind, { canEditArtifactMetadata, FIND_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "../pages/documents/DocumentHubFind";
+import DocumentHubFind, { artifactMetadataHasChanges, canEditArtifactMetadata, FIND_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "../pages/documents/DocumentHubFind";
 import { addDocumentFiles, applyDestinationToAll, beginDocumentUpload, BUSINESS_DESTINATIONS, canSubmitDocument, canUploadBatch, completeDocumentUpload, documentStatusLabel, EMPTY_UPLOAD_STATE, failDocumentUpload, internalWorkUseLabel, markDocumentFailed, markDocumentUploaded, MAX_DOCUMENT_BYTES, readyDocuments, removeDocumentFile, removeStagedDocument, selectDocumentFile, setDocumentBusinessDestination, setDocumentDestination, shouldShowBulkWorkAreaControl, storeButtonLabel, titleFromFileName, updateDocumentMetadata, uploadDocumentsSequentially, validateDocumentFile, WORK_AREA_PLACEHOLDER } from "../pages/documents/documentHubState";
 import { ArtifactUploadError, downloadArtifact, listArtifacts, uploadArtifact, type ArtifactRecord } from "../services/artifactPersistence";
 import { shouldRedirectFromInternal } from "../utils/accessRouting";
@@ -26,6 +26,13 @@ describe("Document Hub shell and navigation", () => {
         expect(canEditArtifactMetadata("Viewer")).toBe(false);
         expect(canEditArtifactMetadata("DDTeam")).toBe(false);
         expect(canEditArtifactMetadata(null)).toBe(false);
+    });
+    it("protects only genuinely changed metadata from drawer dismissal", () => {
+        const initial = { documentTitle: "Budget report", documentTypeKey: "report-analysis", businessTopicSlug: "budget", documentOrigin: null, description: null };
+        expect(artifactMetadataHasChanges(initial, { ...initial })).toBe(false);
+        expect(artifactMetadataHasChanges(initial, { ...initial, documentOrigin: "" })).toBe(false);
+        expect(artifactMetadataHasChanges(initial, { ...initial, documentTitle: "Updated budget report" })).toBe(true);
+        expect(artifactMetadataHasChanges(null, initial)).toBe(false);
     });
     it("creates a deterministic title while metadata edits preserve file and idempotency identity", () => {
         expect(titleFromFileName("FY2026_DHS_Cost_Report_FINAL.docx")).toBe("FY2026 DHS Cost Report FINAL");
