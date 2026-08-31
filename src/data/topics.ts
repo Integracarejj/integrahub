@@ -1,3 +1,7 @@
+// Authority boundary: cmdb.BusinessTopics owns the durable classification identity
+// (slug, name, description, group, active state, and sort order) used by Document Hub.
+// This module temporarily owns richer Business Topic page enrichment keyed by that
+// authoritative slug. Migration 019 tests require every enriched slug to exist in SQL.
 export interface BusinessTopic {
     slug: string;
     name: string;

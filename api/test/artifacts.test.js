@@ -153,6 +153,61 @@ test("valid Editor upload creates Pending before Graph and persists exact Graph 
     assert.equal("siteId" in result, false);
 });
 
+test("optional business metadata is created atomically without changing source identity", async () => {
+    const value = harness();
+    const artifact = await value.service.upload({ ...value.request, documentTitle: "Quarterly Financial Review",
+        documentTypeKey: "report-analysis", businessTopicSlug: "budget", documentOrigin: "DHS", description: "Approved quarterly review." });
+    const pending = value.calls.find(([name]) => name === "pending")[1];
+    assert.equal(pending.documentTitle, "Quarterly Financial Review");
+    assert.equal(pending.documentTypeKey, "report-analysis");
+    assert.equal(pending.businessTopicSlug, "budget");
+    assert.equal(pending.documentOrigin, "DHS");
+    assert.equal(pending.description, "Approved quarterly review.");
+    assert.equal(pending.contentSize, value.request.content.length);
+    assert.equal(pending.idempotencyKey, value.request.idempotencyKey);
+    assert.equal(artifact.documentTitle, "Quarterly Financial Review");
+    assert.equal("submittedByUserId" in artifact, false);
+});
+
+test("metadata-only repository update cannot mutate source or stored placement identity", async () => {
+    const statements = [];
+    const transaction = { begin: async () => undefined, commit: async () => undefined, rollback: async () => undefined };
+    const repository = createArtifactRepository({ query: async () => [{ id: ARTIFACT_ID }], getPool: async () => ({}), createTransaction: () => transaction,
+        queryInTransaction: async (_transaction, statement) => { statements.push(statement); return statement.includes("UPDATE cmdb.Artifacts") ? [{ id: ARTIFACT_ID }] : []; } });
+    await repository.updateMetadata(ARTIFACT_ID, { documentTitle: "Corrected", documentOrigin: "Vendor",
+        documentTypeKey: "other", businessTopicSlug: "compliance", description: "Corrected context" }, EDITOR.id);
+    const update = statements.find(statement => statement.includes("UPDATE cmdb.Artifacts"));
+    assert.match(update, /SET documentTitle = @documentTitle/);
+    for (const protectedName of ["originalFileName", "contentSize", "contentSha256", "idempotencyKey", "storageDestination",
+        "libraryKey", "siteId", "driveId", "itemId", "storedContentSize", "storedContentSha256", "storedObservedAt"]) {
+        assert.equal(update.includes(`${protectedName} =`), false, protectedName);
+    }
+    assert.equal(statements.some(statement => statement.includes("UPDATE cmdb.ArtifactPlacements")), false);
+});
+
+test("metadata update authorization is enforced independently of the frontend", async () => {
+    const value = harness();
+    await assert.rejects(value.service.updateMetadata(ARTIFACT_ID, { documentTitle: "Unauthorized" },
+        { id: "viewer", globalRole: "Viewer" }), ArtifactForbiddenError);
+    assert.equal(value.calls.some(([name]) => name === "metadata-update"), false);
+});
+
+test("metadata PATCH returns 403 for an authenticated read-only user before repository access", async () => {
+    const service = createArtifactService({ repository: new Proxy({}, { get: () => () => { throw new Error("repository must not be called"); } }) });
+    const app = express();
+    app.use(express.json());
+    app.use((req, _res, next) => { req.user = { id: "viewer", globalRole: "Viewer" }; next(); });
+    app.use("/api/artifacts", createArtifactRouter(service));
+    const server = app.listen(0, "127.0.0.1"); await new Promise(resolve => server.once("listening", resolve));
+    try {
+        const response = await fetch(`http://127.0.0.1:${server.address().port}/api/artifacts/${ARTIFACT_ID}/metadata`, {
+            method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ documentTitle: "Unauthorized" }),
+        });
+        assert.equal(response.status, 403);
+        assert.deepEqual(await response.json(), { error: "Artifact Hub access denied" });
+    } finally { await new Promise(resolve => server.close(resolve)); }
+});
+
 test("OOXML-like upload catalogs the exact service Buffer length and hash sent to Graph", async () => {
     const content = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0x00, 0x08, 0xff, 0x80, 0x00, 0x7f]);
     const value = harness({ downloadContent: content });
@@ -544,11 +599,15 @@ test("repository search is bounded to active uploaded rows with count, filters, 
         if (statement.includes("SELECT TOP (1)")) return [];
         return statement.includes("SELECT COUNT_BIG(*) AS total") ? [{ total: 3 }] : [];
     } });
-    const result = await repository.list({ pageSize: 25, offset: 0, libraryKey: "Legal", q: "Agreement", extensions: ["pdf"], uploadedFrom: "2026-08-01", sort: "newest" });
+    const result = await repository.list({ pageSize: 25, offset: 0, libraryKey: "Legal", documentTypeKey: "contract-agreement",
+        businessTopicSlug: "compliance", q: "Agreement", extensions: ["pdf"], uploadedFrom: "2026-08-01", sort: "newest" });
     assert.equal(result.total, 3); assert.equal(calls.length, 3);
     for (const [statement] of calls.slice(1)) {
         assert.match(statement, /lifecycleState = 'Active'/); assert.match(statement, /ingestionState = 'Uploaded'/);
         assert.match(statement, /originalFileName LIKE/); assert.match(statement, /fileExtension IN \(@extension0\)/);
+        assert.match(statement, /documentTitle LIKE/); assert.match(statement, /documentOrigin LIKE/);
+        assert.match(statement, /documentType\.displayName LIKE/); assert.match(statement, /businessTopic\.displayName LIKE/);
+        assert.match(statement, /artifact\.documentTypeKey = @documentTypeKey/); assert.match(statement, /artifact\.businessTopicSlug = @businessTopicSlug/);
         assert.match(statement, /OUTER APPLY/); assert.match(statement, /placementType = artifact\.storageDestination/);
     }
     assert.match(calls[0][0], /placementCount > 1/);

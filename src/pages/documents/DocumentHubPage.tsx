@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
-import { ArtifactUploadError, uploadArtifact, type ArtifactLibraryKey } from "../../services/artifactPersistence";
-import { addDocumentFiles, applyDestinationToAll, BUSINESS_DESTINATIONS, canUploadBatch, documentAvailabilityLabel, documentExtension, documentStatusLabel, formatDocumentSize, INTERNAL_WORK_USES, markDocumentFailed, markDocumentUploaded, markDocumentUploading, readyDocuments, removeStagedDocument, setDocumentBusinessDestination, setDocumentDestination, shouldShowBulkWorkAreaControl, storeButtonLabel, uploadDocumentsSequentially, WORK_AREA_PLACEHOLDER, type StagedDocument } from "./documentHubState";
+import { useEffect, useRef, useState } from "react";
+import { ArtifactUploadError, getArtifactMetadataOptions, uploadArtifact, type ArtifactLibraryKey, type ArtifactMetadataOptions } from "../../services/artifactPersistence";
+import { addDocumentFiles, applyDestinationToAll, BUSINESS_DESTINATIONS, canUploadBatch, documentAvailabilityLabel, documentExtension, documentStatusLabel, formatDocumentSize, INTERNAL_WORK_USES, markDocumentFailed, markDocumentUploaded, markDocumentUploading, readyDocuments, removeStagedDocument, setDocumentBusinessDestination, setDocumentDestination, shouldShowBulkWorkAreaControl, storeButtonLabel, updateDocumentMetadata, uploadDocumentsSequentially, WORK_AREA_PLACEHOLDER, type StagedDocument } from "./documentHubState";
 import "./DocumentHubPage.css";
 import DocumentHubFind from "./DocumentHubFind";
 
@@ -27,12 +27,21 @@ export default function DocumentHubPage() {
     const [batchRunning, setBatchRunning] = useState(false);
     const [bulkDestination, setBulkDestination] = useState<ArtifactLibraryKey | "">("");
     const [catalogVersion, setCatalogVersion] = useState(0);
+    const [metadataOptions, setMetadataOptions] = useState<ArtifactMetadataOptions>({ documentTypes: [], businessTopics: [] });
+    const [showFieldHelp, setShowFieldHelp] = useState(false);
     const fileInput = useRef<HTMLInputElement>(null);
     const uploadInFlight = useRef(false);
 
+    useEffect(() => { getArtifactMetadataOptions().then(setMetadataOptions).catch(() => undefined); }, []);
+
+    const metadataFor = (item: StagedDocument) => ({ documentTitle: item.documentTitle || null,
+        documentTypeKey: item.documentTypeKey || null, businessTopicSlug: item.businessTopicSlug || null,
+        documentOrigin: item.documentOrigin || null, description: item.description || null });
+
     function addFiles(files: FileList | File[]) {
         if (!files.length) return;
-        setItems(current => addDocumentFiles(current, Array.from(files), newIdempotencyKey));
+        const selectedFiles = Array.from(files);
+        setItems(current => addDocumentFiles(current, selectedFiles, newIdempotencyKey));
         if (fileInput.current) fileInput.current.value = "";
     }
 
@@ -42,11 +51,11 @@ export default function DocumentHubPage() {
     }
 
     async function uploadOne(item: StagedDocument) {
-        if (uploadInFlight.current || !item.destination || item.validationError || !["ready", "failed"].includes(item.phase)) return;
+        if (uploadInFlight.current || (item.businessDestination === "Working" && !item.destination) || item.validationError || !["ready", "failed"].includes(item.phase)) return;
         uploadInFlight.current = true;
         setItems(current => markDocumentUploading(current, item.id));
         try {
-            const artifact = await uploadArtifact(item.file, item.businessDestination as "Working" | "Knowledge", item.destination || null, item.idempotencyKey);
+            const artifact = await uploadArtifact(item.file, item.businessDestination as "Working" | "Knowledge", item.destination || null, item.idempotencyKey, fetch, metadataFor(item));
             setItems(current => markDocumentUploaded(current, item.id, artifact)); setCatalogVersion(value => value + 1);
         } catch (error) {
             const message = error instanceof ArtifactUploadError ? error.message : "Document Hub could not store this file. Please retry.";
@@ -62,7 +71,7 @@ export default function DocumentHubPage() {
         setBatchRunning(true);
         await uploadDocumentsSequentially(
             items,
-            item => uploadArtifact(item.file, item.businessDestination as "Working" | "Knowledge", item.destination || null, item.idempotencyKey),
+            item => uploadArtifact(item.file, item.businessDestination as "Working" | "Knowledge", item.destination || null, item.idempotencyKey, fetch, metadataFor(item)),
             item => setItems(current => markDocumentUploading(current, item.id)),
             (item, artifact) => { setItems(current => markDocumentUploaded(current, item.id, artifact)); setCatalogVersion(value => value + 1); },
             (item, error) => {
@@ -151,6 +160,16 @@ export default function DocumentHubPage() {
                                             {INTERNAL_WORK_USES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                                         </select>
                                     </label>}
+                                    {!!item.businessDestination && <section className="document-hub-metadata" aria-label="Optional document details">
+                                        <div className="document-hub-metadata-heading"><div><strong>Help others find this document</strong><small>Optional details make this document easier to find and understand.</small></div><button type="button" onClick={() => setShowFieldHelp(true)}>Fields explained</button></div>
+                                        <div className="document-hub-metadata-grid">
+                                            <label>Document title<input value={item.documentTitle} maxLength={255} onChange={event => setItems(current => updateDocumentMetadata(current, item.id, { documentTitle: event.target.value }))} /></label>
+                                            <label>Document type<select value={item.documentTypeKey} onChange={event => setItems(current => updateDocumentMetadata(current, item.id, { documentTypeKey: event.target.value }))}><option value="">Choose a type</option>{metadataOptions.documentTypes.map(type => <option key={type.key} value={type.key}>{type.displayName}</option>)}</select></label>
+                                            <label>Business topic<input list={`topics-${item.id}`} value={item.businessTopicQuery} placeholder="Search topics" onChange={event => { const value = event.target.value; const match = metadataOptions.businessTopics.find(topic => topic.name === value); setItems(current => updateDocumentMetadata(current, item.id, { businessTopicQuery: value, businessTopicSlug: match?.slug || "" })); }} /><datalist id={`topics-${item.id}`}>{metadataOptions.businessTopics.map(topic => <option key={topic.slug} value={topic.name}>{topic.group}</option>)}</datalist></label>
+                                            <label>Document origin<input value={item.documentOrigin} maxLength={255} placeholder="Created internally, DHS, consultant…" onChange={event => setItems(current => updateDocumentMetadata(current, item.id, { documentOrigin: event.target.value }))} /></label>
+                                        </div>
+                                        {!item.descriptionExpanded ? <button type="button" className="document-hub-add-description" onClick={() => setItems(current => updateDocumentMetadata(current, item.id, { descriptionExpanded: true }))}>+ Add description</button> : <label className="document-hub-description">Description<textarea value={item.description} maxLength={2000} rows={3} onChange={event => setItems(current => updateDocumentMetadata(current, item.id, { description: event.target.value }))} /></label>}
+                                    </section>}
                                 </div>
                                 <div className={`document-hub-status ${item.phase}`} role={item.phase === "failed" || item.phase === "invalid" ? "alert" : "status"}>
                                     {item.phase === "ready" && <strong>{documentStatusLabel(item)}</strong>}
@@ -165,9 +184,10 @@ export default function DocumentHubPage() {
                     </div>}
 
                     <div className="document-hub-submit-row">
-                        <div className="document-hub-ready-summary">{readyCount > 0 ? <><strong>Ready to store</strong><span>{readyCount === 1 ? <>1 document will be stored in: <b>{documentAvailabilityLabel(readyDocuments(items)[0])}</b></> : <>{readyCount} documents are ready and will be stored in their selected destinations.</>}</span></> : <span>{hasUploaded ? "Stored documents remain visible. Add more documents at any time." : pendingCount > 0 ? "Choose an available destination and any required work area for every valid document." : "Documents are stored only after you confirm."}</span>}</div>
+                        <div className="document-hub-ready-summary">{readyCount > 0 ? <><strong>Ready to store</strong>{readyCount === 1 ? (() => { const ready = readyDocuments(items)[0]; const type = metadataOptions.documentTypes.find(option => option.key === ready.documentTypeKey)?.displayName; const topic = metadataOptions.businessTopics.find(option => option.slug === ready.businessTopicSlug)?.name; return <span><b>{ready.documentTitle || ready.file.name}</b><small>{ready.file.name}</small><small>{documentAvailabilityLabel(ready)}</small>{(type || topic) && <small>{[type, topic].filter(Boolean).join(" · ")}</small>}{ready.documentOrigin && <small>Origin: {ready.documentOrigin}</small>}</span>; })() : <span>{readyCount} documents are ready and will be stored in their selected destinations.</span>}</> : <span>{hasUploaded ? "Stored documents remain visible. Add more documents at any time." : pendingCount > 0 ? "Choose an available destination and any required work area for every valid document." : "Documents are stored only after you confirm."}</span>}</div>
                         <button type="button" className="document-hub-primary" onClick={submitBatch} disabled={!canUploadBatch(items, batchRunning)}>{storeButtonLabel(items, batchRunning)}</button>
                     </div>
+                    {showFieldHelp && <div className="document-hub-help-backdrop" role="presentation" onMouseDown={() => setShowFieldHelp(false)}><section className="document-hub-help" role="dialog" aria-modal="true" aria-labelledby="metadata-help-title" onMouseDown={event => event.stopPropagation()}><button type="button" aria-label="Close fields explained" onClick={() => setShowFieldHelp(false)}>×</button><h2 id="metadata-help-title">Fields explained</h2><dl><div><dt>Document title</dt><dd>A clear business-friendly name. Example: Project Liberty Financial Review.</dd></div><div><dt>Document type</dt><dd>What kind of business document this is, such as a Policy, Contract, or Report / Analysis.</dd></div><div><dt>Business topic</dt><dd>The main business subject. It helps others find the document by business area.</dd></div><div><dt>Document origin</dt><dd>Where it originally came from, such as Created internally, DHS, a municipality, consultant, or vendor.</dd></div><div><dt>Description</dt><dd>A short explanation of what the document contains or why it matters.</dd></div></dl></section></div>}
                 </section>
             )}
         </main>

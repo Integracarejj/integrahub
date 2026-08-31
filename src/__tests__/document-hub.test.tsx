@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import DocumentHubPage, { StoredDocumentConfirmation } from "../pages/documents/DocumentHubPage";
-import DocumentHubFind, { FIND_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "../pages/documents/DocumentHubFind";
-import { addDocumentFiles, applyDestinationToAll, beginDocumentUpload, BUSINESS_DESTINATIONS, canSubmitDocument, canUploadBatch, completeDocumentUpload, documentStatusLabel, EMPTY_UPLOAD_STATE, failDocumentUpload, internalWorkUseLabel, markDocumentFailed, markDocumentUploaded, MAX_DOCUMENT_BYTES, readyDocuments, removeDocumentFile, removeStagedDocument, selectDocumentFile, setDocumentBusinessDestination, setDocumentDestination, shouldShowBulkWorkAreaControl, storeButtonLabel, uploadDocumentsSequentially, validateDocumentFile, WORK_AREA_PLACEHOLDER } from "../pages/documents/documentHubState";
+import DocumentHubFind, { canEditArtifactMetadata, FIND_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "../pages/documents/DocumentHubFind";
+import { addDocumentFiles, applyDestinationToAll, beginDocumentUpload, BUSINESS_DESTINATIONS, canSubmitDocument, canUploadBatch, completeDocumentUpload, documentStatusLabel, EMPTY_UPLOAD_STATE, failDocumentUpload, internalWorkUseLabel, markDocumentFailed, markDocumentUploaded, MAX_DOCUMENT_BYTES, readyDocuments, removeDocumentFile, removeStagedDocument, selectDocumentFile, setDocumentBusinessDestination, setDocumentDestination, shouldShowBulkWorkAreaControl, storeButtonLabel, titleFromFileName, updateDocumentMetadata, uploadDocumentsSequentially, validateDocumentFile, WORK_AREA_PLACEHOLDER } from "../pages/documents/documentHubState";
 import { ArtifactUploadError, downloadArtifact, listArtifacts, uploadArtifact, type ArtifactRecord } from "../services/artifactPersistence";
 import { shouldRedirectFromInternal } from "../utils/accessRouting";
 import { INTERNAL_NAV_ITEMS } from "../navigation/internalNavigation";
@@ -12,7 +12,7 @@ const responseArtifact: ArtifactRecord = {
     contentType: "text/plain", size: 6, ingestionState: "Uploaded", classificationState: "Unclassified",
     lifecycleState: "Active", storageDestination: "Working", libraryKey: "Projects",
     sourceOrigin: "Internal Artifact Upload", sourceModule: "ArtifactHub", sourceContext: null,
-    description: null, effectiveDate: null, submittedByUserId: "editor", uploadedAt: "now", createdAt: "now", updatedAt: "now",
+    description: null, effectiveDate: null, submittedByDisplayName: "Document Editor", uploadedAt: "now", createdAt: "now", updatedAt: "now",
 };
 
 function textFile(name = "report.txt", body = "report") {
@@ -20,6 +20,22 @@ function textFile(name = "report.txt", body = "report") {
 }
 
 describe("Document Hub shell and navigation", () => {
+    it("uses the existing global role boundary for metadata editing", () => {
+        expect(canEditArtifactMetadata("Editor")).toBe(true);
+        expect(canEditArtifactMetadata("PlatformAdmin")).toBe(true);
+        expect(canEditArtifactMetadata("Viewer")).toBe(false);
+        expect(canEditArtifactMetadata("DDTeam")).toBe(false);
+        expect(canEditArtifactMetadata(null)).toBe(false);
+    });
+    it("creates a deterministic title while metadata edits preserve file and idempotency identity", () => {
+        expect(titleFromFileName("FY2026_DHS_Cost_Report_FINAL.docx")).toBe("FY2026 DHS Cost Report FINAL");
+        let sequence = 0;
+        const staged = addDocumentFiles([], [textFile("source-file.txt")], () => `key-${++sequence}`);
+        const updated = updateDocumentMetadata(staged, staged[0].id, { documentTitle: "Business title", documentOrigin: "DHS", description: "Context" });
+        expect(updated[0].idempotencyKey).toBe(staged[0].idempotencyKey);
+        expect(updated[0].file).toBe(staged[0].file);
+        expect(updated[0]).toMatchObject({ documentTitle: "Business title", documentOrigin: "DHS", description: "Context" });
+    });
     it("uses business destinations as the primary model and reserves Work area for Working", () => {
         expect(BUSINESS_DESTINATIONS).toEqual([
             { value: "Working", description: "Active internal work and collaboration.", enabled: true },

@@ -1,11 +1,13 @@
-import { test, expect, mockAuth } from "./helpers/auth";
+import { test, expect, mockAuth, PREVIEW_USER } from "./helpers/auth";
 
 const textDocument = (name: string) => ({ name, mimeType: "text/plain", buffer: Buffer.from("document") });
+const metadataOptions = { documentTypes: [{ key: "report-analysis", displayName: "Report / Analysis" }],
+    businessTopics: [{ slug: "budget", name: "Budget", description: "Financial planning and variance tracking.", group: "Finance" }] };
 const artifact = (id: string, fileName: string, storageDestination: "Working" | "Knowledge", libraryKey: "Projects" | null, uploadedAt = "2026-08-27T12:00:00.000Z") => ({
     id, fileName, extension: "txt", contentType: "text/plain", size: 8,
     ingestionState: "Uploaded", classificationState: "Unclassified", lifecycleState: "Active",
     storageDestination, libraryKey, sourceOrigin: "Internal Artifact Upload", sourceModule: "ArtifactHub",
-    sourceContext: null, description: null, effectiveDate: null, submittedByUserId: "user-e2e",
+    sourceContext: null, description: null, effectiveDate: null, submittedByDisplayName: "E2E User",
     uploadedAt, createdAt: uploadedAt, updatedAt: uploadedAt,
 });
 
@@ -23,6 +25,7 @@ test("Document Hub presents business destinations and Working-only routing", asy
         status: 200, contentType: "application/json",
         body: JSON.stringify({ artifacts: rows, total: rows.length, page: 1, pageSize: 10 }),
     }); });
+    await page.route("**/api/artifacts/metadata/options", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(metadataOptions) }));
     await mockAuth(page);
     await page.goto("/documents", { waitUntil: "domcontentloaded", timeout: 90_000 });
     await expect(page.locator("#root")).toBeVisible();
@@ -44,6 +47,12 @@ test("Document Hub presents business destinations and Working-only routing", asy
 
     await row.getByRole("radio", { name: "Working" }).check();
     await expect(row.locator(".document-hub-work-area")).toBeVisible();
+    await expect(row.getByLabel("Document title")).toHaveValue("one");
+    await row.getByLabel("Document type").selectOption("report-analysis");
+    await row.getByLabel("Business topic").fill("Budget");
+    await row.getByLabel("Document origin").fill("DHS");
+    await row.getByRole("button", { name: "+ Add description" }).click();
+    await row.getByLabel("Description").fill("Quarterly review context.");
     await expect(row).toHaveCSS("background-color", "rgb(255, 255, 255)");
     await row.getByRole("radio", { name: "Knowledge" }).check();
     await expect(row.locator(".document-hub-work-area")).toHaveCount(0);
@@ -55,7 +64,7 @@ test("Document Hub presents business destinations and Working-only routing", asy
     await expect(page.getByText("Set work area for all Working documents")).toHaveCount(0);
     await page.locator(".document-hub-file-row").first().getByRole("radio", { name: "Working" }).check();
     await page.locator(".document-hub-file-row").nth(1).getByRole("radio", { name: "Knowledge" }).check();
-    await page.locator(".document-hub-file-row").first().locator("select").selectOption("Projects");
+    await page.locator(".document-hub-file-row").first().locator(".document-hub-work-area select").selectOption("Projects");
     await expect(page.getByText("Set work area for all Working documents")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Store 2 documents" })).toBeEnabled();
     await page.screenshot({ path: "test-results/document-hub-destination.png", fullPage: true });
@@ -94,7 +103,9 @@ test("Document Hub presents business destinations and Working-only routing", asy
 
 test("successful upload opens a refreshed newest-first Find list", async ({ page }) => {
     const older = artifact("11111111-1111-4111-8111-111111111111", "older.txt", "Working", "Projects");
-    const newest = artifact("33333333-3333-4333-8333-333333333333", "newest.txt", "Knowledge", null, "2026-08-28T12:00:00.000Z");
+    const newest = { ...artifact("33333333-3333-4333-8333-333333333333", "newest.txt", "Knowledge", null, "2026-08-28T12:00:00.000Z"),
+        documentTitle: "Newest Knowledge Report", documentType: { key: "report-analysis", displayName: "Report / Analysis" },
+        businessTopic: { slug: "budget", name: "Budget", group: "Finance" }, documentOrigin: "DHS", description: "Quarterly review context." };
     let uploaded = false;
     const listRequests: string[] = [];
     await page.route("**/api/artifacts", route => route.request().method() === "POST"
@@ -105,16 +116,43 @@ test("successful upload opens a refreshed newest-first Find list", async ({ page
         const rows = uploaded ? [newest, older] : [older];
         return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ artifacts: rows, total: rows.length, page: 1, pageSize: 10 }) });
     });
+    await page.route("**/api/artifacts/metadata/options", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(metadataOptions) }));
     await mockAuth(page);
     await page.goto("/documents", { waitUntil: "domcontentloaded", timeout: 90_000 });
     await page.locator("#document-hub-file").setInputFiles(textDocument("newest.txt"));
     await page.locator(".document-hub-file-row").getByRole("radio", { name: "Knowledge" }).check();
+    const uploadRow = page.locator(".document-hub-file-row");
+    await uploadRow.getByLabel("Document title").fill("Newest Knowledge Report");
+    await uploadRow.getByLabel("Document type").selectOption("report-analysis");
+    await uploadRow.getByLabel("Business topic").fill("Budget");
+    await uploadRow.getByLabel("Document origin").fill("DHS");
     await page.getByRole("button", { name: "Store 1 document" }).click();
     await expect(page.getByText("Document stored successfully")).toBeVisible();
     await page.getByRole("button", { name: "View in Find Documents" }).click();
     await expect(page.locator(".document-hub-results > button").first()).toContainText("newest.txt");
+    await page.locator(".document-hub-results > button").first().click();
+    await expect(page.getByRole("dialog", { name: "Document details" })).toContainText("Report / Analysis");
+    await expect(page.getByRole("dialog", { name: "Document details" })).toContainText("Budget");
+    await expect(page.getByRole("dialog", { name: "Document details" })).toContainText("DHS");
+    await expect(page.getByRole("dialog", { name: "Document details" }).getByRole("button", { name: "Edit details" })).toBeVisible();
     await expect(page.getByText("2 documents found")).toBeVisible();
     expect(listRequests.length).toBeGreaterThan(0);
     expect(new URL(listRequests[0]).searchParams.get("pageSize")).toBe("10");
     expect(new URL(listRequests[0]).searchParams.get("sort")).toBe("newest");
+});
+
+test("read-only users do not receive an active metadata edit affordance", async ({ page }) => {
+    const row = artifact("44444444-4444-4444-8444-444444444444", "read-only.txt", "Working", "Projects");
+    await page.route("**/api/artifacts?*", route => route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify({ artifacts: [row], total: 1, page: 1, pageSize: 10 }) }));
+    await page.route("**/api/artifacts/metadata/options", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(metadataOptions) }));
+    await mockAuth(page);
+    await page.route("**/api/me", route => route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify({ ...PREVIEW_USER, userRecord: { ...PREVIEW_USER.userRecord, role: "Viewer" } }) }));
+    await page.goto("/documents", { waitUntil: "domcontentloaded", timeout: 90_000 });
+    await page.getByRole("button", { name: /Find Documents/ }).click();
+    await page.locator(".document-hub-results > button").click();
+    const drawer = page.getByRole("dialog", { name: "Document details" });
+    await expect(drawer).toBeVisible();
+    await expect(drawer.getByRole("button", { name: "Edit details" })).toBeHidden();
 });

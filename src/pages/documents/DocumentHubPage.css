@@ -182,3 +182,30 @@
     .document-hub-detail { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .document-hub-spinner { animation: none; } }
+.document-hub-metadata { margin-top: 1rem; padding: 1rem; border: 1px solid #bfdbfe; border-radius: 14px; background: linear-gradient(135deg, #fff, #f0f9ff); }
+.document-hub-metadata-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: .8rem; }
+.document-hub-metadata-heading div { display: grid; gap: .2rem; }
+.document-hub-metadata-heading small { color: #475569; font-size: .85rem; }
+.document-hub-ready-summary > span { display: grid; gap: .15rem; }
+.document-hub-ready-summary small { color: #475569; }
+.document-hub-metadata-heading button, .document-hub-add-description, .document-hub-edit-details { border: 1px solid #2563eb; border-radius: 8px; background: #fff; color: #1d4ed8; padding: .45rem .7rem; font-weight: 700; cursor: pointer; }
+.document-hub-metadata-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.document-hub-metadata label, .document-hub-description, .document-hub-edit-form label { display: grid; gap: .3rem; color: #0f172a; font-size: .85rem; font-weight: 700; }
+.document-hub-metadata input, .document-hub-metadata select, .document-hub-metadata textarea, .document-hub-edit-form input, .document-hub-edit-form select, .document-hub-edit-form textarea { width: 100%; border: 1px solid #94a3b8; border-radius: 8px; background: #fff; color: #0f172a; padding: .6rem .7rem; }
+.document-hub-metadata input:focus, .document-hub-metadata select:focus, .document-hub-metadata textarea:focus { outline: 3px solid #bfdbfe; border-color: #2563eb; }
+.document-hub-add-description, .document-hub-description { margin-top: .75rem; }
+.document-hub-help-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 1rem; background: rgba(15, 23, 42, .55); }
+.document-hub-help { position: relative; width: min(620px, 100%); max-height: 85vh; overflow: auto; border-radius: 18px; background: #fff; padding: 1.5rem; box-shadow: 0 24px 70px rgba(15, 23, 42, .3); }
+.document-hub-help > button { position: absolute; top: .8rem; right: .8rem; border: 0; background: transparent; font-size: 1.6rem; cursor: pointer; }
+.document-hub-help dl { display: grid; gap: .8rem; }
+.document-hub-help dl div { padding: .8rem; border-left: 4px solid #60a5fa; background: #eff6ff; }
+.document-hub-help dt { font-weight: 800; color: #0f172a; }
+.document-hub-help dd { margin: .25rem 0 0; color: #334155; }
+.document-hub-detail-section { margin-top: 1rem; }
+.document-hub-detail-section h4 { margin: 0 0 .5rem; color: #1d4ed8; }
+.document-hub-edit-details { margin-top: 1rem; }
+.document-hub-detail.metadata-read-only .document-hub-edit-details { display: none; }
+.document-hub-edit-form { display: grid; gap: .75rem; margin-top: 1rem; padding: 1rem; border: 1px solid #bfdbfe; border-radius: 12px; background: #f8fbff; }
+.document-hub-edit-form > div { display: flex; justify-content: flex-end; gap: .6rem; }
+.document-hub-edit-form > div button { border: 1px solid #94a3b8; border-radius: 8px; padding: .55rem .8rem; background: #fff; cursor: pointer; }
+@media (max-width: 760px) { .document-hub-metadata-grid { grid-template-columns: 1fr; } }

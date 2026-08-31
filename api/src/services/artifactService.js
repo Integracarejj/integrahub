@@ -10,6 +10,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const IDEMPOTENCY_KEY = /^[A-Za-z0-9._:-]{8,128}$/;
 const READ_ROLES = new Set(["Viewer", "Editor", "PlatformAdmin", "DDTeam"]);
 const UPLOAD_ROLES = new Set(["Editor", "PlatformAdmin"]);
+const METADATA_WRITE_ROLES = UPLOAD_ROLES;
 const MIME_BY_EXTENSION = new Map([
     ["pdf", new Set(["application/pdf"])],
     ["doc", new Set(["application/msword"])],
@@ -59,9 +60,31 @@ function safeArtifact(row) {
         classificationState: row.classificationState, lifecycleState: row.lifecycleState,
         storageDestination: row.storageDestination, libraryKey: row.libraryKey,
         sourceOrigin: row.sourceOrigin, sourceModule: row.sourceModule, sourceContext: row.sourceContext || null,
-        description: row.description || null, effectiveDate: row.effectiveDate || null,
-        submittedByUserId: row.submittedByUserId, uploadedAt: row.uploadedAt || null,
+        documentTitle: row.documentTitle || null,
+        documentType: row.documentTypeKey ? { key: row.documentTypeKey, displayName: row.documentTypeName } : null,
+        businessTopic: row.businessTopicSlug ? { slug: row.businessTopicSlug, name: row.businessTopicName, group: row.businessTopicGroup } : null,
+        documentOrigin: row.documentOrigin || null, description: row.description || null, effectiveDate: row.effectiveDate || null,
+        submittedByDisplayName: row.submittedByDisplayName || row.submittedByEmail || "Unknown user", uploadedAt: row.uploadedAt || null,
         createdAt: row.createdAt, updatedAt: row.updatedAt,
+    };
+}
+
+function optionalText(value, field, maxLength) {
+    if (value == null || value === "") return null;
+    if (typeof value !== "string") throw new ArtifactValidationError(`${field} must be text`);
+    const clean = value.trim();
+    if (!clean) return null;
+    if (clean.length > maxLength) throw new ArtifactValidationError(`${field} is too long`);
+    return clean;
+}
+
+function metadataValues(input) {
+    return {
+        documentTitle: optionalText(input.documentTitle, "Document title", 255),
+        documentOrigin: optionalText(input.documentOrigin, "Document origin", 255),
+        documentTypeKey: optionalText(input.documentTypeKey, "Document type", 64),
+        businessTopicSlug: optionalText(input.businessTopicSlug, "Business topic", 64),
+        description: optionalText(input.description, "Description", 2000),
     };
 }
 
@@ -136,7 +159,7 @@ export function createArtifactService({
     }
 
     return {
-        async upload({ originalFileName, contentType, content, destination, workArea, libraryKey, idempotencyKey, sourceContext, actor }) {
+        async upload({ originalFileName, contentType, content, destination, workArea, libraryKey, idempotencyKey, sourceContext, actor, ...metadataInput }) {
             requireActor(actor, UPLOAD_ROLES);
             if (!IDEMPOTENCY_KEY.test(String(idempotencyKey || ""))) throw new ArtifactValidationError("A valid Idempotency-Key is required");
             const storageDestination = destination || (libraryKey ? "Working" : "");
@@ -147,6 +170,8 @@ export function createArtifactService({
             if (!Buffer.isBuffer(content) || content.length < 1 || content.length > MAX_ARTIFACT_BYTES) throw new ArtifactValidationError("Artifacts must be between 1 byte and 10 MiB");
             if (sourceContext != null && (typeof sourceContext !== "string" || sourceContext.length > 255)) throw new ArtifactValidationError("Invalid source context");
             const file = sanitizeFileName(originalFileName, contentType);
+            const metadata = metadataValues(metadataInput);
+            if (repository.validateMetadataKeys && !await repository.validateMetadataKeys(metadata.documentTypeKey, metadata.businessTopicSlug)) throw new ArtifactValidationError("Select an active Document type and Business topic");
             const contentSha256 = createHash("sha256").update(content).digest("hex");
             const requested = { originalFileName: file.clean, contentType: file.contentType, contentSize: content.length,
                 contentSha256, storageDestination, libraryKey: selectedLibraryKey, sourceContext: sourceContext || null };
@@ -158,7 +183,7 @@ export function createArtifactService({
                 if (!row) {
                     const id = generateUuid();
                     const storedFileName = `${id}-${contentSha256.slice(0, 12)}-${file.base}.${file.extension}`;
-                    row = await repository.createPending({ id, ...requested, siteKey: storageDestination.toLowerCase(), storedFileName, fileExtension: file.extension,
+                    row = await repository.createPending({ id, ...requested, ...metadata, siteKey: storageDestination.toLowerCase(), storedFileName, fileExtension: file.extension,
                         sourceOrigin: "Internal Artifact Upload", sourceModule: "ArtifactHub",
                         submittedByUserId: actor.id, idempotencyKey });
                 } else if (row.ingestionState === "Failed") {
@@ -219,12 +244,29 @@ export function createArtifactService({
             return safeArtifact(row);
         },
 
-        async list({ page = 1, pageSize = 25, destination = null, libraryKey = null, q = "", fileType = "", dateRange = "all", sort = "newest" } = {}, actor) {
+        async metadataOptions(actor) {
+            requireActor(actor, READ_ROLES);
+            return repository.listMetadataOptions();
+        },
+
+        async updateMetadata(id, input, actor) {
+            requireActor(actor, METADATA_WRITE_ROLES);
+            if (!UUID.test(id)) throw new ArtifactValidationError("Invalid artifact ID");
+            const metadata = metadataValues(input || {});
+            if (!await repository.validateMetadataKeys(metadata.documentTypeKey, metadata.businessTopicSlug)) throw new ArtifactValidationError("Select an active Document type and Business topic");
+            const row = await repository.updateMetadata(id, metadata, actor.id);
+            if (!row) throw new ArtifactNotFoundError("Artifact not found");
+            return safeArtifact(row);
+        },
+
+        async list({ page = 1, pageSize = 25, destination = null, libraryKey = null, documentTypeKey = null, businessTopicSlug = null, q = "", fileType = "", dateRange = "all", sort = "newest" } = {}, actor) {
             requireActor(actor, READ_ROLES);
             const safePage = Number(page); const safePageSize = Number(pageSize);
             if (!Number.isInteger(safePage) || safePage < 1 || !Number.isInteger(safePageSize) || safePageSize < 1 || safePageSize > 100) throw new ArtifactValidationError("Invalid pagination");
             if (libraryKey && !["Projects", "Legal", "Operations"].includes(libraryKey)) throw new ArtifactValidationError("Invalid Artifact Hub destination");
             if (destination && !["Working", "Knowledge"].includes(destination)) throw new ArtifactValidationError("Invalid Artifact Hub destination");
+            if (documentTypeKey && !/^[a-z0-9-]{1,64}$/.test(documentTypeKey)) throw new ArtifactValidationError("Invalid document type filter");
+            if (businessTopicSlug && !/^[a-z0-9-]{1,64}$/.test(businessTopicSlug)) throw new ArtifactValidationError("Invalid Business topic filter");
             const safeQuery = String(q || "").trim();
             if (safeQuery.length > 200) throw new ArtifactValidationError("Search text is too long");
             if (fileType && !FILE_TYPE_EXTENSIONS[fileType]) throw new ArtifactValidationError("Invalid file type filter");
@@ -233,7 +275,7 @@ export function createArtifactService({
             const days = dateRange === "today" ? 0 : dateRange === "7days" ? 7 : dateRange === "30days" ? 30 : null;
             const uploadedFrom = days == null ? null : new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
             const result = await repository.list({ pageSize: safePageSize, offset: (safePage - 1) * safePageSize,
-                destination, libraryKey, q: safeQuery || null, extensions: FILE_TYPE_EXTENSIONS[fileType] || [], uploadedFrom, sort });
+                destination, libraryKey, documentTypeKey, businessTopicSlug, q: safeQuery || null, extensions: FILE_TYPE_EXTENSIONS[fileType] || [], uploadedFrom, sort });
             return { artifacts: result.rows.map(safeArtifact), total: result.total, page: safePage, pageSize: safePageSize };
         },
 

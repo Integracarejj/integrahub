@@ -8,10 +8,16 @@ const SELECT_ARTIFACT = `SELECT CONVERT(varchar(36), artifact.id) AS id, artifac
     artifact.lifecycleState, artifact.storageDestination, artifact.libraryKey,
     artifact.siteId, artifact.driveId, artifact.itemId, artifact.webUrl,
     artifact.sourceOrigin, artifact.sourceModule, artifact.sourceContext,
-    artifact.submittedByUserId, artifact.idempotencyKey, artifact.description,
+    artifact.submittedByUserId, submitter.displayName AS submittedByDisplayName, submitter.email AS submittedByEmail,
+    artifact.idempotencyKey, artifact.documentTitle, artifact.documentOrigin, artifact.documentTypeKey,
+    documentType.displayName AS documentTypeName, artifact.businessTopicSlug,
+    businessTopic.displayName AS businessTopicName, businessTopic.topicGroup AS businessTopicGroup, artifact.description,
     artifact.effectiveDate, artifact.classificationProvenance, artifact.classificationConfidence,
     artifact.uploadedAt, artifact.createdAt, artifact.updatedAt
-    FROM cmdb.Artifacts artifact`;
+    FROM cmdb.Artifacts artifact
+    INNER JOIN cmdb.Users submitter ON submitter.id = artifact.submittedByUserId
+    LEFT JOIN cmdb.DocumentTypes documentType ON documentType.documentTypeKey = artifact.documentTypeKey
+    LEFT JOIN cmdb.BusinessTopics businessTopic ON businessTopic.businessTopicSlug = artifact.businessTopicSlug`;
 
 const WORKING_PLACEMENT_APPLY = `OUTER APPLY (
     SELECT COUNT_BIG(*) AS placementCount,
@@ -42,7 +48,10 @@ const SELECT_READ_ARTIFACT = `SELECT CONVERT(varchar(36), artifact.id) AS id, ar
     COALESCE(working.itemId, artifact.itemId) AS itemId,
     COALESCE(working.webUrl, artifact.webUrl) AS webUrl,
     artifact.sourceOrigin, artifact.sourceModule, artifact.sourceContext,
-    artifact.submittedByUserId, artifact.idempotencyKey, artifact.description,
+    artifact.submittedByUserId, submitter.displayName AS submittedByDisplayName, submitter.email AS submittedByEmail,
+    artifact.idempotencyKey, artifact.documentTitle, artifact.documentOrigin, artifact.documentTypeKey,
+    documentType.displayName AS documentTypeName, artifact.businessTopicSlug,
+    businessTopic.displayName AS businessTopicName, businessTopic.topicGroup AS businessTopicGroup, artifact.description,
     artifact.effectiveDate, artifact.classificationProvenance, artifact.classificationConfidence,
     artifact.uploadedAt, artifact.createdAt, artifact.updatedAt,
     working.placementCount AS workingPlacementCount, working.placementId AS workingPlacementId,
@@ -55,6 +64,9 @@ const SELECT_READ_ARTIFACT = `SELECT CONVERT(varchar(36), artifact.id) AS id, ar
     artifact.itemId AS legacyArtifactItemId, artifact.webUrl AS legacyArtifactWebUrl,
     placementMigration.appliedAt AS placementMigrationAppliedAt
     FROM cmdb.Artifacts artifact
+    INNER JOIN cmdb.Users submitter ON submitter.id = artifact.submittedByUserId
+    LEFT JOIN cmdb.DocumentTypes documentType ON documentType.documentTypeKey = artifact.documentTypeKey
+    LEFT JOIN cmdb.BusinessTopics businessTopic ON businessTopic.businessTopicSlug = artifact.businessTopicSlug
     ${WORKING_PLACEMENT_APPLY}`;
 
 export class ArtifactLockError extends Error {
@@ -156,10 +168,10 @@ export function createArtifactRepository({
                 await queryInTransaction(transaction, `INSERT INTO cmdb.Artifacts
                     (id, originalFileName, storedFileName, fileExtension, contentType, contentSize,
                      contentSha256, storageDestination, libraryKey, sourceOrigin, sourceModule, sourceContext,
-                     submittedByUserId, idempotencyKey)
+                     submittedByUserId, idempotencyKey, documentTitle, documentOrigin, documentTypeKey, businessTopicSlug, description)
                     VALUES (@id, @originalFileName, @storedFileName, @fileExtension, @contentType, @contentSize,
                      @contentSha256, @storageDestination, @libraryKey, @sourceOrigin, @sourceModule, @sourceContext,
-                     @submittedByUserId, @idempotencyKey)`, values);
+                     @submittedByUserId, @idempotencyKey, @documentTitle, @documentOrigin, @documentTypeKey, @businessTopicSlug, @description)`, values);
                 await queryInTransaction(transaction, `INSERT INTO cmdb.ArtifactPlacements
                     (id, artifactId, placementType, placementStatus, siteKey, legacyLibraryKey, createdByUserId)
                     VALUES (@placementId, @id, @storageDestination, 'Pending', @siteKey, @libraryKey, @submittedByUserId)`,
@@ -337,8 +349,50 @@ export function createArtifactRepository({
 
         appendEvent(event) { return appendEventWith(query, event); },
 
-        async list({ pageSize, offset, destination, libraryKey, q, extensions, uploadedFrom, sort }) {
-            const params = { pageSize, offset, destination: destination || null, libraryKey: libraryKey || null, q: q || null, uploadedFrom: uploadedFrom || null };
+        async listMetadataOptions() {
+            const [documentTypes, businessTopics] = await Promise.all([
+                query(`SELECT documentTypeKey AS [key], displayName FROM cmdb.DocumentTypes WHERE isActive = 1 ORDER BY sortOrder, displayName`),
+                query(`SELECT businessTopicSlug AS slug, displayName AS name, description, topicGroup AS [group]
+                    FROM cmdb.BusinessTopics WHERE isActive = 1 ORDER BY sortOrder, displayName`),
+            ]);
+            return { documentTypes, businessTopics };
+        },
+
+        async validateMetadataKeys(documentTypeKey, businessTopicSlug) {
+            const rows = await query(`SELECT
+                CASE WHEN @documentTypeKey IS NULL OR EXISTS (SELECT 1 FROM cmdb.DocumentTypes WHERE documentTypeKey = @documentTypeKey AND isActive = 1) THEN 1 ELSE 0 END AS documentTypeValid,
+                CASE WHEN @businessTopicSlug IS NULL OR EXISTS (SELECT 1 FROM cmdb.BusinessTopics WHERE businessTopicSlug = @businessTopicSlug AND isActive = 1) THEN 1 ELSE 0 END AS businessTopicValid`,
+            { documentTypeKey, businessTopicSlug });
+            return !!rows[0]?.documentTypeValid && !!rows[0]?.businessTopicValid;
+        },
+
+        async updateMetadata(id, values, actorUserId) {
+            const transaction = createTransaction(await getPool());
+            await transaction.begin();
+            try {
+                const changed = await queryInTransaction(transaction, `UPDATE cmdb.Artifacts
+                    SET documentTitle = @documentTitle, documentOrigin = @documentOrigin,
+                        documentTypeKey = @documentTypeKey, businessTopicSlug = @businessTopicSlug,
+                        description = @description, updatedAt = SYSUTCDATETIME()
+                    OUTPUT CONVERT(varchar(36), INSERTED.id) AS id
+                    WHERE id = @id AND ingestionState = 'Uploaded' AND lifecycleState = 'Active'`, { id, ...values });
+                if (!changed[0]) return null;
+                await appendEventWith((statement, params) => queryInTransaction(transaction, statement, params), {
+                    artifactId: id, eventType: "MetadataUpdated", actorUserId,
+                    correlationId: null, details: { fields: ["documentTitle", "documentType", "businessTopic", "documentOrigin", "description"] },
+                });
+                await transaction.commit();
+                return repository.getForRead(id);
+            } catch (error) {
+                try { await transaction.rollback(); } catch { /* Preserve original error. */ }
+                throw error;
+            }
+        },
+
+        async list({ pageSize, offset, destination, libraryKey, documentTypeKey, businessTopicSlug, q, extensions, uploadedFrom, sort }) {
+            const params = { pageSize, offset, destination: destination || null, libraryKey: libraryKey || null,
+                documentTypeKey: documentTypeKey || null, businessTopicSlug: businessTopicSlug || null,
+                q: q || null, uploadedFrom: uploadedFrom || null };
             const extensionClause = extensions.length
                 ? `AND artifact.fileExtension IN (${extensions.map((extension, index) => {
                     params[`extension${index}`] = extension;
@@ -362,13 +416,19 @@ export function createArtifactRepository({
             const where = `WHERE artifact.lifecycleState = 'Active' AND artifact.ingestionState = 'Uploaded'
                 AND (@destination IS NULL OR artifact.storageDestination = @destination)
                 AND (@libraryKey IS NULL OR COALESCE(working.legacyLibraryKey, artifact.libraryKey) = @libraryKey)
-                AND (@q IS NULL OR artifact.originalFileName LIKE '%' + @q + '%' OR artifact.description LIKE '%' + @q + '%')
+                AND (@documentTypeKey IS NULL OR artifact.documentTypeKey = @documentTypeKey)
+                AND (@businessTopicSlug IS NULL OR artifact.businessTopicSlug = @businessTopicSlug)
+                AND (@q IS NULL OR artifact.originalFileName LIKE '%' + @q + '%' OR artifact.documentTitle LIKE '%' + @q + '%'
+                    OR artifact.description LIKE '%' + @q + '%' OR artifact.documentOrigin LIKE '%' + @q + '%'
+                    OR documentType.displayName LIKE '%' + @q + '%' OR businessTopic.displayName LIKE '%' + @q + '%')
                 AND (@uploadedFrom IS NULL OR artifact.uploadedAt >= @uploadedFrom)
                 ${extensionClause}`;
             const orderBy = sort === "name" ? "artifact.originalFileName, artifact.id"
                 : sort === "area" ? "COALESCE(working.legacyLibraryKey, artifact.libraryKey), artifact.originalFileName, artifact.id"
                     : "artifact.uploadedAt DESC, artifact.id";
             const countRows = await query(`SELECT COUNT_BIG(*) AS total FROM cmdb.Artifacts artifact
+                LEFT JOIN cmdb.DocumentTypes documentType ON documentType.documentTypeKey = artifact.documentTypeKey
+                LEFT JOIN cmdb.BusinessTopics businessTopic ON businessTopic.businessTopicSlug = artifact.businessTopicSlug
                 ${WORKING_PLACEMENT_APPLY} ${where}`, params);
             const rows = await query(`${SELECT_READ_ARTIFACT} ${where}
                 ORDER BY ${orderBy}

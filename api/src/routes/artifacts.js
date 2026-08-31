@@ -57,6 +57,10 @@ export function createArtifactRouter(service = artifactService) {
         try { return res.json(await service.list(req.query, req.user)); }
         catch (error) { return failure(res, error); }
     });
+    router.get("/metadata/options", async (req, res) => {
+        try { return res.json(await service.metadataOptions(req.user)); }
+        catch (error) { return failure(res, error); }
+    });
     router.post("/", raw({ type: "application/octet-stream", limit: MAX_ARTIFACT_BYTES }), async (req, res) => {
         try {
             const artifact = await service.upload({
@@ -65,13 +69,22 @@ export function createArtifactRouter(service = artifactService) {
                 destination: String(req.headers["x-artifact-destination"] || ""),
                 workArea: req.headers["x-artifact-work-area"] == null ? null : String(req.headers["x-artifact-work-area"]),
                 idempotencyKey: String(req.headers["idempotency-key"] || ""),
-                sourceContext: req.headers["x-source-context"] == null ? null : String(req.headers["x-source-context"]), actor: req.user,
+                sourceContext: req.headers["x-source-context"] == null ? null : String(req.headers["x-source-context"]),
+                documentTitle: req.headers["x-document-title"] == null ? null : decodeURIComponent(String(req.headers["x-document-title"])),
+                documentTypeKey: req.headers["x-document-type"] == null ? null : String(req.headers["x-document-type"]),
+                businessTopicSlug: req.headers["x-business-topic"] == null ? null : String(req.headers["x-business-topic"]),
+                documentOrigin: req.headers["x-document-origin"] == null ? null : decodeURIComponent(String(req.headers["x-document-origin"])),
+                description: req.headers["x-document-description"] == null ? null : decodeURIComponent(String(req.headers["x-document-description"])), actor: req.user,
             });
             return res.status(201).json({ artifact });
         } catch (error) {
             if (error?.type === "entity.too.large") return res.status(413).json({ error: "Artifact exceeds the 10 MiB limit" });
             return failure(res, error);
         }
+    });
+    router.patch("/:id/metadata", async (req, res) => {
+        try { return res.json({ artifact: await service.updateMetadata(req.params.id, req.body, req.user) }); }
+        catch (error) { return failure(res, error); }
     });
     router.get("/:id", async (req, res) => {
         try { return res.json({ artifact: await service.get(req.params.id, req.user) }); }

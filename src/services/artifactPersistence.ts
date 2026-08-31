@@ -15,9 +15,13 @@ export interface ArtifactRecord {
     sourceOrigin: string;
     sourceModule: string;
     sourceContext: string | null;
+    documentTitle?: string | null;
+    documentType?: { key: string; displayName: string } | null;
+    businessTopic?: { slug: string; name: string; group: string } | null;
+    documentOrigin?: string | null;
     description: string | null;
     effectiveDate: string | null;
-    submittedByUserId: string;
+    submittedByDisplayName?: string;
     uploadedAt: string | null;
     createdAt: string;
     updatedAt: string;
@@ -27,11 +31,26 @@ export interface ArtifactListQuery {
     destination?: ArtifactDestination | "";
     q?: string;
     libraryKey?: ArtifactLibraryKey | "";
+    documentTypeKey?: string;
+    businessTopicSlug?: string;
     fileType?: "" | "pdf" | "word" | "excel" | "powerpoint" | "text" | "images";
     dateRange?: "all" | "today" | "7days" | "30days";
     sort?: "newest" | "name" | "area";
     page?: number;
     pageSize?: number;
+}
+
+export interface ArtifactMetadataInput {
+    documentTitle: string | null;
+    documentTypeKey: string | null;
+    businessTopicSlug: string | null;
+    documentOrigin: string | null;
+    description: string | null;
+}
+
+export interface ArtifactMetadataOptions {
+    documentTypes: Array<{ key: string; displayName: string }>;
+    businessTopics: Array<{ slug: string; name: string; description: string; group: string }>;
 }
 
 export interface ArtifactListResult {
@@ -94,6 +113,26 @@ export async function getArtifact(id: string, fetchImpl: typeof fetch = fetch): 
     return artifact;
 }
 
+export async function getArtifactMetadataOptions(fetchImpl: typeof fetch = fetch): Promise<ArtifactMetadataOptions> {
+    const response = await fetchImpl("/api/artifacts/metadata/options", { credentials: "include", cache: "no-store" });
+    const payload = await jsonResponse(response);
+    if (!response.ok) throw new ArtifactUploadError(responseError(payload, "Document metadata options could not be loaded."), response.status);
+    const value = payload as Partial<ArtifactMetadataOptions> | null;
+    if (!value || !Array.isArray(value.documentTypes) || !Array.isArray(value.businessTopics)) throw new ArtifactUploadError("Document Hub returned invalid metadata options.", response.status);
+    return value as ArtifactMetadataOptions;
+}
+
+export async function updateArtifactMetadata(id: string, metadata: ArtifactMetadataInput, fetchImpl: typeof fetch = fetch): Promise<ArtifactRecord> {
+    const response = await fetchImpl(`/api/artifacts/${encodeURIComponent(id)}/metadata`, {
+        method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(metadata),
+    });
+    const payload = await jsonResponse(response);
+    if (!response.ok) throw new ArtifactUploadError(responseError(payload, "Document details could not be saved."), response.status);
+    const artifact = payload && typeof payload === "object" ? (payload as { artifact?: unknown }).artifact : null;
+    if (!isArtifactRecord(artifact)) throw new ArtifactUploadError("Document Hub returned invalid document details.", response.status);
+    return artifact;
+}
+
 export type SaveArtifactDownload = (blob: Blob, fileName: string) => void;
 
 function saveArtifactDownload(blob: Blob, fileName: string): void {
@@ -117,6 +156,7 @@ export async function uploadArtifact(
     workArea: ArtifactLibraryKey | null,
     idempotencyKey: string,
     fetchImpl: typeof fetch = fetch,
+    metadata: ArtifactMetadataInput | null = null,
 ): Promise<ArtifactRecord> {
     let response: Response;
     try {
@@ -129,6 +169,11 @@ export async function uploadArtifact(
                 "X-File-Content-Type": file.type,
                 "X-Artifact-Destination": destination,
                 ...(workArea ? { "X-Artifact-Work-Area": workArea } : {}),
+                ...(metadata?.documentTitle ? { "X-Document-Title": encodeURIComponent(metadata.documentTitle) } : {}),
+                ...(metadata?.documentTypeKey ? { "X-Document-Type": metadata.documentTypeKey } : {}),
+                ...(metadata?.businessTopicSlug ? { "X-Business-Topic": metadata.businessTopicSlug } : {}),
+                ...(metadata?.documentOrigin ? { "X-Document-Origin": encodeURIComponent(metadata.documentOrigin) } : {}),
+                ...(metadata?.description ? { "X-Document-Description": encodeURIComponent(metadata.description) } : {}),
                 "Idempotency-Key": idempotencyKey,
             },
             body: file,

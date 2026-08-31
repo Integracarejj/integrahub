@@ -115,6 +115,13 @@ export interface StagedDocument {
     validationError: string | null;
     uploadError: string | null;
     artifact: ArtifactRecord | null;
+    documentTitle: string;
+    documentTypeKey: string;
+    businessTopicSlug: string;
+    businessTopicQuery: string;
+    documentOrigin: string;
+    description: string;
+    descriptionExpanded: boolean;
 }
 
 type KeyGenerator = () => string;
@@ -134,10 +141,22 @@ export function addDocumentFiles(items: readonly StagedDocument[], files: Iterab
         added.push({
             id: generateKey(), file, destination: "", businessDestination: "", idempotencyKey: generateKey(),
             phase: validationError ? "invalid" : "ready", validationError,
-            uploadError: null, artifact: null,
+            uploadError: null, artifact: null, documentTitle: titleFromFileName(file.name), documentTypeKey: "",
+            businessTopicSlug: "", businessTopicQuery: "", documentOrigin: "", description: "", descriptionExpanded: false,
         });
     }
     return [...items, ...added];
+}
+
+export function titleFromFileName(fileName: string): string {
+    const dot = fileName.lastIndexOf(".");
+    const base = dot > 0 ? fileName.slice(0, dot) : fileName;
+    return base.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+export function updateDocumentMetadata(items: readonly StagedDocument[], id: string, values: Partial<Pick<StagedDocument,
+    "documentTitle" | "documentTypeKey" | "businessTopicSlug" | "businessTopicQuery" | "documentOrigin" | "description" | "descriptionExpanded">>): StagedDocument[] {
+    return items.map(item => item.id === id && !["uploading", "uploaded"].includes(item.phase) ? { ...item, ...values } : item);
 }
 
 export function setDocumentBusinessDestination(items: readonly StagedDocument[], id: string, businessDestination: DocumentDestination | "", generateKey: KeyGenerator): StagedDocument[] {
