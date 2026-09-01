@@ -3,14 +3,16 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createArtifactService, ArtifactConflictError, ArtifactForbiddenError,
-    ArtifactLifecycleRecoveryRequiredError, ArtifactNotFoundError, ArtifactValidationError } from "../src/services/artifactService.js";
+    ArtifactIntegrityError, ArtifactLifecycleRecoveryRequiredError, ArtifactNotFoundError,
+    ArtifactValidationError } from "../src/services/artifactService.js";
 
 const ID = "11111111-1111-4111-8111-111111111111";
 const ACTOR = { id: "editor-1", globalRole: "Editor" };
 const BYTES = Buffer.from("stored physical document bytes");
 const HASH = createHash("sha256").update(BYTES).digest("hex");
 
-function lifecycleHarness({ destination = "Knowledge", libraryKey = null, uploadError = null, failFinalizeOnce = false } = {}) {
+function lifecycleHarness({ destination = "Knowledge", libraryKey = null, uploadError = null, failFinalizeOnce = false,
+    sourceBytes = BYTES, recordedSourceBytes = sourceBytes, destinationBytes = sourceBytes } = {}) {
     const calls = [];
     let row = {
         id: ID, originalFileName: "Employee Handbook.docx", storedFileName: `${ID}-stored-Employee Handbook.docx`,
@@ -22,7 +24,8 @@ function lifecycleHarness({ destination = "Knowledge", libraryKey = null, upload
         businessTopicSlug: "employee-lifecycle", businessTopicName: "Employee Lifecycle", businessTopicGroup: "Workforce",
         documentOrigin: "HR", description: "Current handbook", effectiveDate: null, submittedByDisplayName: "Editor",
         uploadedAt: "2026-08-30", createdAt: "2026-08-30", updatedAt: "2026-08-30",
-        workingPlacementId: "source-placement", storedContentSize: BYTES.length, storedContentSha256: HASH,
+        workingPlacementId: "source-placement", storedContentSize: recordedSourceBytes.length,
+        storedContentSha256: createHash("sha256").update(recordedSourceBytes).digest("hex"),
     };
     let pending = null;
     let oldStatus = "Active";
@@ -70,8 +73,11 @@ function lifecycleHarness({ destination = "Knowledge", libraryKey = null, upload
             calls.push(["upload", content]); if (uploadError) throw uploadError;
             return { id: "target-item", name, size: content.length, type: "file", webUrl: "private" };
         },
-        getItem: async (_drive, item) => ({ id: item, name: row.storedFileName, size: BYTES.length, type: "file", webUrl: "private" }),
-        downloadFile: async (drive, item) => { calls.push(["download", drive, item]); return { content: BYTES, contentType: row.contentType }; },
+        getItem: async (drive, item) => ({ id: item, name: row.storedFileName,
+            size: drive === "source-drive" ? sourceBytes.length : destinationBytes.length,
+            type: "file", webUrl: "private" }),
+        downloadFile: async (drive, item) => { calls.push(["download", drive, item]);
+            return { content: drive === "source-drive" ? sourceBytes : destinationBytes, contentType: row.contentType }; },
     };
     const service = createArtifactService({ repository, graphClientFactory: () => graph,
         loadConfig: () => ({ credentials: {}, sites: [{ key: "knowledge", hostname: "host", sitePath: "/knowledge", libraryName: "Documents" }],
@@ -135,6 +141,32 @@ test("failed and interrupted moves retain the old active placement and retry wit
     await retry.service.move(ID, request, ACTOR);
     assert.equal(retry.calls.filter(call => call[0] === "upload").length, 1);
     assert.equal(retry.row().storageDestination, "Working"); assert.equal(retry.oldStatus(), "Retracted");
+});
+
+test("Move records a transformed Office destination as its own physical identity", async () => {
+    const transformed = Buffer.from("SharePoint-transformed destination Office bytes");
+    const value = lifecycleHarness({ destinationBytes: transformed });
+    const before = { ...value.row() };
+    await value.service.move(ID, { destination: "Working", workArea: "Operations", idempotencyKey: "move-transformed" }, ACTOR);
+    assert.equal(value.row().contentSize, before.contentSize);
+    assert.equal(value.row().contentSha256, before.contentSha256);
+    assert.equal(value.pending().storedContentSize, transformed.length);
+    assert.equal(value.pending().storedContentSha256, createHash("sha256").update(transformed).digest("hex"));
+    assert.notEqual(value.pending().storedContentSha256, before.storedContentSha256);
+    assert.equal(value.oldStatus(), "Retracted");
+});
+
+test("Move rejects changed source-placement bytes before any destination upload", async () => {
+    const recorded = Buffer.from("recorded SharePoint source bytes");
+    const changed = Buffer.from("mutated SharePoint source bytes!");
+    const value = lifecycleHarness({ sourceBytes: changed, recordedSourceBytes: recorded });
+    await assert.rejects(value.service.move(ID, { destination: "Working", workArea: "Operations",
+        idempotencyKey: "move-source-mismatch" }, ACTOR), error => error instanceof ArtifactIntegrityError
+            && error.diagnostics.lifecycleStage === "download");
+    assert.equal(value.calls.some(call => call[0] === "upload"), false);
+    assert.equal(value.oldStatus(), "Active");
+    assert.equal(value.row().storageDestination, "Knowledge");
+    assert.equal(value.pending().placementStatus, "Pending");
 });
 
 test("remove is authorized, audited, non-destructive, and deterministic", async () => {

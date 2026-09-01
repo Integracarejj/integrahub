@@ -358,12 +358,6 @@ export function createArtifactService({
                     if (!expectedSize || expectedSize > MAX_STORED_ARTIFACT_BYTES) throw new GraphRequestError("SharePoint item metadata", null, "invalid_size_boundary");
                     const copied = await client.downloadFile(drive.id, item.id, { maxBytes: MAX_STORED_ARTIFACT_BYTES, expectedSize });
                     const copiedHash = createHash("sha256").update(copied.content).digest("hex");
-                    if (copied.content.length !== source.storedContentSize || copiedHash !== source.storedContentSha256) {
-                        throw new ArtifactIntegrityError(integrityDiagnostics({ expectedStoredSize: source.storedContentSize,
-                            observedSize: copied.content.length, sizeMatched: copied.content.length === source.storedContentSize,
-                            hashMatched: copiedHash === source.storedContentSha256, storedIdentityExisted: true,
-                            lifecycleStage: "move-destination-validation" }));
-                    }
                     placement = await repository.recordMoveReceipt(id, operationKey, { siteId: site.id, driveId: drive.id,
                         itemId: item.id, webUrl: item.webUrl, storedContentSize: copied.content.length, storedContentSha256: copiedHash });
                     const completed = await repository.completeMove(id, operationKey, row.workingPlacementId, actor.id);

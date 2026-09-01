@@ -225,7 +225,10 @@
 .document-hub-detail-footer .document-hub-primary:disabled { border-color: #94a3b8; background: #94a3b8; color: #fff; opacity: 1; }
 .document-hub-secondary { padding: .55rem .85rem; border: 1px solid #94a3b8; border-radius: 8px; background: #fff; color: #334155; font-weight: 700; cursor: pointer; }
 .document-hub-secondary:hover { background: #f1f5f9; color: #0f172a; }
-.document-hub-manage { padding: .55rem .85rem; border: 1px solid #94a3b8; border-radius: 8px; background: #fff; color: #334155; font-weight: 700; cursor: pointer; }
+.document-hub-manage { padding: .55rem .85rem; border: 1px solid #2563eb; border-radius: 8px; background: #fff; color: #1d4ed8; font-weight: 750; cursor: pointer; }
+.document-hub-manage:hover:not(:disabled) { background: #eff6ff; color: #1e40af; }
+.document-hub-manage:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+.document-hub-manage:disabled { border-color: #cbd5e1; background: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
 .document-hub-manage-panel, .document-hub-lifecycle-form { margin-top: 1rem; padding: 1rem; border: 1px solid #bfdbfe; border-radius: 12px; background: #f8fbff; }
 .document-hub-manage-panel h4, .document-hub-lifecycle-form h4 { margin: 0; color: #1e40af; }
 .document-hub-manage-panel p, .document-hub-lifecycle-form p { color: #334155; line-height: 1.45; }
