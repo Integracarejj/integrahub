@@ -5,7 +5,8 @@ import { GraphRequestError } from "../integrations/sharepoint/graphClient.js";
 import { SharePointConfigError } from "../integrations/sharepoint/config.js";
 import { ArtifactLockError, ArtifactPlacementReadError, ArtifactPlacementWriteError } from "../services/artifactRepository.js";
 import { artifactService, MAX_ARTIFACT_BYTES, ArtifactConflictError, ArtifactForbiddenError,
-    ArtifactIntegrityError, ArtifactNotFoundError, ArtifactRecoveryRequiredError, ArtifactValidationError } from "../services/artifactService.js";
+    ArtifactIntegrityError, ArtifactLifecycleRecoveryRequiredError, ArtifactNotFoundError,
+    ArtifactRecoveryRequiredError, ArtifactValidationError } from "../services/artifactService.js";
 
 function safeName(name) { return String(name || "download").replace(/[\r\n"]/g, "_"); }
 
@@ -38,6 +39,7 @@ function failure(res, error) {
     }
     if (error instanceof ArtifactPlacementReadError || error instanceof ArtifactPlacementWriteError) return res.status(503).json({ error: "Artifact placement requires reconciliation" });
     if (error instanceof ArtifactRecoveryRequiredError) return res.status(503).json({ error: "Artifact upload is durable but requires retry before completion" });
+    if (error instanceof ArtifactLifecycleRecoveryRequiredError) return res.status(503).json({ error: error.message });
     if (error instanceof SharePointConfigError) return res.status(503).json({ error: "Artifact Hub SharePoint integration is not configured" });
     if (error instanceof GraphAuthenticationError) return res.status(502).json({ error: "Microsoft Graph authentication failed" });
     if (error instanceof GraphRequestError) {
@@ -84,6 +86,14 @@ export function createArtifactRouter(service = artifactService) {
     });
     router.patch("/:id/metadata", async (req, res) => {
         try { return res.json({ artifact: await service.updateMetadata(req.params.id, req.body, req.user) }); }
+        catch (error) { return failure(res, error); }
+    });
+    router.post("/:id/move", async (req, res) => {
+        try { return res.json({ artifact: await service.move(req.params.id, req.body, req.user) }); }
+        catch (error) { return failure(res, error); }
+    });
+    router.post("/:id/remove", async (req, res) => {
+        try { return res.json(await service.remove(req.params.id, req.body, req.user)); }
         catch (error) { return failure(res, error); }
     });
     router.get("/:id", async (req, res) => {

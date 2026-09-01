@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArtifactUploadError, downloadArtifact, getArtifactMetadataOptions, listArtifacts, updateArtifactMetadata, type ArtifactDestination, type ArtifactLibraryKey, type ArtifactListQuery, type ArtifactMetadataInput, type ArtifactMetadataOptions, type ArtifactRecord } from "../../services/artifactPersistence";
+import { ArtifactUploadError, downloadArtifact, getArtifactMetadataOptions, listArtifacts, moveArtifact, removeArtifact, updateArtifactMetadata, type ArtifactDestination, type ArtifactLibraryKey, type ArtifactListQuery, type ArtifactMetadataInput, type ArtifactMetadataOptions, type ArtifactRecord } from "../../services/artifactPersistence";
 import { formatDocumentSize, INTERNAL_WORK_USES, internalWorkUseLabel } from "./documentHubState";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 
@@ -41,6 +41,11 @@ export function artifactMetadataHasChanges(initial: ArtifactMetadataInput | null
         .some(key => (initial[key] || "") !== (current[key] || ""));
 }
 
+export function isNoOpArtifactMove(artifact: Pick<ArtifactRecord, "storageDestination" | "libraryKey">,
+    destination: ArtifactDestination, workArea: ArtifactLibraryKey | null): boolean {
+    return artifact.storageDestination === destination && (artifact.libraryKey || null) === (workArea || null);
+}
+
 export default function DocumentHubFind({ refreshKey = 0, canEditMetadata: canEditOverride }: { refreshKey?: number; canEditMetadata?: boolean }) {
     const { user: currentUser } = useCurrentUser();
     const canEditMetadata = canEditOverride ?? canEditArtifactMetadata(currentUser?.userRecord?.role);
@@ -61,6 +66,14 @@ export default function DocumentHubFind({ refreshKey = 0, canEditMetadata: canEd
     const [editError, setEditError] = useState<string | null>(null);
     const [saveConfirmation, setSaveConfirmation] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    const [lifecycleMode, setLifecycleMode] = useState<"menu" | "move" | "remove" | null>(null);
+    const [moveDestination, setMoveDestination] = useState<ArtifactDestination>("Knowledge");
+    const [moveWorkArea, setMoveWorkArea] = useState<ArtifactLibraryKey | null>(null);
+    const [moveKey, setMoveKey] = useState<string | null>(null);
+    const [removalReason, setRemovalReason] = useState("");
+    const [lifecycleBusy, setLifecycleBusy] = useState(false);
+    const [lifecycleError, setLifecycleError] = useState<string | null>(null);
+    const [lifecycleConfirmation, setLifecycleConfirmation] = useState<string | null>(null);
     const drawerOpen = selected !== null;
     const requestSequence = useRef(0);
     const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -94,6 +107,7 @@ export default function DocumentHubFind({ refreshKey = 0, canEditMetadata: canEd
         if (artifactMetadataHasChanges(editInitialValues, editValues)
             && !window.confirm("Discard your unsaved document detail changes?")) return false;
         setSelected(null); setEditValues(null); setEditInitialValues(null); setEditError(null); setSaveConfirmation(null);
+        setLifecycleMode(null); setLifecycleError(null); setMoveKey(null); setRemovalReason("");
         window.setTimeout(() => selectedTriggerRef.current?.focus(), 0);
         return true;
     }, [editInitialValues, editValues]);
@@ -159,6 +173,40 @@ export default function DocumentHubFind({ refreshKey = 0, canEditMetadata: canEd
         } finally { setSaving(false); }
     }
 
+    function beginMove() {
+        if (!selected) return;
+        setMoveDestination(selected.storageDestination);
+        setMoveWorkArea(selected.libraryKey);
+        setMoveKey(crypto.randomUUID());
+        setLifecycleError(null); setLifecycleMode("move");
+    }
+
+    async function submitMove() {
+        if (!selected || !moveKey || lifecycleBusy || isNoOpArtifactMove(selected, moveDestination, moveWorkArea)) return;
+        setLifecycleBusy(true); setLifecycleError(null);
+        try {
+            const updated = await moveArtifact(selected.id, moveDestination, moveDestination === "Working" ? moveWorkArea : null, moveKey);
+            setSelected(updated); setArtifacts(rows => rows.map(row => row.id === updated.id ? updated : row));
+            setLifecycleMode(null); setMoveKey(null); setSaveConfirmation("Document moved"); setRefresh(value => value + 1);
+        } catch (cause) {
+            setLifecycleError(cause instanceof ArtifactUploadError ? cause.message : "Document could not be moved.");
+        } finally { setLifecycleBusy(false); }
+    }
+
+    async function submitRemove() {
+        if (!selected || lifecycleBusy) return;
+        setLifecycleBusy(true); setLifecycleError(null);
+        try {
+            await removeArtifact(selected.id, removalReason.trim() || null);
+            const removedId = selected.id;
+            setArtifacts(rows => rows.filter(row => row.id !== removedId));
+            setTotal(value => Math.max(0, value - 1)); setSelected(null); setLifecycleMode(null);
+            setRemovalReason(""); setLifecycleConfirmation("Document removed"); setRefresh(value => value + 1);
+        } catch (cause) {
+            setLifecycleError(cause instanceof ArtifactUploadError ? cause.message : "Document could not be removed.");
+        } finally { setLifecycleBusy(false); }
+    }
+
     const page = query.page || 1;
     const pageSize = query.pageSize || FIND_PAGE_SIZE;
     const lastPage = Math.max(1, Math.ceil(total / pageSize));
@@ -179,12 +227,13 @@ export default function DocumentHubFind({ refreshKey = 0, canEditMetadata: canEd
             <label>Uploaded<select aria-label="Uploaded date" value={query.dateRange} onChange={event => updateQuery({ dateRange: event.target.value as ArtifactListQuery["dateRange"] })}><option value="all">All time</option><option value="today">Today</option><option value="7days">Last 7 days</option><option value="30days">Last 30 days</option></select></label>
             <label>Sort<select aria-label="Sort" value={query.sort} onChange={event => updateQuery({ sort: event.target.value as ArtifactListQuery["sort"] })}><option value="newest">Newest uploaded</option><option value="name">Name</option><option value="area">Use</option></select></label>
         </div>
+        {lifecycleConfirmation && <p className="document-hub-save-success document-hub-lifecycle-confirmation" role="status"><span aria-hidden="true">✓</span> {lifecycleConfirmation}</p>}
         {loading && !hasLoadedResults && <div className="document-hub-find-state" role="status"><span className="document-hub-spinner" /> Loading documents…</div>}
         {error && <div className={`document-hub-find-state error${hasLoadedResults ? " document-hub-refetch-error" : ""}`} role="alert"><strong>Documents could not be loaded</strong><span>{error}</span><button type="button" onClick={() => setRefresh(value => value + 1)}>Retry</button></div>}
         {hasLoadedResults && artifacts.length === 0 && <div className="document-hub-find-state empty"><strong>No documents found</strong><span>Change the filters, clear the search, or switch to Provide Documents.</span></div>}
         {hasLoadedResults && artifacts.length > 0 && <>
             <div className={`document-hub-results${loading ? " is-updating" : ""}`} role="list" aria-busy={loading}>
-                {artifacts.map(artifact => <button type="button" role="listitem" key={artifact.id} className={selected?.id === artifact.id ? "selected" : ""} onClick={event => { selectedTriggerRef.current = event.currentTarget; setSelected(artifact); setDownloadError(null); setEditError(null); setSaveConfirmation(null); setEditValues(null); setEditInitialValues(null); }}>
+                {artifacts.map(artifact => <button type="button" role="listitem" key={artifact.id} className={selected?.id === artifact.id ? "selected" : ""} onClick={event => { selectedTriggerRef.current = event.currentTarget; setSelected(artifact); setDownloadError(null); setEditError(null); setSaveConfirmation(null); setLifecycleConfirmation(null); setLifecycleMode(null); setLifecycleError(null); setMoveKey(null); setRemovalReason(""); setEditValues(null); setEditInitialValues(null); }}>
                     <span className="document-hub-result-name"><strong>{artifact.documentTitle || artifact.fileName}</strong><small>{artifact.documentTitle ? artifact.fileName : formatDocumentSize(artifact.size)}</small></span>
                     <span><small>Availability</small>{availabilityLabel(artifact)}</span><span><small>Business context</small>{[artifact.documentType?.displayName, artifact.businessTopic?.name].filter(Boolean).join(" · ") || friendlyType(artifact.extension)}</span><span><small>Uploaded</small>{formatDate(artifact.uploadedAt)}</span>
                 </button>)}
@@ -200,10 +249,13 @@ export default function DocumentHubFind({ refreshKey = 0, canEditMetadata: canEd
                     <section className="document-hub-detail-section"><h4>Document</h4><dl><div><dt>Title</dt><dd>{selected.documentTitle || selected.fileName}</dd></div><div><dt>Original filename</dt><dd>{selected.fileName}</dd></div><div><dt>Document type</dt><dd>{selected.documentType?.displayName || "Not provided"}</dd></div><div><dt>Business topic</dt><dd>{selected.businessTopic?.name || "Not provided"}</dd></div>{selected.description && <div className="document-hub-detail-wide"><dt>Description</dt><dd>{selected.description}</dd></div>}<div><dt>Document origin</dt><dd>{selected.documentOrigin || "Not provided"}</dd></div></dl></section>
                     <section className="document-hub-detail-section"><h4>Availability</h4><dl><div><dt>Destination</dt><dd>{selected.storageDestination}</dd></div>{selected.storageDestination === "Working" && <div><dt>Working area</dt><dd>{internalWorkUseLabel(selected.libraryKey as ArtifactLibraryKey)}</dd></div>}</dl></section>
                     <section className="document-hub-detail-section"><h4>Upload details</h4><dl><div><dt>Uploaded by</dt><dd>{selected.submittedByDisplayName || "Unknown user"}</dd></div><div><dt>Uploaded</dt><dd>{formatDate(selected.uploadedAt)}</dd></div>{selected.effectiveDate && <div><dt>Effective date</dt><dd>{formatDate(selected.effectiveDate)}</dd></div>}<div><dt>File type</dt><dd>{friendlyType(selected.extension)}</dd></div><div><dt>Size</dt><dd>{formatDocumentSize(selected.size)}</dd></div></dl></section>
+                    {lifecycleMode === "menu" && <section className="document-hub-manage-panel" aria-label="Manage document options"><h4>Manage document</h4><p>Correct where this document is available or withdraw it from normal Document Hub use.</p><div><button type="button" onClick={beginMove}>Move document</button><button type="button" className="danger" onClick={() => { setLifecycleMode("remove"); setLifecycleError(null); }}>Remove document</button></div></section>}
+                    {lifecycleMode === "move" && <section className="document-hub-lifecycle-form" aria-label="Move document"><h4>Move document</h4><p>Current: <strong>{availabilityLabel(selected)}</strong></p><fieldset><legend>Move to</legend><label><input type="radio" name="move-destination" value="Working" checked={moveDestination === "Working"} onChange={() => { setMoveDestination("Working"); setMoveWorkArea(selected.storageDestination === "Working" ? selected.libraryKey : null); }} /> Working</label><label><input type="radio" name="move-destination" value="Knowledge" checked={moveDestination === "Knowledge"} onChange={() => { setMoveDestination("Knowledge"); setMoveWorkArea(null); }} /> Knowledge</label></fieldset>{moveDestination === "Working" && <label>Work area<select aria-label="Move Work area" value={moveWorkArea || ""} onChange={event => setMoveWorkArea(event.target.value as ArtifactLibraryKey)}><option value="">Choose a work area</option>{INTERNAL_WORK_USES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>}<p>New: <strong>{moveDestination === "Knowledge" ? "Knowledge" : moveWorkArea ? `Working · ${internalWorkUseLabel(moveWorkArea)}` : "Choose a Work area"}</strong></p>{isNoOpArtifactMove(selected, moveDestination, moveWorkArea) && <p className="document-hub-lifecycle-note">Choose a different destination or Work area.</p>}{lifecycleError && <p className="document-hub-download-error" role="alert">{lifecycleError}</p>}</section>}
+                    {lifecycleMode === "remove" && <section className="document-hub-lifecycle-form danger" aria-label="Remove document"><h4>Remove “{selected.documentTitle || selected.fileName}”?</h4><p>This document will no longer appear in normal Document Hub results or be available to users. The retained record and physical file preserve auditability and recovery.</p><label>Reason <span>(optional)</span><textarea rows={3} maxLength={500} value={removalReason} onChange={event => setRemovalReason(event.target.value)} /></label>{lifecycleError && <p className="document-hub-download-error" role="alert">{lifecycleError}</p>}</section>}
                 </> : <div className="document-hub-edit-form"><label>Document title<input value={editValues.documentTitle || ""} maxLength={255} onChange={event => setEditValues({ ...editValues, documentTitle: event.target.value || null })} /></label><label>Document type<select value={editValues.documentTypeKey || ""} onChange={event => setEditValues({ ...editValues, documentTypeKey: event.target.value || null })}><option value="">Not provided</option>{metadataOptions.documentTypes.map(type => <option key={type.key} value={type.key}>{type.displayName}</option>)}</select></label><label>Business topic<select value={editValues.businessTopicSlug || ""} onChange={event => setEditValues({ ...editValues, businessTopicSlug: event.target.value || null })}><option value="">Not provided</option>{metadataOptions.businessTopics.map(topic => <option key={topic.slug} value={topic.slug}>{topic.name}</option>)}</select></label><label>Document origin<input value={editValues.documentOrigin || ""} maxLength={255} onChange={event => setEditValues({ ...editValues, documentOrigin: event.target.value || null })} /></label><label>Description<textarea rows={5} maxLength={2000} value={editValues.description || ""} onChange={event => setEditValues({ ...editValues, description: event.target.value || null })} /></label>{editError && <p className="document-hub-download-error" role="alert">{editError}</p>}</div>}
                 {downloadError && <p className="document-hub-download-error" role="alert">{downloadError}</p>}
             </div>
-            <footer className="document-hub-detail-footer">{!editValues ? <><button type="button" className="document-hub-edit-details" onClick={beginEdit}>Edit details</button><button type="button" className="document-hub-primary" onClick={downloadSelected} disabled={downloadState === "loading"}>{downloadState === "loading" ? "Downloading…" : "Download"}</button></> : <><button type="button" className="document-hub-secondary" onClick={() => { setEditValues(null); setEditInitialValues(null); setEditError(null); }}>Cancel</button><button type="button" className="document-hub-primary" onClick={saveEdit} disabled={saving}>{saving ? "Saving…" : "Save details"}</button></>}</footer>
+            <footer className="document-hub-detail-footer">{editValues ? <><button type="button" className="document-hub-secondary" onClick={() => { setEditValues(null); setEditInitialValues(null); setEditError(null); }}>Cancel</button><button type="button" className="document-hub-primary" onClick={saveEdit} disabled={saving}>{saving ? "Saving…" : "Save details"}</button></> : lifecycleMode === "move" ? <><button type="button" className="document-hub-secondary" onClick={() => { setLifecycleMode("menu"); setLifecycleError(null); }}>Cancel</button><button type="button" className="document-hub-primary" onClick={submitMove} disabled={lifecycleBusy || !moveWorkArea && moveDestination === "Working" || isNoOpArtifactMove(selected, moveDestination, moveWorkArea)}>{lifecycleBusy ? "Moving…" : "Move document"}</button></> : lifecycleMode === "remove" ? <><button type="button" className="document-hub-secondary" onClick={() => { setLifecycleMode("menu"); setLifecycleError(null); }}>Cancel</button><button type="button" className="document-hub-danger" onClick={submitRemove} disabled={lifecycleBusy}>{lifecycleBusy ? "Removing…" : "Remove document"}</button></> : <><button type="button" className="document-hub-edit-details" onClick={beginEdit}>Edit details</button>{canEditMetadata && <button type="button" className="document-hub-manage" onClick={() => setLifecycleMode(lifecycleMode === "menu" ? null : "menu")}>Manage document</button>}<button type="button" className="document-hub-primary" onClick={downloadSelected} disabled={downloadState === "loading"}>{downloadState === "loading" ? "Downloading…" : "Download"}</button></>}</footer>
             </aside>
         </div>}
     </section>;

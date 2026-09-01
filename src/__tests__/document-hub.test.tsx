@@ -1,9 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import DocumentHubPage, { StoredDocumentConfirmation } from "../pages/documents/DocumentHubPage";
-import DocumentHubFind, { artifactMetadataHasChanges, canEditArtifactMetadata, FIND_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "../pages/documents/DocumentHubFind";
+import DocumentHubFind, { artifactMetadataHasChanges, canEditArtifactMetadata, FIND_PAGE_SIZE, isNoOpArtifactMove, SEARCH_DEBOUNCE_MS } from "../pages/documents/DocumentHubFind";
 import { addDocumentFiles, applyDestinationToAll, beginDocumentUpload, BUSINESS_DESTINATIONS, canSubmitDocument, canUploadBatch, completeDocumentUpload, documentStatusLabel, EMPTY_UPLOAD_STATE, failDocumentUpload, internalWorkUseLabel, markDocumentFailed, markDocumentUploaded, MAX_DOCUMENT_BYTES, readyDocuments, removeDocumentFile, removeStagedDocument, selectDocumentFile, setDocumentBusinessDestination, setDocumentDestination, shouldShowBulkWorkAreaControl, storeButtonLabel, titleFromFileName, updateDocumentMetadata, uploadDocumentsSequentially, validateDocumentFile, WORK_AREA_PLACEHOLDER } from "../pages/documents/documentHubState";
-import { ArtifactUploadError, downloadArtifact, listArtifacts, uploadArtifact, type ArtifactRecord } from "../services/artifactPersistence";
+import { ArtifactUploadError, downloadArtifact, listArtifacts, moveArtifact, removeArtifact, uploadArtifact, type ArtifactRecord } from "../services/artifactPersistence";
 import { shouldRedirectFromInternal } from "../utils/accessRouting";
 import { INTERNAL_NAV_ITEMS } from "../navigation/internalNavigation";
 
@@ -33,6 +33,12 @@ describe("Document Hub shell and navigation", () => {
         expect(artifactMetadataHasChanges(initial, { ...initial, documentOrigin: "" })).toBe(false);
         expect(artifactMetadataHasChanges(initial, { ...initial, documentTitle: "Updated budget report" })).toBe(true);
         expect(artifactMetadataHasChanges(null, initial)).toBe(false);
+    });
+    it("prevents no-op lifecycle moves while allowing destination and Work-area changes", () => {
+        expect(isNoOpArtifactMove(responseArtifact, "Working", "Projects")).toBe(true);
+        expect(isNoOpArtifactMove(responseArtifact, "Working", "Legal")).toBe(false);
+        expect(isNoOpArtifactMove(responseArtifact, "Knowledge", null)).toBe(false);
+        expect(isNoOpArtifactMove({ ...responseArtifact, storageDestination: "Knowledge", libraryKey: null }, "Knowledge", null)).toBe(true);
     });
     it("creates a deterministic title while metadata edits preserve file and idempotency identity", () => {
         expect(titleFromFileName("FY2026_DHS_Cost_Report_FINAL.docx")).toBe("FY2026 DHS Cost Report FINAL");
@@ -319,6 +325,19 @@ describe("Document Hub selection and attempt state", () => {
 });
 
 describe("Artifact Hub browser API integration", () => {
+    it("moves and removes through narrow lifecycle endpoints without exposing storage identity", async () => {
+        const moved = { ...responseArtifact, storageDestination: "Knowledge" as const, libraryKey: null };
+        const moveFetch = vi.fn(async () => new Response(JSON.stringify({ artifact: moved }), { status: 200, headers: { "Content-Type": "application/json" } }));
+        expect((await moveArtifact(responseArtifact.id, "Knowledge", null, "move-request-1", moveFetch as typeof fetch)).storageDestination).toBe("Knowledge");
+        expect(moveFetch).toHaveBeenCalledWith(`/api/artifacts/${responseArtifact.id}/move`, expect.objectContaining({
+            method: "POST", credentials: "include", body: JSON.stringify({ destination: "Knowledge", workArea: null, idempotencyKey: "move-request-1" }),
+        }));
+        const removeFetch = vi.fn(async () => new Response(JSON.stringify({ id: responseArtifact.id, removed: true }), { status: 200, headers: { "Content-Type": "application/json" } }));
+        await removeArtifact(responseArtifact.id, "Duplicate", removeFetch as typeof fetch);
+        expect(removeFetch).toHaveBeenCalledWith(`/api/artifacts/${responseArtifact.id}/remove`, expect.objectContaining({
+            method: "POST", credentials: "include", body: JSON.stringify({ reason: "Duplicate" }),
+        }));
+    });
     it("lists authoritative artifacts with search, filters, pagination, and newest-first sorting", async () => {
         const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({ artifacts: [responseArtifact], total: 26, page: 2, pageSize: 25 }), { headers: { "Content-Type": "application/json" } }));
         const result = await listArtifacts({ q: "report", libraryKey: "Projects", fileType: "text", dateRange: "7days", sort: "newest", page: 2, pageSize: 25 }, fetchMock as typeof fetch);

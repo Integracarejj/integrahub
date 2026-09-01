@@ -11,6 +11,7 @@ const IDEMPOTENCY_KEY = /^[A-Za-z0-9._:-]{8,128}$/;
 const READ_ROLES = new Set(["Viewer", "Editor", "PlatformAdmin", "DDTeam"]);
 const UPLOAD_ROLES = new Set(["Editor", "PlatformAdmin"]);
 const METADATA_WRITE_ROLES = UPLOAD_ROLES;
+const LIFECYCLE_WRITE_ROLES = UPLOAD_ROLES;
 const MIME_BY_EXTENSION = new Map([
     ["pdf", new Set(["application/pdf"])],
     ["doc", new Set(["application/msword"])],
@@ -38,6 +39,7 @@ export class ArtifactIntegrityError extends Error {
 }
 export class ArtifactNotFoundError extends Error {}
 export class ArtifactRecoveryRequiredError extends Error {}
+export class ArtifactLifecycleRecoveryRequiredError extends Error {}
 
 function requireActor(actor, roles) {
     if (!actor?.id || !roles.has(actor.globalRole)) throw new ArtifactForbiddenError("Artifact access denied");
@@ -158,6 +160,52 @@ export function createArtifactService({
         return file;
     }
 
+    async function readStoredFile(row) {
+        const client = graphClientFactory(loadConfig());
+        const storedIdentityExisted = row.storedContentSize != null && row.storedContentSha256 != null;
+        let expectedSize = storedIdentityExisted ? Number(row.storedContentSize) : null;
+        if (!storedIdentityExisted) {
+            const item = await client.getItem(row.driveId, row.itemId);
+            if (!item || item.id !== row.itemId || item.name !== row.storedFileName || item.type !== "file") {
+                throw new ArtifactConflictError("Recorded Artifact storage item is inconsistent");
+            }
+            expectedSize = typeof item.size === "number" && Number.isSafeInteger(item.size) && item.size > 0
+                && item.size <= MAX_STORED_ARTIFACT_BYTES ? item.size : null;
+            if (expectedSize == null) throw new GraphRequestError("SharePoint item metadata", null, "invalid_size_boundary");
+        }
+        let file;
+        try {
+            file = await client.downloadFile(row.driveId, row.itemId, { maxBytes: MAX_STORED_ARTIFACT_BYTES, expectedSize });
+        } catch (error) {
+            if (!(storedIdentityExisted && error instanceof GraphRequestError && error.graphCode === "content_length_mismatch")) throw error;
+            throw new ArtifactIntegrityError(integrityDiagnostics({
+                expectedStoredSize: Number(row.storedContentSize), observedSize: error.diagnostics?.observedSize ?? null,
+                sizeMatched: false, hashMatched: null, storedIdentityExisted: true, lifecycleStage: "download",
+            }));
+        }
+        const observedSize = file.content.length;
+        const observedHash = createHash("sha256").update(file.content).digest("hex");
+        if (storedIdentityExisted) {
+            const sizeMatched = observedSize === Number(row.storedContentSize);
+            const hashMatched = observedHash === String(row.storedContentSha256).toLowerCase();
+            if (!sizeMatched || !hashMatched) throw new ArtifactIntegrityError(integrityDiagnostics({
+                expectedStoredSize: Number(row.storedContentSize), observedSize, sizeMatched, hashMatched,
+                storedIdentityExisted: true, lifecycleStage: "download",
+            }));
+        } else {
+            try {
+                await repository.establishStoredIdentity(row.id, { storedContentSize: observedSize, storedContentSha256: observedHash });
+            } catch (error) {
+                if (!(error instanceof ArtifactStoredIdentityConflictError)) throw error;
+                throw new ArtifactIntegrityError(integrityDiagnostics({
+                    expectedStoredSize: null, observedSize, sizeMatched: null, hashMatched: false,
+                    storedIdentityExisted: true, lifecycleStage: "legacy-download-establishment",
+                }));
+            }
+        }
+        return { ...file, storedContentSize: observedSize, storedContentSha256: observedHash };
+    }
+
     return {
         async upload({ originalFileName, contentType, content, destination, workArea, libraryKey, idempotencyKey, sourceContext, actor, ...metadataInput }) {
             requireActor(actor, UPLOAD_ROLES);
@@ -259,6 +307,94 @@ export function createArtifactService({
             return safeArtifact(row);
         },
 
+        async move(id, input, actor) {
+            requireActor(actor, LIFECYCLE_WRITE_ROLES);
+            if (!UUID.test(id)) throw new ArtifactValidationError("Invalid artifact ID");
+            const operationKey = String(input?.idempotencyKey || "");
+            if (!IDEMPOTENCY_KEY.test(operationKey)) throw new ArtifactValidationError("A valid lifecycle Idempotency-Key is required");
+            const storageDestination = String(input?.destination || "");
+            const libraryKey = input?.workArea ?? null;
+            if (!["Working", "Knowledge"].includes(storageDestination)) throw new ArtifactValidationError("Invalid Artifact Hub destination");
+            if (storageDestination === "Working" && !["Projects", "Legal", "Operations"].includes(libraryKey)) throw new ArtifactValidationError("A valid Work area is required");
+            if (storageDestination === "Knowledge" && libraryKey != null) throw new ArtifactValidationError("Knowledge does not accept a Work area");
+
+            return repository.withLifecycleLock(id, async () => {
+                let row = await repository.getForRead(id);
+                if (!row || row.ingestionState !== "Uploaded" || row.lifecycleState !== "Active") throw new ArtifactNotFoundError("Artifact not found");
+                let placement = await repository.getMoveOperation(id, operationKey);
+                if (placement) {
+                    if (placement.placementType !== storageDestination || (placement.legacyLibraryKey || null) !== libraryKey) {
+                        throw new ArtifactConflictError("Lifecycle Idempotency-Key was already used for a different move");
+                    }
+                    if (placement.placementStatus === "Active") return safeArtifact(row);
+                    if (placement.placementStatus !== "Pending") throw new ArtifactConflictError("Artifact move cannot be resumed");
+                } else {
+                    if (row.storageDestination === storageDestination && (row.libraryKey || null) === libraryKey) {
+                        throw new ArtifactValidationError("Select a different destination or Work area");
+                    }
+                    placement = await repository.beginMove(id, {
+                        placementType: storageDestination, siteKey: storageDestination.toLowerCase(), legacyLibraryKey: libraryKey,
+                        operationKey, actorUserId: actor.id,
+                        previous: { placementId: row.workingPlacementId, storageDestination: row.storageDestination, libraryKey: row.libraryKey },
+                    });
+                }
+
+                let destinationDurable = !!placement.itemId;
+                try {
+                    const source = await readStoredFile(row);
+                    const { client, site, drive, root } = await graphContext(storageDestination, libraryKey);
+                    let item;
+                    if (placement.itemId) {
+                        if (placement.siteId !== site.id || placement.driveId !== drive.id) throw new ArtifactConflictError("Recorded move destination is inconsistent");
+                        item = await client.getItem(drive.id, placement.itemId);
+                    } else {
+                        item = await client.findChildByExactName(drive.id, root.id, row.storedFileName);
+                        if (!item) item = await client.uploadNewFile(drive.id, root.id, row.storedFileName, source.content);
+                        destinationDurable = true;
+                        item = await client.getItem(drive.id, item.id);
+                    }
+                    if (!item || item.type !== "file" || item.name !== row.storedFileName) throw new ArtifactConflictError("Move destination storage identity is inconsistent");
+                    const expectedSize = typeof item.size === "number" && Number.isSafeInteger(item.size) ? item.size : null;
+                    if (!expectedSize || expectedSize > MAX_STORED_ARTIFACT_BYTES) throw new GraphRequestError("SharePoint item metadata", null, "invalid_size_boundary");
+                    const copied = await client.downloadFile(drive.id, item.id, { maxBytes: MAX_STORED_ARTIFACT_BYTES, expectedSize });
+                    const copiedHash = createHash("sha256").update(copied.content).digest("hex");
+                    if (copied.content.length !== source.storedContentSize || copiedHash !== source.storedContentSha256) {
+                        throw new ArtifactIntegrityError(integrityDiagnostics({ expectedStoredSize: source.storedContentSize,
+                            observedSize: copied.content.length, sizeMatched: copied.content.length === source.storedContentSize,
+                            hashMatched: copiedHash === source.storedContentSha256, storedIdentityExisted: true,
+                            lifecycleStage: "move-destination-validation" }));
+                    }
+                    placement = await repository.recordMoveReceipt(id, operationKey, { siteId: site.id, driveId: drive.id,
+                        itemId: item.id, webUrl: item.webUrl, storedContentSize: copied.content.length, storedContentSha256: copiedHash });
+                    const completed = await repository.completeMove(id, operationKey, row.workingPlacementId, actor.id);
+                    return safeArtifact(completed);
+                } catch (error) {
+                    try { await repository.recordMoveFailure(id, operationKey, actor.id,
+                        error instanceof GraphRequestError ? error.graphCode || "graph_error" : "move_error"); } catch { /* Preserve safe failure. */ }
+                    if (destinationDurable && !(error instanceof ArtifactValidationError)
+                        && !(error instanceof ArtifactConflictError) && !(error instanceof ArtifactIntegrityError)) {
+                        throw new ArtifactLifecycleRecoveryRequiredError("Artifact move destination is durable but requires retry");
+                    }
+                    throw error;
+                }
+            });
+        },
+
+        async remove(id, input, actor) {
+            requireActor(actor, LIFECYCLE_WRITE_ROLES);
+            if (!UUID.test(id)) throw new ArtifactValidationError("Invalid artifact ID");
+            const reason = optionalText(input?.reason, "Removal reason", 500);
+            return repository.withLifecycleLock(id, async () => {
+                const row = await repository.getById(id);
+                if (!row) throw new ArtifactNotFoundError("Artifact not found");
+                if (row.lifecycleState === "Removed") throw new ArtifactConflictError("Artifact is already removed");
+                if (row.lifecycleState !== "Active" || row.ingestionState !== "Uploaded") throw new ArtifactConflictError("Artifact cannot be removed");
+                const removed = await repository.remove(id, actor.id, reason);
+                if (!removed) throw new ArtifactConflictError("Artifact cannot be removed");
+                return removed;
+            });
+        },
+
         async list({ page = 1, pageSize = 25, destination = null, libraryKey = null, documentTypeKey = null, businessTopicSlug = null, q = "", fileType = "", dateRange = "all", sort = "newest" } = {}, actor) {
             requireActor(actor, READ_ROLES);
             const safePage = Number(page); const safePageSize = Number(pageSize);
@@ -284,55 +420,9 @@ export function createArtifactService({
             if (!UUID.test(id)) throw new ArtifactValidationError("Invalid artifact ID");
             const row = await repository.getForRead(id);
             if (!row || row.ingestionState !== "Uploaded" || row.lifecycleState === "Removed" || !row.driveId || !row.itemId) throw new ArtifactNotFoundError("Artifact not found");
-            const client = graphClientFactory(loadConfig());
-            const storedIdentityExisted = row.storedContentSize != null && row.storedContentSha256 != null;
-            let file;
-            try {
-                let expectedSize = storedIdentityExisted ? Number(row.storedContentSize) : null;
-                if (!storedIdentityExisted) {
-                    const item = await client.getItem(row.driveId, row.itemId);
-                    if (!item || item.id !== row.itemId || item.name !== row.storedFileName || item.type !== "file") {
-                        throw new ArtifactConflictError("Recorded Artifact storage item is inconsistent");
-                    }
-                    expectedSize = typeof item.size === "number" && Number.isSafeInteger(item.size) && item.size > 0
-                        && item.size <= MAX_STORED_ARTIFACT_BYTES ? item.size : null;
-                    if (expectedSize == null) throw new GraphRequestError("SharePoint item metadata", null, "invalid_size_boundary");
-                }
-                file = await client.downloadFile(row.driveId, row.itemId, {
-                    maxBytes: MAX_STORED_ARTIFACT_BYTES,
-                    expectedSize,
-                });
-            } catch (error) {
-                if (!(storedIdentityExisted && error instanceof GraphRequestError && error.graphCode === "content_length_mismatch")) throw error;
-                throw new ArtifactIntegrityError(integrityDiagnostics({
-                    expectedStoredSize: Number(row.storedContentSize), observedSize: error.diagnostics?.observedSize ?? null,
-                    sizeMatched: false, hashMatched: null, storedIdentityExisted: true, lifecycleStage: "download",
-                }));
-            }
-            const observedSize = file.content.length;
-            const observedHash = createHash("sha256").update(file.content).digest("hex");
-            if (storedIdentityExisted) {
-                const sizeMatched = observedSize === Number(row.storedContentSize);
-                const hashMatched = observedHash === String(row.storedContentSha256).toLowerCase();
-                if (!sizeMatched || !hashMatched) throw new ArtifactIntegrityError(integrityDiagnostics({
-                    expectedStoredSize: Number(row.storedContentSize), observedSize, sizeMatched, hashMatched,
-                    storedIdentityExisted: true, lifecycleStage: "download",
-                }));
-            } else {
-                try {
-                    await repository.establishStoredIdentity(row.id, {
-                        storedContentSize: observedSize, storedContentSha256: observedHash,
-                    });
-                } catch (error) {
-                    if (!(error instanceof ArtifactStoredIdentityConflictError)) throw error;
-                    throw new ArtifactIntegrityError(integrityDiagnostics({
-                        expectedStoredSize: null, observedSize, sizeMatched: null, hashMatched: false,
-                        storedIdentityExisted: true, lifecycleStage: "legacy-download-establishment",
-                    }));
-                }
-            }
+            const file = await readStoredFile(row);
             await repository.appendEvent({ artifactId: row.id, eventType: "ArtifactDownloaded", actorUserId: actor.id, correlationId: null });
-            return { ...file, fileName: row.originalFileName, contentType: row.contentType };
+            return { content: file.content, fileName: row.originalFileName, contentType: row.contentType };
         },
     };
 }

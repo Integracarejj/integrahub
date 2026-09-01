@@ -143,6 +143,24 @@ export function createArtifactRepository({
             }
         },
 
+        async withLifecycleLock(artifactId, work) {
+            const transaction = createTransaction(await getPool());
+            await transaction.begin();
+            try {
+                const rows = await queryInTransaction(transaction, `DECLARE @result INT;
+                    EXEC @result = sys.sp_getapplock @Resource = @resource, @LockMode = 'Exclusive',
+                        @LockOwner = 'Transaction', @LockTimeout = 15000;
+                    SELECT @result AS lockResult;`, { resource: `artifact-lifecycle:${artifactId}` });
+                if (!rows[0] || rows[0].lockResult < 0) throw new ArtifactLockError();
+                const result = await work();
+                await transaction.commit();
+                return result;
+            } catch (error) {
+                try { await transaction.rollback(); } catch { /* Preserve original error. */ }
+                throw error;
+            }
+        },
+
         async getById(id) {
             const rows = await query(`${SELECT_ARTIFACT} WHERE artifact.id = @id`, { id });
             return rows[0] || null;
@@ -383,6 +401,146 @@ export function createArtifactRepository({
                 });
                 await transaction.commit();
                 return repository.getForRead(id);
+            } catch (error) {
+                try { await transaction.rollback(); } catch { /* Preserve original error. */ }
+                throw error;
+            }
+        },
+
+        async getMoveOperation(artifactId, operationKey) {
+            const rows = await query(`SELECT CONVERT(varchar(36), id) AS id,
+                    CONVERT(varchar(36), artifactId) AS artifactId, placementType, placementStatus,
+                    siteKey, siteId, driveId, itemId, webUrl, legacyLibraryKey, operationKey,
+                    storedContentSize, storedContentSha256, storedObservedAt, activatedAt, retiredAt
+                FROM cmdb.ArtifactPlacements
+                WHERE artifactId = @artifactId AND operationKey = @operationKey`, { artifactId, operationKey });
+            return rows[0] || null;
+        },
+
+        async beginMove(artifactId, { placementType, siteKey, legacyLibraryKey, operationKey, actorUserId, previous }) {
+            const transaction = createTransaction(await getPool());
+            await transaction.begin();
+            try {
+                const current = await queryInTransaction(transaction, `SELECT TOP (2)
+                        CONVERT(varchar(36), placement.id) AS id
+                    FROM cmdb.ArtifactPlacements placement WITH (UPDLOCK, HOLDLOCK)
+                    INNER JOIN cmdb.Artifacts artifact WITH (UPDLOCK, HOLDLOCK) ON artifact.id = placement.artifactId
+                    WHERE artifact.id = @artifactId AND artifact.ingestionState = 'Uploaded'
+                      AND artifact.lifecycleState = 'Active' AND placement.placementStatus = 'Active'`, { artifactId });
+                if (current.length !== 1 || current[0].id !== previous.placementId) throw new ArtifactPlacementWriteError();
+                const placementId = generateUuid();
+                await queryInTransaction(transaction, `INSERT INTO cmdb.ArtifactPlacements
+                    (id, artifactId, placementType, placementStatus, siteKey, legacyLibraryKey,
+                     createdByUserId, operationKey)
+                    VALUES (@placementId, @artifactId, @placementType, 'Pending', @siteKey,
+                     @legacyLibraryKey, @actorUserId, @operationKey)`, {
+                    placementId, artifactId, placementType, siteKey, legacyLibraryKey, actorUserId, operationKey,
+                });
+                await appendEventWith((statement, params) => queryInTransaction(transaction, statement, params), {
+                    artifactId, eventType: "ArtifactMoveStarted", actorUserId, correlationId: operationKey,
+                    details: { previousDestination: previous.storageDestination, previousLibraryKey: previous.libraryKey,
+                        newDestination: placementType, newLibraryKey: legacyLibraryKey },
+                });
+                await transaction.commit();
+                return repository.getMoveOperation(artifactId, operationKey);
+            } catch (error) {
+                try { await transaction.rollback(); } catch { /* Preserve original error. */ }
+                throw error;
+            }
+        },
+
+        async recordMoveReceipt(artifactId, operationKey, { siteId, driveId, itemId, webUrl, storedContentSize, storedContentSha256 }) {
+            const changed = await query(`UPDATE cmdb.ArtifactPlacements
+                SET siteId = @siteId, driveId = @driveId, itemId = @itemId, webUrl = @webUrl,
+                    storedContentSize = @storedContentSize, storedContentSha256 = @storedContentSha256,
+                    storedObservedAt = COALESCE(storedObservedAt, SYSUTCDATETIME()), updatedAt = SYSUTCDATETIME()
+                OUTPUT CONVERT(varchar(36), INSERTED.id) AS id
+                WHERE artifactId = @artifactId AND operationKey = @operationKey AND placementStatus = 'Pending'
+                  AND (itemId IS NULL OR (siteId = @siteId AND driveId = @driveId AND itemId = @itemId))
+                  AND (storedContentSize IS NULL OR (storedContentSize = @storedContentSize
+                      AND LOWER(storedContentSha256) = LOWER(@storedContentSha256)))`, {
+                artifactId, operationKey, siteId, driveId, itemId, webUrl, storedContentSize, storedContentSha256,
+            });
+            if (changed.length !== 1) throw new ArtifactPlacementWriteError();
+            return repository.getMoveOperation(artifactId, operationKey);
+        },
+
+        async completeMove(artifactId, operationKey, sourcePlacementId, actorUserId) {
+            const transaction = createTransaction(await getPool());
+            await transaction.begin();
+            try {
+                const targetRows = await queryInTransaction(transaction, `SELECT TOP (2) *
+                    FROM cmdb.ArtifactPlacements WITH (UPDLOCK, HOLDLOCK)
+                    WHERE artifactId = @artifactId AND operationKey = @operationKey AND placementStatus = 'Pending'
+                      AND siteId IS NOT NULL AND driveId IS NOT NULL AND itemId IS NOT NULL
+                      AND storedContentSize IS NOT NULL AND storedContentSha256 IS NOT NULL AND storedObservedAt IS NOT NULL`,
+                { artifactId, operationKey });
+                if (targetRows.length !== 1) throw new ArtifactPlacementWriteError();
+                const target = targetRows[0];
+                const retired = await queryInTransaction(transaction, `UPDATE cmdb.ArtifactPlacements
+                    SET placementStatus = 'Retracted', retiredAt = SYSUTCDATETIME(), updatedAt = SYSUTCDATETIME()
+                    OUTPUT CONVERT(varchar(36), INSERTED.id) AS id
+                    WHERE id = @sourcePlacementId AND artifactId = @artifactId AND placementStatus = 'Active'`,
+                { artifactId, sourcePlacementId });
+                if (retired.length !== 1) throw new ArtifactPlacementWriteError();
+                const activated = await queryInTransaction(transaction, `UPDATE cmdb.ArtifactPlacements
+                    SET placementStatus = 'Active', activatedAt = SYSUTCDATETIME(), updatedAt = SYSUTCDATETIME()
+                    OUTPUT CONVERT(varchar(36), INSERTED.id) AS id
+                    WHERE id = @targetId AND placementStatus = 'Pending'`, { targetId: target.id });
+                if (activated.length !== 1) throw new ArtifactPlacementWriteError();
+                const artifact = await queryInTransaction(transaction, `UPDATE cmdb.Artifacts
+                    SET storageDestination = @placementType, libraryKey = @legacyLibraryKey,
+                        siteId = @siteId, driveId = @driveId, itemId = @itemId, webUrl = @webUrl,
+                        updatedAt = SYSUTCDATETIME()
+                    OUTPUT CONVERT(varchar(36), INSERTED.id) AS id
+                    WHERE id = @artifactId AND ingestionState = 'Uploaded' AND lifecycleState = 'Active'`, {
+                    artifactId, placementType: target.placementType, legacyLibraryKey: target.legacyLibraryKey,
+                    siteId: target.siteId, driveId: target.driveId, itemId: target.itemId, webUrl: target.webUrl,
+                });
+                if (artifact.length !== 1) throw new ArtifactPlacementWriteError();
+                await appendEventWith((statement, params) => queryInTransaction(transaction, statement, params), {
+                    artifactId, eventType: "ArtifactMoved", actorUserId, correlationId: operationKey,
+                    details: { newDestination: target.placementType, newLibraryKey: target.legacyLibraryKey,
+                        sourcePlacementRetained: true },
+                });
+                await transaction.commit();
+                return repository.getForRead(artifactId);
+            } catch (error) {
+                try { await transaction.rollback(); } catch { /* Preserve original error. */ }
+                throw error;
+            }
+        },
+
+        async recordMoveFailure(artifactId, operationKey, actorUserId, reason) {
+            return appendEventWith(query, { artifactId, eventType: "ArtifactMoveFailed", actorUserId,
+                correlationId: operationKey, details: { reason } });
+        },
+
+        async remove(artifactId, actorUserId, reason) {
+            const transaction = createTransaction(await getPool());
+            await transaction.begin();
+            try {
+                const prior = await queryInTransaction(transaction, `${SELECT_READ_ARTIFACT}
+                    WHERE artifact.id = @artifactId AND artifact.ingestionState = 'Uploaded'
+                      AND artifact.lifecycleState = 'Active'`, { artifactId });
+                if (prior.length !== 1) {
+                    await transaction.commit();
+                    return null;
+                }
+                const changed = await queryInTransaction(transaction, `UPDATE cmdb.Artifacts
+                    SET lifecycleState = 'Removed', updatedAt = SYSUTCDATETIME()
+                    OUTPUT CONVERT(varchar(36), INSERTED.id) AS id
+                    WHERE id = @artifactId AND lifecycleState = 'Active'
+                      AND NOT EXISTS (SELECT 1 FROM cmdb.ArtifactPlacements
+                          WHERE artifactId = @artifactId AND placementStatus = 'Pending')`, { artifactId });
+                if (changed.length !== 1) throw new ArtifactPlacementWriteError();
+                await appendEventWith((statement, params) => queryInTransaction(transaction, statement, params), {
+                    artifactId, eventType: "ArtifactRemoved", actorUserId, correlationId: null,
+                    details: { reason, previousDestination: prior[0].storageDestination,
+                        previousLibraryKey: prior[0].libraryKey, physicalFileRetained: true },
+                });
+                await transaction.commit();
+                return { id: artifactId, removed: true };
             } catch (error) {
                 try { await transaction.rollback(); } catch { /* Preserve original error. */ }
                 throw error;

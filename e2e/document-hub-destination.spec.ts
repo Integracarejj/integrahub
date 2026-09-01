@@ -232,6 +232,62 @@ test("drawer dismissal protects unsaved metadata and permits no-change dismissal
     await expect(drawer).toHaveCount(0);
 });
 
+test("authorized lifecycle management moves then removes without row actions", async ({ page }) => {
+    let row = { ...artifact("66666666-6666-4666-8666-666666666666", "lifecycle.txt", "Knowledge", null), documentTitle: "Lifecycle document" };
+    let active = true;
+    let moveCalls = 0;
+    let removeCalls = 0;
+    await page.route("**/api/artifacts?*", route => route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify({ artifacts: active ? [row] : [], total: active ? 1 : 0, page: 1, pageSize: 10 }) }));
+    await page.route("**/api/artifacts/66666666-6666-4666-8666-666666666666/move", async route => {
+        moveCalls += 1;
+        const values = route.request().postDataJSON();
+        if (moveCalls === 1) return route.fulfill({ status: 503, contentType: "application/json",
+            body: JSON.stringify({ error: "Artifact move destination is durable but requires retry" }) });
+        row = { ...row, storageDestination: values.destination, libraryKey: values.workArea };
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ artifact: row }) });
+    });
+    await page.route("**/api/artifacts/66666666-6666-4666-8666-666666666666/remove", route => {
+        removeCalls += 1; active = false;
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ id: row.id, removed: true }) });
+    });
+    await page.route("**/api/artifacts/metadata/options", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(metadataOptions) }));
+    await mockAuth(page);
+    await page.goto("/documents", { waitUntil: "domcontentloaded", timeout: 90_000 });
+    await page.getByRole("button", { name: /Find Documents/ }).click();
+    await page.locator(".document-hub-results > button").click();
+    let drawer = page.getByRole("dialog", { name: "Document details" });
+    await drawer.getByRole("button", { name: "Manage document" }).click();
+    await drawer.getByRole("button", { name: "Move document", exact: true }).click();
+    await expect(drawer.getByText("Current:")).toContainText("Knowledge");
+    await expect(drawer.getByText("External", { exact: true })).toHaveCount(0);
+    await expect(drawer.getByRole("button", { name: "Move document", exact: true })).toBeDisabled();
+    await drawer.getByLabel("Working", { exact: true }).check();
+    await drawer.getByLabel("Move Work area").selectOption("Legal");
+    await expect(drawer.getByText("New:")).toContainText("Working · Legal work");
+    await drawer.getByRole("button", { name: "Cancel" }).click();
+    expect(moveCalls).toBe(0);
+    await drawer.getByRole("button", { name: "Move document", exact: true }).click();
+    await drawer.getByLabel("Working", { exact: true }).check();
+    await drawer.getByLabel("Move Work area").selectOption("Legal");
+    await drawer.getByRole("button", { name: "Move document", exact: true }).click();
+    await expect(drawer.getByRole("alert")).toContainText("requires retry");
+    await expect(drawer.getByLabel("Move Work area")).toHaveValue("Legal");
+    await drawer.getByRole("button", { name: "Move document", exact: true }).click();
+    await expect(drawer.getByText("Document moved")).toBeVisible();
+    await expect(drawer).toContainText("Legal work");
+    expect(moveCalls).toBe(2);
+
+    await drawer.getByRole("button", { name: "Manage document" }).click();
+    await drawer.getByRole("button", { name: "Remove document", exact: true }).click();
+    await drawer.getByLabel(/Reason/).fill("Duplicate");
+    await drawer.getByRole("button", { name: "Remove document", exact: true }).click();
+    await expect(drawer).toHaveCount(0);
+    await expect(page.getByText("Document removed")).toBeVisible();
+    await expect(page.locator(".document-hub-results")).toHaveCount(0);
+    expect(removeCalls).toBe(1);
+});
+
 test("read-only users do not receive an active metadata edit affordance", async ({ page }) => {
     const row = artifact("44444444-4444-4444-8444-444444444444", "read-only.txt", "Working", "Projects");
     await page.route("**/api/artifacts?*", route => route.fulfill({ status: 200, contentType: "application/json",
@@ -246,4 +302,5 @@ test("read-only users do not receive an active metadata edit affordance", async 
     const drawer = page.getByRole("dialog", { name: "Document details" });
     await expect(drawer).toBeVisible();
     await expect(drawer.getByRole("button", { name: "Edit details" })).toBeHidden();
+    await expect(drawer.getByRole("button", { name: "Manage document" })).toHaveCount(0);
 });

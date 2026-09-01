@@ -133,6 +133,31 @@ export async function updateArtifactMetadata(id: string, metadata: ArtifactMetad
     return artifact;
 }
 
+export async function moveArtifact(id: string, destination: ArtifactDestination, workArea: ArtifactLibraryKey | null,
+    idempotencyKey: string, fetchImpl: typeof fetch = fetch): Promise<ArtifactRecord> {
+    const response = await fetchImpl(`/api/artifacts/${encodeURIComponent(id)}/move`, {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ destination, workArea, idempotencyKey }),
+    });
+    const payload = await jsonResponse(response);
+    if (!response.ok) throw new ArtifactUploadError(responseError(payload, "Document could not be moved."), response.status);
+    const artifact = payload && typeof payload === "object" ? (payload as { artifact?: unknown }).artifact : null;
+    if (!isArtifactRecord(artifact)) throw new ArtifactUploadError("Document Hub returned an invalid move response.", response.status);
+    return artifact;
+}
+
+export async function removeArtifact(id: string, reason: string | null, fetchImpl: typeof fetch = fetch): Promise<void> {
+    const response = await fetchImpl(`/api/artifacts/${encodeURIComponent(id)}/remove`, {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+    });
+    const payload = await jsonResponse(response);
+    if (!response.ok) throw new ArtifactUploadError(responseError(payload, "Document could not be removed."), response.status);
+    if (!payload || typeof payload !== "object" || (payload as { removed?: unknown }).removed !== true) {
+        throw new ArtifactUploadError("Document Hub returned an invalid remove response.", response.status);
+    }
+}
+
 export type SaveArtifactDownload = (blob: Blob, fileName: string) => void;
 
 function saveArtifactDownload(blob: Blob, fileName: string): void {
