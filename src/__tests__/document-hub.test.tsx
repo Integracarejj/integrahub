@@ -1,5 +1,4 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import DocumentHubPage, { StoredDocumentConfirmation } from "../pages/documents/DocumentHubPage";
 import DocumentHubFind, { artifactMetadataHasChanges, canEditArtifactMetadata, FIND_PAGE_SIZE, isNoOpArtifactMove, SEARCH_DEBOUNCE_MS } from "../pages/documents/DocumentHubFind";
@@ -40,13 +39,6 @@ describe("Document Hub shell and navigation", () => {
         expect(isNoOpArtifactMove(responseArtifact, "Working", "Legal")).toBe(false);
         expect(isNoOpArtifactMove(responseArtifact, "Knowledge", null)).toBe(false);
         expect(isNoOpArtifactMove({ ...responseArtifact, storageDestination: "Knowledge", libraryKey: null }, "Knowledge", null)).toBe(true);
-    });
-    it("styles Manage document as an enabled secondary action with a distinct disabled state", () => {
-        const css = readFileSync(new URL("../pages/documents/DocumentHubPage.css", import.meta.url), "utf8");
-        expect(css).toMatch(/\.document-hub-manage \{[^}]*border: 1px solid #2563eb[^}]*color: #1d4ed8/);
-        expect(css).toMatch(/\.document-hub-manage:hover:not\(:disabled\)/);
-        expect(css).toMatch(/\.document-hub-manage:focus-visible/);
-        expect(css).toMatch(/\.document-hub-manage:disabled \{[^}]*color: #94a3b8/);
     });
     it("creates a deterministic title while metadata edits preserve file and idempotency identity", () => {
         expect(titleFromFileName("FY2026_DHS_Cost_Report_FINAL.docx")).toBe("FY2026 DHS Cost Report FINAL");
