@@ -85,6 +85,10 @@ export class ArtifactStoredIdentityConflictError extends Error {
     constructor() { super("Artifact placement stored identity is inconsistent"); this.name = "ArtifactStoredIdentityConflictError"; }
 }
 
+export class ArtifactPendingMoveConflictError extends Error {
+    constructor() { super("Artifact has a Pending move for a different destination"); this.name = "ArtifactPendingMoveConflictError"; }
+}
+
 function sameNullable(left, right) { return (left ?? null) === (right ?? null); }
 
 function validateWorkingPlacement(row) {
@@ -428,6 +432,22 @@ export function createArtifactRepository({
                     WHERE artifact.id = @artifactId AND artifact.ingestionState = 'Uploaded'
                       AND artifact.lifecycleState = 'Active' AND placement.placementStatus = 'Active'`, { artifactId });
                 if (current.length !== 1 || current[0].id !== previous.placementId) throw new ArtifactPlacementWriteError();
+                const pending = await queryInTransaction(transaction, `SELECT TOP (1)
+                        CONVERT(varchar(36), id) AS id, CONVERT(varchar(36), artifactId) AS artifactId,
+                        placementType, placementStatus, siteKey, legacyLibraryKey, operationKey,
+                        siteId, driveId, itemId, webUrl, storedContentSize, storedContentSha256,
+                        storedObservedAt, activatedAt, retiredAt
+                    FROM cmdb.ArtifactPlacements WITH (UPDLOCK, HOLDLOCK)
+                    WHERE artifactId = @artifactId AND placementStatus = 'Pending'`, { artifactId });
+                if (pending.length) {
+                    const existing = pending[0];
+                    if (existing.placementType !== placementType
+                        || !sameNullable(existing.legacyLibraryKey, legacyLibraryKey)) {
+                        throw new ArtifactPendingMoveConflictError();
+                    }
+                    await transaction.commit();
+                    return existing;
+                }
                 const placementId = generateUuid();
                 await queryInTransaction(transaction, `INSERT INTO cmdb.ArtifactPlacements
                     (id, artifactId, placementType, placementStatus, siteKey, legacyLibraryKey,

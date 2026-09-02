@@ -730,3 +730,23 @@ test("physical integrity mismatch returns sanitized 409 and logs only safe diagn
         await new Promise(resolve => server.close(resolve));
     }
 });
+
+test("expected Pending move destination conflict returns 409 instead of generic 500", async () => {
+    const service = { move: async () => { throw new ArtifactConflictError(
+        "Artifact has a Pending move for a different destination"); } };
+    const app = express();
+    app.use(express.json());
+    app.use((req, _res, next) => { req.user = EDITOR; next(); });
+    app.use("/api/artifacts", createArtifactRouter(service));
+    const server = app.listen(0, "127.0.0.1"); await new Promise(resolve => server.once("listening", resolve));
+    try {
+        const response = await fetch(`http://127.0.0.1:${server.address().port}/api/artifacts/${ARTIFACT_ID}/move`, {
+            method: "POST", headers: { "content-type": "application/json" },
+            body: JSON.stringify({ destination: "Working", workArea: "Legal", idempotencyKey: "move-new-destination" }),
+        });
+        assert.equal(response.status, 409);
+        assert.deepEqual(await response.json(), {
+            error: "Artifact has a Pending move for a different destination",
+        });
+    } finally { await new Promise(resolve => server.close(resolve)); }
+});

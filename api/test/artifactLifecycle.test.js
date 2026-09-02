@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import { createArtifactService, ArtifactConflictError, ArtifactForbiddenError,
     ArtifactIntegrityError, ArtifactLifecycleRecoveryRequiredError, ArtifactNotFoundError,
     ArtifactValidationError } from "../src/services/artifactService.js";
+import { ArtifactPendingMoveConflictError, createArtifactRepository } from "../src/services/artifactRepository.js";
 
 const ID = "11111111-1111-4111-8111-111111111111";
 const ACTOR = { id: "editor-1", globalRole: "Editor" };
@@ -12,7 +13,8 @@ const BYTES = Buffer.from("stored physical document bytes");
 const HASH = createHash("sha256").update(BYTES).digest("hex");
 
 function lifecycleHarness({ destination = "Knowledge", libraryKey = null, uploadError = null, failFinalizeOnce = false,
-    sourceBytes = BYTES, recordedSourceBytes = sourceBytes, destinationBytes = sourceBytes } = {}) {
+    sourceBytes = BYTES, recordedSourceBytes = sourceBytes, destinationBytes = sourceBytes,
+    initialPending = null } = {}) {
     const calls = [];
     let row = {
         id: ID, originalFileName: "Employee Handbook.docx", storedFileName: `${ID}-stored-Employee Handbook.docx`,
@@ -27,7 +29,9 @@ function lifecycleHarness({ destination = "Knowledge", libraryKey = null, upload
         workingPlacementId: "source-placement", storedContentSize: recordedSourceBytes.length,
         storedContentSha256: createHash("sha256").update(recordedSourceBytes).digest("hex"),
     };
-    let pending = null;
+    let pending = initialPending ? { id: "target-placement", artifactId: ID, placementType: "Working",
+        placementStatus: "Pending", legacyLibraryKey: "Operations", operationKey: "move-original-operation",
+        siteId: null, driveId: null, itemId: null, webUrl: null, ...initialPending } : null;
     let oldStatus = "Active";
     let finalizeFailures = failFinalizeOnce ? 1 : 0;
     const events = [];
@@ -38,6 +42,13 @@ function lifecycleHarness({ destination = "Knowledge", libraryKey = null, upload
         getMoveOperation: async (_id, key) => pending?.operationKey === key ? { ...pending } : null,
         beginMove: async (_id, values) => {
             calls.push(["begin", values]);
+            if (pending) {
+                if (pending.placementType !== values.placementType
+                    || (pending.legacyLibraryKey || null) !== values.legacyLibraryKey) {
+                    throw new ArtifactPendingMoveConflictError();
+                }
+                return { ...pending };
+            }
             pending = { id: "target-placement", artifactId: ID, placementType: values.placementType,
                 placementStatus: "Pending", legacyLibraryKey: values.legacyLibraryKey, operationKey: values.operationKey,
                 siteId: null, driveId: null, itemId: null, webUrl: null };
@@ -45,8 +56,8 @@ function lifecycleHarness({ destination = "Knowledge", libraryKey = null, upload
             return { ...pending };
         },
         recordMoveReceipt: async (_id, _key, identity) => { calls.push(["receipt", identity]); pending = { ...pending, ...identity }; return { ...pending }; },
-        completeMove: async (_id, _key, sourcePlacementId) => {
-            calls.push(["complete", sourcePlacementId]);
+        completeMove: async (_id, key, sourcePlacementId) => {
+            calls.push(["complete", sourcePlacementId, key]);
             if (finalizeFailures-- > 0) throw new Error("sql unavailable");
             oldStatus = "Retracted"; pending = { ...pending, placementStatus: "Active" };
             row = { ...row, storageDestination: pending.placementType, libraryKey: pending.legacyLibraryKey,
@@ -141,6 +152,81 @@ test("failed and interrupted moves retain the old active placement and retry wit
     await retry.service.move(ID, request, ACTOR);
     assert.equal(retry.calls.filter(call => call[0] === "upload").length, 1);
     assert.equal(retry.row().storageDestination, "Working"); assert.equal(retry.oldStatus(), "Retracted");
+});
+
+test("beginMove resumes a matching Pending placement under lock and preserves its operation key", async () => {
+    const statements = [];
+    const transaction = { begin: async () => undefined, commit: async () => undefined, rollback: async () => undefined };
+    const repository = createArtifactRepository({ getPool: async () => ({}), createTransaction: () => transaction,
+        queryInTransaction: async (_transaction, statement) => {
+            statements.push(statement);
+            if (statement.includes("placement.placementStatus = 'Active'")) return [{ id: "source-placement" }];
+            if (statement.includes("placementStatus = 'Pending'")) return [{ id: "existing-pending", artifactId: ID,
+                placementType: "Working", placementStatus: "Pending", legacyLibraryKey: "Operations",
+                operationKey: "move-original-operation", itemId: "existing-item" }];
+            throw new Error("unexpected statement");
+        } });
+    const existing = await repository.beginMove(ID, { placementType: "Working", siteKey: "working",
+        legacyLibraryKey: "Operations", operationKey: "move-new-request", actorUserId: ACTOR.id,
+        previous: { placementId: "source-placement", storageDestination: "Knowledge", libraryKey: null } });
+    assert.equal(existing.operationKey, "move-original-operation");
+    assert.equal(existing.itemId, "existing-item");
+    assert.equal(statements.some(statement => statement.includes("INSERT INTO cmdb.ArtifactPlacements")), false);
+});
+
+test("beginMove rejects a different destination when a Pending placement exists before INSERT", async () => {
+    const statements = [];
+    const transaction = { begin: async () => undefined, commit: async () => undefined, rollback: async () => undefined };
+    const repository = createArtifactRepository({ getPool: async () => ({}), createTransaction: () => transaction,
+        queryInTransaction: async (_transaction, statement) => {
+            statements.push(statement);
+            if (statement.includes("placement.placementStatus = 'Active'")) return [{ id: "source-placement" }];
+            if (statement.includes("placementStatus = 'Pending'")) return [{ id: "existing-pending",
+                placementType: "Working", legacyLibraryKey: "Operations", operationKey: "move-original-operation" }];
+            throw new Error("unexpected statement");
+        } });
+    await assert.rejects(repository.beginMove(ID, { placementType: "Working", siteKey: "working",
+        legacyLibraryKey: "Legal", operationKey: "move-new-destination", actorUserId: ACTOR.id,
+        previous: { placementId: "source-placement", storageDestination: "Knowledge", libraryKey: null } }),
+    ArtifactPendingMoveConflictError);
+    assert.equal(statements.some(statement => statement.includes("INSERT INTO cmdb.ArtifactPlacements")), false);
+});
+
+test("switching destination while another Pending move exists returns a lifecycle 409 error before Graph", async () => {
+    const value = lifecycleHarness();
+    const repositoryError = new ArtifactPendingMoveConflictError();
+    // Exercise the service boundary with the same typed conflict emitted by the transactional repository guard.
+    const repository = {
+        withLifecycleLock: async (_id, work) => work(),
+        getForRead: async () => ({ ...value.row() }),
+        getMoveOperation: async () => null,
+        beginMove: async () => { throw repositoryError; },
+    };
+    const service = createArtifactService({ repository });
+    await assert.rejects(service.move(ID, { destination: "Working", workArea: "Legal",
+        idempotencyKey: "move-new-destination" }, ACTOR), error => error instanceof ArtifactConflictError
+            && error.message.includes("Pending move"));
+});
+
+test("same-destination retry with a new client key resumes the original Pending operation and receipt", async () => {
+    const transformed = Buffer.from("existing transformed Office destination bytes");
+    const value = lifecycleHarness({ destinationBytes: transformed, initialPending: {
+        siteId: "site:/working", driveId: "drive:Operations Working", itemId: "existing-item",
+        webUrl: "private", storedContentSize: transformed.length,
+        storedContentSha256: createHash("sha256").update(transformed).digest("hex"), storedObservedAt: "observed",
+    } });
+    await value.service.move(ID, { destination: "Working", workArea: "Operations",
+        idempotencyKey: "move-new-request" }, ACTOR);
+    assert.equal(value.calls.filter(call => call[0] === "begin").length, 1);
+    assert.equal(value.calls.some(call => call[0] === "upload"), false);
+    assert.equal(value.calls.some(call => call[0] === "complete"), true);
+    assert.equal(value.calls.find(call => call[0] === "complete")[2], "move-original-operation");
+    assert.equal(value.pending().operationKey, "move-original-operation");
+    assert.equal(value.pending().itemId, "existing-item");
+    assert.equal(value.pending().storedContentSha256, createHash("sha256").update(transformed).digest("hex"));
+    assert.equal(value.oldStatus(), "Retracted");
+    assert.equal(value.pending().placementStatus, "Active");
+    assert.equal(value.events.some(event => event.eventType === "ArtifactMoved"), true);
 });
 
 test("Move records a transformed Office destination as its own physical identity", async () => {

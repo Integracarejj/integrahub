@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { loadSharePointConfig, getArtifactDestinationTarget, getSharePointSiteTarget } from "../integrations/sharepoint/config.js";
 import { ClientSecretGraphAuthProvider } from "../integrations/sharepoint/auth.js";
 import { GraphRequestError, SharePointGraphClient } from "../integrations/sharepoint/graphClient.js";
-import { ArtifactStoredIdentityConflictError, artifactRepository } from "./artifactRepository.js";
+import { ArtifactPendingMoveConflictError, ArtifactStoredIdentityConflictError, artifactRepository } from "./artifactRepository.js";
 
 export const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024;
 export const MAX_STORED_ARTIFACT_BYTES = 20 * 1024 * 1024;
@@ -310,7 +310,7 @@ export function createArtifactService({
         async move(id, input, actor) {
             requireActor(actor, LIFECYCLE_WRITE_ROLES);
             if (!UUID.test(id)) throw new ArtifactValidationError("Invalid artifact ID");
-            const operationKey = String(input?.idempotencyKey || "");
+            let operationKey = String(input?.idempotencyKey || "");
             if (!IDEMPOTENCY_KEY.test(operationKey)) throw new ArtifactValidationError("A valid lifecycle Idempotency-Key is required");
             const storageDestination = String(input?.destination || "");
             const libraryKey = input?.workArea ?? null;
@@ -332,11 +332,17 @@ export function createArtifactService({
                     if (row.storageDestination === storageDestination && (row.libraryKey || null) === libraryKey) {
                         throw new ArtifactValidationError("Select a different destination or Work area");
                     }
-                    placement = await repository.beginMove(id, {
-                        placementType: storageDestination, siteKey: storageDestination.toLowerCase(), legacyLibraryKey: libraryKey,
-                        operationKey, actorUserId: actor.id,
-                        previous: { placementId: row.workingPlacementId, storageDestination: row.storageDestination, libraryKey: row.libraryKey },
-                    });
+                    try {
+                        placement = await repository.beginMove(id, {
+                            placementType: storageDestination, siteKey: storageDestination.toLowerCase(), legacyLibraryKey: libraryKey,
+                            operationKey, actorUserId: actor.id,
+                            previous: { placementId: row.workingPlacementId, storageDestination: row.storageDestination, libraryKey: row.libraryKey },
+                        });
+                    } catch (error) {
+                        if (error instanceof ArtifactPendingMoveConflictError) throw new ArtifactConflictError(error.message);
+                        throw error;
+                    }
+                    operationKey = placement.operationKey;
                 }
 
                 let destinationDurable = !!placement.itemId;
