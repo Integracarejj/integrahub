@@ -259,6 +259,7 @@ test("authorized lifecycle management moves then removes without row actions", a
     let drawer = page.getByRole("dialog", { name: "Document details" });
     await drawer.getByRole("button", { name: "Manage document" }).click();
     await drawer.getByRole("button", { name: "Move document", exact: true }).click();
+    await expect(drawer).toContainText("Move changes the document's active IntegraIQ location. Historical copies may be retained for audit and recovery.");
     await expect(drawer.getByText("Current:")).toContainText("Knowledge");
     await expect(drawer.getByText("External", { exact: true })).toHaveCount(0);
     await expect(drawer.getByRole("button", { name: "Move document", exact: true })).toBeDisabled();
@@ -279,11 +280,12 @@ test("authorized lifecycle management moves then removes without row actions", a
     expect(moveCalls).toBe(2);
 
     await drawer.getByRole("button", { name: "Manage document" }).click();
-    await drawer.getByRole("button", { name: "Remove document", exact: true }).click();
+    await drawer.getByRole("button", { name: "Remove from Document Hub", exact: true }).click();
+    await expect(drawer.getByRole("region", { name: "Remove from Document Hub" })).toContainText("It will no longer appear in Document Hub search or be available for download here. The underlying file is retained for audit and recovery.");
     await drawer.getByLabel(/Reason/).fill("Duplicate");
-    await drawer.getByRole("button", { name: "Remove document", exact: true }).click();
+    await drawer.getByRole("button", { name: "Remove from Document Hub", exact: true }).click();
     await expect(drawer).toHaveCount(0);
-    await expect(page.getByText("Document removed")).toBeVisible();
+    await expect(page.getByText("Removed from Document Hub")).toBeVisible();
     await expect(page.locator(".document-hub-results")).toHaveCount(0);
     expect(removeCalls).toBe(1);
 });

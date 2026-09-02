@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import DocumentHubPage, { StoredDocumentConfirmation } from "../pages/documents/DocumentHubPage";
-import DocumentHubFind, { artifactMetadataHasChanges, canEditArtifactMetadata, FIND_PAGE_SIZE, isNoOpArtifactMove, SEARCH_DEBOUNCE_MS } from "../pages/documents/DocumentHubFind";
+import DocumentHubFind, { artifactMetadataHasChanges, canEditArtifactMetadata, FIND_PAGE_SIZE, isNoOpArtifactMove, MOVE_RETENTION_HELPER, REMOVE_FROM_HUB_CONFIRMATION, SEARCH_DEBOUNCE_MS } from "../pages/documents/DocumentHubFind";
 import { addDocumentFiles, applyDestinationToAll, beginDocumentUpload, BUSINESS_DESTINATIONS, canSubmitDocument, canUploadBatch, completeDocumentUpload, documentStatusLabel, EMPTY_UPLOAD_STATE, failDocumentUpload, internalWorkUseLabel, markDocumentFailed, markDocumentUploaded, MAX_DOCUMENT_BYTES, readyDocuments, removeDocumentFile, removeStagedDocument, selectDocumentFile, setDocumentBusinessDestination, setDocumentDestination, shouldShowBulkWorkAreaControl, storeButtonLabel, titleFromFileName, updateDocumentMetadata, uploadDocumentsSequentially, validateDocumentFile, WORK_AREA_PLACEHOLDER } from "../pages/documents/documentHubState";
 import { ArtifactUploadError, downloadArtifact, listArtifacts, moveArtifact, removeArtifact, uploadArtifact, type ArtifactRecord } from "../services/artifactPersistence";
 import { shouldRedirectFromInternal } from "../utils/accessRouting";
@@ -14,6 +14,13 @@ const responseArtifact: ArtifactRecord = {
     sourceOrigin: "Internal Artifact Upload", sourceModule: "ArtifactHub", sourceContext: null,
     description: null, effectiveDate: null, submittedByDisplayName: "Document Editor", uploadedAt: "now", createdAt: "now", updatedAt: "now",
 };
+
+describe("Document Hub lifecycle wording", () => {
+    it("explains non-destructive Move and removal in user-facing language", () => {
+        expect(MOVE_RETENTION_HELPER).toBe("Move changes the document's active IntegraIQ location. Historical copies may be retained for audit and recovery.");
+        expect(REMOVE_FROM_HUB_CONFIRMATION).toBe("It will no longer appear in Document Hub search or be available for download here. The underlying file is retained for audit and recovery.");
+    });
+});
 
 function textFile(name = "report.txt", body = "report") {
     return new File([body], name, { type: "text/plain" });
