@@ -19,7 +19,7 @@ const workItem = {
     originalFileName: "Liberty.xlsx", externalOrganizationId: "TEST-BROKER-ORG",
     businessTransactionId: "REC-2026-00000004", transactionName: "Project Liberty",
     admittedAt: "2026-08-19T12:00:00Z", assignedAt: "2026-08-19T13:00:00Z", acceptedAt: null,
-    capabilities: { canAssign: true, canAccept: true, canComplete: false },
+    capabilities: { canAssign: false, canReassign: false, canAccept: true, canComplete: false },
 };
 
 describe("authoritative work item runtime", () => {
@@ -31,6 +31,7 @@ describe("authoritative work item runtime", () => {
         expect(getCachedAuthoritativeWorkItems()[0]).toMatchObject({
             id: "work-1", workItemId: "work-1", intakeRequestId: "intake-1",
             requestId: "DD-2026-00000001", origin: "authoritative", assignedUserId: "user-1",
+            capabilities: { canAssign: false, canReassign: false, canAccept: true },
         });
     });
 

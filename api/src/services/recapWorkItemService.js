@@ -5,9 +5,14 @@ export class RecapWorkItemConflictError extends Error {}
 export class RecapWorkItemAuthorizationError extends Error {}
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const text = (value, max) => value == null ? null : String(value).trim().slice(0, max);
+const isOperationsActor = actor => ["PlatformAdmin", "DDTeam"].includes(actor?.globalRole);
+
+function requireOperations(actor) {
+    if (!isOperationsActor(actor)) throw new RecapWorkItemAuthorizationError("DD Operations access required");
+}
 
 function mapRow(row, actor) {
-    const isOperations = ["PlatformAdmin", "DDTeam"].includes(actor?.globalRole);
+    const isOperations = isOperationsActor(actor);
     const isOwner = !!actor?.id && row.assignedUserId === actor.id;
     return {
         ...row,
@@ -15,8 +20,8 @@ function mapRow(row, actor) {
         communityNamesJson: undefined,
         needsReassignment: !!row.needsReassignment,
         capabilities: {
-            canAssign: true, canAccept: row.status === "Assigned" && !!actor?.id && row.assignedUserId === actor.id,
-            canMarkNotMine: !!row.assignedUserId, canReassign: true,
+            canAssign: isOperations && row.status === "Queued", canAccept: row.status === "Assigned" && isOwner,
+            canMarkNotMine: !!row.assignedUserId && (isOwner || isOperations), canReassign: isOperations && !!row.assignedUserId,
             canClarify: false, canBlock: false,
             canSubmitForDdReview: row.status === "In Progress" && !!actor?.id && row.assignedUserId === actor.id,
             canComplete: false,
@@ -33,7 +38,8 @@ function mapRow(row, actor) {
 
 export function createRecapWorkItemService({ repository = recapWorkItemRepository } = {}) {
     return {
-        async admit(input) {
+        async admit(input, actor) {
+            requireOperations(actor);
             const ids = Array.isArray(input?.intakeRequestIds) ? input.intakeRequestIds : [];
             if (!ids.length || ids.length > 500 || ids.some(id => !UUID.test(id))) throw new RecapWorkItemValidationError("Valid intake request IDs are required");
             const reviewed = new Map((Array.isArray(input.reviewedItems) ? input.reviewedItems : []).map(item => [item.intakeRequestId, item]));
@@ -48,13 +54,14 @@ export function createRecapWorkItemService({ repository = recapWorkItemRepositor
                     communityNamesJson: Array.isArray(item.communityNames) ? JSON.stringify(item.communityNames.map(name => text(name, 255)).filter(Boolean)) : null,
                 };
             });
-            return (await repository.admit(items)).map(row => mapRow(row));
+            return (await repository.admit(items)).map(row => mapRow(row, actor));
         },
         async list(actor) {
             const result = await repository.list();
             return { workItems: result.workItems.map(row => mapRow(row, actor)), assignees: result.assignees };
         },
         async assign(id, targetUserId, actor) {
+            requireOperations(actor);
             if (!UUID.test(id) || !targetUserId) throw new RecapWorkItemValidationError();
             return mapRow((await repository.assign(id, String(targetUserId), actor.id))[0], actor);
         },
@@ -68,12 +75,12 @@ export function createRecapWorkItemService({ repository = recapWorkItemRepositor
         },
         async returnFromDdReview(id, actor) {
             if (!UUID.test(id)) throw new RecapWorkItemValidationError();
-            if (!["PlatformAdmin", "DDTeam"].includes(actor?.globalRole)) throw new RecapWorkItemAuthorizationError("DD Operations access required");
+            requireOperations(actor);
             return mapRow((await repository.returnFromDdReview(id))[0], actor);
         },
         async markReadyToPublish(id, actor) {
             if (!UUID.test(id)) throw new RecapWorkItemValidationError();
-            if (!["PlatformAdmin", "DDTeam"].includes(actor?.globalRole)) throw new RecapWorkItemAuthorizationError("DD Operations access required");
+            requireOperations(actor);
             return mapRow((await repository.markReadyToPublish(id))[0], actor);
         },
         async markNotMine(id, reason, actor) {

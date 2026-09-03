@@ -686,7 +686,7 @@ export default function RecapitalizationDdOperations() {
                                                     </button>
                                                 )}
                                             </div>
-                                        ) : (
+                                        ) : req.origin !== "authoritative" || req.capabilities?.canAssign || req.capabilities?.canReassign ? (
                                             <select
                                                 aria-label={`Assign ${req.requestId}`}
                                                 value=""
@@ -723,7 +723,7 @@ export default function RecapitalizationDdOperations() {
                                                 <option value="">Assign...</option>
                                                 {req.origin === "authoritative" ? authoritativeAssignees.map(m => <option key={m.id} value={m.id}>{m.displayName || m.email || "Internal user"}</option>) : members.filter(m => m.team !== "DD Management").map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                                             </select>
-                                        )}
+                                        ) : <span style={{ color: "#94a3b8" }}>Read only</span>}
                                     </td>
                                 </>
                             ) : (
@@ -797,7 +797,7 @@ export default function RecapitalizationDdOperations() {
                                         )}
                                     </td>
                                     <td onClick={e => e.stopPropagation()} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                        {activeView === "full-work-queue" && (req.origin === "authoritative" || !req.owner) && (
+                                        {activeView === "full-work-queue" && (req.origin !== "authoritative" ? !req.owner : !!(req.capabilities?.canAssign || req.capabilities?.canReassign)) && (
                                             <select
                                                 aria-label={`Assign ${req.requestId}`}
                                                 value=""

@@ -21,7 +21,8 @@ Statuses: **Captured**, **Planned**, **In Progress**, **Done**, **Deferred**, **
 | IQ-007 | Optional generic Working destination | Document Hub | BACKLOG | P3 | Deferred | Future design | Working currently requires Project, Legal, or Operational because each routes to a distinct library. | Requires a generic Working library plus deliberate schema, routing, configuration, and UX changes. |
 | IQ-008 | External Document Hub availability | Document Hub / External | BACKLOG | P3 | Deferred | Future governed capability | External availability requires policy, authorization, publishing, and lifecycle design. | Do not implement as a simple destination toggle. |
 | IQ-009 | Acquisitions module | Business Module | BACKLOG | P2 | Captured | October/November planning | Acquisitions needs a workflow foundation without duplicating platform services. | Reuse IntegraIQ identity, Artifact, metadata, and lifecycle capabilities where appropriate. |
-| IQ-010 | Recap MVP completion | Recapitalization | MVP BLOCKER | P0 | Planned | September 2026 | Complete the current active business-workflow finish line. | Immediately after Document Hub closeout, perform a formal gap assessment and freeze MVP scope. |
+| IQ-010 | Recap MVP completion | Recapitalization | MVP BLOCKER | P0 | In Progress | September 2026 | Complete the frozen, durable workflow from external intake through authoritative approval. | Seven Big Rocks: workflow/authorization freeze; internal workflow persistence; publication/published-document contract; partner decision/rework; remove prototype workflow state; security/API hardening; production acceptance. Contract: `docs/recap-mvp-contract.md`. |
+| IQ-011 | Document Hub Phase 1 | Document Hub | HIGH PRIORITY | P1 | Done | Maintain only | Accepted shared Artifact capability; protect stable production behavior. | Closed September 2, 2026. Do not reopen during Recap MVP absent a concrete integration dependency or production defect. |
 
 ## How New Ideas Become Work
 
@@ -31,11 +32,13 @@ Every request is first classified as BUG, MVP BLOCKER, HIGH PRIORITY, BACKLOG, o
 
 ## Current priority roadmap
 
+Active priority: **P0 — Recap MVP Completion**.
+
 | Target | Priority | Workstream |
 |---|---|---|
-| September 2–4, 2026 | P0 | Document Hub Phase 1 closeout |
-| September 4–8, 2026 | P0 | Recap MVP gap assessment and scope freeze |
-| September 8–25, 2026 | P0 | Recap MVP blocker completion |
+| September 2, 2026 | Done / maintain only | Document Hub Phase 1 closeout |
+| September 4–8, 2026 | P0 | Recap Big Rock 1: workflow and authorization freeze |
+| September 8–25, 2026 | P0 | Recap Big Rocks 2–6: authoritative MVP completion and hardening |
 | September 28–October 2, 2026 | P0 | Recap production acceptance |
 | October 5–16, 2026 | P1 | Recap pilot and stabilization |
 | October 2026 | P1 | What We Know design and initial proof of concept after Recap MVP is stable |
@@ -45,3 +48,7 @@ Every request is first classified as BUG, MVP BLOCKER, HIGH PRIORITY, BACKLOG, o
 Strategic success target for early October:
 
 > Document Hub v1.0 is complete and Recapitalization MVP is complete as an end-to-end business workflow.
+
+## Active Recap scope freeze
+
+Until Recap MVP production acceptance, work may interrupt the active sequence only when it is a reproducible bug affecting accepted/current functionality or is required to complete, secure, persist, audit, or recover the frozen Recap workflow. Capture all other ideas here without treating capture as a commitment to build. Document Hub Phase 1 is done and maintain-only. What We Know remains high priority after stable Recap MVP; Acquisitions remains future/P2.
