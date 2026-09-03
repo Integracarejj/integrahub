@@ -12,7 +12,7 @@ IF OBJECT_ID('cmdb.SchemaMigrations', 'U') IS NULL OR OBJECT_ID('cmdb.RecapWorkI
     THROW 51060, 'Migration 021 requires SchemaMigrations, RecapWorkItems, and Users.', 1;
 
 DECLARE @migrationName NVARCHAR(255) = N'021_recap_internal_workflow.sql';
-DECLARE @contentSha256 CHAR(64) = 'DBAA37B0C5A4903A10016C936FEC88F18C1D076BB5DA691BAA95CCB1EB5A3E1F';
+DECLARE @contentSha256 CHAR(64) = 'CC4687241BC11087E88716D6D90899E90B9342FE9044748D3DC26186B3264A24';
 DECLARE @existingChecksum CHAR(64) = (SELECT contentSha256 FROM cmdb.SchemaMigrations WHERE migrationName = @migrationName);
 
 IF @existingChecksum IS NOT NULL AND @existingChecksum <> @contentSha256
@@ -58,31 +58,35 @@ ALTER TABLE cmdb.RecapWorkItems ADD
     dispositionProposedByUserId VARCHAR(255) NULL,
     dispositionProposedAt DATETIME2(3) NULL;
 
-ALTER TABLE cmdb.RecapWorkItems ADD CONSTRAINT FK_RecapWorkItems_ResponseUpdater
-    FOREIGN KEY (responseUpdatedByUserId) REFERENCES cmdb.Users(id);
-ALTER TABLE cmdb.RecapWorkItems ADD CONSTRAINT FK_RecapWorkItems_DispositionProposer
-    FOREIGN KEY (dispositionProposedByUserId) REFERENCES cmdb.Users(id);
 ALTER TABLE cmdb.RecapWorkItems ADD CONSTRAINT CK_RecapWorkItems_Status CHECK (status IN (
     'Queued', 'Assigned', 'In Progress', 'Clarification Needed', 'Blocked',
     'Needs DD Review', 'Ready to Publish', 'Not Applicable', 'Duplicate'
 ));
+
+-- SQL Server compiles a submitted batch before columns added earlier in that
+-- batch are visible to later constraint statements. Compile all statements
+-- that reference the new columns only after ALTER TABLE ADD has completed.
+EXEC(N'ALTER TABLE cmdb.RecapWorkItems ADD CONSTRAINT FK_RecapWorkItems_ResponseUpdater
+    FOREIGN KEY (responseUpdatedByUserId) REFERENCES cmdb.Users(id);
+ALTER TABLE cmdb.RecapWorkItems ADD CONSTRAINT FK_RecapWorkItems_DispositionProposer
+    FOREIGN KEY (dispositionProposedByUserId) REFERENCES cmdb.Users(id);
 ALTER TABLE cmdb.RecapWorkItems ADD CONSTRAINT CK_RecapWorkItems_ActiveReason CHECK (
-    (status = 'Clarification Needed' AND activeReasonType IS NOT NULL AND activeReasonType = 'Clarification' AND activeReason IS NOT NULL AND NULLIF(LTRIM(RTRIM(activeReason)), '') IS NOT NULL)
-    OR (status = 'Blocked' AND activeReasonType IS NOT NULL AND activeReasonType = 'Blocker' AND activeReason IS NOT NULL AND NULLIF(LTRIM(RTRIM(activeReason)), '') IS NOT NULL)
-    OR (status NOT IN ('Clarification Needed', 'Blocked') AND activeReasonType IS NULL AND activeReason IS NULL)
+    (status = ''Clarification Needed'' AND activeReasonType IS NOT NULL AND activeReasonType = ''Clarification'' AND activeReason IS NOT NULL AND NULLIF(LTRIM(RTRIM(activeReason)), '''') IS NOT NULL)
+    OR (status = ''Blocked'' AND activeReasonType IS NOT NULL AND activeReasonType = ''Blocker'' AND activeReason IS NOT NULL AND NULLIF(LTRIM(RTRIM(activeReason)), '''') IS NOT NULL)
+    OR (status NOT IN (''Clarification Needed'', ''Blocked'') AND activeReasonType IS NULL AND activeReason IS NULL)
 );
 ALTER TABLE cmdb.RecapWorkItems ADD CONSTRAINT CK_RecapWorkItems_Disposition CHECK (
-    (status NOT IN ('Not Applicable', 'Duplicate')
+    (status NOT IN (''Not Applicable'', ''Duplicate'')
         AND proposedDisposition IS NULL AND dispositionReason IS NULL AND dispositionProposedByUserId IS NULL AND dispositionProposedAt IS NULL)
-    OR (proposedDisposition IS NOT NULL AND proposedDisposition IN ('Not Applicable', 'Duplicate')
-        AND dispositionReason IS NOT NULL AND NULLIF(LTRIM(RTRIM(dispositionReason)), '') IS NOT NULL
+    OR (proposedDisposition IS NOT NULL AND proposedDisposition IN (''Not Applicable'', ''Duplicate'')
+        AND dispositionReason IS NOT NULL AND NULLIF(LTRIM(RTRIM(dispositionReason)), '''') IS NOT NULL
         AND dispositionProposedByUserId IS NOT NULL AND dispositionProposedAt IS NOT NULL
-        AND (status = 'Needs DD Review' OR status = proposedDisposition))
+        AND (status = ''Needs DD Review'' OR status = proposedDisposition))
 );
 ALTER TABLE cmdb.RecapWorkItems ADD CONSTRAINT CK_RecapWorkItems_Response CHECK (
     (responseContent IS NULL AND responseUpdatedAt IS NULL AND responseUpdatedByUserId IS NULL)
-    OR (responseContent IS NOT NULL AND NULLIF(LTRIM(RTRIM(responseContent)), '') IS NOT NULL AND responseUpdatedAt IS NOT NULL AND responseUpdatedByUserId IS NOT NULL)
-);
+    OR (responseContent IS NOT NULL AND NULLIF(LTRIM(RTRIM(responseContent)), '''') IS NOT NULL AND responseUpdatedAt IS NOT NULL AND responseUpdatedByUserId IS NOT NULL)
+);');
 
 CREATE TABLE cmdb.RecapWorkItemEvents (
     id UNIQUEIDENTIFIER NOT NULL CONSTRAINT DF_RecapWorkItemEvents_Id DEFAULT NEWID(),

@@ -30,7 +30,10 @@ test("migration 021 is additive, transactional, checksummed, rerunnable, and fai
     assert.doesNotMatch(sql, /'Waiting Partner Review'|'Needs Rework'|'Approved'/);
     assert.match(sql, /CREATE TABLE cmdb\.RecapWorkItemEvents/);
     assert.match(sql, /CREATE TABLE cmdb\.RecapWorkNotes/);
-    assert.match(sql, /status NOT IN \('Not Applicable', 'Duplicate'\)[\s\S]*status = 'Needs DD Review' OR status = proposedDisposition/);
+    assert.match(sql, /EXEC\(N'ALTER TABLE cmdb\.RecapWorkItems ADD CONSTRAINT FK_RecapWorkItems_ResponseUpdater[\s\S]*CK_RecapWorkItems_ActiveReason[\s\S]*CK_RecapWorkItems_Disposition[\s\S]*CK_RecapWorkItems_Response[\s\S]*\);'\);/);
+    assert.match(sql, /status NOT IN \(''Not Applicable'', ''Duplicate''\)[\s\S]*status = ''Needs DD Review'' OR status = proposedDisposition/);
+    assert.ok(sql.indexOf("EXEC(N'ALTER TABLE cmdb.RecapWorkItems ADD CONSTRAINT FK_RecapWorkItems_ResponseUpdater")
+        > sql.indexOf("responseContent NVARCHAR(MAX) NULL"));
     assert.match(sql, /IF XACT_STATE\(\) <> 0 ROLLBACK TRANSACTION/);
 });
 
