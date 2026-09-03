@@ -86,8 +86,8 @@ test("admission and assignment require DD Operations authority", async () => {
         await assert.rejects(() => service.assign(ID1, "owner-a", actor), RecapWorkItemAuthorizationError);
     }
     await service.admit({ intakeRequestIds: [ID2] }, { id: "ops", globalRole: "DDTeam" });
-    await service.assign(ID1, "owner-a", { id: "ops", globalRole: "DDTeam" });
-    await service.assign(ID1, "owner-b", { id: "admin", globalRole: "PlatformAdmin" });
+    await service.assign(ID1, "owner-a", { id: "ops", globalRole: "DDTeam" }, "0x0000000000000001");
+    await service.assign(ID1, "owner-b", { id: "admin", globalRole: "PlatformAdmin" }, "0x0000000000000001");
     assert.deepEqual(calls.map(call => call[0]), ["admit", "assign", "assign"]);
 });
 
@@ -105,7 +105,7 @@ async function routeStatus(user, path) {
         const { port } = server.address();
         const response = await fetch(`http://127.0.0.1:${port}/api/recapitalization/work-items${path}`, {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: path === "/admit" ? JSON.stringify({ intakeRequestIds: [ID2] }) : JSON.stringify({ assignedUserId: "owner-a" }),
+            body: path === "/admit" ? JSON.stringify({ intakeRequestIds: [ID2] }) : JSON.stringify({ assignedUserId: "owner-a", expectedVersion: "0x0000000000000001" }),
         });
         return response.status;
     } finally {
@@ -147,12 +147,12 @@ test("assignment, accept, and Not Mine use server actor identity and atomic tran
     await repository.accept(ID1, { id: "target-user", globalRole: "Viewer" });
     await repository.markNotMine(ID1, "Wrong specialty", { id: "target-user", globalRole: "Viewer" });
     assert.match(calls[0].sql, /role IN \('PlatformAdmin', 'Editor', 'Viewer', 'DDTeam'\)/);
-    assert.deepEqual(calls[0].values, { id: ID1, targetUserId: "target-user", actorId: "actor-user" });
+    assert.deepEqual(calls[0].values, { id: ID1, targetUserId: "target-user", actorId: "actor-user", expectedVersion: null });
     assert.match(calls[1].sql, /assignedUserId = @actorId/);
     assert.doesNotMatch(calls[1].sql, /isOperations/);
     assert.match(calls[1].sql, /status = 'Assigned'/);
     assert.doesNotMatch(calls[1].sql, /status IN \('Assigned', 'In Progress'\)/);
-    assert.deepEqual(calls[1].values, { id: ID1, actorId: "target-user" });
+    assert.deepEqual(calls[1].values, { id: ID1, actorId: "target-user", expectedVersion: null, detailsJson: null });
     assert.match(calls[1].sql, /acceptedAt = SYSUTCDATETIME\(\)/);
     assert.match(calls[2].sql, /needsReassignment = 1/);
     assert.match(calls[2].sql, /assignedUserId = NULL/);
@@ -162,24 +162,24 @@ test("normal DD lifecycle transitions are atomic, owner-preserving, and role-enf
     const calls = [];
     const repository = createRecapWorkItemRepository({ query: async (sql, values) => { calls.push({ sql, values }); return [{ ...WORK, assignedUserId: "owner-a" }]; } });
     await repository.submitForDdReview(ID1, { id: "owner-a" });
-    await repository.returnFromDdReview(ID1);
-    await repository.markReadyToPublish(ID1);
+    await repository.returnFromDdReview(ID1, { id: "ops" });
+    await repository.markReadyToPublish(ID1, { id: "ops" });
     assert.match(calls[0].sql, /assignedUserId = @actorId[\s\S]*status = 'In Progress'/);
     assert.match(calls[0].sql, /status = 'Needs DD Review'/);
     assert.match(calls[1].sql, /assignedUserId IS NOT NULL[\s\S]*status = 'Needs DD Review'/);
-    assert.match(calls[1].sql, /SET status = 'In Progress'/);
+    assert.match(calls[1].sql, /status = 'In Progress'/);
     assert.doesNotMatch(calls[1].sql, /assignedUserId\s*=/);
-    assert.match(calls[2].sql, /SET status = 'Ready to Publish'/);
+    assert.match(calls[2].sql, /status = 'Ready to Publish'/);
     assert.doesNotMatch(calls[2].sql, /assignedUserId\s*=/);
 
     const service = createRecapWorkItemService({ repository: {
         returnFromDdReview: async () => [{ ...WORK, status: "In Progress", assignedUserId: "owner-a" }],
         markReadyToPublish: async () => [{ ...WORK, status: "Ready to Publish", assignedUserId: "owner-a" }],
     } });
-    await assert.rejects(() => service.returnFromDdReview(ID1, { id: "owner-a", globalRole: "Viewer" }), RecapWorkItemAuthorizationError);
+    await assert.rejects(() => service.returnFromDdReview(ID1, {}, { id: "owner-a", globalRole: "Viewer" }), RecapWorkItemAuthorizationError);
     await assert.rejects(() => service.markReadyToPublish(ID1, { id: "owner-a", globalRole: "Editor" }), RecapWorkItemAuthorizationError);
-    assert.equal((await service.returnFromDdReview(ID1, { id: "ops", globalRole: "DDTeam" })).status, "In Progress");
-    assert.equal((await service.markReadyToPublish(ID1, { id: "admin", globalRole: "PlatformAdmin" })).status, "Ready to Publish");
+    assert.equal((await service.returnFromDdReview(ID1, { expectedVersion: "0x0000000000000001" }, { id: "ops", globalRole: "DDTeam" })).status, "In Progress");
+    assert.equal((await service.markReadyToPublish(ID1, { id: "admin", globalRole: "PlatformAdmin" }, "0x0000000000000001")).status, "Ready to Publish");
 });
 
 test("authoritative capability projection is state, owner, and operations-role specific", async () => {

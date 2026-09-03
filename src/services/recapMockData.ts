@@ -114,6 +114,12 @@ export interface RecapRequest {
     _blockerOwner?: string | null;
     /** Clarification workflow: who submitted the clarification (for Waiting on DD Operations routing) */
     _clarificationRaisedBy?: string | null;
+    authoritativeVersion?: string | null;
+    authoritativeResponse?: string | null;
+    authoritativeActiveReasonType?: "Clarification" | "Blocker" | null;
+    authoritativeActiveReason?: string | null;
+    authoritativeProposedDisposition?: "Not Applicable" | "Duplicate" | null;
+    authoritativeDispositionReason?: string | null;
     /** External lifecycle milestone: timestamp when processing first started (Accept Work).
      *  Once set, this field is NEVER cleared. It preserves the external "In Progress" state
      *  across internal status changes (blocker, return, reassignment, DD review, etc.). */

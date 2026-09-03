@@ -12,6 +12,11 @@ interface WorkItemResponse {
     packageId: string; sourcePackageId: string; packageName: string; originalFileName: string;
     externalOrganizationId: string; businessTransactionId: string; transactionName: string;
     admittedAt: string; assignedAt: string | null; acceptedAt: string | null;
+    updatedAt: string; version: string;
+    responseContent?: string | null; responseUpdatedAt?: string | null; responseUpdatedByUserId?: string | null;
+    activeReasonType?: "Clarification" | "Blocker" | null; activeReason?: string | null;
+    proposedDisposition?: "Not Applicable" | "Duplicate" | null; dispositionReason?: string | null;
+    dispositionProposedByUserId?: string | null; dispositionProposedAt?: string | null;
     capabilities: Record<string, boolean>;
 }
 
@@ -37,6 +42,9 @@ function project(item: WorkItemResponse): RecapRequest {
         _needsReassignment: item.needsReassignment, _misassignedReason: item.misassignedReason,
         origin: "authoritative", workItemId: item.workItemId, intakeRequestId: item.intakeRequestId,
         assignedUserId: item.assignedUserId, capabilities: item.capabilities,
+        authoritativeVersion: item.version, authoritativeResponse: item.responseContent || null,
+        authoritativeActiveReasonType: item.activeReasonType || null, authoritativeActiveReason: item.activeReason || null,
+        authoritativeProposedDisposition: item.proposedDisposition || null, authoritativeDispositionReason: item.dispositionReason || null,
     };
 }
 
@@ -66,6 +74,7 @@ export function getCachedAuthoritativeWorkItems() { return cachedRequests; }
 export function getAuthoritativeAssignees() { return cachedAssignees; }
 export function getAuthoritativeWorkItem(id: string) { return cachedRequests.find(row => row.id === id || row.requestId === id || row.intakeRequestId === id); }
 export function isIntakeRequestAdmitted(id?: string) { return !!id && cachedRequests.some(row => row.intakeRequestId === id); }
+function expectedVersion(id: string) { return getAuthoritativeWorkItem(id)?.authoritativeVersion || null; }
 
 export async function admitAuthoritativeRequests(requests: RecapRequest[]) {
     const eligible = requests.filter(row => row.intakeRequestId);
@@ -80,11 +89,11 @@ export async function admitAuthoritativeRequests(requests: RecapRequest[]) {
 }
 
 export async function assignAuthoritativeWorkItem(id: string, assignedUserId: string) {
-    const data = await api(`/${id}/assign`, { method: "POST", body: JSON.stringify({ assignedUserId }) });
+    const data = await api(`/${id}/assign`, { method: "POST", body: JSON.stringify({ assignedUserId, expectedVersion: expectedVersion(id) }) });
     return upsert(data.workItem);
 }
-export async function acceptAuthoritativeWorkItem(id: string) { const data = await api(`/${id}/accept`, { method: "POST" }); return upsert(data.workItem); }
-export async function submitAuthoritativeWorkItemForDdReview(id: string) { const data = await api(`/${id}/submit-dd-review`, { method: "POST" }); return upsert(data.workItem); }
-export async function returnAuthoritativeWorkItemFromDdReview(id: string) { const data = await api(`/${id}/return-from-dd-review`, { method: "POST" }); return upsert(data.workItem); }
-export async function markAuthoritativeWorkItemReadyToPublish(id: string) { const data = await api(`/${id}/ready-to-publish`, { method: "POST" }); return upsert(data.workItem); }
-export async function markAuthoritativeWorkItemNotMine(id: string, reason: string) { const data = await api(`/${id}/not-mine`, { method: "POST", body: JSON.stringify({ reason }) }); return upsert(data.workItem); }
+export async function acceptAuthoritativeWorkItem(id: string) { const data = await api(`/${id}/accept`, { method: "POST", body: JSON.stringify({ expectedVersion: expectedVersion(id) }) }); return upsert(data.workItem); }
+export async function submitAuthoritativeWorkItemForDdReview(id: string) { const data = await api(`/${id}/submit-dd-review`, { method: "POST", body: JSON.stringify({ expectedVersion: expectedVersion(id) }) }); return upsert(data.workItem); }
+export async function returnAuthoritativeWorkItemFromDdReview(id: string, reason?: string) { const data = await api(`/${id}/return-from-dd-review`, { method: "POST", body: JSON.stringify({ reason, expectedVersion: expectedVersion(id) }) }); return upsert(data.workItem); }
+export async function markAuthoritativeWorkItemReadyToPublish(id: string) { const data = await api(`/${id}/ready-to-publish`, { method: "POST", body: JSON.stringify({ expectedVersion: expectedVersion(id) }) }); return upsert(data.workItem); }
+export async function markAuthoritativeWorkItemNotMine(id: string, reason: string) { const data = await api(`/${id}/not-mine`, { method: "POST", body: JSON.stringify({ reason, expectedVersion: expectedVersion(id) }) }); return upsert(data.workItem); }

@@ -16,6 +16,8 @@ Every authoritative state and material decision must survive refresh, logout/log
 
 The authoritative `RecapWorkItems.status` values are `Queued`, `Assigned`, `In Progress`, `Needs DD Review`, and `Ready to Publish`.
 
+Big Rock 2A adds the reviewed backend/schema foundation for `Clarification Needed`, `Blocked`, `Not Applicable`, and `Duplicate`, together with authoritative response content, active reasons, disposition proposals, workflow events, and internal work notes. These additions are not operational until migration 021 is separately approved/executed and Big Rock 2B connects the Workspace UI.
+
 ### Target required for MVP
 
 Add only these top-level states where the workflow must stop, route, or authorize differently:

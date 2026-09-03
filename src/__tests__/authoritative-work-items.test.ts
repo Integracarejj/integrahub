@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { admitAuthoritativeRequests, assignAuthoritativeWorkItem, getCachedAuthoritativeWorkItems, loadAuthoritativeWorkItems } from "../services/recapWorkItemPersistence";
+import { acceptAuthoritativeWorkItem, admitAuthoritativeRequests, assignAuthoritativeWorkItem, getCachedAuthoritativeWorkItems, loadAuthoritativeWorkItems, markAuthoritativeWorkItemNotMine, markAuthoritativeWorkItemReadyToPublish, returnAuthoritativeWorkItemFromDdReview, submitAuthoritativeWorkItemForDdReview } from "../services/recapWorkItemPersistence";
 import { loadAuthoritativeIntake } from "../services/recapIntakePersistence";
 import { getPortalCreatedRequests, getRequests, getWorkQueueTransactions } from "../services/recapDataService";
 import type { RecapRequest } from "../services/recapDataService";
@@ -19,6 +19,7 @@ const workItem = {
     originalFileName: "Liberty.xlsx", externalOrganizationId: "TEST-BROKER-ORG",
     businessTransactionId: "REC-2026-00000004", transactionName: "Project Liberty",
     admittedAt: "2026-08-19T12:00:00Z", assignedAt: "2026-08-19T13:00:00Z", acceptedAt: null,
+    updatedAt: "2026-08-19T13:00:00Z", version: "0x0000000000000001",
     capabilities: { canAssign: false, canReassign: false, canAccept: true, canComplete: false },
 };
 
@@ -52,7 +53,27 @@ describe("authoritative work item runtime", () => {
         await assignAuthoritativeWorkItem("work-1", "user-1");
         const call = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
         expect(call[0]).toContain("/work-1/assign");
-        expect(JSON.parse(String(call[1].body))).toEqual({ assignedUserId: "user-1" });
+        expect(JSON.parse(String(call[1].body))).toEqual({ assignedUserId: "user-1", expectedVersion: "0x0000000000000001" });
+    });
+
+    it("sends the required rowversion for every existing authoritative mutation", async () => {
+        const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => ({
+            ok: true,
+            json: async () => url.endsWith("/work-items") ? { workItems: [workItem], assignees: [] } : { workItem },
+        }));
+        vi.stubGlobal("fetch", fetchMock);
+        await loadAuthoritativeWorkItems();
+        await assignAuthoritativeWorkItem("work-1", "user-1");
+        await acceptAuthoritativeWorkItem("work-1");
+        await markAuthoritativeWorkItemNotMine("work-1", "Wrong specialty");
+        await submitAuthoritativeWorkItemForDdReview("work-1");
+        await returnAuthoritativeWorkItemFromDdReview("work-1", "More work needed");
+        await markAuthoritativeWorkItemReadyToPublish("work-1");
+
+        for (const call of fetchMock.mock.calls.slice(1)) {
+            const body = JSON.parse(String(call[1]?.body));
+            expect(body.expectedVersion).toBe(workItem.version);
+        }
     });
 
     it("repairs a stale browser intake projection with SQL identity before admission", async () => {
