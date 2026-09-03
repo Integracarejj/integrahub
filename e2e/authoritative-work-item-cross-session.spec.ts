@@ -9,6 +9,10 @@ const REASSIGNEE_ID = "77777777-7777-4777-8777-777777777777";
 test("authoritative admission, assignment, and acceptance survive isolated browser sessions", async ({ browser }) => {
     let item: Record<string, unknown> | null = null;
     let acceptPostData: string | null = "not-called";
+    let acceptExpectedVersion: string | null = null;
+    let versionCounter = 1;
+    const currentVersion = () => `0x${versionCounter.toString(16).padStart(16, "0")}`;
+    const advanceVersion = () => { versionCounter += 1; return currentVersion(); };
     const assignee = { id: USER_ID, displayName: "Durable Contributor", email: "durable@integracare.com", role: "Contributor" };
     const reassignee = { id: REASSIGNEE_ID, displayName: "Austin Kiec", email: "austin@integracare.com", role: "Contributor" };
     const assignmentTargets: string[] = [];
@@ -25,7 +29,7 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
         sourcePackageId: "pkg-keystone", packageName: "Keystone Intake", originalFileName: "keystone.xlsx",
         externalOrganizationId: "TEST-BROKER-ORG", businessTransactionId: "REC-2026-00000004",
         transactionName: "Project Keystone", admittedAt: "2026-08-19T12:00:00.000Z",
-        assignedAt: null, acceptedAt: null,
+        assignedAt: null, acceptedAt: null, updatedAt: "2026-08-19T12:00:00.000Z", version: currentVersion(),
         capabilities: { canAssign: true, canAccept: false, canMarkNotMine: false, canReassign: true,
             canClarify: false, canBlock: false, canComplete: false, canPublish: false,
             canMarkDuplicate: false, canMarkNotApplicable: false },
@@ -68,10 +72,15 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
             }
             if (method === "POST" && url.endsWith("/admit")) item = projection();
             if (method === "POST" && url.endsWith("/assign")) {
-                const targetId = JSON.parse(route.request().postData() || "{}").assignedUserId;
+                const requestBody = JSON.parse(route.request().postData() || "{}");
+                const targetId = requestBody.assignedUserId;
+                if (requestBody.expectedVersion !== item?.version) {
+                    await route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ error: "Work item changed; refresh and try again" }) });
+                    return;
+                }
                 const target = targetId === REASSIGNEE_ID ? reassignee : assignee;
                 assignmentTargets.push(targetId);
-                item = { ...(item || projection()), status: "Assigned", assignedUserId: target.id, assignedUserName: target.displayName, assignedUserEmail: target.email, needsReassignment: false, misassignedReason: null, assignedAt: "2026-08-19T12:05:00.000Z", capabilities: { ...(projection().capabilities as object), canAccept: true, canMarkNotMine: true } };
+                item = { ...(item || projection()), status: "Assigned", assignedUserId: target.id, assignedUserName: target.displayName, assignedUserEmail: target.email, needsReassignment: false, misassignedReason: null, assignedAt: "2026-08-19T12:05:00.000Z", updatedAt: "2026-08-19T12:05:00.000Z", version: advanceVersion(), capabilities: { ...(projection().capabilities as object), canAccept: true, canMarkNotMine: true } };
             }
             if (method === "POST" && url.endsWith("/accept")) {
                 acceptanceActors.push(userId);
@@ -80,7 +89,12 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
                     return;
                 }
                 acceptPostData = route.request().postData();
-                item = { ...(item || projection()), status: "In Progress", acceptedAt: "2026-08-19T12:10:00.000Z" };
+                acceptExpectedVersion = String(item.version);
+                if (JSON.parse(acceptPostData || "{}").expectedVersion !== acceptExpectedVersion) {
+                    await route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ error: "Work item changed; refresh and try again" }) });
+                    return;
+                }
+                item = { ...(item || projection()), status: "In Progress", acceptedAt: "2026-08-19T12:10:00.000Z", updatedAt: "2026-08-19T12:10:00.000Z", version: advanceVersion() };
             }
             if (method === "POST" && url.endsWith("/submit-dd-review")) {
                 if (item?.assignedUserId !== userId || item?.status !== "In Progress") {
@@ -88,15 +102,15 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
                     return;
                 }
                 ddReviewSubmissionActors.push(userId);
-                item = { ...(item || projection()), status: "Needs DD Review" };
+                item = { ...(item || projection()), status: "Needs DD Review", version: advanceVersion() };
             }
             if (method === "POST" && url.endsWith("/return-from-dd-review")) {
                 ddReviewActions.push("return");
-                item = { ...(item || projection()), status: "In Progress" };
+                item = { ...(item || projection()), status: "In Progress", version: advanceVersion() };
             }
             if (method === "POST" && url.endsWith("/ready-to-publish")) {
                 ddReviewActions.push("ready");
-                item = { ...(item || projection()), status: "Ready to Publish" };
+                item = { ...(item || projection()), status: "Ready to Publish", version: advanceVersion() };
             }
             if (item) item = { ...item, capabilities: {
                 ...(projection().capabilities as object),
@@ -203,7 +217,11 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     await expect(acceptDialog).toBeVisible();
     await acceptDialog.getByRole("button", { name: "Accept Work", exact: true }).click();
     await expect(contributorPage.getByText("In Progress", { exact: true }).first()).toBeVisible();
-    expect(acceptPostData).toBeNull();
+    expect(acceptPostData).not.toBeNull();
+    const acceptBody = JSON.parse(acceptPostData || "{}");
+    expect(acceptBody).toHaveProperty("expectedVersion");
+    expect(acceptBody.expectedVersion).not.toBeNull();
+    expect(acceptBody.expectedVersion).toBe(acceptExpectedVersion);
     expect(acceptanceActors).toEqual([USER_ID]);
     await expect(contributorPage.getByText("Accept Work", { exact: true })).toHaveCount(0);
     await expect(contributorPage.getByText("Durable Contributor", { exact: true }).first()).toBeVisible();
