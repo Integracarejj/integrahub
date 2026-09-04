@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { acceptAuthoritativeWorkItem, admitAuthoritativeRequests, assignAuthoritativeWorkItem, getCachedAuthoritativeWorkItems, loadAuthoritativeWorkItems, markAuthoritativeWorkItemNotMine, markAuthoritativeWorkItemReadyToPublish, returnAuthoritativeWorkItemFromDdReview, submitAuthoritativeWorkItemForDdReview } from "../services/recapWorkItemPersistence";
+import { acceptAuthoritativeWorkItem, admitAuthoritativeRequests, assignAuthoritativeWorkItem, AuthoritativeWorkItemVersionError, getCachedAuthoritativeWorkItems, loadAuthoritativeWorkItems, markAuthoritativeWorkItemNotMine, markAuthoritativeWorkItemReadyToPublish, returnAuthoritativeWorkItemFromDdReview, submitAuthoritativeWorkItemForDdReview } from "../services/recapWorkItemPersistence";
 import { loadAuthoritativeIntake } from "../services/recapIntakePersistence";
 import { getPortalCreatedRequests, getRequests, getWorkQueueTransactions } from "../services/recapDataService";
 import type { RecapRequest } from "../services/recapDataService";
@@ -54,6 +54,17 @@ describe("authoritative work item runtime", () => {
         const call = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
         expect(call[0]).toContain("/work-1/assign");
         expect(JSON.parse(String(call[1].body))).toEqual({ assignedUserId: "user-1", expectedVersion: "0x0000000000000001" });
+    });
+
+    it("fails closed and refreshes when the API projection lacks a canonical rowversion", async () => {
+        const malformed = { ...workItem, version: { type: "Buffer", data: [0, 0, 0, 0, 0, 0, 0, 1] } };
+        const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ workItems: [malformed], assignees: [] }) }));
+        vi.stubGlobal("fetch", fetchMock);
+        await loadAuthoritativeWorkItems();
+        await expect(assignAuthoritativeWorkItem("work-1", "user-1")).rejects.toBeInstanceOf(AuthoritativeWorkItemVersionError);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        const calls = fetchMock.mock.calls as unknown as [string, RequestInit | undefined][];
+        expect(calls.every(call => !call[1] || call[1].method !== "POST")).toBe(true);
     });
 
     it("sends the required rowversion for every existing authoritative mutation", async () => {

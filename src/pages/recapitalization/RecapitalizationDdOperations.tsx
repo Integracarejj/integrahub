@@ -32,6 +32,8 @@ export default function RecapitalizationDdOperations() {
     const [pendingAuthoritativeAssignment, setPendingAuthoritativeAssignment] = useState<{ req: RecapRequest; userId: string; displayName: string; reassignment: boolean } | null>(null);
     const [pendingAuthoritativeDdAction, setPendingAuthoritativeDdAction] = useState<{ req: RecapRequest; action: "return" | "ready" } | null>(null);
     const [authoritativeDdActionPending, setAuthoritativeDdActionPending] = useState(false);
+    const [assignmentError, setAssignmentError] = useState<string | null>(null);
+    const [assignmentPending, setAssignmentPending] = useState(false);
     const members = getTeamMembers();
     const authoritativeAssignees = getAuthoritativeAssignees();
     const demoActive = isDemoPresentationActive();
@@ -699,7 +701,7 @@ export default function RecapitalizationDdOperations() {
                                                     if (newOwner) {
                                                         if (req.origin === "authoritative") {
                                                             const assignee = authoritativeAssignees.find(user => user.id === newOwner);
-                                                            setPendingAuthoritativeAssignment({ req, userId: newOwner, displayName: assignee?.displayName || assignee?.email || "Selected user", reassignment: true });
+                                                            setAssignmentError(null); setPendingAuthoritativeAssignment({ req, userId: newOwner, displayName: assignee?.displayName || assignee?.email || "Selected user", reassignment: true });
                                                             return;
                                                         }
                                                         updateRequestOwner(req.id, newOwner); updateRequestStatus(req.id, "Open" as RecapRequest["status"]);
@@ -810,7 +812,7 @@ export default function RecapitalizationDdOperations() {
                                                     if (newOwner) {
                                                         if (req.origin === "authoritative") {
                                                             const assignee = authoritativeAssignees.find(user => user.id === newOwner);
-                                                            setPendingAuthoritativeAssignment({ req, userId: newOwner, displayName: assignee?.displayName || assignee?.email || "Selected user", reassignment: !!req.assignedUserId || !!req.owner });
+                                                            setAssignmentError(null); setPendingAuthoritativeAssignment({ req, userId: newOwner, displayName: assignee?.displayName || assignee?.email || "Selected user", reassignment: !!req.assignedUserId || !!req.owner });
                                                             return;
                                                         }
                                                         updateRequestOwner(req.id, newOwner); updateRequestStatus(req.id, "Open" as RecapRequest["status"]);
@@ -924,18 +926,22 @@ export default function RecapitalizationDdOperations() {
                             <div style={{ fontSize: 13, color: "#475569", marginTop: 10 }}>
                                 This will assign the request to {pendingAuthoritativeAssignment.displayName}{pendingAuthoritativeAssignment.reassignment ? " and clear the current reassignment request" : ""}.
                             </div>
+                            {assignmentError && <div role="alert" style={{ color: "#b91c1c", marginTop: 12 }}>{assignmentError}</div>}
                         </div>
                         <div className="rc-modal-footer">
                             <button className="rc-btn rc-btn-ghost" onClick={() => setPendingAuthoritativeAssignment(null)}>Cancel</button>
-                            <button className="rc-btn rc-btn-primary" onClick={async () => {
+                            <button className="rc-btn rc-btn-primary" disabled={assignmentPending} onClick={async () => {
                                 const pending = pendingAuthoritativeAssignment;
-                                await assignAuthoritativeWorkItem(pending.req.id, pending.userId);
+                                setAssignmentPending(true); setAssignmentError(null);
+                                try { await assignAuthoritativeWorkItem(pending.req.id, pending.userId); }
+                                catch (error) { setAssignmentError(error instanceof Error ? error.message : "Assignment failed. Please try again."); setAssignmentPending(false); return; }
                                 setPendingAuthoritativeAssignment(null);
                                 setSuccessMsg({
                                     title: pending.reassignment ? "Reassigned" : "Assigned",
                                     body: `${pending.req.requestId} has been assigned to ${pending.displayName}.`,
                                 });
                                 setRefreshKey(k => k + 1);
+                                setAssignmentPending(false);
                             }}>{pendingAuthoritativeAssignment.reassignment ? "Reassign" : "Assign"}</button>
                         </div>
                     </div>

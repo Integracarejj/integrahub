@@ -13,6 +13,15 @@ function text(value, max, label = "Text") {
 }
 const isOperationsActor = actor => ["PlatformAdmin", "DDTeam"].includes(actor?.globalRole);
 
+export function serializeRowVersion(value) {
+    if (typeof value === "string" && VERSION.test(value.trim())) return value.trim().toLowerCase();
+    if (Buffer.isBuffer(value) && value.length === 8) return `0x${value.toString("hex")}`;
+    if (value?.type === "Buffer" && Array.isArray(value.data) && value.data.length === 8 && value.data.every(byte => Number.isInteger(byte) && byte >= 0 && byte <= 255)) {
+        return `0x${Buffer.from(value.data).toString("hex")}`;
+    }
+    return value;
+}
+
 function requireOperations(actor) {
     if (!isOperationsActor(actor)) throw new RecapWorkItemAuthorizationError("DD Operations access required");
 }
@@ -46,6 +55,7 @@ function mapRow(row, actor) {
     const isOwner = !!actor?.id && row.assignedUserId === actor.id;
     return {
         ...row,
+        version: serializeRowVersion(row.version),
         communities: JSON.parse(row.communityNamesJson || "[]"),
         communityNamesJson: undefined,
         needsReassignment: !!row.needsReassignment,

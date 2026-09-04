@@ -12,7 +12,7 @@ const joinedSelect = `
            workItem.activeReasonType, workItem.activeReason, workItem.proposedDisposition,
            workItem.dispositionReason, workItem.dispositionProposedByUserId, workItem.dispositionProposedAt,
            workItem.admittedAt, workItem.assignedAt, workItem.acceptedAt,
-           workItem.updatedAt, CONVERT(varchar(18), workItem.version, 1) AS version,
+           workItem.updatedAt, workItem.version AS version,
            CONVERT(varchar(36), packageRow.id) AS packageId, packageRow.sourcePackageId,
            packageRow.packageName, packageRow.originalFileName,
            packageRow.externalOrganizationId,

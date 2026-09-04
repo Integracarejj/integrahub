@@ -37,6 +37,10 @@ export class AuthoritativeWorkItemConflictError extends Error {
     constructor() { super("This request changed since you opened it. We refreshed the latest version. Please review the updated request and try again."); }
 }
 
+export class AuthoritativeWorkItemVersionError extends Error {
+    constructor() { super("This request could not be updated because its latest version was unavailable. We refreshed the request. Please try again."); }
+}
+
 let cachedRequests: RecapRequest[] = [];
 let cachedAssignees: AuthoritativeAssignee[] = [];
 
@@ -98,11 +102,20 @@ export function getCachedAuthoritativeWorkItems() { return cachedRequests; }
 export function getAuthoritativeAssignees() { return cachedAssignees; }
 export function getAuthoritativeWorkItem(id: string) { return cachedRequests.find(row => row.id === id || row.requestId === id || row.intakeRequestId === id); }
 export function isIntakeRequestAdmitted(id?: string) { return !!id && cachedRequests.some(row => row.intakeRequestId === id); }
-function expectedVersion(id: string) { return getAuthoritativeWorkItem(id)?.authoritativeVersion || null; }
+const VERSION = /^0x[0-9a-f]{16}$/i;
+function expectedVersion(id: string) {
+    const value = getAuthoritativeWorkItem(id)?.authoritativeVersion;
+    return typeof value === "string" && VERSION.test(value) ? value : null;
+}
 
 async function mutate(id: string, path: string, body: Record<string, unknown>) {
     try {
-        const data = await api(`/${id}${path}`, { method: "POST", body: JSON.stringify({ ...body, expectedVersion: expectedVersion(id) }) });
+        const currentVersion = expectedVersion(id);
+        if (!currentVersion) {
+            await loadAuthoritativeWorkItems();
+            throw new AuthoritativeWorkItemVersionError();
+        }
+        const data = await api(`/${id}${path}`, { method: "POST", body: JSON.stringify({ ...body, expectedVersion: currentVersion }) });
         return upsert(data.workItem);
     } catch (error) {
         if (error instanceof AuthoritativeWorkItemConflictError) await loadAuthoritativeWorkItems();

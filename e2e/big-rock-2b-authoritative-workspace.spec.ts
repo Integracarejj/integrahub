@@ -152,3 +152,63 @@ test("internal response, notes, blockers, review, and dispositions are authorita
     expect(notes).toHaveLength(1);
     expect(events.map(event => event.eventType)).toEqual(expect.arrayContaining(["ResponseUpdated", "Blocked", "Unblocked", "SubmittedForDdReview"]));
 });
+
+test("queued workspace requires assignment and refreshes authoritative owner and capabilities", async ({ browser }) => {
+    let state = "Queued";
+    let assignedUserId: string | null = null;
+    let version = "0x0000000000000052";
+    const assignee = { id: OWNER_ID, displayName: "Durable Contributor", email: "owner@example.com", role: "Editor" };
+    const projection = (userId: string) => ({
+        workItemId: WORK_ID, intakeRequestId: "11111111-1111-4111-8111-111111111111", requestNumber: "DD-2026-00000052",
+        status: state, assignedUserId, assignedUserName: assignedUserId ? assignee.displayName : null, assignedUserEmail: assignedUserId ? assignee.email : null,
+        team: "Projects", priority: "High", dueDate: null, title: "Architectural and construction plan sets", description: "Plans", category: "Projects", communities: ["Keystone"],
+        needsReassignment: false, misassignedReason: null, packageId: "44444444-4444-4444-8444-444444444444", sourcePackageId: "source", packageName: "Package", originalFileName: "source.xlsx",
+        externalOrganizationId: "org", businessTransactionId: "txn", transactionName: "Project Keystone", admittedAt: "2026-09-04T12:00:00Z", assignedAt: assignedUserId ? "2026-09-04T13:00:00Z" : null,
+        acceptedAt: null, updatedAt: "2026-09-04T13:00:00Z", version, responseContent: null,
+        capabilities: { canAssign: userId === ADMIN_ID && state === "Queued", canAccept: userId === OWNER_ID && state === "Assigned", canAddWorkNote: userId === ADMIN_ID },
+    });
+
+    async function setup(page: Page, userId: string) {
+        await mockAuth(page);
+        await page.addInitScript(() => sessionStorage.removeItem("integrasource.recap.demoPresentation"));
+        await page.route("**/api/me", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...PREVIEW_USER, userRecord: { ...PREVIEW_USER.userRecord, id: userId } }) }));
+        await page.route("**/api/recapitalization/work-items", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ workItems: [projection(userId)], assignees: [assignee] }) }));
+        await page.route("**/api/recapitalization/work-items/**", async route => {
+            const url = route.request().url();
+            if (url.endsWith("/assign")) {
+                const body = JSON.parse(route.request().postData() || "{}");
+                expect(body).toEqual({ assignedUserId: OWNER_ID, expectedVersion: "0x0000000000000052" });
+                state = "Assigned"; assignedUserId = OWNER_ID; version = "0x0000000000000053";
+                return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ workItem: projection(userId) }) });
+            }
+            const key = url.endsWith("/events") ? "events" : url.endsWith("/notes") ? "notes" : url.endsWith("/artifacts") ? "artifacts" : "documents";
+            return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ [key]: [] }) });
+        });
+    }
+
+    const admin = await browser.newContext();
+    const adminPage = await admin.newPage(); await setup(adminPage, ADMIN_ID);
+    await adminPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
+    await expect(adminPage.getByRole("heading", { name: "Assignment required" })).toBeVisible();
+    await expect(adminPage.getByText("cannot be worked until DD Operations assigns an owner")).toBeVisible();
+    await expect(adminPage.getByLabel("DD response")).toHaveCount(0);
+    await adminPage.getByLabel("Assign Owner").selectOption(OWNER_ID);
+    const dialog = adminPage.getByRole("dialog", { name: "Assign Request?" });
+    await expect(dialog).toContainText("DD-2026-00000052");
+    await dialog.getByRole("button", { name: "Assign" }).click();
+    await expect(adminPage.getByTestId("authoritative-status")).toHaveText("Assigned");
+    await expect(adminPage.getByText("Owner:").locator("strong")).toHaveText(assignee.displayName);
+    await admin.close();
+
+    const owner = await browser.newContext();
+    const ownerPage = await owner.newPage(); await setup(ownerPage, OWNER_ID);
+    await ownerPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
+    await expect(ownerPage.getByRole("button", { name: "Accept Work" })).toBeVisible();
+    await owner.close();
+
+    const other = await browser.newContext();
+    const otherPage = await other.newPage(); await setup(otherPage, "55555555-5555-4555-8555-555555555555");
+    await otherPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
+    await expect(otherPage.getByRole("button", { name: "Accept Work" })).toHaveCount(0);
+    await other.close();
+});

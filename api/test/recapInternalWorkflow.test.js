@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import express from "express";
 import { createRecapWorkItemRepository } from "../src/services/recapWorkItemRepository.js";
-import { createRecapWorkItemService, RecapWorkItemAuthorizationError, RecapWorkItemConflictError, RecapWorkItemValidationError } from "../src/services/recapWorkItemService.js";
+import { createRecapWorkItemService, RecapWorkItemAuthorizationError, RecapWorkItemConflictError, RecapWorkItemValidationError, serializeRowVersion } from "../src/services/recapWorkItemService.js";
 import { createRecapWorkItemsRouter } from "../src/routes/recapWorkItems.js";
 
 const ID = "11111111-1111-4111-8111-111111111111";
@@ -17,6 +17,27 @@ const owner = { id: "owner", globalRole: "Editor" };
 const viewer = { id: "owner", globalRole: "Viewer" };
 const stranger = { id: "other", globalRole: "Editor" };
 const ops = { id: "ops", globalRole: "DDTeam" };
+
+test("repository binary rowversion is projected as the canonical browser round-trip value", async () => {
+    const productionVersion = Buffer.from([0, 0, 0, 0, 0, 0, 0, 82]);
+    assert.equal(serializeRowVersion(productionVersion), "0x0000000000000052");
+    assert.equal(serializeRowVersion({ type: "Buffer", data: [...productionVersion] }), "0x0000000000000052");
+    let receivedVersion;
+    const repository = {
+        list: async () => ({ workItems: [{ ...row("Queued", null), version: productionVersion }], assignees: [] }),
+        assign: async (_id, _target, _actor, expectedVersion) => {
+            receivedVersion = expectedVersion;
+            return [{ ...row("Assigned", "owner"), version: Buffer.from([0, 0, 0, 0, 0, 0, 0, 83]) }];
+        },
+    };
+    const service = createRecapWorkItemService({ repository });
+    const projection = await service.list(ops);
+    const browserDto = JSON.parse(JSON.stringify(projection.workItems[0]));
+    assert.equal(browserDto.version, "0x0000000000000052");
+    const assigned = await service.assign(ID, "owner", ops, browserDto.version);
+    assert.equal(receivedVersion, "0x0000000000000052");
+    assert.equal(assigned.version, "0x0000000000000053");
+});
 
 test("migration 021 is additive, transactional, checksummed, rerunnable, and fail-closed", async () => {
     const sql = await readFile(new URL("../src/migrations/021_recap_internal_workflow.sql", import.meta.url), "utf8");
