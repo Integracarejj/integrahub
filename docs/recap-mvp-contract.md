@@ -14,9 +14,9 @@ Every authoritative state and material decision must survive refresh, logout/log
 
 ### Currently implemented
 
-The authoritative `RecapWorkItems.status` values are `Queued`, `Assigned`, `In Progress`, `Needs DD Review`, and `Ready to Publish`.
+Big Rock 2A and 2B are implemented. The authoritative internal `RecapWorkItems.status` values are `Queued`, `Assigned`, `In Progress`, `Clarification Needed`, `Blocked`, `Needs DD Review`, `Ready to Publish`, `Not Applicable`, and `Duplicate`.
 
-Big Rock 2A adds the reviewed backend/schema foundation for `Clarification Needed`, `Blocked`, `Not Applicable`, and `Duplicate`, together with authoritative response content, active reasons, disposition proposals, workflow events, and internal work notes. These additions are not operational until migration 021 is separately approved/executed and Big Rock 2B connects the Workspace UI.
+The internal Workspace reads and writes response content, active reasons, disposition proposals, workflow events, and append-only Work Notes through the authenticated API. Actions are rendered from server capabilities and every versioned mutation sends the current rowversion. A stale mutation refreshes the authoritative item without automatically retrying or replacing a safe unsaved response draft. Browser storage remains limited to deferred demo/external prototype behavior and harmless UI preferences; it is not internal workflow authority.
 
 ### Target required for MVP
 

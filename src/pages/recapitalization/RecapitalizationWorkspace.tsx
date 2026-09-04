@@ -12,6 +12,7 @@ import { canAcceptAuthoritativeWorkItem, canSubmitAuthoritativeWorkItemForDdRevi
 import { canUploadAuthoritativeArtifact, canViewAuthoritativeArtifacts } from "../../services/recapPresentation";
 import { downloadAuthoritativeArtifact, downloadAuthoritativeSourceDocument, loadAuthoritativeArtifacts, loadAuthoritativeSourceDocuments, uploadAuthoritativeArtifact } from "../../services/recapWorkArtifactPersistence";
 import type { AuthoritativeSourceDocument } from "../../services/recapWorkArtifactPersistence";
+import AuthoritativeRecapWorkspace from "./AuthoritativeRecapWorkspace";
 
 const TEAM_MEMBERS = ["Sarah Chen", "James Wright", "Lisa Park", "Tom Davies", "Mike O'Brien", "Anna Patel", "David Park", "Carlos Rivera", "Demo User (Test)"];
 
@@ -119,6 +120,9 @@ export default function RecapitalizationWorkspace() {
         );
     }
 
+    if (result.type === "request" && result.item.origin === "authoritative") {
+        return <AuthoritativeRecapWorkspace initialItem={result.item} />;
+    }
     return <LoadedRecapitalizationWorkspace id={id} result={result} wsRefreshKey={wsRefreshKey} setWsRefreshKey={setWsRefreshKey} />;
 }
 

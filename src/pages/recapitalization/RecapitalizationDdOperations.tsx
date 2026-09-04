@@ -671,8 +671,12 @@ export default function RecapitalizationDdOperations() {
                                     <td onClick={e => e.stopPropagation()} style={{ whiteSpace: "nowrap" }}>
                                         {req.origin === "authoritative" && req.status === "Needs DD Review" ? (
                                             <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                                                {req.capabilities?.canReturnFromDdReview && <button onClick={() => setPendingAuthoritativeDdAction({ req, action: "return" })} style={{ fontSize: 10, padding: "4px 10px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #fcd34d", cursor: "pointer", fontWeight: 600 }}>Return to Contributor</button>}
-                                                {req.capabilities?.canMarkReadyToPublish && <button onClick={() => setPendingAuthoritativeDdAction({ req, action: "ready" })} style={{ fontSize: 10, padding: "4px 10px", borderRadius: 6, background: "#047857", color: "#fff", border: "1px solid #047857", cursor: "pointer", fontWeight: 600 }}>Mark Ready to Publish</button>}
+                                                {req.capabilities?.canReviewDisposition ? (
+                                                    <button onClick={() => navigate(`/recapitalization/workspace/${req.id}`, { state: { from: "dd-operations" } })} style={{ fontSize: 10, padding: "4px 10px", borderRadius: 6, background: "#4f46e5", color: "#fff", border: "1px solid #4f46e5", cursor: "pointer", fontWeight: 600 }}>Review Disposition</button>
+                                                ) : <>
+                                                    {req.capabilities?.canReturnFromDdReview && <button onClick={() => setPendingAuthoritativeDdAction({ req, action: "return" })} style={{ fontSize: 10, padding: "4px 10px", borderRadius: 6, background: "#fff", color: "#0f172a", border: "1px solid #fcd34d", cursor: "pointer", fontWeight: 600 }}>Return to Contributor</button>}
+                                                    {req.capabilities?.canMarkReadyToPublish && <button onClick={() => setPendingAuthoritativeDdAction({ req, action: "ready" })} style={{ fontSize: 10, padding: "4px 10px", borderRadius: 6, background: "#047857", color: "#fff", border: "1px solid #047857", cursor: "pointer", fontWeight: 600 }}>Mark Ready to Publish</button>}
+                                                </>}
                                             </div>
                                         ) : req.owner && !req._needsReassignment && !req._misassignedReason ? (
                                             <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>

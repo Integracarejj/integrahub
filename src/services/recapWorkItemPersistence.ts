@@ -2,9 +2,9 @@ import { getAuthHeaders } from "../utils/apiFetch";
 import type { RecapRequest } from "./recapMockData";
 
 export interface AuthoritativeAssignee { id: string; displayName: string | null; email: string | null; role: string }
-interface WorkItemResponse {
+export interface WorkItemResponse {
     workItemId: string; intakeRequestId: string; requestNumber: string;
-    status: "Queued" | "Assigned" | "In Progress" | "Needs DD Review" | "Ready to Publish"; assignedUserId: string | null;
+    status: "Queued" | "Assigned" | "In Progress" | "Clarification Needed" | "Blocked" | "Needs DD Review" | "Ready to Publish" | "Not Applicable" | "Duplicate"; assignedUserId: string | null;
     assignedUserName: string | null; assignedUserEmail: string | null;
     team: string; priority: RecapRequest["priority"]; dueDate: string | null;
     title: string; description: string; category: string; communities: string[];
@@ -20,6 +20,23 @@ interface WorkItemResponse {
     capabilities: Record<string, boolean>;
 }
 
+export interface AuthoritativeWorkItemEvent {
+    id: string; eventType: string; actorUserId: string; actorName: string | null;
+    occurredAt: string; priorStatus: string | null; resultingStatus: string | null;
+    priorAssignedUserId: string | null; resultingAssignedUserId: string | null;
+    details: Record<string, unknown> | null;
+}
+
+export interface AuthoritativeWorkNote {
+    id: string; authorUserId: string; authorName: string | null;
+    noteType: "Work Note" | "Clarification" | "Blocker" | "Disposition";
+    noteText: string; createdAt: string;
+}
+
+export class AuthoritativeWorkItemConflictError extends Error {
+    constructor() { super("This request changed since you opened it. We refreshed the latest version. Please review the updated request and try again."); }
+}
+
 let cachedRequests: RecapRequest[] = [];
 let cachedAssignees: AuthoritativeAssignee[] = [];
 
@@ -30,7 +47,7 @@ function project(item: WorkItemResponse): RecapRequest {
         brokerBuyer: item.externalOrganizationId, communityIds: [], communityNames: item.communities,
         category: item.category, title: item.title, description: item.description,
         owner: item.assignedUserName || item.assignedUserEmail, assignedTo: item.assignedUserName || item.assignedUserEmail,
-        team: item.team || "", status: item.status === "Queued" ? "Open" : item.status,
+        team: item.team || "", status: item.status,
         priority: item.priority, dueDate: item.dueDate ? String(item.dueDate).slice(0, 10) : "",
         lastUpdated: String(item.acceptedAt || item.assignedAt || item.admittedAt).slice(0, 10),
         externalVisible: false, submittedBy: item.externalOrganizationId, source: "External",
@@ -43,8 +60,12 @@ function project(item: WorkItemResponse): RecapRequest {
         origin: "authoritative", workItemId: item.workItemId, intakeRequestId: item.intakeRequestId,
         assignedUserId: item.assignedUserId, capabilities: item.capabilities,
         authoritativeVersion: item.version, authoritativeResponse: item.responseContent || null,
+        authoritativeResponseUpdatedAt: item.responseUpdatedAt || null,
+        authoritativeResponseUpdatedByUserId: item.responseUpdatedByUserId || null,
         authoritativeActiveReasonType: item.activeReasonType || null, authoritativeActiveReason: item.activeReason || null,
         authoritativeProposedDisposition: item.proposedDisposition || null, authoritativeDispositionReason: item.dispositionReason || null,
+        authoritativeDispositionProposedByUserId: item.dispositionProposedByUserId || null,
+        authoritativeDispositionProposedAt: item.dispositionProposedAt || null,
     };
 }
 
@@ -53,7 +74,10 @@ async function api(path: string, init?: RequestInit) {
         credentials: "include", ...init,
         headers: { "Content-Type": "application/json", ...getAuthHeaders(), ...(init?.headers || {}) },
     });
-    if (!response.ok) throw new Error((await response.json().catch(() => null))?.error || "Work item operation failed");
+    if (!response.ok) {
+        if (response.status === 409) throw new AuthoritativeWorkItemConflictError();
+        throw new Error((await response.json().catch(() => null))?.error || "Work item operation failed");
+    }
     return response.json();
 }
 
@@ -76,6 +100,16 @@ export function getAuthoritativeWorkItem(id: string) { return cachedRequests.fin
 export function isIntakeRequestAdmitted(id?: string) { return !!id && cachedRequests.some(row => row.intakeRequestId === id); }
 function expectedVersion(id: string) { return getAuthoritativeWorkItem(id)?.authoritativeVersion || null; }
 
+async function mutate(id: string, path: string, body: Record<string, unknown>) {
+    try {
+        const data = await api(`/${id}${path}`, { method: "POST", body: JSON.stringify({ ...body, expectedVersion: expectedVersion(id) }) });
+        return upsert(data.workItem);
+    } catch (error) {
+        if (error instanceof AuthoritativeWorkItemConflictError) await loadAuthoritativeWorkItems();
+        throw error;
+    }
+}
+
 export async function admitAuthoritativeRequests(requests: RecapRequest[]) {
     const eligible = requests.filter(row => row.intakeRequestId);
     const data = await api("/admit", { method: "POST", body: JSON.stringify({
@@ -89,11 +123,24 @@ export async function admitAuthoritativeRequests(requests: RecapRequest[]) {
 }
 
 export async function assignAuthoritativeWorkItem(id: string, assignedUserId: string) {
-    const data = await api(`/${id}/assign`, { method: "POST", body: JSON.stringify({ assignedUserId, expectedVersion: expectedVersion(id) }) });
-    return upsert(data.workItem);
+    return mutate(id, "/assign", { assignedUserId });
 }
-export async function acceptAuthoritativeWorkItem(id: string) { const data = await api(`/${id}/accept`, { method: "POST", body: JSON.stringify({ expectedVersion: expectedVersion(id) }) }); return upsert(data.workItem); }
-export async function submitAuthoritativeWorkItemForDdReview(id: string) { const data = await api(`/${id}/submit-dd-review`, { method: "POST", body: JSON.stringify({ expectedVersion: expectedVersion(id) }) }); return upsert(data.workItem); }
-export async function returnAuthoritativeWorkItemFromDdReview(id: string, reason?: string) { const data = await api(`/${id}/return-from-dd-review`, { method: "POST", body: JSON.stringify({ reason, expectedVersion: expectedVersion(id) }) }); return upsert(data.workItem); }
-export async function markAuthoritativeWorkItemReadyToPublish(id: string) { const data = await api(`/${id}/ready-to-publish`, { method: "POST", body: JSON.stringify({ expectedVersion: expectedVersion(id) }) }); return upsert(data.workItem); }
-export async function markAuthoritativeWorkItemNotMine(id: string, reason: string) { const data = await api(`/${id}/not-mine`, { method: "POST", body: JSON.stringify({ reason, expectedVersion: expectedVersion(id) }) }); return upsert(data.workItem); }
+export function acceptAuthoritativeWorkItem(id: string) { return mutate(id, "/accept", {}); }
+export function submitAuthoritativeWorkItemForDdReview(id: string) { return mutate(id, "/submit-dd-review", {}); }
+export function returnAuthoritativeWorkItemFromDdReview(id: string, reason?: string) { return mutate(id, "/return-from-dd-review", { reason }); }
+export function markAuthoritativeWorkItemReadyToPublish(id: string) { return mutate(id, "/ready-to-publish", {}); }
+export function markAuthoritativeWorkItemNotMine(id: string, reason: string) { return mutate(id, "/not-mine", { reason }); }
+export function updateAuthoritativeResponse(id: string, responseContent: string) { return mutate(id, "/response", { responseContent }); }
+export function requestAuthoritativeClarification(id: string, reason: string) { return mutate(id, "/clarification", { reason }); }
+export function resolveAuthoritativeClarification(id: string, resolution: string) { return mutate(id, "/clarification/resolve", { resolution }); }
+export function blockAuthoritativeWorkItem(id: string, reason: string) { return mutate(id, "/block", { reason }); }
+export function unblockAuthoritativeWorkItem(id: string, resolution: string) { return mutate(id, "/unblock", { resolution }); }
+export function proposeAuthoritativeDisposition(id: string, disposition: "Not Applicable" | "Duplicate", reason: string) { return mutate(id, "/disposition", { disposition, reason }); }
+export function approveAuthoritativeDisposition(id: string) { return mutate(id, "/disposition/approve", {}); }
+export function returnAuthoritativeDisposition(id: string, reason: string) { return mutate(id, "/disposition/return", { reason }); }
+export async function loadAuthoritativeWorkItemEvents(id: string): Promise<AuthoritativeWorkItemEvent[]> { return (await api(`/${id}/events`)).events || []; }
+export async function loadAuthoritativeWorkNotes(id: string): Promise<AuthoritativeWorkNote[]> { return (await api(`/${id}/notes`)).notes || []; }
+export async function addAuthoritativeWorkNote(id: string, noteText: string, noteType: AuthoritativeWorkNote["noteType"] = "Work Note") {
+    const data = await api(`/${id}/notes`, { method: "POST", body: JSON.stringify({ noteText, noteType }) });
+    return data.note as AuthoritativeWorkNote;
+}

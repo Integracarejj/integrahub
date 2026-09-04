@@ -35,7 +35,7 @@ export interface RecapRequest {
     description: string;
     owner: string | null;
     team: string;
-    status: "Provided" | "In Progress" | "Needs DD Review" | "Ready to Publish" | "Clarification Needed" | "Under Review" | "Open" | "Assigned" | "Overdue" | "Pending External" | "Blocked" | "Ready for Review" | "Complete" | "Not Applicable" | "Duplicate" | "Rejected" | "Waiting Partner Review" | "Completed" | "Needs Rework";
+    status: "Queued" | "Provided" | "In Progress" | "Needs DD Review" | "Ready to Publish" | "Clarification Needed" | "Under Review" | "Open" | "Assigned" | "Overdue" | "Pending External" | "Blocked" | "Ready for Review" | "Complete" | "Not Applicable" | "Duplicate" | "Rejected" | "Waiting Partner Review" | "Completed" | "Needs Rework";
     priority: "High" | "Medium" | "Low";
     dueDate: string;
     lastUpdated: string;
@@ -116,10 +116,14 @@ export interface RecapRequest {
     _clarificationRaisedBy?: string | null;
     authoritativeVersion?: string | null;
     authoritativeResponse?: string | null;
+    authoritativeResponseUpdatedAt?: string | null;
+    authoritativeResponseUpdatedByUserId?: string | null;
     authoritativeActiveReasonType?: "Clarification" | "Blocker" | null;
     authoritativeActiveReason?: string | null;
     authoritativeProposedDisposition?: "Not Applicable" | "Duplicate" | null;
     authoritativeDispositionReason?: string | null;
+    authoritativeDispositionProposedByUserId?: string | null;
+    authoritativeDispositionProposedAt?: string | null;
     /** External lifecycle milestone: timestamp when processing first started (Accept Work).
      *  Once set, this field is NEVER cleared. It preserves the external "In Progress" state
      *  across internal status changes (blocker, return, reassignment, DD review, etc.). */
