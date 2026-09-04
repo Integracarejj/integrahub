@@ -91,12 +91,25 @@ test("internal response, notes, blockers, review, and dispositions are authorita
     const owner = await browser.newContext();
     const ownerPage = await owner.newPage(); await setup(ownerPage, OWNER_ID);
     await ownerPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
-    await ownerPage.getByLabel("DD response").fill("Durable response text");
+    await ownerPage.getByLabel("Response / Findings").fill("Durable response text");
     await ownerPage.getByRole("button", { name: "Save response" }).click();
     await expect(ownerPage.getByRole("status")).toContainText("Response saved");
-    await expect(ownerPage.getByTestId("authoritative-action-center").getByText("Upload Artifact", { exact: true })).toBeVisible();
+    await expect(ownerPage.getByTestId("authoritative-action-center").getByText("Work action", { exact: true })).toBeVisible();
     await ownerPage.getByLabel("Upload Artifact").setInputFiles({ name: "keystone-support.txt", mimeType: "text/plain", buffer: Buffer.from("authoritative artifact") });
-    await expect(ownerPage.getByText("keystone-support.txt")).toBeVisible();
+    await expect(ownerPage.getByTestId("selected-upload-file")).toContainText("Ready to upload");
+    await ownerPage.getByRole("button", { name: "Upload document" }).click();
+    await expect(ownerPage.locator(".rc-upload-feedback.is-success")).toContainText("uploaded successfully");
+    await expect(ownerPage.getByText("keystone-support.txt", { exact: true })).toBeVisible();
+    const droppedFile = await ownerPage.evaluateHandle(() => {
+        const data = new DataTransfer();
+        data.items.add(new File(["dropped evidence"], "dragged-evidence.txt", { type: "text/plain" }));
+        return data;
+    });
+    await ownerPage.getByRole("button", { name: "Browse supporting documents" }).dispatchEvent("drop", { dataTransfer: droppedFile });
+    await expect(ownerPage.getByTestId("selected-upload-file")).toContainText("dragged-evidence.txt");
+    await ownerPage.getByRole("button", { name: "Upload document" }).click();
+    await expect(ownerPage.locator(".rc-upload-feedback.is-success")).toContainText("dragged-evidence.txt uploaded successfully");
+    await expect(ownerPage.getByText("dragged-evidence.txt", { exact: true })).toBeVisible();
     await ownerPage.getByLabel("New work note").fill("Internal context survives sessions");
     await ownerPage.getByRole("button", { name: "Add note" }).click();
     await ownerPage.getByRole("button", { name: "Mark Blocked" }).click();
@@ -108,7 +121,7 @@ test("internal response, notes, blockers, review, and dispositions are authorita
     const reopened = await browser.newContext();
     const reopenedPage = await reopened.newPage(); await setup(reopenedPage, OWNER_ID);
     await reopenedPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
-    await expect(reopenedPage.getByLabel("DD response")).toHaveValue("Durable response text");
+    await expect(reopenedPage.getByLabel("Response / Findings")).toHaveValue("Durable response text");
     await expect(reopenedPage.getByText("keystone-support.txt")).toBeVisible();
     await expect(reopenedPage.getByText("Internal context survives sessions")).toBeVisible();
     await expect(reopenedPage.getByText("Waiting for source data", { exact: true })).toBeVisible();
@@ -206,7 +219,7 @@ test("queued workspace requires assignment and refreshes authoritative owner and
     await expect(adminPage.getByTestId("workspace-state-summary")).toContainText("Owner");
     await expect(adminPage.getByTestId("workspace-state-summary")).toContainText("Unassigned");
     await expect(adminPage.getByText("cannot be worked until DD Operations assigns an owner")).toBeVisible();
-    await expect(adminPage.getByLabel("DD response")).toHaveCount(0);
+    await expect(adminPage.getByLabel("Response / Findings")).toHaveCount(0);
     await adminPage.getByLabel("Assign Owner").selectOption(OWNER_ID);
     const dialog = adminPage.getByRole("dialog", { name: "Assign Request?" });
     await expect(dialog).toContainText("DD-2026-00000052");
@@ -220,7 +233,7 @@ test("queued workspace requires assignment and refreshes authoritative owner and
     await ownerPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
     await expect(ownerPage.getByRole("button", { name: "Accept Work" })).toBeVisible();
     await expect(ownerPage.getByRole("button", { name: "Not Mine" })).toBeVisible();
-    await expect(ownerPage.getByLabel("DD response")).toHaveCount(0);
+    await expect(ownerPage.getByLabel("Response / Findings")).toHaveCount(0);
     await expect(ownerPage.getByLabel("Upload Artifact")).toHaveCount(0);
     await owner.close();
 

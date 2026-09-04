@@ -54,6 +54,10 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
         const handleWorkItems = async (route: Parameters<Parameters<Page["route"]>[1]>[0]) => {
             const url = route.request().url();
             const method = route.request().method();
+            if (url.includes("/source-documents/") && url.endsWith("/content")) {
+                await route.fulfill({ status: 200, contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers: { "Content-Disposition": "attachment; filename=\"keystone.xlsx\"" }, body: "source document" });
+                return;
+            }
             if (url.endsWith("/source-documents")) {
                 await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents: [{ id: "88888888-8888-4888-8888-888888888888", fileName: "keystone.xlsx", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", size: 4096, uploadedAt: "2026-08-19T11:00:00.000Z" }] }) });
                 return;
@@ -234,10 +238,13 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     await reviewSubmitPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
     expect(await reviewSubmitPage.evaluate(async workId => (await fetch(`/api/recapitalization/work-items/${workId}/source-documents`)).json(), WORK_ID)).toMatchObject({ documents: [{ fileName: "keystone.xlsx" }] });
     await expect(reviewSubmitPage.getByText("keystone.xlsx", { exact: true })).toBeVisible();
+    const sourceDownload = reviewSubmitPage.waitForEvent("download");
+    await reviewSubmitPage.getByRole("button", { name: "Download source keystone.xlsx" }).click();
+    expect((await sourceDownload).suggestedFilename()).toBe("keystone.xlsx");
     await reviewSubmitPage.locator("#artifact-upload-hidden").setInputFiles({ name: "owner-report.pdf", mimeType: "application/pdf", buffer: Buffer.from("durable artifact") });
-    await expect(reviewSubmitPage.getByRole("status")).toContainText("owner-report.pdf");
-    await expect(reviewSubmitPage.getByRole("status")).toContainText("Uploading to SharePoint");
-    await expect(reviewSubmitPage.locator(".rc-artifact-upload-progress")).toBeVisible();
+    await expect(reviewSubmitPage.getByTestId("selected-upload-file")).toContainText("Ready to upload");
+    await reviewSubmitPage.getByRole("button", { name: "Upload document" }).click();
+    await expect(reviewSubmitPage.locator(".rc-upload-feedback.is-uploading")).toContainText("Uploading owner-report.pdf");
     await expect(reviewSubmitPage.getByText("owner-report.pdf", { exact: true }).first()).toBeVisible();
     await expect(reviewSubmitPage.getByRole("status")).toContainText("uploaded successfully");
     expect(artifacts).toHaveLength(1);
@@ -250,7 +257,7 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     await setup(persistedArtifactPage, USER_ID);
     await persistedArtifactPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
     await expect(persistedArtifactPage.getByText("owner-report.pdf", { exact: true }).first()).toBeVisible();
-    await persistedArtifactPage.getByRole("button", { name: "Download", exact: true }).click();
+    await persistedArtifactPage.getByRole("button", { name: "Download owner-report.pdf" }).click();
     await expect.poll(() => downloads).toContain("owner-report.pdf");
     await persistedArtifactContext.close();
 
@@ -277,7 +284,7 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     await setup(ddArtifactPage);
     await ddArtifactPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
     await expect(ddArtifactPage.getByText("owner-report.pdf", { exact: true }).first()).toBeVisible();
-    await expect(ddArtifactPage.getByText("Upload Artifact", { exact: true })).toHaveCount(0);
+    await expect(ddArtifactPage.getByLabel("Upload Artifact")).toHaveCount(0);
     await ddArtifactContext.close();
 
     const ddReturnContext = await browser.newContext();

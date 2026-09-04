@@ -2019,26 +2019,40 @@
     to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-.rc-artifact-upload-track {
-  height: 4px;
-  margin-top: 7px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #dbeafe;
-}
-
-.rc-artifact-upload-progress {
-  width: 38%;
-  height: 100%;
-  border-radius: inherit;
-  background: #2563eb;
-  animation: rc-artifact-upload-indeterminate 1.1s ease-in-out infinite;
-}
-
-@keyframes rc-artifact-upload-indeterminate {
-  from { transform: translateX(-120%); }
-  to { transform: translateX(330%); }
-}
+.rc-action-group + .rc-action-group { margin-top: 20px; }
+.rc-action-group-label { margin-bottom: 8px; color: #64748b; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.rc-action-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.rc-action-grid-secondary { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.rc-action-tile { padding: 13px 14px; border: 1px solid #dbe2ea; border-radius: 9px; background: #fff; color: #0f172a; cursor: pointer; text-align: left; }
+.rc-action-tile:hover:not(:disabled), .rc-action-tile:focus-visible { border-color: #94a3b8; box-shadow: 0 0 0 3px rgba(148, 163, 184, .16); }
+.rc-action-tile:disabled { cursor: wait; opacity: .65; }
+.rc-action-tile strong, .rc-action-tile span { display: block; }
+.rc-action-tile span { margin-top: 4px; color: #64748b; font-size: 12px; }
+.rc-action-tile-primary { border: 2px solid #60a5fa; background: #eff6ff; color: #1d4ed8; }
+.rc-action-tile-primary:hover:not(:disabled), .rc-action-tile-primary:focus-visible { border-color: #2563eb; }
+.rc-supporting-upload { overflow: hidden; border: 1px solid #bfdbfe; border-radius: 12px; background: #f8fbff; }
+.rc-upload-dropzone { display: flex; min-height: 108px; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 2px dashed #93c5fd; border-radius: 11px; background: #fff; color: #0f172a; cursor: pointer; transition: background .15s, border-color .15s; }
+.rc-upload-dropzone:hover, .rc-upload-dropzone:focus-visible, .rc-upload-dropzone.is-dragging { border-color: #2563eb; background: #eff6ff; outline: none; }
+.rc-upload-dropzone[aria-disabled="true"] { cursor: wait; opacity: .7; }
+.rc-upload-dropzone > span { color: #64748b; font-size: 13px; }
+.rc-upload-browse { color: #1d4ed8; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+.rc-upload-selection, .rc-upload-feedback { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px; padding: 12px 14px; border-radius: 9px; }
+.rc-upload-selection { border: 1px solid #bfdbfe; background: #fff; }
+.rc-upload-selection strong, .rc-upload-selection span, .rc-upload-feedback strong, .rc-upload-feedback span { display: block; }
+.rc-upload-selection span, .rc-upload-feedback span { margin-top: 3px; color: #64748b; font-size: 12px; }
+.rc-upload-selection-actions { display: flex; gap: 7px; flex-wrap: wrap; }
+.rc-upload-feedback { align-items: flex-start; flex-direction: column; border: 1px solid #bfdbfe; background: #eff6ff; color: #1e40af; }
+.rc-upload-feedback.is-success { border-color: #86efac; background: #f0fdf4; color: #166534; }
+.rc-upload-feedback.is-error { border-color: #fca5a5; background: #fef2f2; color: #991b1b; }
+.rc-document-group + .rc-document-group { margin-top: 24px; }
+.rc-document-group h3 { margin: 0 0 8px; color: #475569; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; }
+.rc-document-group > p { color: #64748b; }
+.rc-document-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 0; border-top: 1px solid #e2e8f0; }
+.rc-document-name { display: flex; align-items: center; gap: 10px; min-width: 0; color: #0f172a; }
+.rc-document-name > span { color: #64748b; font-size: 22px; }
+.rc-document-name strong, .rc-document-name div > span { display: block; }
+.rc-document-name div > span { margin-top: 3px; color: #64748b; font-size: 12px; }
+@media (max-width: 620px) { .rc-upload-selection, .rc-document-row { align-items: stretch; flex-direction: column; } }
 
 .rc-modal-header {
     display: flex;
