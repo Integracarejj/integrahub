@@ -15,6 +15,7 @@ test("internal response, notes, blockers, review, and dispositions are authorita
     let dispositionReason: string | null = null;
     const notes: Record<string, unknown>[] = [];
     const events: Record<string, unknown>[] = [];
+    const artifacts: Record<string, unknown>[] = [];
     const versionsUsed: string[] = [];
     const currentVersion = () => `0x${version.toString(16).padStart(16, "0")}`;
     const advance = () => { version += 1; };
@@ -60,7 +61,14 @@ test("internal response, notes, blockers, review, and dispositions are authorita
                 if (method === "POST") notes.push({ id: `n-${notes.length + 1}`, authorUserId: userId, authorName: userId === OWNER_ID ? "Durable Contributor" : "E2E Preview Admin", noteType: "Work Note", noteText: JSON.parse(route.request().postData() || "{}").noteText, createdAt: "2026-09-03T13:10:00Z" });
                 return route.fulfill({ status: method === "POST" ? 201 : 200, contentType: "application/json", body: JSON.stringify(method === "POST" ? { note: notes.at(-1) } : { notes }) });
             }
-            if (url.endsWith("/artifacts")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ artifacts: [] }) });
+            if (url.endsWith("/artifacts")) {
+                if (method === "POST") {
+                    const artifact = { id: `artifact-${artifacts.length + 1}`, fileName: decodeURIComponent(route.request().headers()["x-file-name"]), contentType: "text/plain", size: route.request().postDataBuffer()?.length || 0, status: "Uploaded", uploadedBy: userId, uploadedAt: "2026-09-03T13:05:00Z" };
+                    artifacts.push(artifact);
+                    return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ artifact }) });
+                }
+                return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ artifacts }) });
+            }
             if (url.endsWith("/source-documents")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents: [] }) });
             const body = JSON.parse(route.request().postData() || "{}");
             if (method === "POST") {
@@ -86,6 +94,9 @@ test("internal response, notes, blockers, review, and dispositions are authorita
     await ownerPage.getByLabel("DD response").fill("Durable response text");
     await ownerPage.getByRole("button", { name: "Save response" }).click();
     await expect(ownerPage.getByRole("status")).toContainText("Response saved");
+    await expect(ownerPage.getByTestId("authoritative-action-center").getByText("Upload Artifact", { exact: true })).toBeVisible();
+    await ownerPage.getByLabel("Upload Artifact").setInputFiles({ name: "keystone-support.txt", mimeType: "text/plain", buffer: Buffer.from("authoritative artifact") });
+    await expect(ownerPage.getByText("keystone-support.txt")).toBeVisible();
     await ownerPage.getByLabel("New work note").fill("Internal context survives sessions");
     await ownerPage.getByRole("button", { name: "Add note" }).click();
     await ownerPage.getByRole("button", { name: "Mark Blocked" }).click();
@@ -98,6 +109,7 @@ test("internal response, notes, blockers, review, and dispositions are authorita
     const reopenedPage = await reopened.newPage(); await setup(reopenedPage, OWNER_ID);
     await reopenedPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
     await expect(reopenedPage.getByLabel("DD response")).toHaveValue("Durable response text");
+    await expect(reopenedPage.getByText("keystone-support.txt")).toBeVisible();
     await expect(reopenedPage.getByText("Internal context survives sessions")).toBeVisible();
     await expect(reopenedPage.getByText("Waiting for source data", { exact: true })).toBeVisible();
     await expect(reopenedPage.getByRole("button", { name: "Resume Work" })).toHaveCount(0);
@@ -165,7 +177,7 @@ test("queued workspace requires assignment and refreshes authoritative owner and
         needsReassignment: false, misassignedReason: null, packageId: "44444444-4444-4444-8444-444444444444", sourcePackageId: "source", packageName: "Package", originalFileName: "source.xlsx",
         externalOrganizationId: "org", businessTransactionId: "txn", transactionName: "Project Keystone", admittedAt: "2026-09-04T12:00:00Z", assignedAt: assignedUserId ? "2026-09-04T13:00:00Z" : null,
         acceptedAt: null, updatedAt: "2026-09-04T13:00:00Z", version, responseContent: null,
-        capabilities: { canAssign: userId === ADMIN_ID && state === "Queued", canAccept: userId === OWNER_ID && state === "Assigned", canAddWorkNote: userId === ADMIN_ID },
+        capabilities: { canAssign: userId === ADMIN_ID && state === "Queued", canAccept: userId === OWNER_ID && state === "Assigned", canMarkNotMine: userId === OWNER_ID && state === "Assigned", canAddWorkNote: userId === ADMIN_ID },
     });
 
     async function setup(page: Page, userId: string) {
@@ -189,7 +201,10 @@ test("queued workspace requires assignment and refreshes authoritative owner and
     const admin = await browser.newContext();
     const adminPage = await admin.newPage(); await setup(adminPage, ADMIN_ID);
     await adminPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
-    await expect(adminPage.getByRole("heading", { name: "Assignment required" })).toBeVisible();
+    await expect(adminPage.getByTestId("workspace-state-summary")).toContainText("Status");
+    await expect(adminPage.getByTestId("workspace-state-summary")).toContainText("Queued");
+    await expect(adminPage.getByTestId("workspace-state-summary")).toContainText("Owner");
+    await expect(adminPage.getByTestId("workspace-state-summary")).toContainText("Unassigned");
     await expect(adminPage.getByText("cannot be worked until DD Operations assigns an owner")).toBeVisible();
     await expect(adminPage.getByLabel("DD response")).toHaveCount(0);
     await adminPage.getByLabel("Assign Owner").selectOption(OWNER_ID);
@@ -197,13 +212,16 @@ test("queued workspace requires assignment and refreshes authoritative owner and
     await expect(dialog).toContainText("DD-2026-00000052");
     await dialog.getByRole("button", { name: "Assign" }).click();
     await expect(adminPage.getByTestId("authoritative-status")).toHaveText("Assigned");
-    await expect(adminPage.getByText("Owner:").locator("strong")).toHaveText(assignee.displayName);
+    await expect(adminPage.getByTestId("workspace-state-summary")).toContainText(assignee.displayName);
     await admin.close();
 
     const owner = await browser.newContext();
     const ownerPage = await owner.newPage(); await setup(ownerPage, OWNER_ID);
     await ownerPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
     await expect(ownerPage.getByRole("button", { name: "Accept Work" })).toBeVisible();
+    await expect(ownerPage.getByRole("button", { name: "Not Mine" })).toBeVisible();
+    await expect(ownerPage.getByLabel("DD response")).toHaveCount(0);
+    await expect(ownerPage.getByLabel("Upload Artifact")).toHaveCount(0);
     await owner.close();
 
     const other = await browser.newContext();
