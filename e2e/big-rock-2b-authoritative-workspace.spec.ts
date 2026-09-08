@@ -122,7 +122,9 @@ test("internal response, notes, blockers, review, and dispositions are authorita
     await expect(ownerPage.locator(".rc-upload-feedback.is-success")).toContainText("dragged-evidence.txt uploaded successfully");
     await expect(ownerPage.getByTestId("supporting-documents").getByText("dragged-evidence.txt", { exact: true })).toBeVisible();
     await ownerPage.getByRole("button", { name: "Request Clarification" }).click();
+    await expect(ownerPage.getByTestId("authoritative-action-center").locator(".rc-action-tile.is-active")).toContainText("Request Clarification");
     await expect(ownerPage.getByRole("dialog", { name: "Request Clarification" }).getByLabel("What needs clarification?")).toBeVisible();
+    await expect(ownerPage.getByText("Reason or resolution", { exact: true })).toHaveCount(0);
     await ownerPage.getByRole("dialog", { name: "Request Clarification" }).getByRole("button", { name: "Cancel" }).click();
     await ownerPage.getByRole("button", { name: "Not Mine" }).click();
     await expect(ownerPage.getByRole("dialog", { name: "Return for Reassignment" })).toContainText("assign the correct owner");
@@ -134,6 +136,7 @@ test("internal response, notes, blockers, review, and dispositions are authorita
     await ownerPage.getByRole("button", { name: "Add note" }).click();
     await ownerPage.getByRole("button", { name: "Mark Blocked" }).click();
     const blockDialog = ownerPage.getByRole("dialog", { name: "Mark Request Blocked" });
+    await expect(ownerPage.getByTestId("authoritative-action-center").locator(".rc-action-tile.is-active")).toContainText("Mark Blocked");
     await expect(blockDialog.getByRole("button", { name: "Mark Blocked" })).toBeDisabled();
     await blockDialog.getByLabel("Blocker reason").fill("Waiting for source data");
     await blockDialog.getByRole("button", { name: "Mark Blocked" }).click();
@@ -235,6 +238,52 @@ test("internal response, notes, blockers, review, and dispositions are authorita
     expect(versionsUsed.length).toBeGreaterThanOrEqual(7);
     expect(notes).toHaveLength(1);
     expect(events.map(event => event.eventType)).toEqual(expect.arrayContaining(["ResponseUpdated", "Blocked", "Unblocked", "SubmittedForDdReview"]));
+});
+
+test("PlatformAdmin-owned DD review item presents contributor waiting or operations review by route context", async ({ page }) => {
+    await mockAuth(page);
+    const projection = {
+        workItemId: WORK_ID, intakeRequestId: "11111111-1111-4111-8111-111111111111", requestNumber: "DD-2026-CONTEXT",
+        status: "Needs DD Review", assignedUserId: ADMIN_ID, assignedUserName: "E2E Preview Admin", assignedUserEmail: "admin@example.com",
+        team: "Financial", priority: "High", dueDate: "2026-09-20", title: "Same-item context review", description: "Context boundary",
+        category: "Financial", communities: ["Keystoneton"], needsReassignment: false, misassignedReason: null,
+        packageId: "44444444-4444-4444-8444-444444444444", sourcePackageId: "source", packageName: "Package", originalFileName: "source.xlsx",
+        externalOrganizationId: "org", businessTransactionId: "txn", transactionName: "Project Keystone", admittedAt: "2026-09-03T12:00:00Z",
+        assignedAt: "2026-09-03T12:05:00Z", acceptedAt: "2026-09-03T12:10:00Z", updatedAt: "2026-09-03T13:00:00Z",
+        version: "0x0000000000000099", responseContent: "Submitted findings", activeReasonType: null, activeReason: null,
+        capabilities: { canUpdateResponse: true, canUploadArtifact: true, canViewArtifacts: true, canAddWorkNote: true,
+            canMarkReadyToPublish: true, canReturnFromDdReview: true, canMarkNotMine: true },
+    };
+    await page.route("**/api/recapitalization/work-items", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ workItems: [projection], assignees: [] }) }));
+    await page.route("**/api/recapitalization/work-items/**", route => {
+        const url = route.request().url();
+        if (url.endsWith("/events")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ events: [{ id: "event-1", eventType: "SubmittedForDdReview", actorUserId: ADMIN_ID, actorName: "E2E Preview Admin", occurredAt: "2026-09-03T13:00:00Z", priorStatus: "In Progress", resultingStatus: "Needs DD Review", details: null }] }) });
+        if (url.endsWith("/notes")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ notes: [{ id: "note-1", authorUserId: ADMIN_ID, authorName: "E2E Preview Admin", noteType: "Work Note", noteText: "Review context note", createdAt: "2026-09-03T12:50:00Z" }] }) });
+        if (url.endsWith("/artifacts")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ artifacts: [{ id: "artifact-1", fileName: "support.pdf", contentType: "application/pdf", size: 10, status: "Uploaded", uploadedBy: ADMIN_ID, uploadedAt: "2026-09-03T12:55:00Z" }] }) });
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents: [{ id: "source-1", fileName: "source.xlsx", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", size: 20, uploadedAt: "2026-09-03T12:00:00Z" }] }) });
+    });
+
+    await page.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
+    await setWorkspaceContext(page, "my-work");
+    await expect(page.getByRole("button", { name: "My Work", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByText("← Back to My Work", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("waiting-on-dd-operations")).toBeVisible();
+    await expect(page.getByTestId("authoritative-status")).toHaveText("Needs DD Review");
+    await expect(page.getByLabel("Response / Findings")).toHaveValue("Submitted findings");
+    await expect(page.getByText("support.pdf", { exact: true })).toBeVisible();
+    await expect(page.getByText("source.xlsx", { exact: true })).toBeVisible();
+    await expect(page.getByText("Review context note", { exact: true })).toBeVisible();
+    await expect(page.getByText("Submitted for DD review", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mark Ready to Publish" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Return to Contributor" })).toHaveCount(0);
+    await expect(page.getByText("Publish External", { exact: true })).toHaveCount(0);
+
+    await setWorkspaceContext(page, "dd-operations");
+    await expect(page.getByRole("button", { name: "DD Operations", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByText("← Back to DD Operations", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mark Ready to Publish" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Return to Contributor" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Not Mine" })).toHaveCount(0);
 });
 
 test("queued workspace requires assignment and refreshes authoritative owner and capabilities", async ({ browser }) => {
