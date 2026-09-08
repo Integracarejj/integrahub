@@ -11,7 +11,7 @@ const NAV_ITEMS = [
     { label: "Settings", path: "/recapitalization/settings" },
 ];
 
-export default function RecapSubNav() {
+export default function RecapSubNav({ activePath }: { activePath?: string }) {
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -19,7 +19,7 @@ export default function RecapSubNav() {
         if (path === "/recapitalization") {
             return location.pathname === "/recapitalization";
         }
-        return location.pathname.startsWith(path);
+        return (activePath || location.pathname).startsWith(path);
     };
 
     return (
@@ -28,6 +28,7 @@ export default function RecapSubNav() {
                 <button
                     key={item.path}
                     className={`rc-subnav-btn${isActive(item.path) ? " rc-subnav-active" : ""}`}
+                    aria-current={isActive(item.path) ? "page" : undefined}
                     onClick={() => navigate(item.path)}
                 >
                     {item.label}

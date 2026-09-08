@@ -2022,8 +2022,8 @@
 .rc-action-group + .rc-action-group { margin-top: 20px; }
 .rc-action-center.is-gating { max-width: 760px; }
 .rc-action-group-label { margin-bottom: 8px; color: #64748b; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.rc-action-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
-.rc-action-grid-secondary { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.rc-action-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 320px)); gap: 10px; }
+.rc-action-grid-secondary { grid-template-columns: repeat(auto-fit, minmax(170px, 240px)); }
 .rc-action-tile { padding: 13px 14px; border: 1px solid #dbe2ea; border-radius: 9px; background: #fff; color: #0f172a; cursor: pointer; text-align: left; }
 .rc-action-tile:hover:not(:disabled), .rc-action-tile:focus-visible { border-color: #94a3b8; box-shadow: 0 0 0 3px rgba(148, 163, 184, .16); }
 .rc-action-tile:disabled { cursor: wait; opacity: .65; }
@@ -2031,7 +2031,14 @@
 .rc-action-tile span { margin-top: 4px; color: #64748b; font-size: 12px; }
 .rc-action-tile-primary { border: 2px solid #60a5fa; background: #eff6ff; color: #1d4ed8; }
 .rc-action-tile-primary:hover:not(:disabled), .rc-action-tile-primary:focus-visible { border-color: #2563eb; }
-.rc-supporting-upload { overflow: hidden; border: 1px solid #bfdbfe; border-radius: 12px; background: #f8fbff; }
+.rc-action-tile-neutral { border-color: #cbd5e1; background: #f8fafc; }
+.rc-action-tile-blocker { border-color: #fecaca; background: #fff7f7; color: #991b1b; }
+.rc-action-tile-blocker:hover:not(:disabled), .rc-action-tile-blocker:focus-visible { border-color: #f87171; }
+.rc-action-tile-clarification { border-color: #ddd6fe; background: #faf5ff; color: #6d28d9; }
+.rc-action-tile-clarification:hover:not(:disabled), .rc-action-tile-clarification:focus-visible { border-color: #a78bfa; }
+.rc-action-tile-disposition { border-color: #fed7aa; background: #fffaf3; color: #9a3412; }
+.rc-action-tile-disposition:hover:not(:disabled), .rc-action-tile-disposition:focus-visible { border-color: #fb923c; }
+.rc-supporting-upload { max-width: 760px; overflow: hidden; border: 1px solid #99f6e4; border-radius: 12px; background: #f0fdfa; }
 .rc-upload-dropzone { display: flex; min-height: 108px; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 2px dashed #93c5fd; border-radius: 11px; background: #fff; color: #0f172a; cursor: pointer; transition: background .15s, border-color .15s; }
 .rc-upload-dropzone:hover, .rc-upload-dropzone:focus-visible, .rc-upload-dropzone.is-dragging { border-color: #2563eb; background: #eff6ff; outline: none; }
 .rc-upload-dropzone[aria-disabled="true"] { cursor: wait; opacity: .7; }
@@ -2056,8 +2063,13 @@
 .rc-document-name > span { color: #64748b; font-size: 22px; }
 .rc-document-name strong, .rc-document-name div > span { display: block; }
 .rc-document-name div > span { margin-top: 3px; color: #64748b; font-size: 12px; }
-.rc-download-button { border-color: #94a3b8; background: #f8fafc; color: #1e293b; font-weight: 700; }
-.rc-download-button:hover:not(:disabled), .rc-download-button:focus-visible { border-color: #475569; background: #e2e8f0; color: #0f172a; box-shadow: 0 0 0 3px rgba(71, 85, 105, .14); }
+.rc-download-button { border: 1px solid #64748b; background: #e2e8f0; color: #0f172a; font-weight: 750; box-shadow: 0 1px 2px rgba(15, 23, 42, .08); }
+.rc-download-button:hover:not(:disabled), .rc-download-button:focus-visible { border-color: #1e293b; background: #cbd5e1; color: #020617; box-shadow: 0 0 0 3px rgba(71, 85, 105, .2); }
+.rc-modal-field { display: grid; gap: 6px; margin-top: 16px; color: #334155; font-size: 12px; font-weight: 700; }
+.rc-modal-field textarea { width: 100%; resize: vertical; }
+.rc-action-current-reason { padding: 10px 12px; border: 1px solid #fecaca; border-radius: 8px; background: #fef2f2; }
+.rc-action-current-reason strong, .rc-action-current-reason span { display: block; }
+.rc-action-current-reason strong { margin-bottom: 3px; color: #991b1b; font-size: 11px; text-transform: uppercase; }
 @media (max-width: 620px) { .rc-upload-selection, .rc-document-row { align-items: stretch; flex-direction: column; } }
 
 .rc-modal-header {

@@ -5,6 +5,13 @@ const WORK_ID = "22222222-2222-4222-8222-222222222222";
 const OWNER_ID = "33333333-3333-4333-8333-333333333333";
 const ADMIN_ID = PREVIEW_USER.userRecord.id;
 
+async function setWorkspaceContext(page: Page, from: "my-work" | "dd-operations" | "work-queue") {
+    await page.evaluate(context => {
+        window.history.replaceState({ ...window.history.state, usr: { from: context } }, "", window.location.href);
+        window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
+    }, from);
+}
+
 test("internal response, notes, blockers, review, and dispositions are authoritative across sessions", async ({ browser }) => {
     let version = 1;
     let state = "In Progress";
@@ -77,6 +84,8 @@ test("internal response, notes, blockers, review, and dispositions are authorita
                 if (url.endsWith("/response")) { responseContent = body.responseContent; events.push({ id: `e-${events.length + 1}`, eventType: "ResponseUpdated", actorUserId: userId, actorName: "Durable Contributor", occurredAt: "2026-09-03T13:00:00Z", details: null }); }
                 if (url.endsWith("/block")) { state = "Blocked"; activeReasonType = "Blocker"; activeReason = body.reason; events.push({ id: `e-${events.length + 1}`, eventType: "Blocked", actorUserId: userId, actorName: "Durable Contributor", occurredAt: "2026-09-03T13:20:00Z", details: { reason: body.reason } }); }
                 if (url.endsWith("/unblock")) { state = "In Progress"; activeReasonType = null; activeReason = null; events.push({ id: `e-${events.length + 1}`, eventType: "Unblocked", actorUserId: userId, actorName: "E2E Preview Admin", occurredAt: "2026-09-03T13:30:00Z", details: { resolution: body.resolution } }); }
+                if (url.endsWith("/clarification")) { state = "Clarification Needed"; activeReasonType = "Clarification"; activeReason = body.reason; events.push({ id: `e-${events.length + 1}`, eventType: "ClarificationRequested", actorUserId: userId, actorName: "Durable Contributor", occurredAt: "2026-09-03T13:32:00Z", details: { reason: body.reason } }); }
+                if (url.endsWith("/clarification/resolve")) { state = "In Progress"; activeReasonType = null; activeReason = null; events.push({ id: `e-${events.length + 1}`, eventType: "ClarificationResolved", actorUserId: userId, actorName: "E2E Preview Admin", occurredAt: "2026-09-03T13:35:00Z", details: { resolution: body.resolution } }); }
                 if (url.endsWith("/submit-dd-review")) { state = "Needs DD Review"; events.push({ id: `e-${events.length + 1}`, eventType: "SubmittedForDdReview", actorUserId: userId, actorName: "Durable Contributor", occurredAt: "2026-09-03T13:40:00Z", details: null }); }
                 if (url.endsWith("/ready-to-publish")) state = "Ready to Publish";
                 if (url.endsWith("/disposition")) { state = "Needs DD Review"; proposedDisposition = body.disposition; dispositionReason = body.reason; }
@@ -91,6 +100,8 @@ test("internal response, notes, blockers, review, and dispositions are authorita
     const owner = await browser.newContext();
     const ownerPage = await owner.newPage(); await setup(ownerPage, OWNER_ID);
     await ownerPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
+    await setWorkspaceContext(ownerPage, "my-work");
+    await expect(ownerPage.getByRole("button", { name: "My Work", exact: true })).toHaveAttribute("aria-current", "page");
     await ownerPage.getByLabel("Response / Findings").fill("Durable response text");
     await ownerPage.getByRole("button", { name: "Save response" }).click();
     await expect(ownerPage.getByRole("status")).toContainText("Response saved");
@@ -110,11 +121,22 @@ test("internal response, notes, blockers, review, and dispositions are authorita
     await ownerPage.getByRole("button", { name: "Upload document" }).click();
     await expect(ownerPage.locator(".rc-upload-feedback.is-success")).toContainText("dragged-evidence.txt uploaded successfully");
     await expect(ownerPage.getByTestId("supporting-documents").getByText("dragged-evidence.txt", { exact: true })).toBeVisible();
+    await ownerPage.getByRole("button", { name: "Request Clarification" }).click();
+    await expect(ownerPage.getByRole("dialog", { name: "Request Clarification" }).getByLabel("What needs clarification?")).toBeVisible();
+    await ownerPage.getByRole("dialog", { name: "Request Clarification" }).getByRole("button", { name: "Cancel" }).click();
+    await ownerPage.getByRole("button", { name: "Not Mine" }).click();
+    await expect(ownerPage.getByRole("dialog", { name: "Return for Reassignment" })).toContainText("assign the correct owner");
+    await ownerPage.getByRole("dialog", { name: "Return for Reassignment" }).getByRole("button", { name: "Cancel" }).click();
+    await ownerPage.getByRole("button", { name: "Propose Not Applicable" }).click();
+    await expect(ownerPage.getByRole("dialog", { name: "Propose Not Applicable" })).toContainText("does not close the request immediately");
+    await ownerPage.getByRole("dialog", { name: "Propose Not Applicable" }).getByRole("button", { name: "Cancel" }).click();
     await ownerPage.getByLabel("New work note").fill("Internal context survives sessions");
     await ownerPage.getByRole("button", { name: "Add note" }).click();
     await ownerPage.getByRole("button", { name: "Mark Blocked" }).click();
-    await ownerPage.getByLabel("Reason or resolution").fill("Waiting for source data");
-    await ownerPage.getByRole("button", { name: "Confirm" }).click();
+    const blockDialog = ownerPage.getByRole("dialog", { name: "Mark Request Blocked" });
+    await expect(blockDialog.getByRole("button", { name: "Mark Blocked" })).toBeDisabled();
+    await blockDialog.getByLabel("Blocker reason").fill("Waiting for source data");
+    await blockDialog.getByRole("button", { name: "Mark Blocked" }).click();
     await expect(ownerPage.getByTestId("authoritative-status")).toHaveText("Blocked");
     await owner.close();
 
@@ -131,11 +153,41 @@ test("internal response, notes, blockers, review, and dispositions are authorita
     const admin = await browser.newContext();
     const adminPage = await admin.newPage(); await setup(adminPage, ADMIN_ID);
     await adminPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
-    await adminPage.getByRole("button", { name: "Resume Work" }).click();
-    await adminPage.getByLabel("Reason or resolution").fill("Source data received");
-    await adminPage.getByRole("button", { name: "Confirm" }).click();
+    await setWorkspaceContext(adminPage, "my-work");
+    await expect(adminPage.getByRole("button", { name: "Resolve Blocker" })).toHaveCount(0);
+    await expect(adminPage.getByText("DD Operations must resolve the blocker")).toBeVisible();
+    await setWorkspaceContext(adminPage, "dd-operations");
+    await expect(adminPage.getByRole("button", { name: "DD Operations", exact: true })).toHaveAttribute("aria-current", "page");
+    await adminPage.getByRole("button", { name: "Resolve Blocker" }).click();
+    const resolveDialog = adminPage.getByRole("dialog", { name: "Resolve Blocker" });
+    await expect(resolveDialog).toContainText("Waiting for source data");
+    await resolveDialog.getByLabel("Resolution / guidance").fill("Source data received");
+    await resolveDialog.getByRole("button", { name: "Resolve Blocker", exact: true }).click();
     await expect(adminPage.getByTestId("authoritative-status")).toHaveText("In Progress");
     await admin.close();
+
+    const clarification = await browser.newContext();
+    const clarificationPage = await clarification.newPage(); await setup(clarificationPage, OWNER_ID);
+    await clarificationPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
+    await setWorkspaceContext(clarificationPage, "my-work");
+    await clarificationPage.getByRole("button", { name: "Request Clarification" }).click();
+    const clarificationDialog = clarificationPage.getByRole("dialog", { name: "Request Clarification" });
+    await clarificationDialog.getByLabel("What needs clarification?").fill("Which reporting period applies?");
+    await clarificationDialog.getByRole("button", { name: "Request Clarification", exact: true }).click();
+    await expect(clarificationPage.getByTestId("authoritative-status")).toHaveText("Clarification Needed");
+    await clarification.close();
+
+    const clarificationResolution = await browser.newContext();
+    const clarificationResolutionPage = await clarificationResolution.newPage(); await setup(clarificationResolutionPage, ADMIN_ID);
+    await clarificationResolutionPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
+    await setWorkspaceContext(clarificationResolutionPage, "dd-operations");
+    await clarificationResolutionPage.getByRole("button", { name: "Resolve Clarification" }).click();
+    const clarificationResolutionDialog = clarificationResolutionPage.getByRole("dialog", { name: "Resolve Clarification" });
+    await expect(clarificationResolutionDialog).toContainText("Which reporting period applies?");
+    await clarificationResolutionDialog.getByLabel("Resolution / guidance").fill("Use the trailing twelve months.");
+    await clarificationResolutionDialog.getByRole("button", { name: "Resolve Clarification", exact: true }).click();
+    await expect(clarificationResolutionPage.getByTestId("authoritative-status")).toHaveText("In Progress");
+    await clarificationResolution.close();
 
     const submit = await browser.newContext();
     const submitPage = await submit.newPage(); await setup(submitPage, OWNER_ID);
@@ -148,8 +200,12 @@ test("internal response, notes, blockers, review, and dispositions are authorita
     const review = await browser.newContext();
     const reviewPage = await review.newPage(); await setup(reviewPage, ADMIN_ID);
     await reviewPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
+    await setWorkspaceContext(reviewPage, "dd-operations");
     await expect(reviewPage.getByText("Durable response text")).toBeVisible();
     await expect(reviewPage.getByText("Response updated")).toBeVisible();
+    await reviewPage.getByRole("button", { name: "Return to Contributor" }).click();
+    await expect(reviewPage.getByRole("dialog", { name: "Return to Contributor" }).getByLabel("Guidance / reason for return")).toBeVisible();
+    await reviewPage.getByRole("dialog", { name: "Return to Contributor" }).getByRole("button", { name: "Cancel" }).click();
     await reviewPage.getByRole("button", { name: "Mark Ready to Publish" }).click();
     await expect(reviewPage.getByTestId("authoritative-status")).toHaveText("Ready to Publish");
     await review.close();
@@ -159,17 +215,20 @@ test("internal response, notes, blockers, review, and dispositions are authorita
     const proposalPage = await proposal.newPage(); await setup(proposalPage, OWNER_ID);
     await proposalPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
     await proposalPage.getByRole("button", { name: "Propose Duplicate" }).click();
-    await proposalPage.getByLabel("Reason or resolution").fill("Matches DD-2026-0019");
-    await proposalPage.getByRole("button", { name: "Confirm" }).click();
+    const duplicateDialog = proposalPage.getByRole("dialog", { name: "Propose Duplicate" });
+    await expect(duplicateDialog).toContainText("DD Operations for review");
+    await duplicateDialog.getByLabel("Duplicate reason or request reference").fill("Matches DD-2026-0019");
+    await duplicateDialog.getByRole("button", { name: "Submit Duplicate Proposal" }).click();
     await expect(proposalPage.getByTestId("authoritative-status")).toHaveText("Needs DD Review");
-    await expect(proposalPage.getByRole("button", { name: "Approve Disposition" })).toHaveCount(0);
+    await expect(proposalPage.getByRole("button", { name: "Approve Duplicate" })).toHaveCount(0);
     await proposal.close();
 
     const dispositionReview = await browser.newContext();
     const dispositionPage = await dispositionReview.newPage(); await setup(dispositionPage, ADMIN_ID);
     await dispositionPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
+    await setWorkspaceContext(dispositionPage, "dd-operations");
     await expect(dispositionPage.getByText("Matches DD-2026-0019")).toBeVisible();
-    await dispositionPage.getByRole("button", { name: "Approve Disposition" }).click();
+    await dispositionPage.getByRole("button", { name: "Approve Duplicate" }).click();
     await expect(dispositionPage.getByTestId("authoritative-status")).toHaveText("Duplicate");
     await dispositionReview.close();
 
@@ -206,6 +265,12 @@ test("queued workspace requires assignment and refreshes authoritative owner and
                 state = "Assigned"; assignedUserId = OWNER_ID; version = "0x0000000000000053";
                 return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ workItem: projection(userId) }) });
             }
+            if (url.endsWith("/not-mine")) {
+                const body = JSON.parse(route.request().postData() || "{}");
+                expect(body.reason).toBe("This request belongs with another contributor");
+                state = "Queued"; assignedUserId = null; version = "0x0000000000000054";
+                return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ workItem: projection(userId) }) });
+            }
             const key = url.endsWith("/events") ? "events" : url.endsWith("/notes") ? "notes" : url.endsWith("/artifacts") ? "artifacts" : "documents";
             return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ [key]: [] }) });
         });
@@ -214,6 +279,8 @@ test("queued workspace requires assignment and refreshes authoritative owner and
     const admin = await browser.newContext();
     const adminPage = await admin.newPage(); await setup(adminPage, ADMIN_ID);
     await adminPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
+    await setWorkspaceContext(adminPage, "work-queue");
+    await expect(adminPage.getByRole("button", { name: "Work Queue", exact: true })).toHaveAttribute("aria-current", "page");
     await expect(adminPage.getByTestId("workspace-state-summary")).toContainText("Status");
     await expect(adminPage.getByTestId("workspace-state-summary")).toContainText("Queued");
     await expect(adminPage.getByTestId("workspace-state-summary")).toContainText("Owner");
@@ -236,6 +303,11 @@ test("queued workspace requires assignment and refreshes authoritative owner and
     await expect(ownerPage.getByTestId("authoritative-action-center")).toHaveClass(/is-gating/);
     await expect(ownerPage.getByLabel("Response / Findings")).toHaveCount(0);
     await expect(ownerPage.getByLabel("Upload Artifact")).toHaveCount(0);
+    await ownerPage.getByRole("button", { name: "Not Mine" }).click();
+    const reassignmentDialog = ownerPage.getByRole("dialog", { name: "Return for Reassignment" });
+    await reassignmentDialog.getByLabel("Reason for reassignment").fill("This request belongs with another contributor");
+    await reassignmentDialog.getByRole("button", { name: "Return for Reassignment", exact: true }).click();
+    await expect(ownerPage.getByTestId("authoritative-status")).toHaveText("Queued");
     await owner.close();
 
     const other = await browser.newContext();
