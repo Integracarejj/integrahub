@@ -245,7 +245,7 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     await expect(reviewSubmitPage.getByTestId("selected-upload-file")).toContainText("Ready to upload");
     await reviewSubmitPage.getByRole("button", { name: "Upload document" }).click();
     await expect(reviewSubmitPage.locator(".rc-upload-feedback.is-uploading")).toContainText("Uploading owner-report.pdf");
-    await expect(reviewSubmitPage.getByText("owner-report.pdf", { exact: true }).first()).toBeVisible();
+    await expect(reviewSubmitPage.getByTestId("supporting-documents").getByText("owner-report.pdf", { exact: true })).toBeVisible();
     await expect(reviewSubmitPage.getByRole("status")).toContainText("uploaded successfully");
     expect(artifacts).toHaveLength(1);
     await reviewSubmitContext.close();
@@ -256,7 +256,7 @@ test("authoritative admission, assignment, and acceptance survive isolated brows
     persistedArtifactPage.on("download", download => downloads.push(download.suggestedFilename()));
     await setup(persistedArtifactPage, USER_ID);
     await persistedArtifactPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
-    await expect(persistedArtifactPage.getByText("owner-report.pdf", { exact: true }).first()).toBeVisible();
+    await expect(persistedArtifactPage.getByTestId("supporting-documents").getByText("owner-report.pdf", { exact: true })).toBeVisible();
     await persistedArtifactPage.getByRole("button", { name: "Download owner-report.pdf" }).click();
     await expect.poll(() => downloads).toContain("owner-report.pdf");
     await persistedArtifactContext.close();

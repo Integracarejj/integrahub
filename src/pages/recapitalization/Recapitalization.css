@@ -2020,6 +2020,7 @@
 }
 
 .rc-action-group + .rc-action-group { margin-top: 20px; }
+.rc-action-center.is-gating { max-width: 760px; }
 .rc-action-group-label { margin-bottom: 8px; color: #64748b; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .rc-action-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
 .rc-action-grid-secondary { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
@@ -2044,6 +2045,9 @@
 .rc-upload-feedback { align-items: flex-start; flex-direction: column; border: 1px solid #bfdbfe; background: #eff6ff; color: #1e40af; }
 .rc-upload-feedback.is-success { border-color: #86efac; background: #f0fdf4; color: #166534; }
 .rc-upload-feedback.is-error { border-color: #fca5a5; background: #fef2f2; color: #991b1b; }
+.rc-upload-documents { padding: 16px 18px 8px; border-top: 1px solid #bfdbfe; background: #fff; }
+.rc-upload-documents h3 { margin: 0 0 8px; color: #475569; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; }
+.rc-upload-documents > p { color: #64748b; }
 .rc-document-group + .rc-document-group { margin-top: 24px; }
 .rc-document-group h3 { margin: 0 0 8px; color: #475569; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; }
 .rc-document-group > p { color: #64748b; }
@@ -2052,6 +2056,8 @@
 .rc-document-name > span { color: #64748b; font-size: 22px; }
 .rc-document-name strong, .rc-document-name div > span { display: block; }
 .rc-document-name div > span { margin-top: 3px; color: #64748b; font-size: 12px; }
+.rc-download-button { border-color: #94a3b8; background: #f8fafc; color: #1e293b; font-weight: 700; }
+.rc-download-button:hover:not(:disabled), .rc-download-button:focus-visible { border-color: #475569; background: #e2e8f0; color: #0f172a; box-shadow: 0 0 0 3px rgba(71, 85, 105, .14); }
 @media (max-width: 620px) { .rc-upload-selection, .rc-document-row { align-items: stretch; flex-direction: column; } }
 
 .rc-modal-header {

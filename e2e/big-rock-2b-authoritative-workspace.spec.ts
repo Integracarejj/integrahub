@@ -99,7 +99,7 @@ test("internal response, notes, blockers, review, and dispositions are authorita
     await expect(ownerPage.getByTestId("selected-upload-file")).toContainText("Ready to upload");
     await ownerPage.getByRole("button", { name: "Upload document" }).click();
     await expect(ownerPage.locator(".rc-upload-feedback.is-success")).toContainText("uploaded successfully");
-    await expect(ownerPage.getByText("keystone-support.txt", { exact: true })).toBeVisible();
+    await expect(ownerPage.getByTestId("supporting-documents").getByText("keystone-support.txt", { exact: true })).toBeVisible();
     const droppedFile = await ownerPage.evaluateHandle(() => {
         const data = new DataTransfer();
         data.items.add(new File(["dropped evidence"], "dragged-evidence.txt", { type: "text/plain" }));
@@ -109,7 +109,7 @@ test("internal response, notes, blockers, review, and dispositions are authorita
     await expect(ownerPage.getByTestId("selected-upload-file")).toContainText("dragged-evidence.txt");
     await ownerPage.getByRole("button", { name: "Upload document" }).click();
     await expect(ownerPage.locator(".rc-upload-feedback.is-success")).toContainText("dragged-evidence.txt uploaded successfully");
-    await expect(ownerPage.getByText("dragged-evidence.txt", { exact: true })).toBeVisible();
+    await expect(ownerPage.getByTestId("supporting-documents").getByText("dragged-evidence.txt", { exact: true })).toBeVisible();
     await ownerPage.getByLabel("New work note").fill("Internal context survives sessions");
     await ownerPage.getByRole("button", { name: "Add note" }).click();
     await ownerPage.getByRole("button", { name: "Mark Blocked" }).click();
@@ -233,6 +233,7 @@ test("queued workspace requires assignment and refreshes authoritative owner and
     await ownerPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
     await expect(ownerPage.getByRole("button", { name: "Accept Work" })).toBeVisible();
     await expect(ownerPage.getByRole("button", { name: "Not Mine" })).toBeVisible();
+    await expect(ownerPage.getByTestId("authoritative-action-center")).toHaveClass(/is-gating/);
     await expect(ownerPage.getByLabel("Response / Findings")).toHaveCount(0);
     await expect(ownerPage.getByLabel("Upload Artifact")).toHaveCount(0);
     await owner.close();
