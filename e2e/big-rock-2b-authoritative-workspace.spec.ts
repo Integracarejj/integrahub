@@ -210,6 +210,14 @@ test("internal response, notes, blockers, review, and dispositions are authorita
     await expect(reviewPage.getByRole("dialog", { name: "Return to Contributor" }).getByLabel("Guidance / reason for return")).toBeVisible();
     await reviewPage.getByRole("dialog", { name: "Return to Contributor" }).getByRole("button", { name: "Cancel" }).click();
     await reviewPage.getByRole("button", { name: "Mark Ready to Publish" }).click();
+    const readyDialog = reviewPage.getByRole("dialog", { name: "Mark Ready to Publish?" });
+    await expect(readyDialog).toContainText("DD-2026-2B");
+    await expect(readyDialog).toContainText("Authoritative 2B Request");
+    await expect(readyDialog).toContainText("does not publish the request externally or move documents to Knowledge");
+    await readyDialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(reviewPage.getByTestId("authoritative-status")).toHaveText("Needs DD Review");
+    await reviewPage.getByRole("button", { name: "Mark Ready to Publish" }).click();
+    await reviewPage.getByRole("dialog", { name: "Mark Ready to Publish?" }).getByRole("button", { name: "Mark Ready to Publish" }).click();
     await expect(reviewPage.getByTestId("authoritative-status")).toHaveText("Ready to Publish");
     await review.close();
 
