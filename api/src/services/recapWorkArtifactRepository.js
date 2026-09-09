@@ -76,7 +76,7 @@ export function createRecapWorkArtifactRepository({ query = defaultQuery, genera
                 ORDER BY artifact.uploadedAt DESC`, { workItemId });
         },
         async getForDownload(workItemId, artifactId) {
-            const rows = await query(`SELECT id, workItemId, originalFileName, contentType, contentSize, driveId, itemId
+            const rows = await query(`SELECT id, workItemId, originalFileName, storedFileName, contentType, contentSize, driveId, itemId
                 FROM cmdb.RecapWorkArtifacts WHERE id = @artifactId AND workItemId = @workItemId AND status = 'Uploaded'`,
                 { workItemId, artifactId });
             return rows[0] || null;

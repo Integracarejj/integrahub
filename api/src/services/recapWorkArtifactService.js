@@ -128,7 +128,16 @@ export function createRecapWorkArtifactService({
             if (!canRead(context, actor) || !UUID.test(artifactId)) throw new WorkArtifactForbiddenError("Artifact access denied");
             const artifact = await repository.getForDownload(workItemId, artifactId);
             if (!artifact) throw new WorkArtifactNotFoundError("Artifact not found");
-            return { ...(await (await graph()).downloadFile(artifact.driveId, artifact.itemId, { maxBytes: MAX_WORK_ARTIFACT_BYTES, expectedSize: Number(artifact.contentSize) })), fileName: artifact.originalFileName, contentType: artifact.contentType };
+            const client = await graph();
+            const item = await client.getItem(artifact.driveId, artifact.itemId);
+            if (item.id !== artifact.itemId || item.name !== artifact.storedFileName || item.type !== "file") {
+                throw new WorkArtifactConflictError("Stored work artifact identity is invalid");
+            }
+            const physicalSize = Number(item.size);
+            if (!Number.isSafeInteger(physicalSize) || physicalSize < 1 || physicalSize > MAX_WORK_ARTIFACT_BYTES) {
+                throw new GraphRequestError("SharePoint item metadata", 502, "invalid_size_boundary");
+            }
+            return { ...(await client.downloadFile(artifact.driveId, artifact.itemId, { maxBytes: MAX_WORK_ARTIFACT_BYTES, expectedSize: physicalSize })), fileName: artifact.originalFileName, contentType: artifact.contentType };
         },
         async downloadSource(workItemId, documentId, actor) {
             const context = await contextFor(workItemId);

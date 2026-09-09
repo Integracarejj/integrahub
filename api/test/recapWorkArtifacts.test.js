@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { createRecapWorkArtifactService, WorkArtifactConflictError, WorkArtifactForbiddenError, WorkArtifactValidationError } from "../src/services/recapWorkArtifactService.js";
+import { createRecapWorkArtifactService, MAX_WORK_ARTIFACT_BYTES, WorkArtifactConflictError, WorkArtifactForbiddenError, WorkArtifactValidationError } from "../src/services/recapWorkArtifactService.js";
 import { GraphRequestError } from "../src/integrations/sharepoint/graphClient.js";
 import express from "express";
 import { createRecapWorkArtifactRouter } from "../src/routes/recapWorkArtifacts.js";
@@ -11,7 +11,7 @@ const ART_ID = "22222222-2222-4222-8222-222222222222";
 const DOC_ID = "33333333-3333-4333-8333-333333333333";
 const baseContext = { workItemId: WORK_ID, requestNumber: "DD-2026-0001", title: "Rent Roll", status: "In Progress", assignedUserId: "owner-a", transactionDatabaseId: "txn-db", businessTransactionId: "REC-2026-00000001", sourcePackageId: "pkg-a" };
 
-function harness({ context = baseContext, uploadError = null, preexistingArtifact = null } = {}) {
+function harness({ context = baseContext, uploadError = null, preexistingArtifact = null, downloadItem = null } = {}) {
     const calls = [];
     let artifact = null;
     let folder = null;
@@ -26,7 +26,7 @@ function harness({ context = baseContext, uploadError = null, preexistingArtifac
         markUploaded: async (_id, _drive, item) => { calls.push(["uploaded", item]); artifact = { ...artifact, status: "Uploaded", uploadedAt: "now" }; return artifact; },
         markFailed: async () => { calls.push(["failed"]); artifact = { ...artifact, status: "Failed" }; },
         list: async id => { calls.push(["list", id]); return [{ id: ART_ID, originalFileName: "report.pdf", contentType: "application/pdf", contentSize: 4, status: "Uploaded", uploadedBy: "Owner", uploadedAt: "now" }]; },
-        getForDownload: async (workId, artifactId) => { calls.push(["artifact-download", workId, artifactId]); return workId === WORK_ID && artifactId === ART_ID ? { originalFileName: "report.pdf", contentType: "application/pdf", driveId: "drive", itemId: "file" } : null; },
+        getForDownload: async (workId, artifactId) => { calls.push(["artifact-download", workId, artifactId]); return workId === WORK_ID && artifactId === ART_ID ? { originalFileName: "report.pdf", storedFileName: "report - abcdef123456.pdf", contentType: "application/pdf", contentSize: 4, driveId: "drive", itemId: "file" } : null; },
         listSourceDocuments: async value => { calls.push(["sources", value]); return [{ id: DOC_ID, originalFileName: "source.xlsx", contentSize: 5, uploadedAt: "then" }]; },
         getSourceForDownload: async (value, id) => { calls.push(["source-download", value, id]); return id === DOC_ID ? { originalFileName: "source.xlsx", driveId: "drive", itemId: "source" } : null; },
     };
@@ -38,9 +38,11 @@ function harness({ context = baseContext, uploadError = null, preexistingArtifac
             return null;
         },
         createChildFolder: async (_drive, parent, name) => { calls.push(["create-folder", parent, name]); return { id: "work-folder", parentId: parent, name, type: "folder", webUrl: "folder-url" }; },
-        getItem: async () => ({ id: "work-folder", parentId: "artifacts-root", name: "folder", type: "folder" }),
+        getItem: async (_drive, itemId) => itemId === "file"
+            ? (downloadItem || { id: "file", name: "report - abcdef123456.pdf", size: 4, type: "file" })
+            : ({ id: "work-folder", parentId: "artifacts-root", name: "folder", type: "folder" }),
         uploadNewFile: async (_drive, parent, name, content) => { calls.push(["upload", parent, name, content.length]); if (uploadError) throw uploadError; return { id: "file", name, size: content.length, type: "file", webUrl: "file-url" }; },
-        downloadFile: async (_drive, item) => { calls.push(["download", item]); return { content: Buffer.from("data"), contentType: "application/pdf" }; },
+        downloadFile: async (_drive, item, options) => { calls.push(["download", item, options]); return { content: Buffer.from("data"), contentType: "application/pdf" }; },
     };
     const service = createRecapWorkArtifactService({ repository,
         workspaceService: { provisionWorkspace: async id => calls.push(["provision", id]) },
@@ -133,6 +135,19 @@ test("listing, artifact download, and original submission access are WorkItem-sc
     await assert.rejects(() => value.service.list(WORK_ID, { id: "other", globalRole: "Viewer" }), WorkArtifactForbiddenError);
     await assert.rejects(() => value.service.downloadArtifact(WORK_ID, DOC_ID, { id: "owner-a" }), /not found/);
     assert.ok(value.calls.some(call => call[0] === "artifact-download" && call[1] === WORK_ID && call[2] === DOC_ID));
+});
+
+test("artifact download verifies the placement-bound item and uses its current physical size", async () => {
+    const value = harness({ downloadItem: { id: "file", name: "report - abcdef123456.pdf", size: 9, type: "file" } });
+    const result = await value.service.downloadArtifact(WORK_ID, ART_ID, { id: "owner-a" });
+    assert.equal(result.fileName, "report.pdf");
+    assert.deepEqual(value.calls.find(call => call[0] === "download"), ["download", "file", { maxBytes: MAX_WORK_ARTIFACT_BYTES, expectedSize: 9 }]);
+});
+
+test("artifact download fails closed when the current SharePoint item identity differs", async () => {
+    const value = harness({ downloadItem: { id: "file", name: "different.pdf", size: 4, type: "file" } });
+    await assert.rejects(() => value.service.downloadArtifact(WORK_ID, ART_ID, { id: "owner-a" }), WorkArtifactConflictError);
+    assert.equal(value.calls.some(call => call[0] === "download"), false);
 });
 
 test("artifact content route preserves application IDs, authorization actor, and attachment response", async () => {
