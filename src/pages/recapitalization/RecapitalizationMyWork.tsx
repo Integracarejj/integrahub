@@ -79,7 +79,7 @@ export default function RecapitalizationMyWork() {
 
     const activeWork = useMemo(() => {
         return assignedToMe.filter(r =>
-            isAuthoritativePartnerReworkActive(r) || (
+            isAuthoritativePartnerReworkActive(r) || (r.status === "In Progress" && r._partnerDecision === "Rework Required") || (
             r.status !== "Complete" &&
             r.status !== "Needs DD Review" &&
             r.status !== "Ready to Publish" &&

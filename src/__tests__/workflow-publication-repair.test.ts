@@ -219,12 +219,10 @@ describe('Workflow Publication Repair', () => {
             if (!reqBeforeRework) throw new Error('Request lost after first publish');
 
             partnerReworkRequest(req.id, 'Please revise the financial section');
-
-            updateRequestStatus(req.id, 'Needs Rework');
-            updateRequestReturnToOwner(req.id, 'Revise financials', DD_OPS_LEAD);
-
-            uiAcceptWork(req.id, CONTRIBUTOR, req.title || '', req.category || '', req.transactionId, req.transactionName || '');
+            expect(getRequestById(req.id)).toMatchObject({ status: 'In Progress', owner: reqBeforeRework.owner, assignedTo: reqBeforeRework.assignedTo, _partnerDecision: 'Rework Required', _partnerNote: 'Please revise the financial section' });
             uiCompleteReview(req.id, CONTRIBUTOR, '', req.title || '', req.category || '', req.transactionId, req.transactionName || '');
+            expect(getRequestById(req.id)?.status).toBe('Needs DD Review');
+            updateRequestStatus(req.id, 'Ready to Publish');
             uiPublishExternal(req.id, DD_OPS_LEAD, req.title || '', req.category || '', req.transactionId, req.transactionName || '', req.requestId);
 
             diagRequestState('rework after republish', getRequestById(req.id));

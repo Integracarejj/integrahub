@@ -680,6 +680,8 @@ export default function RecapitalizationDdOperations() {
                                                     {req.capabilities?.canMarkReadyToPublish && <button onClick={() => setPendingAuthoritativeDdAction({ req, action: "ready" })} style={{ fontSize: 10, padding: "4px 10px", borderRadius: 6, background: "#047857", color: "#fff", border: "1px solid #047857", cursor: "pointer", fontWeight: 600 }}>Mark Ready to Publish</button>}
                                                 </>}
                                             </div>
+                                        ) : req.origin !== "authoritative" && req.status === "Needs DD Review" ? (
+                                            <button onClick={() => handleStatusChange(req, "Ready to Publish")} style={{ fontSize: 10, padding: "4px 10px", borderRadius: 6, background: "#047857", color: "#fff", border: "1px solid #047857", cursor: "pointer", fontWeight: 600 }}>Mark Ready to Publish</button>
                                         ) : req.owner && !req._needsReassignment && !req._misassignedReason ? (
                                             <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
                                                 {req.status !== "Blocked" && (

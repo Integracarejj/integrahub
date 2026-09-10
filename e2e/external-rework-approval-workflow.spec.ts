@@ -3,9 +3,7 @@ import { test, expect, gotoApp } from "./helpers/auth";
 import { getFixturePaths, REWORK_ARTIFACT_FILE, REWORK_FILE, REWORK_TITLE } from "./helpers/fixtures";
 
 const CONTRIBUTOR = "Sarah Chen";
-const DD_OPS = "David Park";
 const REWORK_REASON = "Please revise the supporting artifact for regression testing.";
-const RETURN_REASON = "Address the external partner rework request and resubmit the existing artifact.";
 const REQUESTS_KEY = "integrasource.recap.demo.portalRequests";
 const SUBMISSIONS_KEY = "integrasource.recap.demo.portalSubmissions";
 const ARTIFACTS_KEY = "integrasource.recap.artifacts";
@@ -65,6 +63,7 @@ test("artifact survives external rework, republish, and final approval", async (
   assertPublished(state, transactionId);
   const artifactId = await assertArtifact(page, state.requestId);
   expect(state._publishedArtifactIds).toContain(artifactId);
+  const publication1ArtifactIds = [...state._publishedArtifactIds];
 
   await openExternalRequest(page);
   await expect(page.getByText("Awaiting Your Review", { exact: true }).first()).toBeVisible();
@@ -74,52 +73,52 @@ test("artifact survives external rework, republish, and final approval", async (
   await page.getByRole("button", { name: "Request Rework" }).click();
 
   state = await requestState(page);
-  expect(state.status).toBe("Needs Rework");
-  expect(state.owner).toBe(DD_OPS);
-  expect(state.assignedTo).toBe(DD_OPS);
+  expect(state.status).toBe("In Progress");
+  expect(state.owner).toBe(CONTRIBUTOR);
+  expect(state.assignedTo).toBe(CONTRIBUTOR);
   expect(state._partnerDecision).toBe("Rework Required");
   expect(state._partnerNote).toBe(REWORK_REASON);
   expect(state._partnerReworkOriginalOwner).toBe(CONTRIBUTOR);
   expect(state.transactionId).toBe(transactionId);
-  await expect(page.getByRole("button", { name: "Request Rework" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Approve" })).toHaveCount(0);
   await assertArtifact(page, state.requestId);
 
   await gotoApp(page, "/recapitalization/dd-operations");
   const needsCard = page.locator(".rc-stat-card", { hasText: "Needs DD Review" });
-  await expect(needsCard).toContainText("1");
+  await expect(needsCard).toContainText("0");
   await needsCard.click();
-  const reworkRow = page.locator("tr", { hasText: REWORK_TITLE }).first();
-  await expect(reworkRow).toContainText("Rework Requested");
-  await expect(reworkRow).toContainText(REWORK_REASON);
-  await reworkRow.getByRole("button", { name: "Return to Owner" }).click();
-  const returnModal = page.locator(".rc-modal");
-  await expect(returnModal).toContainText(CONTRIBUTOR);
-  await returnModal.getByPlaceholder("Explain why this item is being returned...").fill(RETURN_REASON);
-  await returnModal.getByRole("button", { name: "Return to Owner" }).click();
+  await expect(page.locator("tr", { hasText: REWORK_TITLE })).toHaveCount(0);
 
-  state = await requestState(page);
-  expect(state.status).toBe("Needs Rework");
-  expect(state.owner).toBe(CONTRIBUTOR);
-  expect(state.assignedTo).toBe(CONTRIBUTOR);
-  expect(state._returnReason).toBe(RETURN_REASON);
-  expect(state.transactionId).toBe(transactionId);
-
-  await openMyWork(page, "Returned / Needs Attention");
-  await expect(page.getByText("Returned with Feedback", { exact: true })).toBeVisible();
+  await openMyWork(page, "Active Work");
+  await expect(page.getByText("Partner Requested Rework", { exact: true })).toBeVisible();
+  await expect(page.getByText(REWORK_REASON, { exact: true })).toBeVisible();
   await expect(page.getByText("Artifacts (1)", { exact: true })).toBeVisible();
-  await page.getByText("Accept Work", { exact: true }).click();
   state = await requestState(page);
   expect(state.status).toBe("In Progress");
   expect(state.owner).toBe(CONTRIBUTOR);
   await assertArtifact(page, state.requestId);
 
   await completeFromWorkspace(page, "External rework completed; supporting artifact reviewed and retained.");
+  state = await requestState(page);
+  expect(state.status).toBe("Needs DD Review");
+  expect(state._partnerDecision).toBe("Rework Required");
+
+  await gotoApp(page, "/recapitalization/dd-operations");
+  const submittedCard = page.locator(".rc-stat-card", { hasText: "Needs DD Review" });
+  await expect(submittedCard).toContainText("1");
+  await submittedCard.click();
+  const submittedRow = page.locator("tr", { hasText: REWORK_TITLE }).first();
+  await expect(submittedRow).toBeVisible();
+  await expect(submittedRow).toContainText(REWORK_REASON);
+  await submittedRow.getByRole("button", { name: "Mark Ready to Publish" }).click();
+  state = await requestState(page);
+  expect(state.status).toBe("Ready to Publish");
+
   await publishFromDdOps(page, "Republished after external rework completion.");
   state = await requestState(page);
   assertPublished(state, transactionId);
   expect(state._partnerDecision).toBeNull();
-  expect(state._publishedArtifactIds).toContain(artifactId);
+  expect(publication1ArtifactIds).toEqual([artifactId]);
+  expect(state._publishedArtifactIds).toEqual([artifactId]);
   await assertArtifact(page, state.requestId);
 
   await openExternalRequest(page);

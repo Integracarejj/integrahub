@@ -1023,7 +1023,7 @@ function WorkflowStateCard({
                             {(() => {
                               const wasPreviouslyPublishedExternal = !!item._publishedExternal;
                               const isAlreadyReturned = !!item._returnReason && displayStatus === "Needs Rework";
-                              const canPublish = (displayStatus === "Complete" || (displayStatus === "Needs Rework" && wasPreviouslyPublishedExternal)) && !isAlreadyReturned;
+                              const canPublish = (["Complete", "Ready to Publish"].includes(displayStatus) || (displayStatus === "Needs Rework" && wasPreviouslyPublishedExternal)) && !isAlreadyReturned;
                               const publishLabel = wasPreviouslyPublishedExternal ? "Re-Publish External" : "Publish External";
                               return canPublish ? (
                                 <div

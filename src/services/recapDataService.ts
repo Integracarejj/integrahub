@@ -558,16 +558,18 @@ export function updateRequestTeam(id: string, team: string): RecapRequest | unde
 }
 
 export function updateRequestCompletion(id: string, data: { completedBy: string; completedAt: string; completionNotes: string }): RecapRequest | undefined {
+    const existing = getRequestById(id);
+    const status = existing?._partnerDecision === "Rework Required" ? "Needs DD Review" : "Complete";
     if (isDemoLoaded()) {
         const result = Demo.updateDemoRequest(id, {
-            status: "Complete",
+            status,
             _completedBy: data.completedBy,
             _completedAt: data.completedAt,
             _completionNotes: data.completionNotes || null,
         });
         if (result) return result;
         return updatePortalRequestById(id, {
-            status: "Complete",
+            status,
             _completedBy: data.completedBy,
             _completedAt: data.completedAt,
             _completionNotes: data.completionNotes || null,
@@ -575,7 +577,7 @@ export function updateRequestCompletion(id: string, data: { completedBy: string;
     }
     const req = Mock.getRequestById(id);
     if (req) {
-        req.status = "Complete";
+        req.status = status;
         req._completedBy = data.completedBy;
         req._completedAt = data.completedAt;
         req._completionNotes = data.completionNotes || null;
@@ -583,7 +585,7 @@ export function updateRequestCompletion(id: string, data: { completedBy: string;
         return req;
     }
     return updatePortalRequestById(id, {
-        status: "Complete",
+        status,
         _completedBy: data.completedBy,
         _completedAt: data.completedAt,
         _completionNotes: data.completionNotes || null,
@@ -815,7 +817,6 @@ export function partnerApproveRequest(id: string, comment?: string): RecapReques
 
 export function partnerReworkRequest(id: string, reason: string): RecapRequest | undefined {
     const now = new Date().toISOString();
-    const DD_OPS_LEAD = "David Park";
     const existing = getRequestById(id);
     const originalOwner = existing?.owner || null;
     const existingNotes: WorkNoteEntry[] = existing?._workNotes || [];
@@ -828,9 +829,9 @@ export function partnerReworkRequest(id: string, reason: string): RecapRequest |
         action: "Partner Rework",
     };
     const patch: Partial<RecapRequest> = {
-        status: "Needs Rework" as RecapRequest["status"],
-        owner: DD_OPS_LEAD,
-        assignedTo: DD_OPS_LEAD,
+        status: "In Progress" as RecapRequest["status"],
+        owner: originalOwner,
+        assignedTo: originalOwner,
         _partnerDecision: "Rework Required",
         _partnerNote: reason,
         _partnerActionAt: now,
