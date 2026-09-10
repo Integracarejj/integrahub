@@ -38,7 +38,6 @@ import {
     updateRequestExternalStatus,
     submitClarificationToDdOperations,
     returnClarificationToContributor,
-    updateRequestReturnToOwner,
     updateRequestReturnReason,
     archiveRequest,
     publishSelectedRequests,
