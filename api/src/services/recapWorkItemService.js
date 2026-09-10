@@ -55,6 +55,7 @@ function mapRow(row, actor) {
     const isOwner = !!actor?.id && row.assignedUserId === actor.id;
     return {
         ...row,
+        publicationId: row.publicationId ? String(row.publicationId) : null,
         version: serializeRowVersion(row.version),
         communities: JSON.parse(row.communityNamesJson || "[]"),
         communityNamesJson: undefined,
@@ -68,7 +69,7 @@ function mapRow(row, actor) {
             canComplete: false,
             canReturnFromDdReview: isOperations && row.status === "Needs DD Review" && !!row.assignedUserId,
             canMarkReadyToPublish: isOperations && row.status === "Needs DD Review" && !!row.assignedUserId,
-            canPublish: false,
+            canPublish: isOperations && row.status === "Ready to Publish" && !!row.assignedUserId,
             canUploadArtifact: isOwner && row.status === "In Progress",
             canViewArtifacts: (isOwner || isOperations) && !!row.assignedUserId,
             canDownloadArtifacts: (isOwner || isOperations) && !!row.assignedUserId,

@@ -37,7 +37,7 @@ function sanitizeFolderPart(value, max = 120) {
 
 function isOperations(actor) { return ["PlatformAdmin", "DDTeam"].includes(actor?.globalRole); }
 function canRead(context, actor) { return !!actor?.id && (context.assignedUserId === actor.id || isOperations(actor)); }
-function toArtifact(row) { return { id: String(row.id), fileName: row.originalFileName, contentType: row.contentType, size: Number(row.contentSize), status: row.status, uploadedBy: row.uploadedBy || null, uploadedAt: row.uploadedAt }; }
+function toArtifact(row) { return { id: String(row.id), fileName: row.originalFileName, contentType: row.contentType, size: Number(row.contentSize), status: row.status, publicationEligibility: row.publicationEligibility || "Active", uploadedBy: row.uploadedBy || null, uploadedAt: row.uploadedAt }; }
 function toSource(row) { return { id: String(row.id), fileName: row.originalFileName, contentType: "application/octet-stream", size: Number(row.contentSize), uploadedAt: row.uploadedAt }; }
 
 export function createRecapWorkArtifactService({
@@ -55,7 +55,7 @@ export function createRecapWorkArtifactService({
     }
     async function graph() { return graphClientFactory(loadConfig()); }
     return {
-        async upload({ workItemId, originalFileName, contentType, content, actor }) {
+        async upload({ workItemId, originalFileName, contentType, content, actor, publicationEligibility = "Active" }) {
             const context = await contextFor(workItemId);
             if (context.status !== "In Progress" || context.assignedUserId !== actor?.id) throw new WorkArtifactForbiddenError("Artifact upload is restricted to the active owner");
             if (!Buffer.isBuffer(content) || !content.length || content.length > MAX_WORK_ARTIFACT_BYTES) throw new WorkArtifactValidationError("Work artifacts must be between 1 byte and 10 MiB");
@@ -67,7 +67,10 @@ export function createRecapWorkArtifactService({
             await workspaceService.provisionWorkspace(context.businessTransactionId);
             return mappingRepository.withProvisioningLock(context.transactionDatabaseId, "working", async () => {
                 const existing = await repository.findByContent(workItemId, sha, storedFileName);
-                if (existing?.status === "Uploaded") return toArtifact({ ...existing, uploadedBy: null });
+                if (existing?.status === "Uploaded") {
+                    if ((existing.publicationEligibility || "Active") !== publicationEligibility) throw new WorkArtifactConflictError("This exact artifact has a different publication lifecycle");
+                    return toArtifact({ ...existing, uploadedBy: null });
+                }
                 const mapping = await mappingRepository.getByTransaction(context.transactionDatabaseId, "working");
                 if (!mapping) throw new WorkArtifactConflictError("Transaction workspace mapping is unavailable");
                 const client = await graph();
@@ -94,7 +97,7 @@ export function createRecapWorkArtifactService({
                 }
                 let pending = existing;
                 if (pending?.status === "Failed") { await repository.restartFailed(pending.id, actor.id); pending = { ...pending, status: "Pending", uploadedByUserId: actor.id }; }
-                if (!pending) pending = await repository.createPending({ workItemId, originalFileName: file.clean, storedFileName, contentType: safeContentType, contentSize: content.length, contentSha256: sha, uploadedByUserId: actor.id });
+                if (!pending) pending = await repository.createPending({ workItemId, originalFileName: file.clean, storedFileName, contentType: safeContentType, contentSize: content.length, contentSha256: sha, uploadedByUserId: actor.id, publicationEligibility });
                 try {
                     let uploaded = await client.findChildByExactName(mapping.driveId, folder.folderItemId, storedFileName);
                     if (uploaded) throw new WorkArtifactConflictError("Artifact filename conflicts with existing SharePoint content");
@@ -112,6 +115,21 @@ export function createRecapWorkArtifactService({
                     throw error;
                 }
             });
+        },
+        async replace({ workItemId, artifactId, originalFileName, contentType, content, actor }) {
+            if (!UUID.test(artifactId)) throw new WorkArtifactValidationError("Invalid artifact");
+            const context = await contextFor(workItemId);
+            if (context.status !== "In Progress" || context.assignedUserId !== actor?.id) throw new WorkArtifactForbiddenError("Artifact replacement is restricted to the active owner");
+            const original = await repository.getActiveForReplacement(workItemId, artifactId);
+            if (!original) throw new WorkArtifactNotFoundError("Active artifact not found");
+            const replacement = await this.upload({ workItemId, originalFileName, contentType, content, actor, publicationEligibility: "PendingReplacement" });
+            if (replacement.id === artifactId) throw new WorkArtifactConflictError("Replacement content must create a new artifact");
+            try {
+                await repository.supersede(workItemId, artifactId, replacement.id, actor.id);
+            } catch (error) {
+                throw new WorkArtifactConflictError("Replacement uploaded, but the original remains active; refresh before retrying", { cause: error });
+            }
+            return replacement;
         },
         async list(workItemId, actor) {
             const context = await contextFor(workItemId);

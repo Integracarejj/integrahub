@@ -11,6 +11,7 @@ export interface WorkItemResponse {
     needsReassignment: boolean; misassignedReason: string | null;
     packageId: string; sourcePackageId: string; packageName: string; originalFileName: string;
     externalOrganizationId: string; businessTransactionId: string; transactionName: string;
+    owningExternalOrganizationId?: string | null;
     admittedAt: string; assignedAt: string | null; acceptedAt: string | null;
     updatedAt: string; version: string;
     responseContent?: string | null; responseUpdatedAt?: string | null; responseUpdatedByUserId?: string | null;
@@ -18,6 +19,9 @@ export interface WorkItemResponse {
     proposedDisposition?: "Not Applicable" | "Duplicate" | null; dispositionReason?: string | null;
     dispositionProposedByUserId?: string | null; dispositionProposedAt?: string | null;
     capabilities: Record<string, boolean>;
+    publicationId?: string | null; publicationNumber?: number | null; publicationStatus?: string | null;
+    targetExternalOrganizationId?: string | null; publishedAt?: string | null; partnerActionAt?: string | null;
+    partnerGuidance?: string | null;
 }
 
 export interface AuthoritativeWorkItemEvent {
@@ -57,12 +61,16 @@ function project(item: WorkItemResponse): RecapRequest {
         externalVisible: false, submittedBy: item.externalOrganizationId, source: "External",
         createdDate: String(item.admittedAt).slice(0, 10), orgId: item.externalOrganizationId,
         orgName: item.externalOrganizationId, _publishedAt: String(item.admittedAt).slice(0, 10),
-        _convertedAt: item.admittedAt, _createdFromReview: true, _externalStatus: "Internal Only",
+        _convertedAt: item.admittedAt, _createdFromReview: true,
+        _externalStatus: item.publicationStatus ? "Published External" : item.status === "Ready to Publish" ? "Ready to Publish" : "Internal Only",
+        _publishedExternal: ["Published", "Approved", "Rework Requested"].includes(item.publicationStatus || ""),
+        _partnerDecision: item.publicationStatus === "Approved" ? "Approved" : item.publicationStatus === "Rework Requested" ? "Rework Required" : null,
         _sourceIntakeId: item.intakeRequestId, _sourcePackageId: item.packageId,
         _sourcePackageName: item.packageName, _sourceFileName: item.originalFileName,
         _needsReassignment: item.needsReassignment, _misassignedReason: item.misassignedReason,
         origin: "authoritative", workItemId: item.workItemId, intakeRequestId: item.intakeRequestId,
         assignedUserId: item.assignedUserId, capabilities: item.capabilities,
+        authoritativeTargetExternalOrganizationId: item.owningExternalOrganizationId || null,
         authoritativeVersion: item.version, authoritativeResponse: item.responseContent || null,
         authoritativeResponseUpdatedAt: item.responseUpdatedAt || null,
         authoritativeResponseUpdatedByUserId: item.responseUpdatedByUserId || null,
@@ -70,6 +78,13 @@ function project(item: WorkItemResponse): RecapRequest {
         authoritativeProposedDisposition: item.proposedDisposition || null, authoritativeDispositionReason: item.dispositionReason || null,
         authoritativeDispositionProposedByUserId: item.dispositionProposedByUserId || null,
         authoritativeDispositionProposedAt: item.dispositionProposedAt || null,
+        authoritativePublicationId: item.publicationId || null,
+        authoritativePublicationNumber: item.publicationNumber || null,
+        authoritativePublicationStatus: item.publicationStatus || null,
+        authoritativePublicationOrganizationId: item.targetExternalOrganizationId || null,
+        authoritativePublishedAt: item.publishedAt || null,
+        authoritativePartnerActionAt: item.partnerActionAt || null,
+        authoritativePartnerGuidance: item.partnerGuidance || null,
     };
 }
 
@@ -142,6 +157,13 @@ export function acceptAuthoritativeWorkItem(id: string) { return mutate(id, "/ac
 export function submitAuthoritativeWorkItemForDdReview(id: string) { return mutate(id, "/submit-dd-review", {}); }
 export function returnAuthoritativeWorkItemFromDdReview(id: string, reason?: string) { return mutate(id, "/return-from-dd-review", { reason }); }
 export function markAuthoritativeWorkItemReadyToPublish(id: string) { return mutate(id, "/ready-to-publish", {}); }
+export async function publishAuthoritativeWorkItem(id: string, idempotencyKey: string) {
+    const currentVersion = expectedVersion(id);
+    if (!currentVersion) { await loadAuthoritativeWorkItems(); throw new AuthoritativeWorkItemVersionError(); }
+    const data = await api(`/${id}/publish-external`, { method: "POST", body: JSON.stringify({ expectedVersion: currentVersion, idempotencyKey }) });
+    await loadAuthoritativeWorkItems();
+    return data.publication;
+}
 export function markAuthoritativeWorkItemNotMine(id: string, reason: string) { return mutate(id, "/not-mine", { reason }); }
 export function updateAuthoritativeResponse(id: string, responseContent: string) { return mutate(id, "/response", { responseContent }); }
 export function requestAuthoritativeClarification(id: string, reason: string) { return mutate(id, "/clarification", { reason }); }

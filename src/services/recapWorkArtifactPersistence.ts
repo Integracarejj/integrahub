@@ -28,6 +28,13 @@ export async function uploadAuthoritativeArtifact(workItemId: string, file: File
     });
     return (await jsonResponse(response)).artifact;
 }
+export async function replaceAuthoritativeArtifact(workItemId: string, artifactId: string, file: File): Promise<AuthoritativeArtifact> {
+    const response = await fetch(`/api/recapitalization/work-items/${workItemId}/artifacts/${artifactId}/replacement`, {
+        method: "POST", credentials: "include", body: file,
+        headers: { ...getAuthHeaders(), "Content-Type": "application/octet-stream", "x-file-name": encodeURIComponent(file.name), "x-file-content-type": file.type || "application/octet-stream" },
+    });
+    return (await jsonResponse(response)).artifact;
+}
 async function download(path: string, fileName: string) {
     const response = await fetch(path, { credentials: "include", headers: getAuthHeaders() });
     if (!response.ok) throw new Error("Download failed");

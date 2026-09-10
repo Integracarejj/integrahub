@@ -5,13 +5,14 @@ import { createRecapWorkArtifactService, MAX_WORK_ARTIFACT_BYTES, WorkArtifactCo
 import { GraphRequestError } from "../src/integrations/sharepoint/graphClient.js";
 import express from "express";
 import { createRecapWorkArtifactRouter } from "../src/routes/recapWorkArtifacts.js";
+import { createRecapWorkArtifactRepository } from "../src/services/recapWorkArtifactRepository.js";
 
 const WORK_ID = "11111111-1111-4111-8111-111111111111";
 const ART_ID = "22222222-2222-4222-8222-222222222222";
 const DOC_ID = "33333333-3333-4333-8333-333333333333";
 const baseContext = { workItemId: WORK_ID, requestNumber: "DD-2026-0001", title: "Rent Roll", status: "In Progress", assignedUserId: "owner-a", transactionDatabaseId: "txn-db", businessTransactionId: "REC-2026-00000001", sourcePackageId: "pkg-a" };
 
-function harness({ context = baseContext, uploadError = null, preexistingArtifact = null, downloadItem = null } = {}) {
+function harness({ context = baseContext, uploadError = null, preexistingArtifact = null, downloadItem = null, supersedeError = null } = {}) {
     const calls = [];
     let artifact = null;
     let folder = null;
@@ -25,6 +26,8 @@ function harness({ context = baseContext, uploadError = null, preexistingArtifac
         restartFailed: async () => calls.push(["restart"]),
         markUploaded: async (_id, _drive, item) => { calls.push(["uploaded", item]); artifact = { ...artifact, status: "Uploaded", uploadedAt: "now" }; return artifact; },
         markFailed: async () => { calls.push(["failed"]); artifact = { ...artifact, status: "Failed" }; },
+        getActiveForReplacement: async (_workItemId, artifactId) => artifactId === DOC_ID ? { id: DOC_ID, publicationEligibility: "Active" } : null,
+        supersede: async (_workItemId, artifactId, replacementArtifactId) => { calls.push(["supersede", artifactId, replacementArtifactId]); if (supersedeError) throw supersedeError; return { id: artifactId }; },
         list: async id => { calls.push(["list", id]); return [{ id: ART_ID, originalFileName: "report.pdf", contentType: "application/pdf", contentSize: 4, status: "Uploaded", uploadedBy: "Owner", uploadedAt: "now" }]; },
         getForDownload: async (workId, artifactId) => { calls.push(["artifact-download", workId, artifactId]); return workId === WORK_ID && artifactId === ART_ID ? { originalFileName: "report.pdf", storedFileName: "report - abcdef123456.pdf", contentType: "application/pdf", contentSize: 4, driveId: "drive", itemId: "file" } : null; },
         listSourceDocuments: async value => { calls.push(["sources", value]); return [{ id: DOC_ID, originalFileName: "source.xlsx", contentSize: 5, uploadedAt: "then" }]; },
@@ -99,6 +102,28 @@ test("Graph failure leaves metadata non-visible and retry reuses the failed iden
     await assert.rejects(() => failure.service.upload({ workItemId: WORK_ID, originalFileName: "file.pdf", contentType: "application/pdf", content: Buffer.from("x"), actor: { id: "owner-a" } }));
     assert.ok(failure.calls.some(call => call[0] === "failed"));
     assert.equal(failure.calls.some(call => call[0] === "uploaded"), false);
+});
+
+test("replacement uploads successfully before superseding and never deletes Working content", async () => {
+    const value = harness();
+    const result = await value.service.replace({ workItemId: WORK_ID, artifactId: DOC_ID, originalFileName: "report-v2.pdf", contentType: "application/pdf", content: Buffer.from("v2"), actor: { id: "owner-a" } });
+    assert.equal(result.status, "Uploaded");
+    assert.ok(value.calls.findIndex(call => call[0] === "uploaded") < value.calls.findIndex(call => call[0] === "supersede"));
+    assert.doesNotMatch(JSON.stringify(value.calls), /delete/i);
+});
+
+test("failed replacement upload leaves the original active and never supersedes it", async () => {
+    const value = harness({ uploadError: new Error("Graph unavailable") });
+    await assert.rejects(() => value.service.replace({ workItemId: WORK_ID, artifactId: DOC_ID, originalFileName: "report-v2.pdf", contentType: "application/pdf", content: Buffer.from("v2"), actor: { id: "owner-a" } }));
+    assert.equal(value.calls.some(call => call[0] === "supersede"), false);
+});
+
+test("supersession is an atomic metadata transition that retains both Working artifacts", async () => {
+    const calls = [];
+    const repository = createRecapWorkArtifactRepository({ query: async (sql, values) => { calls.push({ sql, values }); return [{ id: DOC_ID }]; } });
+    await repository.supersede(WORK_ID, DOC_ID, ART_ID, "owner-a");
+    assert.match(calls[0].sql, /BEGIN TRANSACTION[\s\S]*status = 'In Progress'[\s\S]*publicationEligibility = 'Superseded'[\s\S]*supersededByArtifactId/);
+    assert.doesNotMatch(calls[0].sql, /DELETE/i);
 });
 
 test("concurrent identical uploads refresh metadata inside the lock and create only once", async () => {

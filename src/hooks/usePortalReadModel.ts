@@ -4,6 +4,7 @@ import { isExternalOnlyRole } from "../utils/accessRouting";
 import { getPortalRequests, getPortalTransactions } from "../services/portalMockData";
 import type { PortalRequest, PortalTransaction } from "../services/portalMockData";
 import { getAuthHeaders } from "../utils/apiFetch";
+import { loadAuthoritativePublications, type AuthoritativePublication } from "../services/portalPublicationPersistence";
 
 export interface AuthoritativePortalPackage {
     id: string; sourcePackageId: string; name: string; fileName: string;
@@ -56,28 +57,47 @@ export function projectPortalReadModel(response: PortalReadModelResponse) {
     return { transactions, packages, requests };
 }
 
+export function projectAuthoritativePublications(publications: AuthoritativePublication[]): PortalRequest[] {
+    return publications.map(publication => ({
+        id: publication.workItemId, requestId: publication.requestId, intakeId: publication.workItemId,
+        transactionId: publication.transactionId, transactionName: publication.transactionName,
+        title: publication.title, description: publication.description, category: "Published Deliverable",
+        status: publication.status === "Approved" ? "Completed" : publication.status === "Rework Requested" ? "Needs Rework" : "Waiting Partner Review",
+        priority: "Medium", neededBy: "", submittedAt: publication.publishedAt, updatedAt: publication.publishedAt,
+        communityIds: [], communityNames: [], owner: null, team: "Due Diligence",
+        brokerBuyer: publication.externalOrganizationId, orgId: publication.externalOrganizationId,
+        orgName: publication.externalOrganizationId, userId: "", userName: "",
+        _rawStatus: publication.status === "Approved" ? "Completed" : "Waiting Partner Review",
+        _publishedAt: publication.publishedAt, _publishedExternal: true, _externalStatus: "Published External",
+        _partnerDecision: publication.status === "Approved" ? "Approved" : publication.status === "Rework Requested" ? "Rework Required" : null,
+        _authoritativePublication: publication,
+    })) as unknown as PortalRequest[];
+}
+
 export function usePortalReadModel() {
     const { user } = useCurrentUser();
     const isRealExternal = isExternalOnlyRole(user?.userRecord?.role);
     const [response, setResponse] = useState<PortalReadModelResponse>({ transactions: [] });
     const [loading, setLoading] = useState(isRealExternal);
     const [error, setError] = useState<string | null>(null);
+    const [publications, setPublications] = useState<AuthoritativePublication[]>([]);
     useEffect(() => {
         if (!isRealExternal) return;
         let cancelled = false;
         setLoading(true);
-        fetch("/api/portal/recapitalization/read-model", { credentials: "include", headers: getAuthHeaders() })
+        Promise.all([fetch("/api/portal/recapitalization/read-model", { credentials: "include", headers: getAuthHeaders() })
             .then(async result => {
                 if (!result.ok) throw new Error((await result.json().catch(() => null))?.error || "Portal data could not be loaded");
                 return result.json();
-            })
-            .then(body => { if (!cancelled) { setResponse(body); setError(null); } })
+            }), loadAuthoritativePublications()])
+            .then(([body, published]) => { if (!cancelled) { setResponse(body); setPublications(published); setError(null); } })
             .catch(reason => { if (!cancelled) setError(reason instanceof Error ? reason.message : "Portal data could not be loaded"); })
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
     }, [isRealExternal]);
     const authoritative = useMemo(() => projectPortalReadModel(response), [response]);
+    const publishedRequests = projectAuthoritativePublications(publications);
     return isRealExternal
-        ? { ...authoritative, isRealExternal, loading, error }
-        : { transactions: getPortalTransactions(), requests: getPortalRequests(), packages: [] as AuthoritativePortalPackage[], isRealExternal, loading: false, error: null };
+        ? { ...authoritative, requests: [...publishedRequests, ...authoritative.requests.filter(request => !publishedRequests.some(published => published.requestId === request.requestId))], publications, isRealExternal, loading, error }
+        : { transactions: getPortalTransactions(), requests: getPortalRequests(), packages: [] as AuthoritativePortalPackage[], publications: [] as AuthoritativePublication[], isRealExternal, loading: false, error: null };
 }

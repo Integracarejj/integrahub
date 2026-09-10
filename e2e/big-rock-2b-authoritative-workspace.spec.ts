@@ -20,6 +20,8 @@ test("internal response, notes, blockers, review, and dispositions are authorita
     let activeReason: string | null = null;
     let proposedDisposition: string | null = null;
     let dispositionReason: string | null = null;
+    let publicationStatus: string | null = null;
+    let publishedAt: string | null = null;
     const notes: Record<string, unknown>[] = [];
     const events: Record<string, unknown>[] = [];
     const artifacts: Record<string, unknown>[] = [];
@@ -43,6 +45,8 @@ test("internal response, notes, blockers, review, and dispositions are authorita
             responseUpdatedByUserId: responseContent ? OWNER_ID : null, activeReasonType, activeReason,
             proposedDisposition, dispositionReason, dispositionProposedByUserId: proposedDisposition ? OWNER_ID : null,
             dispositionProposedAt: proposedDisposition ? "2026-09-03T14:00:00Z" : null,
+            owningExternalOrganizationId: "org", publicationId: publicationStatus ? "55555555-5555-4555-8555-555555555555" : null,
+            publicationNumber: publicationStatus ? 1 : null, publicationStatus, targetExternalOrganizationId: publicationStatus ? "org" : null, publishedAt,
             capabilities: {
                 canUpdateResponse: owner && state === "In Progress", canBlock: owner && state === "In Progress",
                 canClarify: owner && state === "In Progress", canMarkDuplicate: owner && state === "In Progress",
@@ -51,6 +55,7 @@ test("internal response, notes, blockers, review, and dispositions are authorita
                 canResolveClarification: operations && state === "Clarification Needed", canUnblock: operations && state === "Blocked",
                 canReviewDisposition: operations && state === "Needs DD Review" && !!proposedDisposition,
                 canReturnFromDdReview: operations && state === "Needs DD Review", canMarkReadyToPublish: operations && state === "Needs DD Review",
+                canPublish: operations && state === "Ready to Publish",
                 canUploadArtifact: owner && state === "In Progress", canViewArtifacts: owner || operations,
             },
         };
@@ -67,6 +72,13 @@ test("internal response, notes, blockers, review, and dispositions are authorita
             if (url.endsWith("/notes")) {
                 if (method === "POST") notes.push({ id: `n-${notes.length + 1}`, authorUserId: userId, authorName: userId === OWNER_ID ? "Durable Contributor" : "E2E Preview Admin", noteType: "Work Note", noteText: JSON.parse(route.request().postData() || "{}").noteText, createdAt: "2026-09-03T13:10:00Z" });
                 return route.fulfill({ status: method === "POST" ? 201 : 200, contentType: "application/json", body: JSON.stringify(method === "POST" ? { note: notes.at(-1) } : { notes }) });
+            }
+            if (url.endsWith("/replacement") && method === "POST") {
+                const oldId = url.split("/").at(-2);
+                const artifact = { id: `artifact-${artifacts.length + 1}`, fileName: decodeURIComponent(route.request().headers()["x-file-name"]), contentType: "text/plain", size: route.request().postDataBuffer()?.length || 0, status: "Uploaded", uploadedBy: userId, uploadedAt: "2026-09-03T13:06:00Z" };
+                const oldIndex = artifacts.findIndex(item => item.id === oldId); if (oldIndex >= 0) artifacts.splice(oldIndex, 1);
+                artifacts.push(artifact);
+                return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ artifact }) });
             }
             if (url.endsWith("/artifacts")) {
                 if (method === "POST") {
@@ -88,6 +100,11 @@ test("internal response, notes, blockers, review, and dispositions are authorita
                 if (url.endsWith("/clarification/resolve")) { state = "In Progress"; activeReasonType = null; activeReason = null; events.push({ id: `e-${events.length + 1}`, eventType: "ClarificationResolved", actorUserId: userId, actorName: "E2E Preview Admin", occurredAt: "2026-09-03T13:35:00Z", details: { resolution: body.resolution } }); }
                 if (url.endsWith("/submit-dd-review")) { state = "Needs DD Review"; events.push({ id: `e-${events.length + 1}`, eventType: "SubmittedForDdReview", actorUserId: userId, actorName: "Durable Contributor", occurredAt: "2026-09-03T13:40:00Z", details: null }); }
                 if (url.endsWith("/ready-to-publish")) state = "Ready to Publish";
+                if (url.endsWith("/publish-external")) {
+                    expect(body.idempotencyKey).toBe(`publish:${WORK_ID}:${currentVersion().slice(2)}`);
+                    state = "Waiting Partner Review"; publicationStatus = "Published"; publishedAt = "2026-09-03T15:00:00Z"; advance();
+                    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ publication: { id: "55555555-5555-4555-8555-555555555555", status: "Published" } }) });
+                }
                 if (url.endsWith("/disposition")) { state = "Needs DD Review"; proposedDisposition = body.disposition; dispositionReason = body.reason; }
                 if (url.endsWith("/disposition/approve")) state = String(proposedDisposition);
                 advance();
@@ -111,6 +128,13 @@ test("internal response, notes, blockers, review, and dispositions are authorita
     await ownerPage.getByRole("button", { name: "Upload document" }).click();
     await expect(ownerPage.locator(".rc-upload-feedback.is-success")).toContainText("uploaded successfully");
     await expect(ownerPage.getByTestId("supporting-documents").getByText("keystone-support.txt", { exact: true })).toBeVisible();
+    await ownerPage.getByRole("button", { name: "Replace keystone-support.txt" }).click();
+    await ownerPage.getByLabel("Upload Artifact").setInputFiles({ name: "keystone-support-v2.txt", mimeType: "text/plain", buffer: Buffer.from("corrected artifact") });
+    await expect(ownerPage.getByTestId("selected-upload-file")).toContainText("Replace keystone-support.txt");
+    await ownerPage.getByRole("button", { name: "Replace document" }).click();
+    await expect(ownerPage.locator(".rc-upload-feedback.is-success")).toContainText("replaced successfully");
+    await expect(ownerPage.getByTestId("supporting-documents").getByText("keystone-support.txt", { exact: true })).toHaveCount(0);
+    await expect(ownerPage.getByTestId("supporting-documents").getByText("keystone-support-v2.txt", { exact: true })).toBeVisible();
     const droppedFile = await ownerPage.evaluateHandle(() => {
         const data = new DataTransfer();
         data.items.add(new File(["dropped evidence"], "dragged-evidence.txt", { type: "text/plain" }));
@@ -147,7 +171,7 @@ test("internal response, notes, blockers, review, and dispositions are authorita
     const reopenedPage = await reopened.newPage(); await setup(reopenedPage, OWNER_ID);
     await reopenedPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });
     await expect(reopenedPage.getByLabel("Response / Findings")).toHaveValue("Durable response text");
-    await expect(reopenedPage.getByText("keystone-support.txt")).toBeVisible();
+    await expect(reopenedPage.getByText("keystone-support-v2.txt")).toBeVisible();
     await expect(reopenedPage.getByText("Internal context survives sessions")).toBeVisible();
     await expect(reopenedPage.getByText("Waiting for source data", { exact: true })).toBeVisible();
     await expect(reopenedPage.getByRole("button", { name: "Resume Work" })).toHaveCount(0);
@@ -219,9 +243,28 @@ test("internal response, notes, blockers, review, and dispositions are authorita
     await reviewPage.getByRole("button", { name: "Mark Ready to Publish" }).click();
     await reviewPage.getByRole("dialog", { name: "Mark Ready to Publish?" }).getByRole("button", { name: "Mark Ready to Publish" }).click();
     await expect(reviewPage.getByTestId("authoritative-status")).toHaveText("Ready to Publish");
+    await reviewPage.getByRole("button", { name: "Publish External" }).click();
+    const publishDialog = reviewPage.getByRole("dialog", { name: "Publish External?" });
+    await expect(publishDialog).toContainText("Authoritative 2B Request");
+    await expect(publishDialog).toContainText("2 supporting documents");
+    await expect(publishDialog).toContainText("Working source and publication history will be retained");
+    await publishDialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(reviewPage.getByTestId("authoritative-status")).toHaveText("Ready to Publish");
+    await reviewPage.getByRole("button", { name: "Publish External" }).click();
+    await reviewPage.getByRole("dialog", { name: "Publish External?" }).getByRole("button", { name: "Publish External" }).click();
+    await expect(reviewPage.getByTestId("authoritative-status")).toHaveText("Waiting Partner Review");
     await review.close();
 
-    state = "In Progress"; proposedDisposition = null; dispositionReason = null; advance();
+    state = "In Progress"; publicationStatus = "Rework Requested"; advance();
+    const partnerRework = await browser.newContext();
+    const partnerReworkPage = await partnerRework.newPage(); await setup(partnerReworkPage, OWNER_ID);
+    await partnerReworkPage.goto("/recapitalization/my-work", { waitUntil: "domcontentloaded" });
+    await expect(partnerReworkPage.getByText("Authoritative 2B Request", { exact: true })).toBeVisible();
+    await partnerReworkPage.getByRole("button", { name: /Completed Work/ }).click();
+    await expect(partnerReworkPage.getByText("Authoritative 2B Request", { exact: true })).toHaveCount(0);
+    await partnerRework.close();
+
+    state = "In Progress"; publicationStatus = null; proposedDisposition = null; dispositionReason = null; advance();
     const proposal = await browser.newContext();
     const proposalPage = await proposal.newPage(); await setup(proposalPage, OWNER_ID);
     await proposalPage.goto(`/recapitalization/workspace/${WORK_ID}`, { waitUntil: "domcontentloaded" });

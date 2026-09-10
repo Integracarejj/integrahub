@@ -4,6 +4,8 @@ import { getPortalRequests, partnerApproveRequest, partnerReworkRequest, partner
 import type { PortalRequest } from "../../services/portalMockData";
 import { getExternalMessages, getWorkArtifactsByRequest, addWorkNote, addActivityEntry, updateRequestReturnReason, submitBlockerExternalResponse } from "../../services/recapDataService";
 import { getExternalStatusInfo, getStatusPillStyle } from "../../services/externalStatusMapping";
+import { usePortalReadModel } from "../../hooks/usePortalReadModel";
+import { decideAuthoritativePublication, downloadAuthoritativePublishedArtifact, type AuthoritativePublicationArtifact } from "../../services/portalPublicationPersistence";
 import "./PortalOverview.css";
 
 function InformationRequestedSection({ req, onResponseSubmitted }: { req: PortalRequest; onResponseSubmitted: () => void }) {
@@ -364,15 +366,20 @@ function MetaCard({ label, children }: { label: string; children: React.ReactNod
 export default function PortalRequestDetail() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const allRequests = getPortalRequests();
+    const readModel = usePortalReadModel();
+    const allRequests = readModel.isRealExternal ? readModel.requests : getPortalRequests();
     const req = allRequests.find(r => r.id === id) || allRequests.find(r => r.requestId === id);
+    const publication = readModel.publications.find(item => item.workItemId === req?.id || item.requestId === req?.requestId);
     const [showApprovedModal, setShowApprovedModal] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
+    const [reworkOpen, setReworkOpen] = useState(false);
+    const [reworkGuidance, setReworkGuidance] = useState("");
+    const [decisionPending, setDecisionPending] = useState(false);
     const extInfo = req ? getExternalStatusInfo(toExternalStatusInput(req)) : null;
 
     // Direct URL authorization check
     const identity = getPersonaIdentity();
-    const isAuthorized = identity ? isRequestAuthorized(id || "", identity.user.id) : false;
+    const isAuthorized = publication ? true : identity ? isRequestAuthorized(id || "", identity.user.id) : false;
 
     // Re-fetch data when refreshKey changes
     useEffect(() => {
@@ -398,12 +405,19 @@ export default function PortalRequestDetail() {
         );
     }
 
-    const handleApprove = () => {
+    const handleApprove = async () => {
+        if (publication) {
+            setDecisionPending(true);
+            try { await decideAuthoritativePublication(publication, "approve"); setShowApprovedModal(true); }
+            finally { setDecisionPending(false); }
+            return;
+        }
         partnerApproveRequest(req.id);
         setShowApprovedModal(true);
     };
 
     const handleRework = () => {
+        if (publication) { setReworkOpen(true); return; }
         const reason = window.prompt("Please describe what needs to be revised:");
         if (reason) {
             partnerReworkRequest(req.id, reason);
@@ -416,8 +430,8 @@ export default function PortalRequestDetail() {
         setShowApprovedModal(true);
     };
 
-    const allArtifacts = getWorkArtifactsByRequest(req.requestId);
-    const artifacts = req._publishedArtifactIds && req._publishedArtifactIds.length > 0
+    const allArtifacts = publication ? publication.artifacts : getWorkArtifactsByRequest(req.requestId);
+    const artifacts = publication ? publication.artifacts : req._publishedArtifactIds && req._publishedArtifactIds.length > 0
         ? allArtifacts.filter(a => req._publishedArtifactIds!.includes(a.id))
         : req._publishedWithoutDocuments ? [] : allArtifacts;
     const messages = getExternalMessages(req.id);
@@ -618,7 +632,7 @@ export default function PortalRequestDetail() {
                             The IntegraCare team has completed its work on this request. Review the supporting documents and either approve the request or request rework.
                         </div>
                         <div style={{ display: "flex", gap: 12 }}>
-                            <button className="rc-btn rc-btn-primary" onClick={handleApprove} style={{ padding: "10px 24px", fontSize: 14, fontWeight: 700 }}>
+                            <button className="rc-btn rc-btn-primary" disabled={decisionPending} onClick={() => void handleApprove()} style={{ padding: "10px 24px", fontSize: 14, fontWeight: 700 }}>
                                 Approve
                             </button>
                             <button className="rc-btn rc-btn-secondary" onClick={handleRework} style={{ padding: "10px 24px", fontSize: 14, fontWeight: 700, border: "1px solid #fed7aa", color: "#0f172a" }}>
@@ -644,25 +658,28 @@ export default function PortalRequestDetail() {
                 <div style={{ marginBottom: 24 }}>
                     <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 10 }}>Published Documents</h3>
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                        {artifacts.map(a => (
+                        {artifacts.map(a => {
+                            const publishedArtifact = publication ? a as AuthoritativePublicationArtifact : null;
+                            const legacyArtifact = !publication ? a as ReturnType<typeof getWorkArtifactsByRequest>[number] : null;
+                            return (
                             <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, border: "1px solid #e0e7ff", background: "#fff" }}>
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                                     <polyline points="14 2 14 8 20 8" />
                                 </svg>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.displayFileName || a.originalFileName || a.name}</div>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{publishedArtifact?.fileName || legacyArtifact?.displayFileName || legacyArtifact?.originalFileName || legacyArtifact?.name}</div>
                                     <div style={{ fontSize: 11, color: "#475569", display: "flex", gap: 8 }}>
-                                        <span>{a.artifactType || "Document"}</span>
-                                        {a.size ? <span>{(a.size / 1024).toFixed(0)} KB</span> : null}
+                                        <span>{legacyArtifact?.artifactType || "Document"}</span>
+                                        {legacyArtifact?.size ? <span>{(legacyArtifact.size / 1024).toFixed(0)} KB</span> : null}
                                         <span style={{ color: "#166534", fontWeight: 600 }}>Available</span>
                                     </div>
                                 </div>
-                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => window.open(a.webUrl || "#", "_blank")} style={{ flexShrink: 0, fontSize: 12, fontWeight: 600, color: "#1d4ed8" }}>
-                                    Open
+                                <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => publication && publishedArtifact ? void downloadAuthoritativePublishedArtifact(publication.id, publishedArtifact) : window.open(legacyArtifact?.webUrl || "#", "_blank")} style={{ flexShrink: 0, fontSize: 12, fontWeight: 600, color: "#1d4ed8" }}>
+                                    Download
                                 </button>
                             </div>
-                        ))}
+                        ); })}
                     </div>
                 </div>
             )}
@@ -711,6 +728,9 @@ export default function PortalRequestDetail() {
                     </div>
                 </div>
             )}
+            {reworkOpen && publication && <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label="Request Rework?">
+                <div className="rc-modal" style={{ maxWidth: 500 }}><div className="rc-modal-header"><h2>Request Rework?</h2></div><div className="rc-modal-body"><strong>{publication.requestId}</strong> — {publication.title}<p>Tell the IntegraCare contributor what must be revised.</p><label className="rc-modal-field">Rework guidance<textarea aria-label="Rework guidance" rows={4} value={reworkGuidance} onChange={event => setReworkGuidance(event.target.value)} /></label></div><div className="rc-modal-footer"><button className="rc-btn rc-btn-ghost" disabled={decisionPending} onClick={() => setReworkOpen(false)}>Cancel</button><button className="rc-btn rc-btn-primary" disabled={decisionPending || !reworkGuidance.trim() || reworkGuidance.length > 2000} onClick={async () => { setDecisionPending(true); try { await decideAuthoritativePublication(publication, "rework", reworkGuidance.trim()); setReworkOpen(false); navigate("/portal"); } finally { setDecisionPending(false); } }}>Request Rework</button></div></div>
+            </div>}
         </div>
     );
 }

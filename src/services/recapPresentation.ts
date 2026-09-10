@@ -48,3 +48,11 @@ export function canUploadAuthoritativeArtifact(request: RecapRequest, userId: st
 export function canViewAuthoritativeArtifacts(request: RecapRequest): boolean {
     return request.origin === "authoritative" && request.capabilities?.canViewArtifacts === true;
 }
+
+export function isAuthoritativePartnerRework(request: RecapRequest): boolean {
+    return request.origin === "authoritative" && request._partnerDecision === "Rework Required";
+}
+
+export function isAuthoritativePartnerReworkActive(request: RecapRequest): boolean {
+    return isAuthoritativePartnerRework(request) && request.status === "In Progress";
+}

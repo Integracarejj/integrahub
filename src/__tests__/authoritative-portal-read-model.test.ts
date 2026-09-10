@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { projectPortalReadModel, type PortalReadModelResponse } from "../hooks/usePortalReadModel";
+import { projectAuthoritativePublications, projectPortalReadModel, type PortalReadModelResponse } from "../hooks/usePortalReadModel";
+import type { AuthoritativePublication } from "../services/portalPublicationPersistence";
 
 const response: PortalReadModelResponse = { transactions: [
     { id: "REC-2026-00000003", name: "Project Keystone", status: "Active", owningExternalOrganizationId: "TEST-BROKER-ORG", createdAt: "2026-08-18", packages: [{
@@ -33,5 +34,27 @@ describe("authoritative external portal read projection", () => {
         const model = projectPortalReadModel(response);
         expect(model.requests.filter(row => row.transactionId === "REC-2026-00000003")).toHaveLength(2);
         expect(model.requests.filter(row => row.transactionId === "REC-2026-00000004")).toHaveLength(0);
+    });
+
+    it("projects only server-returned authoritative publications into partner review state", () => {
+        const requests = projectAuthoritativePublications([{
+            id: "publication-1", workItemId: "work-1", publicationNumber: 1, status: "Published",
+            externalOrganizationId: "TEST-BROKER-ORG", publishedAt: "2026-09-09T12:00:00Z",
+            partnerActionAt: null, partnerGuidance: null, version: "0x0000000000000001",
+            requestId: "DD-2026-00000044", title: "Government correspondence", description: "Review",
+            transactionId: "REC-2026-00000005", transactionName: "Project Keystone",
+            workItemStatus: "Waiting Partner Review", artifacts: [{ id: "artifact-1", fileName: "Corp Gov Docs.pptx", contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }],
+        }]);
+        expect(requests).toEqual([expect.objectContaining({ id: "work-1", requestId: "DD-2026-00000044", status: "Waiting Partner Review", _publishedExternal: true, orgId: "TEST-BROKER-ORG" })]);
+    });
+
+    it("projects durable partner outcomes without erasing publication identity", () => {
+        const base: Omit<AuthoritativePublication, "status" | "partnerGuidance"> = { id: "publication-1", workItemId: "work-1", publicationNumber: 1,
+            externalOrganizationId: "TEST-BROKER-ORG", publishedAt: "2026-09-09T12:00:00Z",
+            partnerActionAt: "2026-09-10T12:00:00Z", version: "0x0000000000000002",
+            requestId: "DD-2026-00000044", title: "Report", description: "Review", transactionId: "REC-2026-00000005",
+            transactionName: "Project Keystone", artifacts: [], workItemStatus: "Completed" };
+        expect(projectAuthoritativePublications([{ ...base, status: "Approved", partnerGuidance: null }])[0]).toMatchObject({ status: "Completed", _partnerDecision: "Approved" });
+        expect(projectAuthoritativePublications([{ ...base, status: "Rework Requested", partnerGuidance: "Revise" }])[0]).toMatchObject({ status: "Needs Rework", _partnerDecision: "Rework Required" });
     });
 });

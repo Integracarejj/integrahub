@@ -7,7 +7,7 @@ import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
 import { loadAuthoritativeWorkItems } from "../../services/recapWorkItemPersistence";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
-import { getMyWorkRequests, getPresentedRecapRequests, isRealInternalRecapMode } from "../../services/recapPresentation";
+import { getMyWorkRequests, getPresentedRecapRequests, isAuthoritativePartnerRework, isAuthoritativePartnerReworkActive, isRealInternalRecapMode } from "../../services/recapPresentation";
 
 type ViewTab = "active-work" | "waiting-dd-ops" | "completed-work" | "my-team" | "returned";
 
@@ -79,13 +79,14 @@ export default function RecapitalizationMyWork() {
 
     const activeWork = useMemo(() => {
         return assignedToMe.filter(r =>
+            isAuthoritativePartnerReworkActive(r) || (
             r.status !== "Complete" &&
             r.status !== "Needs DD Review" &&
             r.status !== "Ready to Publish" &&
             r._externalStatus !== "Ready to Publish" &&
             r._externalStatus !== "Published External" &&
             !RETURNED_STATUSES.includes(r.status) &&
-            !r._needsReassignment
+            !r._needsReassignment)
         );
     }, [assignedToMe]);
 
@@ -106,10 +107,11 @@ export default function RecapitalizationMyWork() {
 
     const completedWork = useMemo(() => {
         return assignedToMe.filter(r =>
+            !isAuthoritativePartnerRework(r) && (
             r.status === "Complete" ||
             r.status === "Ready to Publish" ||
             r._externalStatus === "Ready to Publish" ||
-            (r._externalStatus === "Published External" && r.status !== "Needs Rework")
+            (r._externalStatus === "Published External" && r.status !== "Needs Rework"))
         );
     }, [assignedToMe]);
 

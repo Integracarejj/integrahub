@@ -214,4 +214,5 @@ test("authoritative capability projection is state, owner, and operations-role s
     assert.equal(ops[2].capabilities.canMarkReadyToPublish, true);
     assert.equal(ops[2].capabilities.canViewArtifacts, true);
     assert.equal(ops[3].capabilities.canMarkReadyToPublish, false);
+    assert.equal(ops[3].capabilities.canPublish, true);
 });

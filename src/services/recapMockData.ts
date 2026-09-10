@@ -118,6 +118,14 @@ export interface RecapRequest {
     authoritativeResponse?: string | null;
     authoritativeResponseUpdatedAt?: string | null;
     authoritativeResponseUpdatedByUserId?: string | null;
+    authoritativePublicationId?: string | null;
+    authoritativePublicationNumber?: number | null;
+    authoritativePublicationStatus?: string | null;
+    authoritativePublicationOrganizationId?: string | null;
+    authoritativeTargetExternalOrganizationId?: string | null;
+    authoritativePublishedAt?: string | null;
+    authoritativePartnerActionAt?: string | null;
+    authoritativePartnerGuidance?: string | null;
     authoritativeActiveReasonType?: "Clarification" | "Blocker" | null;
     authoritativeActiveReason?: string | null;
     authoritativeProposedDisposition?: "Not Applicable" | "Duplicate" | null;

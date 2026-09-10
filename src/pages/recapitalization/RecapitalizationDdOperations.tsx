@@ -6,7 +6,7 @@ import RecapSubNav from "./RecapSubNav";
 import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
 import { assignAuthoritativeWorkItem, getAuthoritativeAssignees, loadAuthoritativeWorkItems, markAuthoritativeWorkItemReadyToPublish, returnAuthoritativeWorkItemFromDdReview } from "../../services/recapWorkItemPersistence";
-import { getPresentedRecapRequests, isRealInternalRecapMode } from "../../services/recapPresentation";
+import { getPresentedRecapRequests, isAuthoritativePartnerReworkActive, isRealInternalRecapMode } from "../../services/recapPresentation";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 
 const STATUS_OPTIONS = ["Open", "Assigned", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate", "Waiting Partner Review", "Needs Rework", "Completed"];
@@ -52,11 +52,11 @@ export default function RecapitalizationDdOperations() {
 
     /* ── KPIs ── */
     const NEEDS_DD_REVIEW_STATUSES = ["Blocked", "Clarification Needed"];
-    const kpiNeedsDDReview = useMemo(() => workItems.filter(r => (r.status === "Needs DD Review" || NEEDS_DD_REVIEW_STATUSES.includes(r.status) || r._needsReassignment || r._misassignedReason || r._partnerDecision === "Rework Required") && !r._returnReason).length, [workItems]);
+    const kpiNeedsDDReview = useMemo(() => workItems.filter(r => (r.status === "Needs DD Review" || NEEDS_DD_REVIEW_STATUSES.includes(r.status) || r._needsReassignment || r._misassignedReason) && !r._returnReason).length, [workItems]);
     const kpiReadyToPublish = useMemo(() => workItems.filter(r => (r.status === "Ready to Publish" || r.status === "Complete") && r._externalStatus !== "Published External").length, [workItems]);
     const kpiExceptions = useMemo(() => workItems.filter(r => (r.status === "Duplicate" || r.status === "Not Applicable") && !r._exceptionSentAt).length, [workItems]);
     const kpiPublishedExternal = useMemo(() => workItems.filter(r => r._externalStatus === "Published External" && (!r._partnerDecision || r._partnerDecision === "Approved") && !r._exceptionSentAt).length, [workItems]);
-    const kpiPartnerActionRequired = useMemo(() => workItems.filter(r => ((r._externalStatus === "Published External" && r._partnerDecision && r._partnerDecision !== "Rework Required") || r._exceptionDecision || (r._exceptionSentAt && !r._exceptionDecision) || r._blockerStatus === "Pending External") && r.status !== "Completed").length, [workItems]);
+    const kpiPartnerActionRequired = useMemo(() => workItems.filter(r => (isAuthoritativePartnerReworkActive(r) || (r._externalStatus === "Published External" && r._partnerDecision && r._partnerDecision !== "Rework Required") || r._exceptionDecision || (r._exceptionSentAt && !r._exceptionDecision) || r._blockerStatus === "Pending External") && r.status !== "Completed").length, [workItems]);
     const kpiUpdatedToday = useMemo(() => {
         const today = new Date().toISOString().split("T")[0];
         return workItems.filter(r => r.lastUpdated === today).length;
@@ -64,7 +64,7 @@ export default function RecapitalizationDdOperations() {
 
     const needsDDReview = useMemo(() => {
         return workItems
-            .filter(r => (r.status === "Needs DD Review" || NEEDS_DD_REVIEW_STATUSES.includes(r.status) || r._needsReassignment || r._misassignedReason || r._partnerDecision === "Rework Required") && !r._returnReason)
+            .filter(r => (r.status === "Needs DD Review" || NEEDS_DD_REVIEW_STATUSES.includes(r.status) || r._needsReassignment || r._misassignedReason) && !r._returnReason)
             .sort((a, b) => {
                 const aDue = a.dueDate || "9999-99-99";
                 const bDue = b.dueDate || "9999-99-99";
@@ -106,7 +106,7 @@ export default function RecapitalizationDdOperations() {
 
     const partnerActionItems = useMemo(() => {
         return workItems
-            .filter(r => ((r._externalStatus === "Published External" && r._partnerDecision && r._partnerDecision !== "Rework Required") || r._exceptionDecision || (r._exceptionSentAt && !r._exceptionDecision) || r._blockerStatus === "Pending External") && r.status !== "Completed")
+            .filter(r => ((isAuthoritativePartnerReworkActive(r) || (r._externalStatus === "Published External" && r._partnerDecision && r._partnerDecision !== "Rework Required") || r._exceptionDecision || (r._exceptionSentAt && !r._exceptionDecision) || r._blockerStatus === "Pending External")) && r.status !== "Completed")
             .sort((a, b) => {
                 const aDate = a.lastUpdated || "";
                 const bDate = b.lastUpdated || "";

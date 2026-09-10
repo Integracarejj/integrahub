@@ -35,7 +35,7 @@ export function createRecapWorkArtifactRepository({ query = defaultQuery, genera
         },
         async findByContent(workItemId, contentSha256, storedFileName) {
             const rows = await query(`SELECT id, workItemId, originalFileName, storedFileName, contentType, contentSize,
-                    contentSha256, status, driveId, itemId, webUrl, uploadedByUserId, uploadedAt
+                    contentSha256, status, publicationEligibility, driveId, itemId, webUrl, uploadedByUserId, uploadedAt
                 FROM cmdb.RecapWorkArtifacts
                 WHERE workItemId = @workItemId AND contentSha256 = @contentSha256 AND storedFileName = @storedFileName`,
                 { workItemId, contentSha256, storedFileName });
@@ -45,9 +45,9 @@ export function createRecapWorkArtifactRepository({ query = defaultQuery, genera
             const id = generateUuid();
             await query(`INSERT INTO cmdb.RecapWorkArtifacts
                 (id, workItemId, originalFileName, storedFileName, contentType, contentSize,
-                 contentSha256, siteKey, uploadedByUserId)
+                 contentSha256, siteKey, uploadedByUserId, publicationEligibility)
                 VALUES (@id, @workItemId, @originalFileName, @storedFileName, @contentType, @contentSize,
-                        @contentSha256, 'working', @uploadedByUserId)`, { id, ...values });
+                        @contentSha256, 'working', @uploadedByUserId, @publicationEligibility)`, { id, ...values });
             return { id, status: "Pending", ...values };
         },
         async restartFailed(id, uploadedByUserId) {
@@ -66,13 +66,41 @@ export function createRecapWorkArtifactRepository({ query = defaultQuery, genera
             await query(`UPDATE cmdb.RecapWorkArtifacts SET status = 'Failed', updatedAt = SYSUTCDATETIME()
                 WHERE id = @id AND status = 'Pending'`, { id });
         },
+        async getActiveForReplacement(workItemId, artifactId) {
+            const rows = await query(`SELECT id, workItemId, originalFileName, publicationEligibility
+                FROM cmdb.RecapWorkArtifacts
+                WHERE id = @artifactId AND workItemId = @workItemId AND status = 'Uploaded' AND publicationEligibility = 'Active'`,
+                { workItemId, artifactId });
+            return rows[0] || null;
+        },
+        async supersede(workItemId, artifactId, replacementArtifactId, actorUserId) {
+            const rows = await query(`SET XACT_ABORT ON; BEGIN TRANSACTION;
+                IF NOT EXISTS (SELECT 1 FROM cmdb.RecapWorkItems WITH (UPDLOCK, HOLDLOCK)
+                    WHERE id = @workItemId AND status = 'In Progress' AND assignedUserId = @actorUserId)
+                    BEGIN ROLLBACK; THROW 51081, 'Artifact replacement is no longer authorized', 1; END;
+                IF NOT EXISTS (SELECT 1 FROM cmdb.RecapWorkArtifacts WITH (UPDLOCK, HOLDLOCK)
+                    WHERE id = @replacementArtifactId AND workItemId = @workItemId AND status = 'Uploaded' AND publicationEligibility = 'PendingReplacement')
+                    BEGIN ROLLBACK; THROW 51082, 'Replacement artifact is not pending activation', 1; END;
+                UPDATE cmdb.RecapWorkArtifacts SET publicationEligibility = 'Superseded',
+                    supersededByArtifactId = @replacementArtifactId, supersededAt = SYSUTCDATETIME(),
+                    supersededByUserId = @actorUserId, updatedAt = SYSUTCDATETIME()
+                OUTPUT INSERTED.id
+                WHERE id = @artifactId AND workItemId = @workItemId AND status = 'Uploaded'
+                  AND publicationEligibility = 'Active' AND id <> @replacementArtifactId;
+                IF @@ROWCOUNT = 0 BEGIN ROLLBACK; THROW 51083, 'Artifact cannot be superseded', 1; END;
+                UPDATE cmdb.RecapWorkArtifacts SET publicationEligibility = 'Active', updatedAt = SYSUTCDATETIME()
+                WHERE id = @replacementArtifactId AND workItemId = @workItemId AND status = 'Uploaded' AND publicationEligibility = 'PendingReplacement';
+                IF @@ROWCOUNT = 0 BEGIN ROLLBACK; THROW 51084, 'Replacement artifact cannot be activated', 1; END;
+                COMMIT;`, { workItemId, artifactId, replacementArtifactId, actorUserId });
+            return rows[0] || null;
+        },
         async list(workItemId) {
             return query(`SELECT CONVERT(varchar(36), artifact.id) AS id, artifact.originalFileName,
-                       artifact.contentType, artifact.contentSize, artifact.status, artifact.uploadedAt,
+                       artifact.contentType, artifact.contentSize, artifact.status, artifact.publicationEligibility, artifact.uploadedAt,
                        COALESCE(uploader.displayName, uploader.email) AS uploadedBy
                 FROM cmdb.RecapWorkArtifacts artifact
                 LEFT JOIN cmdb.Users uploader ON uploader.id = artifact.uploadedByUserId
-                WHERE artifact.workItemId = @workItemId AND artifact.status = 'Uploaded'
+                WHERE artifact.workItemId = @workItemId AND artifact.status = 'Uploaded' AND artifact.publicationEligibility = 'Active'
                 ORDER BY artifact.uploadedAt DESC`, { workItemId });
         },
         async getForDownload(workItemId, artifactId) {

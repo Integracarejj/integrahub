@@ -8,6 +8,7 @@ import { GraphRequestError } from "../integrations/sharepoint/graphClient.js";
 import { SharePointConfigError } from "../integrations/sharepoint/config.js";
 import { externalUserContextService } from "../services/externalUserContextService.js";
 import { recapIntakeService, RecapIntakeForbiddenError, RecapIntakeValidationError } from "../services/recapIntakeService.js";
+import { recapPublicationService, RecapPublicationConflictError, RecapPublicationForbiddenError, RecapPublicationNotFoundError, RecapPublicationValidationError } from "../services/recapPublicationService.js";
 
 const router = Router();
 
@@ -58,6 +59,43 @@ router.get("/recapitalization/read-model", async (req, res) => {
     }
 });
 
+function publicationFailure(res, error) {
+    if (error instanceof RecapPublicationValidationError) return res.status(400).json({ error: error.message || "Invalid publication request" });
+    if (error instanceof RecapPublicationForbiddenError) return res.status(403).json({ error: "Publication access denied" });
+    if (error instanceof RecapPublicationNotFoundError) return res.status(404).json({ error: "Publication not found" });
+    if (error instanceof RecapPublicationConflictError) return res.status(409).json({ error: error.message });
+    if (error instanceof SharePointConfigError) return res.status(503).json({ error: "SharePoint integration is not configured" });
+    if (error instanceof GraphAuthenticationError) return res.status(502).json({ error: "Microsoft Graph authentication failed" });
+    if (error instanceof GraphRequestError) {
+        console.error("Authoritative Recap portal Graph operation failed", { graphCode: error.graphCode || "unknown", status: error.status || null });
+        return res.status(502).json({ error: "Published artifact operation failed" });
+    }
+    console.error("Authoritative Recap portal operation failed", error instanceof Error ? error.message : "Unknown error");
+    return res.status(500).json({ error: "Recap portal operation failed" });
+}
+
+router.get("/recapitalization/publications", async (req, res) => {
+    try {
+        const transactionId = String(req.query.transactionId || "").trim() || null;
+        if (transactionId && !/^REC-\d{4}-\d{8}$/.test(transactionId)) return res.status(400).json({ error: "Invalid transaction ID" });
+        return res.json({ publications: await recapPublicationService.listExternal(req.user, transactionId) });
+    } catch (error) { return publicationFailure(res, error); }
+});
+
+router.get("/recapitalization/publications/:publicationId/artifacts/:artifactId/content", async (req, res) => {
+    try {
+        const file = await recapPublicationService.downloadExternal(req.params.publicationId, req.params.artifactId, req.user);
+        res.set("Content-Type", file.contentType || "application/octet-stream");
+        res.set("Content-Disposition", `attachment; filename="${String(file.fileName || "download").replace(/[\r\n"]/g, "_")}"`);
+        return res.send(file.content);
+    } catch (error) { return publicationFailure(res, error); }
+});
+
+router.post("/recapitalization/publications/:publicationId/decision", async (req, res) => {
+    try { return res.json({ publication: await recapPublicationService.partnerAction(req.params.publicationId, req.body, req.user) }); }
+    catch (error) { return publicationFailure(res, error); }
+});
+
 router.post(
     "/recapitalization/transactions/:id/incoming-documents",
     requireRole("ExternalBroker"),
@@ -80,7 +118,10 @@ router.post(
             if (error instanceof IncomingDocumentConflictError) return res.status(409).json({ error: error.message });
             if (error instanceof SharePointConfigError) return res.status(503).json({ error: "SharePoint integration is not configured" });
             if (error instanceof GraphAuthenticationError) return res.status(502).json({ error: "Microsoft Graph authentication failed" });
-            if (error instanceof GraphRequestError) return res.status(502).json({ error: "Incoming package persistence failed", graphCode: error.graphCode });
+            if (error instanceof GraphRequestError) {
+                console.error("Incoming package Graph persistence failed", { graphCode: error.graphCode || "unknown", status: error.status || null });
+                return res.status(502).json({ error: "Incoming package persistence failed" });
+            }
             if (error?.type === "entity.too.large") return res.status(413).json({ error: "Package file is too large" });
             console.error("Incoming package persistence failed", error instanceof Error ? error.message : "Unknown error");
             return res.status(500).json({ error: "Incoming package persistence failed" });

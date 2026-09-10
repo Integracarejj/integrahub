@@ -26,11 +26,22 @@ const readModel = { transactions: [
     { ...transactions[1], createdAt: "2026-08-18", packages: [] },
 ] };
 
+const publication = {
+    id: "55555555-5555-4555-8555-555555555555", workItemId: "22222222-2222-4222-8222-222222222222",
+    publicationNumber: 1, status: "Published", externalOrganizationId: "TEST-BROKER-ORG",
+    publishedAt: "2026-09-09T15:00:00Z", partnerActionAt: null, partnerGuidance: null,
+    version: "0x0000000000000001", requestId: "DD-2026-00000044", title: "Government correspondence",
+    description: "Review government correspondence", transactionId: "REC-2026-00000003",
+    transactionName: "Project Keystone", workItemStatus: "Waiting Partner Review",
+    artifacts: [{ id: "33333333-3333-4333-8333-333333333333", fileName: "Corp Gov Docs.pptx", contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }],
+};
+
 async function mockRealReads(page: Page) {
     await page.route("**/api/me/permissions", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ user: null, permissions: { globalRole: "ExternalBroker", assignments: [] } }) }));
     await page.route("**/api/me", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(externalUser) }));
     await page.route("**/api/portal/recapitalization/transactions", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ transactions }) }));
     await page.route("**/api/portal/recapitalization/read-model*", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(readModel) }));
+    await page.route("**/api/portal/recapitalization/publications", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ publications: [publication] }) }));
 }
 
 async function navigate(page: Page, path: string) {
@@ -58,8 +69,27 @@ test("real B2B Overview, Transactions, and Requests render authoritative SQL pro
     await expect(page.getByText("Contracts", { exact: true })).toBeVisible();
     await expect(page.getByText("Rent roll", { exact: true })).toBeVisible();
     await expect(page.locator(".po-status-badge", { hasText: "Submitted" }).first()).toBeVisible();
+    await expect(page.getByText("Government correspondence", { exact: true })).toBeVisible();
 
     await navigate(page, "/portal/requests?transactionId=REC-2026-00000004");
     await expect(page.getByText("Contracts", { exact: true })).toHaveCount(0);
     await expect(page.getByText("No requests match the selected filters.")).toBeVisible();
+});
+
+test("authoritative published request supports server-backed partner review without exposing Graph identity", async ({ page }) => {
+    await mockRealReads(page);
+    const decisions: Record<string, unknown>[] = [];
+    await page.route("**/api/portal/recapitalization/publications/*/decision", async route => {
+        decisions.push(JSON.parse(route.request().postData() || "{}"));
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ publication: { ...publication, status: "Rework Requested", partnerGuidance: "Revise section 4" } }) });
+    });
+    await navigate(page, `/portal/requests/${publication.workItemId}`);
+    await expect(page.getByText("Corp Gov Docs.pptx")).toBeVisible();
+    await expect(page.getByText("knowledge-drive")).toHaveCount(0);
+    await page.getByRole("button", { name: "Request Rework" }).click();
+    const dialog = page.getByRole("dialog", { name: "Request Rework?" });
+    await dialog.getByLabel("Rework guidance").fill("Revise section 4");
+    await dialog.getByRole("button", { name: "Request Rework" }).click();
+    await expect.poll(() => decisions.length).toBe(1);
+    expect(decisions[0]).toEqual({ action: "rework", guidance: "Revise section 4", expectedVersion: publication.version });
 });

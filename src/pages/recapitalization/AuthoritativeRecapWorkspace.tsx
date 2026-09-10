@@ -9,13 +9,13 @@ import {
     markAuthoritativeWorkItemReadyToPublish, proposeAuthoritativeDisposition,
     requestAuthoritativeClarification, resolveAuthoritativeClarification,
     returnAuthoritativeDisposition, returnAuthoritativeWorkItemFromDdReview,
-    submitAuthoritativeWorkItemForDdReview, unblockAuthoritativeWorkItem,
+    submitAuthoritativeWorkItemForDdReview, unblockAuthoritativeWorkItem, publishAuthoritativeWorkItem,
     updateAuthoritativeResponse, AuthoritativeWorkItemConflictError,
     type AuthoritativeWorkItemEvent, type AuthoritativeWorkNote,
 } from "../../services/recapWorkItemPersistence";
 import {
     downloadAuthoritativeArtifact, downloadAuthoritativeSourceDocument,
-    loadAuthoritativeArtifacts, loadAuthoritativeSourceDocuments, uploadAuthoritativeArtifact,
+    loadAuthoritativeArtifacts, loadAuthoritativeSourceDocuments, replaceAuthoritativeArtifact, uploadAuthoritativeArtifact,
     type AuthoritativeArtifact, type AuthoritativeSourceDocument,
 } from "../../services/recapWorkArtifactPersistence";
 import RecapSubNav from "./RecapSubNav";
@@ -36,6 +36,8 @@ const STATUS_STYLE: Record<string, { color: string; background: string; border: 
     "Clarification Needed": { color: "#9a3412", background: "#fff7ed", border: "#fed7aa" },
     "Needs DD Review": { color: "#3730a3", background: "#eef2ff", border: "#c7d2fe" },
     "Ready to Publish": { color: "#166534", background: "#f0fdf4", border: "#bbf7d0" },
+    "Waiting Partner Review": { color: "#1d4ed8", background: "#eff6ff", border: "#bfdbfe" },
+    Completed: { color: "#166534", background: "#f0fdf4", border: "#bbf7d0" },
 };
 
 const EVENT_LABELS: Record<string, string> = {
@@ -46,6 +48,8 @@ const EVENT_LABELS: Record<string, string> = {
     DispositionReturned: "Disposition returned", NotMine: "Marked Not Mine",
     SubmittedForDdReview: "Submitted for DD review", ReturnedFromDdReview: "Returned from DD review",
     ReadyToPublish: "Ready to Publish",
+    PublicationStarted: "Publication started", PublishedExternal: "Published externally",
+    PartnerApproved: "Partner approved", PartnerRequestedRework: "Partner requested rework",
 };
 
 function dateTime(value?: string | null) {
@@ -77,7 +81,9 @@ export default function AuthoritativeRecapWorkspace({ initialItem }: { initialIt
     const [busy, setBusy] = useState(false);
     const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
     const [confirmation, setConfirmation] = useState<"accept" | "submit" | "ready" | null>(null);
+    const [publicationKey, setPublicationKey] = useState<string | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [replacementTarget, setReplacementTarget] = useState<AuthoritativeArtifact | null>(null);
     const [uploadingName, setUploadingName] = useState<string | null>(null);
     const [uploadNotice, setUploadNotice] = useState<UploadNotice | null>(null);
     const [draggingFile, setDraggingFile] = useState(false);
@@ -171,10 +177,11 @@ export default function AuthoritativeRecapWorkspace({ initialItem }: { initialIt
         if (busy || !capabilities.canUploadArtifact) return;
         setUploadingName(file.name); setBusy(true); setUploadNotice(null);
         try {
-            await uploadAuthoritativeArtifact(item.id, file);
+            if (replacementTarget) await replaceAuthoritativeArtifact(item.id, replacementTarget.id, file);
+            else await uploadAuthoritativeArtifact(item.id, file);
             await refresh(true);
-            setSelectedFile(null);
-            setUploadNotice({ kind: "success", text: `${file.name} uploaded successfully.` });
+            setSelectedFile(null); setReplacementTarget(null);
+            setUploadNotice({ kind: "success", text: replacementTarget ? `${replacementTarget.fileName} replaced successfully.` : `${file.name} uploaded successfully.` });
         } catch (error) {
             setUploadNotice({ kind: "error", text: error instanceof Error ? error.message : `${file.name} could not be uploaded.` });
         } finally { setBusy(false); setUploadingName(null); }
@@ -200,7 +207,8 @@ export default function AuthoritativeRecapWorkspace({ initialItem }: { initialIt
         isDdOperationsContext && capabilities.canReviewDisposition && { label: "Return to Contributor", description: "Return the proposal for more work", tone: "neutral", action: () => { setReasonAction("return-disposition"); setReason(""); } },
         isDdOperationsContext && capabilities.canReturnFromDdReview && !capabilities.canReviewDisposition && { label: "Return to Contributor", description: "Return the request with guidance", tone: "neutral", action: () => { setReasonAction("return-review"); setReason(""); } },
         isDdOperationsContext && capabilities.canMarkReadyToPublish && !capabilities.canReviewDisposition && { label: "Mark Ready to Publish", description: "Complete internal DD review", primary: true, tone: "primary", action: () => setConfirmation("ready") },
-    ].filter(Boolean) as WorkspaceAction[], [capabilities, item.id, item.authoritativeProposedDisposition, busy, isDdOperationsContext]);
+        isDdOperationsContext && capabilities.canPublish && { label: "Publish External", description: "Place supporting documents in Knowledge and invite partner review", primary: true, tone: "primary", action: () => setPublicationKey(`publish:${item.id}:${String(item.authoritativeVersion || "").replace(/^0x/, "")}`) },
+    ].filter(Boolean) as WorkspaceAction[], [capabilities, item.id, item.authoritativeVersion, item.authoritativeProposedDisposition, busy, isDdOperationsContext]);
 
     return <div className="rc-page" style={{ maxWidth: 1120 }} data-testid="authoritative-recap-workspace">
         <RecapSubNav activePath={activeNavPath} />
@@ -225,20 +233,23 @@ export default function AuthoritativeRecapWorkspace({ initialItem }: { initialIt
         {!item.assignedUserId && <div className="rc-alert rc-alert-info" style={{ margin: "16px 0" }}><strong>Assignment required.</strong> This request is queued and cannot be worked until DD Operations assigns an owner. {!capabilities.canAssign && <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={() => navigate("/recapitalization/dd-operations")}>Back to Work Queue</button>}</div>}
         {item.status === "Blocked" && isContributorContext && <div className="rc-alert rc-alert-warning" style={{ margin: "16px 0" }}><strong>Work is blocked.</strong> DD Operations must resolve the blocker before work can continue.</div>}
         {item.status === "Needs DD Review" && isContributorContext && <div className="rc-alert rc-alert-info" style={{ margin: "16px 0" }} data-testid="waiting-on-dd-operations"><strong>Waiting on DD Operations.</strong> Your work has been submitted. DD Operations will review it and either return it with guidance or mark it ready to publish.</div>}
+        {item.status === "Waiting Partner Review" && <div className="rc-alert rc-alert-info" style={{ margin: "16px 0" }}><strong>Published externally.</strong> Waiting for partner review from {item.authoritativePublicationOrganizationId}. Published {dateTime(item.authoritativePublishedAt)}.</div>}
+        {item.authoritativePublicationStatus === "Approved" && <div className="rc-alert rc-alert-success" style={{ margin: "16px 0" }}><strong>Partner approved.</strong> The authoritative request is complete.</div>}
+        {item.authoritativePublicationStatus === "Rework Requested" && item.authoritativePartnerGuidance && <div className="rc-alert rc-alert-warning" style={{ margin: "16px 0" }}><strong>Partner requested rework:</strong> {item.authoritativePartnerGuidance}</div>}
         {(actionButtons.length > 0 || showArtifactUpload) && <section className={`rc-card rc-action-center${item.status === "Assigned" ? " is-gating" : ""}`} style={{ padding: 22 }} data-testid="authoritative-action-center"><div style={{ marginBottom: 16 }}><h2 style={{ margin: 0 }}>Action Center</h2><div style={{ color: "#64748b", fontSize: 13, marginTop: 4 }}>{item.status === "Assigned" ? "Accept or return the assignment before beginning work." : item.status === "In Progress" ? "Continue the response, supporting documents, or workflow." : "Actions available for the current authoritative state."}</div></div>
             {actionButtons.some(action => action.primary) && <div className="rc-action-group"><div className="rc-action-group-label">Primary workflow</div><div className="rc-action-grid">{actionButtons.filter(action => action.primary).map(action => <button key={action.label} className={`rc-action-tile rc-action-tile-${action.tone}`} disabled={busy} onClick={action.action}><strong>{action.label}</strong><span>{action.description}</span></button>)}</div></div>}
             {showArtifactUpload && <div className="rc-action-group"><div className="rc-action-group-label">Work action</div><div className="rc-supporting-upload">
                 <div className={`rc-upload-dropzone${draggingFile ? " is-dragging" : ""}`} role="button" tabIndex={busy ? -1 : 0} aria-label="Browse supporting documents" aria-disabled={busy}
-                    onClick={() => { if (!busy) fileInputRef.current?.click(); }} onKeyDown={event => { if (!busy && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); fileInputRef.current?.click(); } }}
+                    onClick={event => { if (!busy && event.target !== fileInputRef.current) { setReplacementTarget(null); fileInputRef.current?.click(); } }} onKeyDown={event => { if (!busy && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); setReplacementTarget(null); fileInputRef.current?.click(); } }}
                     onDragEnter={event => { event.preventDefault(); if (!busy) setDraggingFile(true); }} onDragOver={event => event.preventDefault()} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDraggingFile(false); }}
-                    onDrop={event => { event.preventDefault(); setDraggingFile(false); const file = event.dataTransfer.files?.[0]; if (file) selectFile(file); }}>
+                    onDrop={event => { event.preventDefault(); setDraggingFile(false); setReplacementTarget(null); const file = event.dataTransfer.files?.[0]; if (file) selectFile(file); }}>
                     <strong>{draggingFile ? "Drop file here" : "Drag file here"}</strong><span>or <span className="rc-upload-browse">Browse files</span></span>
                     <input ref={fileInputRef} id="artifact-upload-hidden" aria-label="Upload Artifact" hidden type="file" disabled={busy} onChange={event => { const file = event.target.files?.[0]; if (file) selectFile(file); event.currentTarget.value = ""; }} />
                 </div>
-                {selectedFile && !uploadingName && <div className="rc-upload-selection" data-testid="selected-upload-file"><div><strong>{selectedFile.name}</strong><span>Ready to upload</span></div><div className="rc-upload-selection-actions"><button className="rc-btn rc-btn-primary rc-btn-sm" disabled={busy} onClick={() => void uploadFile(selectedFile)}>Upload document</button><button className="rc-btn rc-btn-ghost rc-btn-sm" disabled={busy} onClick={() => setSelectedFile(null)}>Remove</button></div></div>}
+                {selectedFile && !uploadingName && <div className="rc-upload-selection" data-testid="selected-upload-file"><div><strong>{selectedFile.name}</strong><span>{replacementTarget ? `Replace ${replacementTarget.fileName}` : "Ready to upload"}</span></div><div className="rc-upload-selection-actions"><button className="rc-btn rc-btn-primary rc-btn-sm" disabled={busy} onClick={() => void uploadFile(selectedFile)}>{replacementTarget ? "Replace document" : "Upload document"}</button><button className="rc-btn rc-btn-ghost rc-btn-sm" disabled={busy} onClick={() => { setSelectedFile(null); setReplacementTarget(null); }}>Remove</button></div></div>}
                 {uploadingName && <div role="status" aria-live="polite" className="rc-upload-feedback is-uploading"><strong>Uploading {uploadingName}…</strong><span>Please keep this workspace open.</span></div>}
                 {uploadNotice && <div role={uploadNotice.kind === "error" ? "alert" : "status"} aria-live="polite" className={`rc-upload-feedback is-${uploadNotice.kind}`}><strong>{uploadNotice.kind === "success" ? "✓ " : ""}{uploadNotice.text}</strong>{uploadNotice.kind === "error" && <span>Select the file again or retry the upload.</span>}</div>}
-                <div className="rc-upload-documents" data-testid="supporting-documents"><h3>Supporting documents</h3>{artifacts.map(artifact => <div className="rc-document-row" key={artifact.id}><div className="rc-document-name"><span aria-hidden="true">▤</span><div><strong>{artifact.fileName}</strong>{artifact.uploadedAt && <span>Uploaded {dateTime(artifact.uploadedAt)}</span>}</div></div><button className="rc-btn rc-btn-secondary rc-btn-sm rc-download-button" aria-label={`Download ${artifact.fileName}`} onClick={() => void downloadAuthoritativeArtifact(item.id, artifact.id, artifact.fileName)}>Download</button></div>)}{artifacts.length === 0 && <p>No supporting documents uploaded yet.</p>}</div>
+                <div className="rc-upload-documents" data-testid="supporting-documents"><h3>Supporting documents</h3>{artifacts.map(artifact => <div className="rc-document-row" key={artifact.id}><div className="rc-document-name"><span aria-hidden="true">▤</span><div><strong>{artifact.fileName}</strong>{artifact.uploadedAt && <span>Uploaded {dateTime(artifact.uploadedAt)}</span>}</div></div><button className="rc-btn rc-btn-ghost rc-btn-sm" aria-label={`Replace ${artifact.fileName}`} disabled={busy} onClick={() => { setReplacementTarget(artifact); setSelectedFile(null); fileInputRef.current?.click(); }}>Replace document</button><button className="rc-btn rc-btn-secondary rc-btn-sm rc-download-button" aria-label={`Download ${artifact.fileName}`} onClick={() => void downloadAuthoritativeArtifact(item.id, artifact.id, artifact.fileName)}>Download</button></div>)}{artifacts.length === 0 && <p>No supporting documents uploaded yet.</p>}</div>
             </div></div>}
             {actionButtons.some(action => !action.primary) && <div className="rc-action-group"><div className="rc-action-group-label">Exception and secondary actions</div><div className="rc-action-grid rc-action-grid-secondary">{actionButtons.filter(action => !action.primary).map(action => { const active = !!reasonAction && activeActionLabel[reasonAction] === action.label; return <button key={action.label} className={`rc-action-tile rc-action-tile-${action.tone}${active ? " is-active" : ""}`} aria-pressed={active} disabled={busy} onClick={action.action}><strong>{action.label}</strong><span>{action.description}</span></button>; })}</div></div>}
         </section>}
@@ -257,6 +268,9 @@ export default function AuthoritativeRecapWorkspace({ initialItem }: { initialIt
         </div>}
         {confirmation && <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label={confirmation === "accept" ? "Accept Work?" : confirmation === "submit" ? "Submit for DD Review?" : "Mark Ready to Publish?"}>
             <div className="rc-modal" style={{ maxWidth: 480 }}><div className="rc-modal-header"><h2>{confirmation === "accept" ? "Accept Work?" : confirmation === "submit" ? "Submit for DD Review?" : "Mark Ready to Publish?"}</h2></div><div className="rc-modal-body"><strong>{item.requestId}</strong> — {item.title}<p>{confirmation === "accept" ? "This moves the request to In Progress." : confirmation === "submit" ? "DD Operations will review the authoritative response, notes, history, and artifacts." : "This completes DD review and moves the request to Ready to Publish. It does not publish the request externally or move documents to Knowledge."}</p></div><div className="rc-modal-footer"><button className="rc-btn rc-btn-ghost" disabled={busy} onClick={() => setConfirmation(null)}>Cancel</button><button className="rc-btn rc-btn-primary" disabled={busy} onClick={() => { const selected = confirmation; setConfirmation(null); void run(selected === "accept" ? () => acceptAuthoritativeWorkItem(item.id) : selected === "submit" ? () => submitAuthoritativeWorkItemForDdReview(item.id) : () => markAuthoritativeWorkItemReadyToPublish(item.id), selected === "accept" ? "Work accepted." : selected === "submit" ? "Submitted for DD Operations review." : "Marked Ready to Publish."); }}>{confirmation === "accept" ? "Accept Work" : confirmation === "submit" ? "Submit for DD Review" : "Mark Ready to Publish"}</button></div></div>
+        </div>}
+        {publicationKey && <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label="Publish External?">
+            <div className="rc-modal" style={{ maxWidth: 540 }}><div className="rc-modal-header"><h2>Publish External?</h2></div><div className="rc-modal-body"><strong>{item.requestId}</strong> — {item.title}<p>Publish to <strong>{item.authoritativePublicationOrganizationId || item.authoritativeTargetExternalOrganizationId || item.brokerBuyer}</strong> for partner review?</p><p>{artifacts.length} supporting document{artifacts.length === 1 ? "" : "s"} will be copied to Knowledge. The authoritative Working source and publication history will be retained.</p>{artifacts.length > 0 && <ul>{artifacts.map(artifact => <li key={artifact.id}>{artifact.fileName}</li>)}</ul>}</div><div className="rc-modal-footer"><button className="rc-btn rc-btn-ghost" disabled={busy} onClick={() => setPublicationKey(null)}>Cancel</button><button className="rc-btn rc-btn-primary" disabled={busy} onClick={async () => { const key = publicationKey; setBusy(true); setNotice(null); try { await publishAuthoritativeWorkItem(item.id, key); setPublicationKey(null); await refresh(true); setNotice({ kind: "ok", text: "Published externally for partner review." }); } catch (error) { setNotice({ kind: "error", text: error instanceof Error ? error.message : "Publication failed" }); } finally { setBusy(false); } }}>Publish External</button></div></div>
         </div>}
     </div>;
 }

@@ -11,6 +11,9 @@ const joinedSelect = `
            workItem.responseContent, workItem.responseUpdatedAt, workItem.responseUpdatedByUserId,
            workItem.activeReasonType, workItem.activeReason, workItem.proposedDisposition,
            workItem.dispositionReason, workItem.dispositionProposedByUserId, workItem.dispositionProposedAt,
+           latestPublication.id AS publicationId, latestPublication.publicationNumber,
+           latestPublication.status AS publicationStatus, latestPublication.targetExternalOrganizationId,
+           latestPublication.publishedAt, latestPublication.partnerActionAt, latestPublication.partnerGuidance,
            workItem.admittedAt, workItem.assignedAt, workItem.acceptedAt,
            workItem.updatedAt, workItem.version AS version,
            CONVERT(varchar(36), packageRow.id) AS packageId, packageRow.sourcePackageId,
@@ -18,11 +21,16 @@ const joinedSelect = `
            packageRow.externalOrganizationId,
            CONVERT(varchar(36), transactionRow.id) AS transactionDatabaseId,
            transactionRow.businessTransactionId, transactionRow.name AS transactionName
+           , transactionRow.owningExternalOrganizationId
     FROM cmdb.RecapWorkItems workItem
     INNER JOIN cmdb.RecapIntakeRequests intakeRequest ON intakeRequest.id = workItem.intakeRequestId
     INNER JOIN cmdb.RecapIntakePackages packageRow ON packageRow.id = intakeRequest.intakePackageId
     INNER JOIN cmdb.RecapTransactions transactionRow ON transactionRow.id = packageRow.recapTransactionId
-    LEFT JOIN cmdb.Users assignedUser ON assignedUser.id = workItem.assignedUserId`;
+    LEFT JOIN cmdb.Users assignedUser ON assignedUser.id = workItem.assignedUserId
+    OUTER APPLY (SELECT TOP (1) publication.id, publication.publicationNumber, publication.status,
+            publication.targetExternalOrganizationId, publication.publishedAt, publication.partnerActionAt, publication.partnerGuidance
+        FROM cmdb.RecapPublications publication WHERE publication.workItemId = workItem.id
+        ORDER BY publication.publicationNumber DESC) latestPublication`;
 
 export function createRecapWorkItemRepository({ query = defaultQuery } = {}) {
     const mutate = (id, actorId, expectedVersion, eventType, setClause, whereClause, values = {}, detailsJson = null) => query(`

@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { acceptAuthoritativeWorkItem, admitAuthoritativeRequests, assignAuthoritativeWorkItem, AuthoritativeWorkItemVersionError, getCachedAuthoritativeWorkItems, loadAuthoritativeWorkItems, markAuthoritativeWorkItemNotMine, markAuthoritativeWorkItemReadyToPublish, returnAuthoritativeWorkItemFromDdReview, submitAuthoritativeWorkItemForDdReview } from "../services/recapWorkItemPersistence";
+import { acceptAuthoritativeWorkItem, admitAuthoritativeRequests, assignAuthoritativeWorkItem, AuthoritativeWorkItemVersionError, getCachedAuthoritativeWorkItems, loadAuthoritativeWorkItems, markAuthoritativeWorkItemNotMine, markAuthoritativeWorkItemReadyToPublish, publishAuthoritativeWorkItem, returnAuthoritativeWorkItemFromDdReview, submitAuthoritativeWorkItemForDdReview } from "../services/recapWorkItemPersistence";
 import { loadAuthoritativeIntake } from "../services/recapIntakePersistence";
 import { getPortalCreatedRequests, getRequests, getWorkQueueTransactions } from "../services/recapDataService";
 import type { RecapRequest } from "../services/recapDataService";
+import { isAuthoritativePartnerRework, isAuthoritativePartnerReworkActive } from "../services/recapPresentation";
+import { replaceAuthoritativeArtifact } from "../services/recapWorkArtifactPersistence";
 
 const storage = new Map<string, string>();
 globalThis.localStorage = {
@@ -36,6 +38,24 @@ describe("authoritative work item runtime", () => {
         });
     });
 
+    it("classifies partner rework as active only until contributor resubmission", () => {
+        const rework = { origin: "authoritative", status: "In Progress", assignedUserId: "user-1", _externalStatus: "Published External", _partnerDecision: "Rework Required" } as RecapRequest;
+        expect(isAuthoritativePartnerReworkActive(rework)).toBe(true);
+        expect(isAuthoritativePartnerReworkActive({ ...rework, status: "Needs DD Review" })).toBe(false);
+        expect(isAuthoritativePartnerRework({ ...rework, status: "Needs DD Review" })).toBe(true);
+        expect(isAuthoritativePartnerReworkActive({ ...rework, status: "Completed", _partnerDecision: "Approved" })).toBe(false);
+    });
+
+    it("uses the bounded authoritative replacement endpoint", async () => {
+        const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ artifact: { id: "new-artifact" } }) }));
+        vi.stubGlobal("fetch", fetchMock);
+        const file = new File(["v2"], "report-v2.pdf", { type: "application/pdf" });
+        await replaceAuthoritativeArtifact("work-1", "old-artifact", file);
+        const call = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+        expect(call[0]).toContain("/work-1/artifacts/old-artifact/replacement");
+        expect(call[1].method).toBe("POST");
+    });
+
     it("admission sends durable IntakeRequest IDs and a whitelisted reviewed snapshot", async () => {
         const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ workItems: [workItem] }) }));
         vi.stubGlobal("fetch", fetchMock);
@@ -65,6 +85,18 @@ describe("authoritative work item runtime", () => {
         expect(fetchMock).toHaveBeenCalledTimes(2);
         const calls = fetchMock.mock.calls as unknown as [string, RequestInit | undefined][];
         expect(calls.every(call => !call[1] || call[1].method !== "POST")).toBe(true);
+    });
+
+    it("publishes authoritative work through the dedicated versioned idempotent endpoint", async () => {
+        const fetchMock = vi.fn(async (url: string) => ({ ok: true, json: async () => url.endsWith("/work-items")
+            ? { workItems: [workItem], assignees: [] }
+            : { publication: { id: "publication-1", status: "Published" } } }));
+        vi.stubGlobal("fetch", fetchMock);
+        await loadAuthoritativeWorkItems();
+        await publishAuthoritativeWorkItem("work-1", "publish:work-1:0000000000000001");
+        const call = fetchMock.mock.calls[1] as unknown as [string, RequestInit];
+        expect(call[0]).toContain("/work-1/publish-external");
+        expect(JSON.parse(String(call[1].body))).toEqual({ expectedVersion: workItem.version, idempotencyKey: "publish:work-1:0000000000000001" });
     });
 
     it("sends the required rowversion for every existing authoritative mutation", async () => {

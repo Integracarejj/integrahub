@@ -31,6 +31,17 @@ export function createRecapWorkArtifactRouter(service = recapWorkArtifactService
             return failure(res, error);
         }
     });
+    router.post("/:artifactId/replacement", raw({ type: "application/octet-stream", limit: MAX_WORK_ARTIFACT_BYTES }), async (req, res) => {
+        try {
+            const artifact = await service.replace({ workItemId: req.params.id, artifactId: req.params.artifactId,
+                originalFileName: decodeURIComponent(String(req.headers["x-file-name"] || "")),
+                contentType: req.headers["x-file-content-type"], content: req.body, actor: req.user });
+            return res.status(201).json({ artifact });
+        } catch (error) {
+            if (error?.type === "entity.too.large") return res.status(413).json({ error: "Work artifact exceeds the 10 MiB limit" });
+            return failure(res, error);
+        }
+    });
     router.get("/:artifactId/content", async (req, res) => { try {
         const file = await service.downloadArtifact(req.params.id, req.params.artifactId, req.user);
         res.set("Content-Type", file.contentType || "application/octet-stream");
