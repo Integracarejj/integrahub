@@ -16,7 +16,7 @@ const ARTIFACT = "33333333-3333-4333-8333-333333333333";
 const VERSION = "0x0000000000000001";
 const SOURCE = Buffer.from("authoritative bytes");
 
-function harness({ status = "Ready to Publish", member = true, publicationStatus = null, failAfterUpload = false, unknownCollision = false, beginRace = false, loseUploadResponse = false } = {}) {
+function harness({ status = "Ready to Publish", member = true, publicationStatus = null, failAfterUpload = false, unknownCollision = false, beginRace = false, loseUploadResponse = false, activeArtifactCount = 0 } = {}) {
     const calls = [];
     let publication = publicationStatus ? { id: PUBLICATION, workItemId: WORK, publicationNumber: 1, operationKey: "publish:key", targetExternalOrganizationId: "ORG-A", status: publicationStatus, version: VERSION, publishedAt: "now" } : null;
     let artifactStatus = "Pending";
@@ -31,10 +31,10 @@ function harness({ status = "Ready to Publish", member = true, publicationStatus
         getInternalContext: async () => ({ workItemId: WORK, requestNumber: "DD-2026-1", title: "Report", status, workItemVersion: VERSION, assignedUserId: "owner", businessTransactionId: "REC-2026-00000001", transactionName: "Keystone", owningExternalOrganizationId: "ORG-A" }),
         getByOperation: async (_workItemId, operationKey) => publication?.operationKey === operationKey ? publication : null,
         begin: async (_context, operationKey) => { calls.push(["begin", operationKey]); if (status !== "Ready to Publish" || (publication?.status === "Pending" && publication.operationKey !== operationKey)) throw new Error("cannot be started"); publication = { id: PUBLICATION, workItemId: WORK, publicationNumber: 1, operationKey, targetExternalOrganizationId: "ORG-A", status: "Pending", version: VERSION }; if (beginRace) throw new Error("Publication cannot be started or is stale"); return publication; },
-        listArtifacts: async () => [{ publicationId: PUBLICATION, artifactId: ARTIFACT, sourceDriveId: "working-drive", sourceItemId: "source", storedFileName: "report - abc.pdf", status: artifactStatus, originalFileName: "report.pdf", contentType: "application/pdf", knowledgeSiteId: artifactStatus === "Pending" ? null : "knowledge-site", knowledgeDriveId: artifactStatus === "Pending" ? null : "knowledge-drive", knowledgeItemId: artifactStatus === "Pending" ? null : "copy" }],
+        listArtifacts: async () => Array.from({ length: activeArtifactCount || 1 }, (_, index) => ({ publicationId: PUBLICATION, artifactId: activeArtifactCount ? `${index + 3}3333333-3333-4333-8333-333333333333`.slice(0, 36) : ARTIFACT, sourceDriveId: "working-drive", sourceItemId: "source", storedFileName: "report - abc.pdf", status: activeArtifactCount ? "Active" : artifactStatus, originalFileName: "report.pdf", contentType: "application/pdf", knowledgeSiteId: activeArtifactCount || artifactStatus !== "Pending" ? "knowledge-site" : null, knowledgeDriveId: activeArtifactCount || artifactStatus !== "Pending" ? "knowledge-drive" : null, knowledgeItemId: activeArtifactCount || artifactStatus !== "Pending" ? "copy" : null })),
         recordReceipt: async (_publicationId, _artifactId, identity) => { calls.push(["receipt", identity]); artifactStatus = "Receipt"; },
         activateArtifact: async (_publicationId, _artifactId, identity) => { calls.push(["activate", identity]); artifactStatus = "Active"; },
-        complete: async () => { calls.push(["complete"]); publication = { ...publication, status: "Published", publishedAt: "now", version: VERSION }; return publication; },
+        complete: async () => { calls.push(["complete", { publicationNumber: publication.publicationNumber, workItemStatus: "Waiting Partner Review", eventType: "PublishedExternal" }]); publication = { ...publication, status: "Published", publishedAt: "now", version: VERSION }; return publication; },
         listForExternalUser: async userId => member && userId === "partner" && publication?.status !== "Pending" ? [{ ...publication, requestNumber: "DD-2026-1", title: "Report", description: "D", businessTransactionId: "REC-2026-00000001", transactionName: "Keystone", workItemStatus: publication.status === "Approved" ? "Completed" : "Waiting Partner Review" }] : [],
         getExternalPublication: async userId => member && userId === "partner" && publication?.status === "Published" ? publication : null,
         getExternalArtifact: async userId => member && userId === "partner" ? { knowledgeDriveId: "knowledge-drive", knowledgeItemId: "copy", storedFileName: "report - abc.pdf", storedContentSize: SOURCE.length, storedContentSha256: createHash("sha256").update(SOURCE).digest("hex"), originalFileName: "report.pdf", contentType: "application/pdf" } : null,
@@ -102,6 +102,20 @@ test("publication retry with the same operation returns the durable publication 
     await value.service.publish(WORK, input, { id: "dd", globalRole: "PlatformAdmin" });
     await value.service.publish(WORK, input, { id: "dd", globalRole: "PlatformAdmin" });
     assert.equal(value.calls.filter(call => call[0] === "upload").length, 1);
+});
+
+test("same-operation retry finalizes Publication 1 with two Active receipts and performs no duplicate upload", async () => {
+    const value = harness({ publicationStatus: "Pending", activeArtifactCount: 2 });
+    const result = await value.service.publish(WORK, { expectedVersion: VERSION, idempotencyKey: "publish:key" }, { id: "dd", globalRole: "DDTeam" });
+    assert.equal(result.status, "Published");
+    assert.equal(result.publicationNumber, 1);
+    assert.equal(value.calls.some(call => call[0] === "begin"), false);
+    assert.equal(value.calls.some(call => call[0] === "upload"), false);
+    assert.equal(value.calls.some(call => call[0] === "download"), false);
+    assert.equal(value.calls.filter(call => call[0] === "complete").length, 1);
+    assert.deepEqual(value.calls.find(call => call[0] === "complete")?.[1], {
+        publicationNumber: 1, workItemStatus: "Waiting Partner Review", eventType: "PublishedExternal",
+    });
 });
 
 test("partial Knowledge copy failure is recoverable without duplicate destination bytes", async () => {
@@ -187,6 +201,18 @@ test("publication repository scopes external reads and atomically preserves publ
     assert.match((await (async () => { const recorded = []; const subject = createRecapPublicationRepository({ query: async sql => { recorded.push(sql); return []; } }); await subject.begin({ workItemId: WORK, owningExternalOrganizationId: "ORG-A" }, "publish:key", "dd", VERSION); return recorded[0]; })()), /publicationEligibility = 'Active'/);
 });
 
+test("publication completion atomically publishes, transitions the work item, and records PublishedExternal", async () => {
+    const calls = [];
+    const repository = createRecapPublicationRepository({ query: async (sql, values) => { calls.push({ sql, values }); return []; } });
+    await repository.complete(PUBLICATION, "dd");
+    assert.equal(calls.length, 1);
+    assert.match(calls[0].sql, /BEGIN TRANSACTION;[\s\S]*status <> 'Active'/);
+    assert.match(calls[0].sql, /UPDATE cmdb\.RecapPublications SET status = 'Published'/);
+    assert.match(calls[0].sql, /UPDATE cmdb\.RecapWorkItems SET status = 'Waiting Partner Review'/);
+    assert.match(calls[0].sql, /'PublishedExternal'[\s\S]*COMMIT;/);
+    assert.deepEqual(calls[0].values, { publicationId: PUBLICATION, actorUserId: "dd" });
+});
+
 test("internal publish endpoint preserves actor and application identities", async () => {
     const calls = [];
     const app = express(); app.use(express.json());
@@ -198,4 +224,27 @@ test("internal publish endpoint preserves actor and application identities", asy
         assert.equal(response.status, 200); assert.equal((await response.json()).publication.status, "Published");
         assert.deepEqual(calls, [{ workItemId: WORK, input: { expectedVersion: VERSION, idempotencyKey: "publish:key" }, actor: { id: "dd", globalRole: "DDTeam" } }]);
     } finally { await new Promise(resolve => server.close(resolve)); }
+});
+
+test("publication recovery logs its internal cause but keeps the HTTP response sanitized", async () => {
+    const logged = [];
+    const originalError = console.error;
+    console.error = (...values) => logged.push(values);
+    const app = express(); app.use(express.json());
+    app.use((req, _res, next) => { req.user = { id: "dd", globalRole: "DDTeam" }; next(); });
+    app.use("/api/recapitalization/work-items", createRecapWorkItemsRouter({}, { publish: async () => {
+        throw new RecapPublicationRecoveryRequiredError("Publication requires retry", { cause: Object.assign(new Error("String or binary data would be truncated"), { number: 2628 }) });
+    } }));
+    const server = app.listen(0, "127.0.0.1"); await new Promise(resolve => server.once("listening", resolve));
+    try {
+        const response = await fetch(`http://127.0.0.1:${server.address().port}/api/recapitalization/work-items/${WORK}/publish-external`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+        assert.equal(response.status, 503);
+        assert.deepEqual(await response.json(), { error: "Publication requires retry" });
+        assert.equal(logged[0][0], "Recap publication recovery required");
+        assert.equal(logged[0][1].causeNumber, 2628);
+        assert.equal(logged[0][1].causeMessage, "String or binary data would be truncated");
+    } finally {
+        console.error = originalError;
+        await new Promise(resolve => server.close(resolve));
+    }
 });

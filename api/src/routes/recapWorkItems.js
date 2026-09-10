@@ -11,7 +11,16 @@ function failure(res, error) {
     if (error instanceof RecapPublicationForbiddenError) return res.status(403).json({ error: "Publication access denied" });
     if (error instanceof RecapPublicationNotFoundError) return res.status(404).json({ error: "Work item not found" });
     if (error instanceof RecapPublicationConflictError) return res.status(409).json({ error: error.message });
-    if (error instanceof RecapPublicationRecoveryRequiredError) return res.status(503).json({ error: "Publication requires retry" });
+    if (error instanceof RecapPublicationRecoveryRequiredError) {
+        const cause = error.cause;
+        console.error("Recap publication recovery required", {
+            causeName: cause instanceof Error ? cause.name : "UnknownError",
+            causeMessage: cause instanceof Error ? cause.message : "Unknown error",
+            causeCode: cause?.code || null,
+            causeNumber: cause?.number || null,
+        });
+        return res.status(503).json({ error: "Publication requires retry" });
+    }
     if (/cannot|not found|Eligible internal/i.test(error?.message || "")) return res.status(409).json({ error: "Work item transition rejected" });
     console.error("Recapitalization work item operation failed", error instanceof Error ? error.message : "Unknown error");
     return res.status(503).json({ error: "Work item storage is unavailable" });
