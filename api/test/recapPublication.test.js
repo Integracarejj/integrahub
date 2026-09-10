@@ -65,9 +65,27 @@ test("migration 022 defines authoritative publication history and recalculable c
     assert.match(sql, /FK_RecapWorkArtifacts_SupersededByArtifact/);
     assert.match(sql, /FK_RecapWorkArtifacts_SupersededByUser/);
     assert.match(sql, /status IN \('Pending', 'Receipt', 'Active'\)/);
+    assert.match(sql, /publicationCardinalityScope AS \(CASE WHEN status IN \('Pending', 'Published'\) THEN 0 ELSE 1 END\) PERSISTED/);
+    assert.match(sql, /publicationCardinalityKey AS \(CASE WHEN status IN \('Pending', 'Published'\) THEN workItemId ELSE id END\) PERSISTED/);
+    assert.match(sql, /CREATE UNIQUE INDEX UQ_RecapPublications_OpenWorkItem\s+ON cmdb\.RecapPublications\(publicationCardinalityScope, publicationCardinalityKey\);/);
+    assert.match(sql, /indexInfo\.has_filter = 0/);
     const checksum = sql.match(/DECLARE @contentSha256 CHAR\(64\) = '([0-9A-F]{64})'/)?.[1];
     const normalized = sql.replace(/\r\n/g, "\n").replace(/(DECLARE @contentSha256 CHAR\(64\) = ')[0-9A-F]{64}(')/, `$1${"0".repeat(64)}$2`);
     assert.equal(checksum, createHash("sha256").update(normalized).digest("hex").toUpperCase());
+});
+
+test("migration 022 never references a computed column from a filtered-index predicate", async () => {
+    const sql = await readFile(new URL("../src/migrations/022_recap_external_publication.sql", import.meta.url), "utf8");
+    const computedColumns = new Set([...sql.matchAll(/^\s*([A-Za-z][A-Za-z0-9]*)\s+AS\s*\(/gm)].map(match => match[1]));
+    const indexStatements = [...sql.matchAll(/CREATE\s+(?:UNIQUE\s+)?INDEX\s+[\s\S]*?;/gi)].map(match => match[0]);
+
+    for (const statement of indexStatements) {
+        const predicate = statement.match(/\bWHERE\b([\s\S]*?);/i)?.[1];
+        if (!predicate) continue;
+        for (const column of computedColumns) {
+            assert.doesNotMatch(predicate, new RegExp(`\\b${column}\\b`, "i"), `${column} is computed and cannot appear in a filtered-index predicate`);
+        }
+    }
 });
 
 test("publish copies exact Working bytes to deterministic Knowledge hierarchy and retains source", async () => {

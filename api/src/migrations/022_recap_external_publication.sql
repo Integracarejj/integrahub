@@ -3,6 +3,13 @@
 -- Checksum is calculated with CRLF normalized to LF and this literal normalized to zeros.
 
 SET XACT_ABORT ON;
+SET ANSI_NULLS ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET QUOTED_IDENTIFIER ON;
+SET NUMERIC_ROUNDABORT OFF;
 
 BEGIN TRY
     BEGIN TRANSACTION;
@@ -12,7 +19,7 @@ IF OBJECT_ID('cmdb.SchemaMigrations', 'U') IS NULL OR OBJECT_ID('cmdb.RecapWorkI
     THROW 51070, 'Migration 022 requires migrations 014 and 021.', 1;
 
 DECLARE @migrationName NVARCHAR(255) = N'022_recap_external_publication.sql';
-DECLARE @contentSha256 CHAR(64) = '97ED362FE9EED8673E9C46EF13CF0EDFD89F61CE5CDD0FD0FF2CF26CC508342D';
+DECLARE @contentSha256 CHAR(64) = '533855CB1A9ACEF557B36C5C67377DB00146C04A2F9F726E1261C76127A44A97';
 DECLARE @existingChecksum CHAR(64) = (SELECT contentSha256 FROM cmdb.SchemaMigrations WHERE migrationName = @migrationName);
 
 IF @existingChecksum IS NOT NULL AND @existingChecksum <> @contentSha256
@@ -63,6 +70,27 @@ BEGIN
         OR NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('cmdb.RecapWorkArtifacts')
             AND name = 'IX_RecapWorkArtifacts_PublicationEligible' AND is_disabled = 0)
         OR NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_RecapPublications_Status' AND is_disabled = 0 AND is_not_trusted = 0)
+        OR NOT EXISTS (SELECT 1 FROM sys.computed_columns columnInfo
+            WHERE columnInfo.object_id = OBJECT_ID('cmdb.RecapPublications')
+              AND columnInfo.name = 'publicationCardinalityKey' AND columnInfo.is_persisted = 1
+              AND REPLACE(REPLACE(columnInfo.definition, '[', ''), ']', '') LIKE '%CASE WHEN status IN (''Pending'', ''Published'') THEN workItemId ELSE id END%')
+        OR NOT EXISTS (SELECT 1 FROM sys.computed_columns columnInfo
+            WHERE columnInfo.object_id = OBJECT_ID('cmdb.RecapPublications')
+              AND columnInfo.name = 'publicationCardinalityScope' AND columnInfo.is_persisted = 1
+              AND REPLACE(REPLACE(columnInfo.definition, '[', ''), ']', '') LIKE '%CASE WHEN status IN (''Pending'', ''Published'') THEN 0 ELSE 1 END%')
+        OR NOT EXISTS (SELECT 1 FROM sys.indexes indexInfo
+            WHERE indexInfo.object_id = OBJECT_ID('cmdb.RecapPublications')
+              AND indexInfo.name = 'UQ_RecapPublications_OpenWorkItem' AND indexInfo.is_unique = 1
+              AND indexInfo.has_filter = 0 AND indexInfo.is_disabled = 0
+              AND (SELECT COUNT(*) FROM sys.index_columns indexColumn
+                  WHERE indexColumn.object_id = indexInfo.object_id AND indexColumn.index_id = indexInfo.index_id
+                    AND indexColumn.key_ordinal > 0) = 2
+              AND NOT EXISTS (SELECT expected.keyOrdinal, expected.columnName
+                  FROM (VALUES (1, 'publicationCardinalityScope'), (2, 'publicationCardinalityKey')) expected(keyOrdinal, columnName)
+                  WHERE NOT EXISTS (SELECT 1 FROM sys.index_columns indexColumn INNER JOIN sys.columns columnInfo
+                      ON columnInfo.object_id = indexColumn.object_id AND columnInfo.column_id = indexColumn.column_id
+                      WHERE indexColumn.object_id = indexInfo.object_id AND indexColumn.index_id = indexInfo.index_id
+                        AND indexColumn.key_ordinal = expected.keyOrdinal AND columnInfo.name = expected.columnName)))
         OR NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE parent_object_id = OBJECT_ID('cmdb.RecapPublishedArtifacts')
             AND name = 'CK_RecapPublishedArtifacts_Status' AND is_disabled = 0 AND is_not_trusted = 0 AND definition LIKE '%Receipt%')
         OR NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_RecapWorkItems_Status' AND definition LIKE '%Waiting Partner Review%' AND definition LIKE '%Completed%')
@@ -116,7 +144,8 @@ CREATE TABLE cmdb.RecapPublications (
     partnerActorOrganizationId VARCHAR(64) NULL,
     partnerActionAt DATETIME2(3) NULL,
     partnerGuidance NVARCHAR(2000) NULL,
-    openWorkItemId AS (CASE WHEN status IN ('Pending', 'Published') THEN workItemId ELSE NULL END) PERSISTED,
+    publicationCardinalityScope AS (CASE WHEN status IN ('Pending', 'Published') THEN 0 ELSE 1 END) PERSISTED,
+    publicationCardinalityKey AS (CASE WHEN status IN ('Pending', 'Published') THEN workItemId ELSE id END) PERSISTED,
     createdAt DATETIME2(3) NOT NULL CONSTRAINT DF_RecapPublications_CreatedAt DEFAULT SYSUTCDATETIME(),
     updatedAt DATETIME2(3) NOT NULL CONSTRAINT DF_RecapPublications_UpdatedAt DEFAULT SYSUTCDATETIME(),
     version ROWVERSION NOT NULL,
@@ -135,8 +164,8 @@ CREATE TABLE cmdb.RecapPublications (
         OR (status = 'Rework Requested' AND publishedAt IS NOT NULL AND partnerActorUserId IS NOT NULL AND partnerActorOrganizationId = targetExternalOrganizationId AND partnerActionAt IS NOT NULL AND NULLIF(LTRIM(RTRIM(partnerGuidance)), '') IS NOT NULL)
     )
 );
-CREATE UNIQUE INDEX UQ_RecapPublications_OpenWorkItem ON cmdb.RecapPublications(openWorkItemId)
-    WHERE openWorkItemId IS NOT NULL;
+CREATE UNIQUE INDEX UQ_RecapPublications_OpenWorkItem
+    ON cmdb.RecapPublications(publicationCardinalityScope, publicationCardinalityKey);
 CREATE INDEX IX_RecapPublications_ExternalOrganization ON cmdb.RecapPublications(targetExternalOrganizationId, status, publishedAt DESC);
 
 CREATE TABLE cmdb.RecapPublishedArtifacts (
