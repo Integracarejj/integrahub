@@ -16,7 +16,8 @@ export class RecapPublicationNotFoundError extends Error {}
 export class RecapPublicationRecoveryRequiredError extends Error {}
 
 function folderPart(value, max = 150) {
-    return String(value || "Recap").replace(/[\u0000-\u001f\u007f"*%#:<>?\/\\{|}~]/g, "-").replace(/\s+/g, " ").replace(/-+/g, "-").trim().replace(/[. ]+$/g, "").slice(0, max) || "Recap";
+    // Truncation can expose a space or period that was internal to the title.
+    return String(value || "Recap").replace(/[\u0000-\u001f\u007f"*%#:<>?\/\\{|}~]/g, "-").replace(/\s+/g, " ").replace(/-+/g, "-").trim().slice(0, max).replace(/[. ]+$/g, "") || "Recap";
 }
 
 function requireInternalPublisher(actor) {
@@ -57,14 +58,17 @@ export function createRecapPublicationService({
     repository = recapPublicationRepository,
     loadConfig = loadSharePointConfig,
     graphClientFactory = config => new SharePointGraphClient(new ClientSecretGraphAuthProvider(config.credentials)),
+    logError = (...args) => console.error(...args),
 } = {}) {
-    async function knowledgeContext() {
-        const config = loadConfig();
-        const target = getSharePointSiteTarget(config, "knowledge");
-        const client = graphClientFactory(config);
-        const site = await client.resolveSite(target.hostname, target.sitePath);
-        const drive = await client.findDriveByName(site.id, target.libraryName);
-        const root = await client.getDriveRoot(drive.id);
+    async function knowledgeContext(diagnose) {
+        const { client, target } = await diagnose("knowledge-config", () => {
+            const config = loadConfig();
+            const target = getSharePointSiteTarget(config, "knowledge");
+            return { client: graphClientFactory(config), target };
+        });
+        const site = await diagnose("knowledge-site", () => client.resolveSite(target.hostname, target.sitePath));
+        const drive = await diagnose("knowledge-library", () => client.findDriveByName(site.id, target.libraryName));
+        const root = await diagnose("knowledge-root", () => client.getDriveRoot(drive.id));
         return { client, site, drive, root };
     }
 
@@ -92,15 +96,36 @@ export function createRecapPublicationService({
             }
             if (publication?.status === "Published") return publicPublication(publication, await repository.listArtifacts(publication.id));
             if (!publication || publication.status !== "Pending") throw new RecapPublicationConflictError("Publication cannot be resumed");
-            const artifacts = await repository.listArtifacts(publication.id);
-            const knowledge = await knowledgeContext();
-            const publicationRoot = await ensureFolder(knowledge.client, knowledge.drive.id, knowledge.root.id, "Recapitalization Published");
-            const transactionFolder = await ensureFolder(knowledge.client, knowledge.drive.id, publicationRoot.id,
-                `${folderPart(context.businessTransactionId, 24)} - ${folderPart(context.transactionName, 110)}`);
-            const requestFolder = await ensureFolder(knowledge.client, knowledge.drive.id, transactionFolder.id,
-                `${folderPart(context.requestNumber, 30)} - ${folderPart(context.title, 105)}`);
-            const editionFolder = await ensureFolder(knowledge.client, knowledge.drive.id, requestFolder.id,
-                `Publication ${Number(publication.publicationNumber)}`);
+            // Log only selected diagnostics; never serialize inputs, credentials, headers,
+            // remote response bodies, or error.cause/diagnostics. Rethrow the same error
+            // so existing collision and durable-recovery classification stays intact.
+            async function diagnose(phase, operation, artifactId = null) {
+                try { return await operation(); }
+                catch (error) {
+                    try {
+                        logError("Recap publication phase failed", {
+                            workItemId, requestNumber: context.requestNumber || null,
+                            publicationId: publication.id, publicationNumber: Number(publication.publicationNumber),
+                            artifactId, phase,
+                            causeName: error instanceof Error ? error.name.replaceAll(operationKey, "[redacted]") : "UnknownError",
+                            causeMessage: error instanceof Error ? error.message.replaceAll(operationKey, "[redacted]") : "Unknown error",
+                            graphStatus: error instanceof GraphRequestError && Number.isInteger(error.status) ? error.status : null,
+                            graphCode: error instanceof GraphRequestError && typeof error.graphCode === "string"
+                                ? error.graphCode.replaceAll(operationKey, "[redacted]") : null,
+                        });
+                    } catch { /* Logging must not replace the original storage failure. */ }
+                    throw error;
+                }
+            }
+            const artifacts = await diagnose("publication-artifacts", () => repository.listArtifacts(publication.id));
+            const knowledge = await knowledgeContext(diagnose);
+            const publicationRoot = await diagnose("publication-root-folder", () => ensureFolder(knowledge.client, knowledge.drive.id, knowledge.root.id, "Recapitalization Published"));
+            const transactionFolder = await diagnose("transaction-folder", () => ensureFolder(knowledge.client, knowledge.drive.id, publicationRoot.id,
+                `${folderPart(context.businessTransactionId, 24)} - ${folderPart(context.transactionName, 110)}`));
+            const requestFolder = await diagnose("request-folder", () => ensureFolder(knowledge.client, knowledge.drive.id, transactionFolder.id,
+                `${folderPart(context.requestNumber, 30)} - ${folderPart(context.title, 105)}`));
+            const editionFolder = await diagnose("publication-folder", () => ensureFolder(knowledge.client, knowledge.drive.id, requestFolder.id,
+                `Publication ${Number(publication.publicationNumber)}`));
             let destinationDurable = false;
             try {
                 for (const artifact of artifacts) {
@@ -112,16 +137,21 @@ export function createRecapPublicationService({
                         }
                         destination = await knowledge.client.getItem(artifact.knowledgeDriveId, artifact.knowledgeItemId);
                     } else {
-                        const sourceItem = await knowledge.client.getItem(artifact.sourceDriveId, artifact.sourceItemId);
-                        if (sourceItem.id !== artifact.sourceItemId || sourceItem.name !== artifact.storedFileName || sourceItem.type !== "file") {
-                            throw new RecapPublicationConflictError("Working artifact identity is inconsistent");
-                        }
-                        const sourceSize = Number(sourceItem.size);
-                        if (!Number.isSafeInteger(sourceSize) || sourceSize < 1 || sourceSize > MAX_STORED_BYTES) throw new GraphRequestError("Working artifact metadata", null, "invalid_size_boundary");
-                        const source = await knowledge.client.downloadFile(artifact.sourceDriveId, artifact.sourceItemId, { maxBytes: MAX_STORED_BYTES, expectedSize: sourceSize });
-                        const collision = await knowledge.client.findChildByExactName(knowledge.drive.id, editionFolder.id, artifact.storedFileName);
-                        if (collision) throw new RecapPublicationConflictError("Knowledge publication filename is occupied by an unverified item");
-                        destination = await knowledge.client.uploadNewFile(knowledge.drive.id, editionFolder.id, artifact.storedFileName, source.content);
+                        const sourceSize = await diagnose("source-metadata", async () => {
+                            const sourceItem = await knowledge.client.getItem(artifact.sourceDriveId, artifact.sourceItemId);
+                            if (sourceItem.id !== artifact.sourceItemId || sourceItem.name !== artifact.storedFileName || sourceItem.type !== "file") {
+                                throw new RecapPublicationConflictError("Working artifact identity is inconsistent");
+                            }
+                            const size = Number(sourceItem.size);
+                            if (!Number.isSafeInteger(size) || size < 1 || size > MAX_STORED_BYTES) throw new GraphRequestError("Working artifact metadata", null, "invalid_size_boundary");
+                            return size;
+                        }, artifact.artifactId);
+                        const source = await diagnose("source-download", () => knowledge.client.downloadFile(artifact.sourceDriveId, artifact.sourceItemId, { maxBytes: MAX_STORED_BYTES, expectedSize: sourceSize }), artifact.artifactId);
+                        await diagnose("destination-preflight", async () => {
+                            const collision = await knowledge.client.findChildByExactName(knowledge.drive.id, editionFolder.id, artifact.storedFileName);
+                            if (collision) throw new RecapPublicationConflictError("Knowledge publication filename is occupied by an unverified item");
+                        }, artifact.artifactId);
+                        destination = await diagnose("destination-upload", () => knowledge.client.uploadNewFile(knowledge.drive.id, editionFolder.id, artifact.storedFileName, source.content), artifact.artifactId);
                         destinationDurable = true;
                         await repository.recordReceipt(publication.id, artifact.artifactId, {
                             knowledgeSiteId: knowledge.site.id, knowledgeDriveId: knowledge.drive.id,
