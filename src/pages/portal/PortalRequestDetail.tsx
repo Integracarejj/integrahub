@@ -7,6 +7,7 @@ import { getExternalStatusInfo, getStatusPillStyle } from "../../services/extern
 import { usePortalReadModel } from "../../hooks/usePortalReadModel";
 import { decideAuthoritativePublication, downloadAuthoritativePublishedArtifact, type AuthoritativePublicationArtifact } from "../../services/portalPublicationPersistence";
 import "./PortalOverview.css";
+import AuthoritativePublicationDetail from "./AuthoritativePublicationDetail";
 
 function InformationRequestedSection({ req, onResponseSubmitted }: { req: PortalRequest; onResponseSubmitted: () => void }) {
     const [response, setResponse] = useState("");
@@ -390,6 +391,13 @@ export default function PortalRequestDetail() {
     const handleViewDashboard = useCallback(() => {
         navigate("/portal");
     }, [navigate]);
+
+    if (readModel.isRealExternal) {
+        if (readModel.loading) return <div className="portal-overview"><p>Loading published request...</p></div>;
+        if (readModel.error) return <div className="portal-overview" role="alert">{readModel.error}</div>;
+        if (publication) return <AuthoritativePublicationDetail key={publication.id} publicationId={publication.id} />;
+        return <div className="portal-overview"><h1>Publication not found</h1><p>No published edition is available to your account for this request.</p></div>;
+    }
 
     if (!req || !isAuthorized) {
         return (

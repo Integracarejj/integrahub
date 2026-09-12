@@ -7,6 +7,9 @@ export interface AuthoritativePublication {
     partnerGuidance: string | null; version: string; requestId: string; title: string; description: string;
     transactionId: string; transactionName: string; workItemStatus: string;
     artifacts: AuthoritativePublicationArtifact[];
+    responseContent?: string | null;
+    responseSnapshotAvailable?: boolean;
+    sourceIntakeRequestKey?: string | null;
 }
 
 async function request(path: string, init?: RequestInit) {
@@ -20,6 +23,10 @@ async function request(path: string, init?: RequestInit) {
 
 export async function loadAuthoritativePublications() {
     return (await request("")).publications as AuthoritativePublication[];
+}
+
+export async function loadAuthoritativePublication(publicationId: string) {
+    return (await request(`/${encodeURIComponent(publicationId)}`)).publication as AuthoritativePublication;
 }
 
 export async function decideAuthoritativePublication(publication: AuthoritativePublication, action: "approve" | "rework", guidance?: string) {

@@ -42,6 +42,7 @@ async function mockRealReads(page: Page) {
     await page.route("**/api/portal/recapitalization/transactions", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ transactions }) }));
     await page.route("**/api/portal/recapitalization/read-model*", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(readModel) }));
     await page.route("**/api/portal/recapitalization/publications", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ publications: [publication] }) }));
+    await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ publication }) }));
 }
 
 async function navigate(page: Page, path: string) {
@@ -75,6 +76,109 @@ test("real B2B Overview, Transactions, and Requests render authoritative SQL pro
     await expect(page.getByText("Contracts", { exact: true })).toHaveCount(0);
     await expect(page.getByText("No requests match the selected filters.")).toBeVisible();
 });
+
+for (const action of ["approve", "rework"] as const) {
+    test(`0178 opens from real Requests with two edition documents and supports ${action}`, async ({ page }) => {
+        await mockRealReads(page);
+        let current = { ...publication, requestId: "DD-2026-00000178", transactionName: "Project Liberty",
+            title: "Confirm LTC and its subsidiaries have no lease or other contractual arrangement with the proposed EIK or affiliates.",
+            responseContent: "", responseSnapshotAvailable: false,
+            artifacts: [
+                { id: "33333333-3333-4333-8333-333333333333", fileName: "RFF_Cert_2027.pdf", contentType: "application/pdf" },
+                { id: "44444444-4444-4444-8444-444444444444", fileName: "State Survey Report.docx", contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+            ],
+        };
+        await page.route("**/api/portal/recapitalization/publications", route => route.fulfill({ json: { publications: [current] } }));
+        await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route => route.fulfill({ json: { publication: current } }));
+        await page.route("**/api/portal/recapitalization/publications/*/artifacts/*/content", route => route.fulfill({
+            body: "published document bytes", headers: { "content-type": "application/pdf", "content-disposition": 'attachment; filename="RFF_Cert_2027.pdf"' },
+        }));
+        const decisions: unknown[] = [];
+        await page.route("**/api/portal/recapitalization/publications/*/decision", async route => {
+            const body = route.request().postDataJSON(); decisions.push(body);
+            expect(body).toEqual(action === "approve" ? { action, expectedVersion: publication.version }
+                : { action, guidance: "Revise the findings", expectedVersion: publication.version });
+            current = { ...current, status: action === "approve" ? "Approved" : "Rework Requested",
+                workItemStatus: action === "approve" ? "Completed" : "In Progress", version: "0x0000000000000002" };
+            await route.fulfill({ json: { publication: current } });
+        });
+        await navigate(page, "/portal/requests");
+        await page.getByRole("button", { name: "Open DD-2026-00000178 · Publication 1" }).click();
+        await expect(page.getByRole("heading", { name: /DD-2026-00000178/ })).toBeVisible();
+        await expect(page.getByText("A response snapshot was not recorded for this edition. Current draft findings are not shown.")).toBeVisible();
+        await expect(page.getByRole("button", { name: "Download State Survey Report.docx" })).toBeVisible();
+        const download = page.waitForEvent("download");
+        await page.getByRole("button", { name: "Download RFF_Cert_2027.pdf" }).click();
+        expect((await download).suggestedFilename()).toBe("RFF_Cert_2027.pdf");
+        if (action === "approve") await page.getByRole("button", { name: "Approve", exact: true }).click();
+        else {
+            await page.getByRole("button", { name: "Request Rework", exact: true }).click();
+            const dialog = page.getByRole("dialog", { name: "Request Rework?" });
+            await dialog.getByLabel("Rework guidance").fill("Revise the findings");
+            await dialog.getByRole("button", { name: "Request Rework", exact: true }).click();
+        }
+        await expect(page.getByText(action === "approve" ? "Approved — Complete" : "Rework requested — awaiting a new publication", { exact: true })).toBeVisible();
+        expect(decisions).toHaveLength(1);
+        await expect(page.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
+        await expect(page.getByText("A response snapshot was not recorded for this edition. Current draft findings are not shown.")).toBeVisible();
+    });
+}
+
+test("real external publication errors and cross-org absence never fall back to demo", async ({ page }) => {
+    await mockRealReads(page);
+    await page.route("**/api/portal/recapitalization/publications", route => route.fulfill({ json: { publications: [] } }));
+    await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route => route.fulfill({ status: 404, json: { error: "Publication not found" } }));
+    await navigate(page, `/portal/publications/${publication.id}?organizationId=TEST-BROKER-ORG`);
+    await expect(page.getByRole("alert")).toContainText("Publication not found");
+    await expect(page.getByText("Atlas Capital Partners")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
+});
+
+test("an internal demo persona cannot load a live publication", async ({ page }) => {
+    await mockRealReads(page);
+    await page.route("**/api/me", route => route.fulfill({ json: { ...externalUser,
+        userRecord: { ...externalUser.userRecord, role: "PlatformAdmin" }, portalRole: null, isPortalUser: false, externalContext: null,
+    } }));
+    let requests = 0;
+    await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route => { requests++; return route.fulfill({ status: 403 }); });
+    await navigate(page, `/portal/publications/${publication.id}`);
+    await expect(page.getByRole("heading", { name: "External account required" })).toBeVisible();
+    await expect(page.locator(".portal-preview-banner")).toContainText("Switching demo personas does not grant access");
+    expect(requests).toBe(0);
+});
+
+test("stale partner decision stays on the edition and offers a refresh", async ({ page }) => {
+    await mockRealReads(page);
+    let decisions = 0;
+    await page.route("**/api/portal/recapitalization/publications/*/decision", route => {
+        decisions++;
+        return route.fulfill({ status: 409, json: { error: "Partner action cannot be applied or is stale" } });
+    });
+    await navigate(page, `/portal/publications/${publication.id}`);
+    await page.getByRole("button", { name: "Approve", exact: true }).click();
+    await expect(page.getByRole("alert")).toContainText("Partner action cannot be applied or is stale");
+    await expect(page.getByRole("button", { name: "Refresh publication" })).toBeEnabled();
+    await expect(page.getByText("Approved — Complete", { exact: true })).toHaveCount(0);
+    await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route => route.fulfill({ json: {
+        publication: { ...publication, status: "Approved", version: "0x0000000000000002" },
+    } }));
+    await page.getByRole("button", { name: "Refresh publication" }).click();
+    await expect(page.getByText("Approved — Complete", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
+    expect(decisions).toBe(1);
+});
+
+for (const findings of ["Immutable edition findings", ""]) {
+    test(`a new edition distinguishes captured ${findings ? "findings" : "blank findings"} from legacy absence`, async ({ page }) => {
+        await mockRealReads(page);
+        await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route => route.fulfill({ json: {
+            publication: { ...publication, responseSnapshotAvailable: true, responseContent: findings },
+        } }));
+        await navigate(page, `/portal/publications/${publication.id}`);
+        await expect(page.getByText(findings || "No response was included in this edition.", { exact: true })).toBeVisible();
+        await expect(page.getByText(/A response snapshot was not recorded/)).toHaveCount(0);
+    });
+}
 
 test("authoritative published request supports server-backed partner review without exposing Graph identity", async ({ page }) => {
     await mockRealReads(page);

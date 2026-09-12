@@ -10,6 +10,7 @@ import { externalUserContextService } from "../services/externalUserContextServi
 import { recapIntakeService, RecapIntakeForbiddenError, RecapIntakeValidationError } from "../services/recapIntakeService.js";
 import { recapPublicationService, RecapPublicationConflictError, RecapPublicationForbiddenError, RecapPublicationNotFoundError, RecapPublicationValidationError } from "../services/recapPublicationService.js";
 
+export function createPortalRouter({ publicationService = recapPublicationService } = {}) {
 const router = Router();
 
 /**
@@ -78,21 +79,26 @@ router.get("/recapitalization/publications", async (req, res) => {
     try {
         const transactionId = String(req.query.transactionId || "").trim() || null;
         if (transactionId && !/^REC-\d{4}-\d{8}$/.test(transactionId)) return res.status(400).json({ error: "Invalid transaction ID" });
-        return res.json({ publications: await recapPublicationService.listExternal(req.user, transactionId) });
+        return res.json({ publications: await publicationService.listExternal(req.user, transactionId) });
     } catch (error) { return publicationFailure(res, error); }
 });
 
 router.get("/recapitalization/publications/:publicationId/artifacts/:artifactId/content", async (req, res) => {
     try {
-        const file = await recapPublicationService.downloadExternal(req.params.publicationId, req.params.artifactId, req.user);
+        const file = await publicationService.downloadExternal(req.params.publicationId, req.params.artifactId, req.user);
         res.set("Content-Type", file.contentType || "application/octet-stream");
         res.set("Content-Disposition", `attachment; filename="${String(file.fileName || "download").replace(/[\r\n"]/g, "_")}"`);
         return res.send(file.content);
     } catch (error) { return publicationFailure(res, error); }
 });
 
+router.get("/recapitalization/publications/:publicationId", async (req, res) => {
+    try { return res.json({ publication: await publicationService.getExternal(req.params.publicationId, req.user) }); }
+    catch (error) { return publicationFailure(res, error); }
+});
+
 router.post("/recapitalization/publications/:publicationId/decision", async (req, res) => {
-    try { return res.json({ publication: await recapPublicationService.partnerAction(req.params.publicationId, req.body, req.user) }); }
+    try { return res.json({ publication: await publicationService.partnerAction(req.params.publicationId, req.body, req.user) }); }
     catch (error) { return publicationFailure(res, error); }
 });
 
@@ -304,4 +310,7 @@ router.use((error, _req, res, next) => {
     return next(error);
 });
 
-export default router;
+return router;
+}
+
+export default createPortalRouter();

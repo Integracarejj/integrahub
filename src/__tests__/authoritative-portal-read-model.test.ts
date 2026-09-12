@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { projectAuthoritativePublications, projectPortalReadModel, type PortalReadModelResponse } from "../hooks/usePortalReadModel";
+import { mergePublicationRequests, projectAuthoritativePublications, projectPortalReadModel, type PortalReadModelResponse } from "../hooks/usePortalReadModel";
 import type { AuthoritativePublication } from "../services/portalPublicationPersistence";
 
 const response: PortalReadModelResponse = { transactions: [
@@ -15,6 +15,13 @@ const response: PortalReadModelResponse = { transactions: [
 ] };
 
 describe("authoritative external portal read projection", () => {
+    it("replaces the submitted row by its server-provided intake identity without merging similar titles", () => {
+        const submitted = projectPortalReadModel(response).requests;
+        const publication = { id: "edition", workItemId: "work", requestId: "DD-2026-00000178", status: "Published",
+            sourceIntakeRequestKey: submitted[0].id, artifacts: [] } as unknown as AuthoritativePublication;
+        const rows = mergePublicationRequests(submitted, [publication]);
+        expect(rows.map(row => row.id)).toEqual(["work", submitted[1].id]);
+    });
     it("preserves duplicate transaction names by REC identity and aggregates durable counts", () => {
         const model = projectPortalReadModel(response);
         expect(model.transactions.map(row => row.id)).toEqual(["REC-2026-00000003", "REC-2026-00000004"]);
@@ -22,6 +29,15 @@ describe("authoritative external portal read projection", () => {
         expect(model.transactions[1].totalRequests).toBe(0);
         expect(model.packages).toHaveLength(1);
         expect(model.requests).toHaveLength(2);
+    });
+
+    it("never dedupes by title or display request number and tolerates SQL GUID casing", () => {
+        const submitted = projectPortalReadModel(response).requests;
+        const publication = { id: "edition", workItemId: "work", requestId: submitted[1].requestId,
+            title: submitted[1].title, transactionId: "another-transaction", status: "Published",
+            sourceIntakeRequestKey: submitted[0].id.toUpperCase(), artifacts: [] } as unknown as AuthoritativePublication;
+        expect(mergePublicationRequests(submitted, [publication]).map(row => row.id)).toEqual(["work", submitted[1].id]);
+        expect(mergePublicationRequests(submitted, [{ ...publication, sourceIntakeRequestKey: null }])).toHaveLength(3);
     });
 
     it("projects truthful submitted state and trusted real identity without demo leakage", () => {

@@ -373,7 +373,8 @@ export default function PortalOverview() {
         setPendingDropFile(null);
     };
 
-    const authoritativeHasSubmitted = readModel.isRealExternal && readModel.packages.some(item => isAllSelected || item.transactionId === selectedAuthoritativeId);
+    const authoritativeHasSubmitted = readModel.isRealExternal && (readModel.packages.some(item => isAllSelected || item.transactionId === selectedAuthoritativeId)
+        || readModel.publications.some(item => isAllSelected || item.transactionId === selectedAuthoritativeId));
     const hasSubmitted = authoritativeHasSubmitted || (isAllSelected
         ? submissions.length > 0 || uploadState === "submitted"
         : selectedTxnId

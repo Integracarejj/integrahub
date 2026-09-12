@@ -81,23 +81,32 @@ export function usePortalReadModel() {
     const [loading, setLoading] = useState(isRealExternal);
     const [error, setError] = useState<string | null>(null);
     const [publications, setPublications] = useState<AuthoritativePublication[]>([]);
+    const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
     useEffect(() => {
         if (!isRealExternal) return;
         let cancelled = false;
         setLoading(true);
+        setLoadedUserId(null); setResponse({ transactions: [] }); setPublications([]); setError(null);
         Promise.all([fetch("/api/portal/recapitalization/read-model", { credentials: "include", headers: getAuthHeaders() })
             .then(async result => {
                 if (!result.ok) throw new Error((await result.json().catch(() => null))?.error || "Portal data could not be loaded");
                 return result.json();
             }), loadAuthoritativePublications()])
-            .then(([body, published]) => { if (!cancelled) { setResponse(body); setPublications(published); setError(null); } })
+            .then(([body, published]) => { if (!cancelled) { setResponse(body); setPublications(published); setLoadedUserId(user?.userRecord?.id || null); setError(null); } })
             .catch(reason => { if (!cancelled) setError(reason instanceof Error ? reason.message : "Portal data could not be loaded"); })
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
-    }, [isRealExternal]);
-    const authoritative = useMemo(() => projectPortalReadModel(response), [response]);
-    const publishedRequests = projectAuthoritativePublications(publications);
+    }, [isRealExternal, user?.userRecord?.id]);
+    const currentIdentity = loadedUserId !== null && loadedUserId === user?.userRecord?.id;
+    const authoritative = useMemo(() => projectPortalReadModel(currentIdentity ? response : { transactions: [] }), [response, currentIdentity]);
+    const visiblePublications = currentIdentity ? publications : [];
     return isRealExternal
-        ? { ...authoritative, requests: [...publishedRequests, ...authoritative.requests.filter(request => !publishedRequests.some(published => published.requestId === request.requestId))], publications, isRealExternal, loading, error }
+        ? { ...authoritative, requests: mergePublicationRequests(authoritative.requests, visiblePublications), publications: visiblePublications, isRealExternal, loading, error }
         : { transactions: getPortalTransactions(), requests: getPortalRequests(), packages: [] as AuthoritativePortalPackage[], publications: [] as AuthoritativePublication[], isRealExternal, loading: false, error: null };
+}
+
+export function mergePublicationRequests(submitted: PortalRequest[], publications: AuthoritativePublication[]) {
+    const published = projectAuthoritativePublications(publications);
+    const intakeKeys = new Set(publications.map(item => item.sourceIntakeRequestKey?.toLowerCase()).filter(Boolean));
+    return [...published, ...submitted.filter(request => !intakeKeys.has(request.id.toLowerCase()))];
 }

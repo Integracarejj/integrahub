@@ -42,13 +42,17 @@ async function ensureFolder(client, driveId, parentId, name) {
 }
 
 function publicPublication(row, artifacts = []) {
+    const snapshot = row.contentSnapshotJson ? JSON.parse(row.contentSnapshotJson) : null;
+    const content = snapshot || row;
     return {
         id: String(row.id), workItemId: String(row.workItemId), publicationNumber: Number(row.publicationNumber),
         status: row.status, externalOrganizationId: row.targetExternalOrganizationId,
         publishedAt: row.publishedAt || null, partnerActionAt: row.partnerActionAt || null,
         partnerGuidance: row.partnerGuidance || null, version: row.version,
-        requestId: row.requestNumber, title: row.title, description: row.description,
-        transactionId: row.businessTransactionId, transactionName: row.transactionName,
+        requestId: content.requestNumber, title: content.title, description: content.description,
+        transactionId: content.businessTransactionId, transactionName: content.transactionName,
+        responseContent: snapshot?.responseContent ?? null, responseSnapshotAvailable: snapshot !== null,
+        sourceIntakeRequestKey: row.intakePackageId && row.sourceRowNumber ? `${row.intakePackageId}-${row.sourceRowNumber}` : null,
         workItemStatus: row.workItemStatus,
         artifacts: artifacts.map(item => ({ id: String(item.artifactId), fileName: item.originalFileName, contentType: item.contentType })),
     };
@@ -184,6 +188,13 @@ export function createRecapPublicationService({
             if (!actor?.id || !["ExternalBroker", "ExternalBuyer"].includes(actor.portalRole)) throw new RecapPublicationForbiddenError();
             const rows = await repository.listForExternalUser(actor.id, transactionId);
             return Promise.all(rows.map(async row => publicPublication(row, await repository.listArtifacts(row.id))));
+        },
+        async getExternal(publicationId, actor) {
+            validateId(publicationId);
+            if (!actor?.id || !["ExternalBroker", "ExternalBuyer"].includes(actor.portalRole)) throw new RecapPublicationForbiddenError();
+            const publication = await repository.getExternalPublication(actor.id, publicationId);
+            if (!publication) throw new RecapPublicationNotFoundError();
+            return publicPublication(publication, await repository.listArtifacts(publication.id));
         },
         async downloadExternal(publicationId, artifactId, actor) {
             validateId(publicationId); validateId(artifactId);

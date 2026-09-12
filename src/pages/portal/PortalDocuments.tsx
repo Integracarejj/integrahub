@@ -1,8 +1,37 @@
 import { useState, useMemo } from "react";
 import { getPortalDocuments, getActivePersona } from "../../services/portalMockData";
 import "./PortalOverview.css";
+import { Link } from "react-router-dom";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { usePortalReadModel } from "../../hooks/usePortalReadModel";
+import { isExternalOnlyRole } from "../../utils/accessRouting";
+import { downloadAuthoritativePublishedArtifact } from "../../services/portalPublicationPersistence";
 
 export default function PortalDocuments() {
+    const { user } = useCurrentUser();
+    return isExternalOnlyRole(user?.userRecord?.role) ? <PublishedDocuments /> : <DemoDocuments />;
+}
+
+function PublishedDocuments() {
+    const { publications, loading, error } = usePortalReadModel();
+    const [downloadError, setDownloadError] = useState<string | null>(null);
+    return <div className="portal-overview"><h1>Published Documents</h1>
+        {loading && <p>Loading published documents...</p>}
+        {(error || downloadError) && <p role="alert">{error || downloadError}</p>}
+        {!loading && !error && publications.map(publication => <section key={publication.id}>
+            <h2><Link to={`/portal/publications/${publication.id}`}>{publication.requestId} — {publication.title}</Link></h2>
+            <p>{publication.transactionName} · Publication {publication.publicationNumber}</p>
+            <ul>{publication.artifacts.map(artifact => <li key={artifact.id}><button className="rc-btn rc-btn-ghost" onClick={async () => {
+                setDownloadError(null);
+                try { await downloadAuthoritativePublishedArtifact(publication.id, artifact); }
+                catch (reason) { setDownloadError(reason instanceof Error ? reason.message : "Download failed"); }
+            }}>Download {artifact.fileName}</button></li>)}</ul>
+        </section>)}
+        {!loading && !error && publications.length === 0 && <p>No published documents are available to your account.</p>}
+    </div>;
+}
+
+function DemoDocuments() {
     const documents = getPortalDocuments();
     const persona = getActivePersona();
 

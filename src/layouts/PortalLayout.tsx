@@ -36,6 +36,7 @@ export default function PortalLayout() {
                 <div className="portal-preview-banner">
                     <span className="portal-preview-icon">&#128274;</span>
                     <span>Preview Mode &mdash; external portal demo. Persona-scoped mock data only.</span>
+                    <span>Live publications require a signed-in ExternalBroker or ExternalBuyer account with organization membership. Switching demo personas does not grant access.</span>
                 </div>
             )}
             <header className="portal-topnav">

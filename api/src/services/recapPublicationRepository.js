@@ -4,9 +4,22 @@ import { query as defaultQuery } from "../db.js";
 const publicationSelect = `SELECT TOP (1) publication.id, publication.workItemId, publication.publicationNumber,
     publication.operationKey, publication.targetExternalOrganizationId, publication.status,
     publication.publishedByUserId, publication.publishedAt, publication.partnerActorUserId,
-    publication.partnerActorOrganizationId, publication.partnerActionAt, publication.partnerGuidance,
+    publication.partnerActorOrganizationId, publication.partnerActionAt, publication.partnerGuidance, publication.contentSnapshotJson,
     CONVERT(varchar(18), publication.version, 1) AS version
     FROM cmdb.RecapPublications publication`;
+
+const externalPublicationSelect = `SELECT publication.id, publication.workItemId, publication.publicationNumber, publication.status,
+    publication.publishedAt, publication.partnerActionAt, publication.partnerGuidance, publication.contentSnapshotJson,
+    CONVERT(varchar(18), publication.version, 1) AS version,
+    workItem.requestNumber, workItem.title, workItem.description, workItem.status AS workItemStatus,
+    requestRow.intakePackageId, requestRow.sourceRowNumber,
+    transactionRow.businessTransactionId, transactionRow.name AS transactionName,
+    publication.targetExternalOrganizationId
+    FROM cmdb.RecapPublications publication
+    INNER JOIN cmdb.RecapWorkItems workItem ON workItem.id = publication.workItemId
+    INNER JOIN cmdb.RecapIntakeRequests requestRow ON requestRow.id = workItem.intakeRequestId
+    INNER JOIN cmdb.RecapIntakePackages packageRow ON packageRow.id = requestRow.intakePackageId
+    INNER JOIN cmdb.RecapTransactions transactionRow ON transactionRow.id = packageRow.recapTransactionId`;
 
 export function createRecapPublicationRepository({ query = defaultQuery, generateUuid = randomUUID } = {}) {
     return {
@@ -36,8 +49,15 @@ export function createRecapPublicationRepository({ query = defaultQuery, generat
                     WHERE id = @workItemId AND status = 'Ready to Publish' AND version = CONVERT(binary(8), @expectedVersion, 1))
                     OR EXISTS (SELECT 1 FROM cmdb.RecapPublications WHERE workItemId = @workItemId AND status IN ('Pending', 'Published'))
                     BEGIN ROLLBACK; THROW 51074, 'Publication cannot be started or is stale', 1; END;
-                INSERT INTO cmdb.RecapPublications (id, workItemId, publicationNumber, operationKey, targetExternalOrganizationId, publishedByUserId)
-                VALUES (@publicationId, @workItemId, @publicationNumber, @operationKey, @targetExternalOrganizationId, @actorUserId);
+                INSERT INTO cmdb.RecapPublications (id, workItemId, publicationNumber, operationKey, targetExternalOrganizationId, publishedByUserId, contentSnapshotJson)
+                SELECT @publicationId, @workItemId, @publicationNumber, @operationKey, @targetExternalOrganizationId, @actorUserId,
+                    (SELECT workItem.requestNumber, workItem.title, workItem.description, workItem.responseContent,
+                        transactionRow.businessTransactionId, transactionRow.name AS transactionName
+                     FROM cmdb.RecapWorkItems workItem
+                     INNER JOIN cmdb.RecapIntakeRequests requestRow ON requestRow.id = workItem.intakeRequestId
+                     INNER JOIN cmdb.RecapIntakePackages packageRow ON packageRow.id = requestRow.intakePackageId
+                     INNER JOIN cmdb.RecapTransactions transactionRow ON transactionRow.id = packageRow.recapTransactionId
+                     WHERE workItem.id = @workItemId FOR JSON PATH, INCLUDE_NULL_VALUES, WITHOUT_ARRAY_WRAPPER);
                 INSERT INTO cmdb.RecapPublishedArtifacts (publicationId, artifactId, sourceDriveId, sourceItemId, storedFileName)
                 SELECT @publicationId, id, driveId, itemId, storedFileName FROM cmdb.RecapWorkArtifacts
                 WHERE workItemId = @workItemId AND status = 'Uploaded' AND publicationEligibility = 'Active';
@@ -94,16 +114,7 @@ export function createRecapPublicationRepository({ query = defaultQuery, generat
             return rows[0] || null;
         },
         async listForExternalUser(userId, businessTransactionId = null) {
-            return query(`SELECT publication.id, publication.workItemId, publication.publicationNumber, publication.status,
-                    publication.publishedAt, publication.partnerActionAt, publication.partnerGuidance,
-                    workItem.requestNumber, workItem.title, workItem.description, workItem.status AS workItemStatus,
-                    transactionRow.businessTransactionId, transactionRow.name AS transactionName,
-                    publication.targetExternalOrganizationId
-                FROM cmdb.RecapPublications publication
-                INNER JOIN cmdb.RecapWorkItems workItem ON workItem.id = publication.workItemId
-                INNER JOIN cmdb.RecapIntakeRequests requestRow ON requestRow.id = workItem.intakeRequestId
-                INNER JOIN cmdb.RecapIntakePackages packageRow ON packageRow.id = requestRow.intakePackageId
-                INNER JOIN cmdb.RecapTransactions transactionRow ON transactionRow.id = packageRow.recapTransactionId
+            return query(`${externalPublicationSelect}
                 WHERE publication.status IN ('Published', 'Approved', 'Rework Requested')
                   AND (@businessTransactionId IS NULL OR transactionRow.businessTransactionId = @businessTransactionId)
                   AND EXISTS (SELECT 1 FROM cmdb.ExternalUserOrganizations membership WHERE membership.userId = @userId
@@ -115,7 +126,7 @@ export function createRecapPublicationRepository({ query = defaultQuery, generat
                 ORDER BY publication.publishedAt DESC`, { userId, businessTransactionId });
         },
         async getExternalPublication(userId, publicationId) {
-            const rows = await query(`${publicationSelect}
+            const rows = await query(`${externalPublicationSelect}
                 WHERE publication.id = @publicationId AND publication.status IN ('Published', 'Approved', 'Rework Requested')
                   AND EXISTS (SELECT 1 FROM cmdb.ExternalUserOrganizations membership WHERE membership.userId = @userId
                     AND membership.externalOrganizationId = publication.targetExternalOrganizationId)`, { userId, publicationId });

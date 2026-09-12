@@ -90,9 +90,9 @@ export default function PortalRequests() {
                 <>
                     <h1 className="po-welcome-title">Requests</h1>
                     <p className="po-welcome-sub" style={{ marginBottom: 20 }}>
-                        {persona.role === "Owner / Seller" && "Documents requested from ABC Company for the due diligence process. Use the Upload button to provide requested materials."}
-                        {persona.role === "Buyer" && "All due diligence requests for the ABC Company Portfolio. Track progress and submit new requests as needed."}
-                        {persona.role === "Broker" && "All due diligence requests across the transaction. Filter by community or status to find what needs attention."}
+                        {readModel.isRealExternal ? "Published requests and submissions for your authorized organizations." : persona.role === "Owner / Seller" && "Documents requested from ABC Company for the due diligence process. Use the Upload button to provide requested materials."}
+                        {!readModel.isRealExternal && persona.role === "Buyer" && "All due diligence requests for the ABC Company Portfolio. Track progress and submit new requests as needed."}
+                        {!readModel.isRealExternal && persona.role === "Broker" && "All due diligence requests across the transaction. Filter by community or status to find what needs attention."}
                     </p>
                 </>
             )}
@@ -155,15 +155,17 @@ export default function PortalRequests() {
                             <p style={{ fontSize: 14, color: "#475569" }}>No requests match the selected filters.</p>
                         </div>
                     ) : filtered.map((req) => {
+                        const publication = readModel.publications.find(item => item.workItemId === req.id);
                         const extInfo = getExternalStatusInfo(toExternalStatusInput(req));
                         const excCtx = getExceptionContext(req);
                         const isClarResp = req._rawStatus === "Clarification Needed" && extInfo.status === "Under Review" && !!req._workNotes?.some(n => n.action === "Clarification Response") && !req._returnReason;
                         const isReworking = req._partnerDecision === "Rework Required" && extInfo.status === "Under Review";
                         return (
-                            <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.5fr 2.2fr 0.9fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr", cursor: readModel.isRealExternal ? "default" : "pointer" }} onClick={() => { if (!readModel.isRealExternal) navigate(`/portal/requests/${req.id}`); }} title={req.requestId}>
+                            <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.5fr 2.2fr 0.9fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr", cursor: publication || !readModel.isRealExternal ? "pointer" : "default" }} onClick={() => { if (publication) navigate(`/portal/publications/${publication.id}`); else if (!readModel.isRealExternal) navigate(`/portal/requests/${req.id}`); }} title={req.requestId}>
                                 <span className="po-requests-id">{req.requestId.split("-").length >= 3 ? req.requestId.split("-")[0] + "-" + req.requestId.split("-").slice(-1)[0] : req.requestId}</span>
                                 <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
                                     <span className="po-requests-title" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={req.title}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</span>
+                                    {publication && <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={event => { event.stopPropagation(); navigate(`/portal/publications/${publication.id}`); }}>Open {req.requestId} · Publication {publication.publicationNumber}</button>}
                                     {req._sourcePackageName && (
                                         <span style={{ fontSize: 10, color: "#64748b", fontWeight: 400 }}>{req._sourceFileName || req._sourcePackageName}</span>
                                     )}
