@@ -10,6 +10,21 @@ import { externalUserContextService } from "../services/externalUserContextServi
 import { recapIntakeService, RecapIntakeForbiddenError, RecapIntakeValidationError } from "../services/recapIntakeService.js";
 import { recapPublicationService, RecapPublicationConflictError, RecapPublicationForbiddenError, RecapPublicationNotFoundError, RecapPublicationValidationError } from "../services/recapPublicationService.js";
 
+export function publicationFailure(res, error) {
+    if (error instanceof RecapPublicationValidationError) return res.status(400).json({ error: error.message || "Invalid publication request" });
+    if (error instanceof RecapPublicationForbiddenError) return res.status(403).json({ error: "Publication access denied" });
+    if (error instanceof RecapPublicationNotFoundError) return res.status(404).json({ error: "Publication not found" });
+    if (error instanceof RecapPublicationConflictError) return res.status(409).json({ error: error.message });
+    if (error instanceof SharePointConfigError) return res.status(503).json({ error: "SharePoint integration is not configured" });
+    if (error instanceof GraphAuthenticationError) return res.status(502).json({ error: "Microsoft Graph authentication failed" });
+    if (error instanceof GraphRequestError) {
+        console.error("Authoritative Recap portal Graph operation failed", { graphCode: error.graphCode || "unknown", status: error.status || null });
+        return res.status(502).json({ error: "Published artifact operation failed" });
+    }
+    console.error("Authoritative Recap portal operation failed", error instanceof Error ? error.message : "Unknown error");
+    return res.status(500).json({ error: "Recap portal operation failed" });
+}
+
 export function createPortalRouter({ publicationService = recapPublicationService } = {}) {
 const router = Router();
 
@@ -59,21 +74,6 @@ router.get("/recapitalization/read-model", async (req, res) => {
         return res.status(500).json({ error: "Recapitalization data could not be loaded" });
     }
 });
-
-function publicationFailure(res, error) {
-    if (error instanceof RecapPublicationValidationError) return res.status(400).json({ error: error.message || "Invalid publication request" });
-    if (error instanceof RecapPublicationForbiddenError) return res.status(403).json({ error: "Publication access denied" });
-    if (error instanceof RecapPublicationNotFoundError) return res.status(404).json({ error: "Publication not found" });
-    if (error instanceof RecapPublicationConflictError) return res.status(409).json({ error: error.message });
-    if (error instanceof SharePointConfigError) return res.status(503).json({ error: "SharePoint integration is not configured" });
-    if (error instanceof GraphAuthenticationError) return res.status(502).json({ error: "Microsoft Graph authentication failed" });
-    if (error instanceof GraphRequestError) {
-        console.error("Authoritative Recap portal Graph operation failed", { graphCode: error.graphCode || "unknown", status: error.status || null });
-        return res.status(502).json({ error: "Published artifact operation failed" });
-    }
-    console.error("Authoritative Recap portal operation failed", error instanceof Error ? error.message : "Unknown error");
-    return res.status(500).json({ error: "Recap portal operation failed" });
-}
 
 router.get("/recapitalization/publications", async (req, res) => {
     try {

@@ -13,6 +13,7 @@ import adminApplicationsRouter from "./routes/adminApplications.js";
 import dashboardRouter from "./routes/dashboard.js";
 import departmentsRouter from "./routes/departments.js";
 import performanceMetricsRouter from "./routes/performanceMetrics.js";
+import recapExternalPreviewRouter from "./routes/recapExternalPreview.js";
 import portalRouter from "./routes/portal.js";
 import graphDiagnosticsRouter from "./routes/graphDiagnostics.js";
 import sharepointHealthRouter from "./routes/sharepointHealth.js";
@@ -74,6 +75,7 @@ app.use("/api/portal", portalRouter);
 // Every other API namespace is internal. Block authenticated external-only roles
 // centrally before any internal router can handle the request.
 app.use("/api", denyExternalOnlyUser);
+app.use("/api/admin/recap-external-preview", recapExternalPreviewRouter);
 
 app.use("/api/applications", applicationsRouter);
 app.use("/api/capabilities", capabilitiesRouter);

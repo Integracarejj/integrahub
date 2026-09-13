@@ -64,6 +64,24 @@ export function createRecapPublicationService({
     graphClientFactory = config => new SharePointGraphClient(new ClientSecretGraphAuthProvider(config.credentials)),
     logError = (...args) => console.error(...args),
 } = {}) {
+    function requirePreviewAdmin(actor) {
+        if (!actor?.id || actor.globalRole !== "PlatformAdmin") throw new RecapPublicationForbiddenError();
+    }
+    async function requirePreviewOrganization(actor, organizationId) {
+        requirePreviewAdmin(actor);
+        if (typeof organizationId !== "string" || !organizationId || organizationId.length > 64) throw new RecapPublicationValidationError("Invalid preview organization");
+        const organizations = await repository.listAdminPreviewOrganizations();
+        if (!organizations.some(row => row.id === organizationId)) throw new RecapPublicationNotFoundError();
+    }
+    async function downloadArtifact(artifact) {
+            const client = graphClientFactory(loadConfig());
+            const item = await client.getItem(artifact.knowledgeDriveId, artifact.knowledgeItemId);
+            if (item.id !== artifact.knowledgeItemId || item.name !== artifact.storedFileName || item.type !== "file") throw new RecapPublicationConflictError("Published artifact identity is inconsistent");
+            const file = await client.downloadFile(artifact.knowledgeDriveId, artifact.knowledgeItemId, { maxBytes: MAX_STORED_BYTES, expectedSize: Number(artifact.storedContentSize) });
+            const hash = createHash("sha256").update(file.content).digest("hex");
+            if (hash !== String(artifact.storedContentSha256).toLowerCase()) throw new RecapPublicationConflictError("Published artifact integrity check failed");
+            return { ...file, fileName: artifact.originalFileName, contentType: artifact.contentType };
+    }
     async function knowledgeContext(diagnose) {
         const { client, target } = await diagnose("knowledge-config", () => {
             const config = loadConfig();
@@ -184,6 +202,27 @@ export function createRecapPublicationService({
                 throw error;
             }
         },
+        async listAdminPreviewOrganizations(actor) {
+            requirePreviewAdmin(actor);
+            return repository.listAdminPreviewOrganizations();
+        },
+        async listAdminPreview(organizationId, actor) {
+            await requirePreviewOrganization(actor, organizationId);
+            const rows = await repository.listForAdminPreview(organizationId);
+            return Promise.all(rows.map(async row => publicPublication(row, await repository.listArtifacts(row.id))));
+        },
+        async getAdminPreview(organizationId, publicationId, actor) {
+            await requirePreviewOrganization(actor, organizationId); validateId(publicationId);
+            const row = await repository.getAdminPreviewPublication(organizationId, publicationId);
+            if (!row) throw new RecapPublicationNotFoundError();
+            return publicPublication(row, await repository.listArtifacts(row.id));
+        },
+        async downloadAdminPreview(organizationId, publicationId, artifactId, actor) {
+            await requirePreviewOrganization(actor, organizationId); validateId(publicationId); validateId(artifactId);
+            const artifact = await repository.getAdminPreviewArtifact(organizationId, publicationId, artifactId);
+            if (!artifact) throw new RecapPublicationNotFoundError();
+            return downloadArtifact(artifact);
+        },
         async listExternal(actor, transactionId = null) {
             if (!actor?.id || !["ExternalBroker", "ExternalBuyer"].includes(actor.portalRole)) throw new RecapPublicationForbiddenError();
             const rows = await repository.listForExternalUser(actor.id, transactionId);
@@ -201,13 +240,7 @@ export function createRecapPublicationService({
             if (!actor?.id || !["ExternalBroker", "ExternalBuyer"].includes(actor.portalRole)) throw new RecapPublicationForbiddenError();
             const artifact = await repository.getExternalArtifact(actor.id, publicationId, artifactId);
             if (!artifact) throw new RecapPublicationNotFoundError();
-            const client = graphClientFactory(loadConfig());
-            const item = await client.getItem(artifact.knowledgeDriveId, artifact.knowledgeItemId);
-            if (item.id !== artifact.knowledgeItemId || item.name !== artifact.storedFileName || item.type !== "file") throw new RecapPublicationConflictError("Published artifact identity is inconsistent");
-            const file = await client.downloadFile(artifact.knowledgeDriveId, artifact.knowledgeItemId, { maxBytes: MAX_STORED_BYTES, expectedSize: Number(artifact.storedContentSize) });
-            const hash = createHash("sha256").update(file.content).digest("hex");
-            if (hash !== String(artifact.storedContentSha256).toLowerCase()) throw new RecapPublicationConflictError("Published artifact integrity check failed");
-            return { ...file, fileName: artifact.originalFileName, contentType: artifact.contentType };
+            return downloadArtifact(artifact);
         },
         async partnerAction(publicationId, input, actor) {
             validateId(publicationId); validateVersion(input?.expectedVersion);

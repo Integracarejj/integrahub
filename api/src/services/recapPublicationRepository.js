@@ -113,6 +113,40 @@ export function createRecapPublicationRepository({ query = defaultQuery, generat
                 ${publicationSelect} WHERE publication.id = @publicationId`, { publicationId, actorUserId });
             return rows[0] || null;
         },
+        async listAdminPreviewOrganizations() {
+            return query(`SELECT externalOrganizationId AS id FROM cmdb.ExternalUserOrganizations WHERE externalOrganizationId IS NOT NULL
+                UNION SELECT owningExternalOrganizationId FROM cmdb.RecapTransactions WHERE owningExternalOrganizationId IS NOT NULL
+                UNION SELECT targetExternalOrganizationId FROM cmdb.RecapPublications WHERE targetExternalOrganizationId IS NOT NULL
+                ORDER BY id`);
+        },
+        async listForAdminPreview(organizationId, businessTransactionId = null) {
+            return query(`${externalPublicationSelect}
+                WHERE publication.status IN ('Published', 'Approved', 'Rework Requested')
+                  AND (@businessTransactionId IS NULL OR transactionRow.businessTransactionId = @businessTransactionId)
+                  AND publication.targetExternalOrganizationId = @organizationId
+                  AND NOT EXISTS (SELECT 1 FROM cmdb.RecapPublications laterPublication
+                    WHERE laterPublication.workItemId = publication.workItemId
+                      AND laterPublication.publicationNumber > publication.publicationNumber
+                      AND laterPublication.status IN ('Published', 'Approved', 'Rework Requested'))
+                ORDER BY publication.publishedAt DESC`, { organizationId, businessTransactionId });
+        },
+        async getAdminPreviewPublication(organizationId, publicationId) {
+            const rows = await query(`${externalPublicationSelect}
+                WHERE publication.id = @publicationId AND publication.status IN ('Published', 'Approved', 'Rework Requested')
+                  AND publication.targetExternalOrganizationId = @organizationId`, { organizationId, publicationId });
+            return rows[0] || null;
+        },
+        async getAdminPreviewArtifact(organizationId, publicationId, artifactId) {
+            const rows = await query(`SELECT published.knowledgeDriveId, published.knowledgeItemId, published.storedFileName,
+                    published.storedContentSize, published.storedContentSha256, artifact.originalFileName, artifact.contentType
+                FROM cmdb.RecapPublishedArtifacts published
+                INNER JOIN cmdb.RecapPublications publication ON publication.id = published.publicationId
+                INNER JOIN cmdb.RecapWorkArtifacts artifact ON artifact.id = published.artifactId
+                WHERE published.publicationId = @publicationId AND published.artifactId = @artifactId AND published.status = 'Active'
+                  AND publication.status IN ('Published', 'Approved', 'Rework Requested')
+                  AND publication.targetExternalOrganizationId = @organizationId`, { organizationId, publicationId, artifactId });
+            return rows[0] || null;
+        },
         async listForExternalUser(userId, businessTransactionId = null) {
             return query(`${externalPublicationSelect}
                 WHERE publication.status IN ('Published', 'Approved', 'Rework Requested')

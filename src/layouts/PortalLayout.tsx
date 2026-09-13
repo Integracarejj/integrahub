@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet, Link } from "react-router-dom";
+import { Outlet, Link, useLocation } from "react-router-dom";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import PortalNav from "../components/PortalNav";
 import { getActivePersona, getPersonas, setActivePersona, clearPortalSubmissions, getPersonaIdentity, clearLastCreatedTransactionId } from "../services/portalMockData";
@@ -13,6 +13,9 @@ export default function PortalLayout() {
     const [personaSwitcherOpen, setPersonaSwitcherOpen] = useState(false);
     const [currentPersona, setCurrentPersona] = useState<ExternalDemoPersona>(getActivePersona);
     const { user } = useCurrentUser();
+    const location = useLocation();
+    const isAuthoritativePreviewRoute = location.pathname.replace(/\/+$/, "").toLowerCase().startsWith("/portal/admin-preview/")
+        || location.pathname.replace(/\/+$/, "").toLowerCase() === "/portal/admin-preview";
 
     const isPreviewMode = user?.hasAppAccess && !user?.isPortalUser;
     const isRealExternalMode = isAuthenticatedExternalMode();
@@ -30,6 +33,13 @@ export default function PortalLayout() {
         window.location.reload();
     };
 
+    if (isAuthoritativePreviewRoute && user?.userRecord?.role !== "PlatformAdmin") return <Outlet />;
+    if (isAuthoritativePreviewRoute) return <div className="portal-shell">
+        <div className="portal-preview-banner">ADMIN PREVIEW — READ ONLY · {user?.userRecord?.displayName} · PlatformAdmin</div>
+        <nav><Link to="/portal">Exit to Demo Preview</Link> · <Link to="/">Internal application</Link></nav>
+        <Outlet />
+    </div>;
+
     return (
         <div className="portal-shell">
             {isPreviewMode && (
@@ -37,6 +47,7 @@ export default function PortalLayout() {
                     <span className="portal-preview-icon">&#128274;</span>
                     <span>Preview Mode &mdash; external portal demo. Persona-scoped mock data only.</span>
                     <span>Live publications require a signed-in ExternalBroker or ExternalBuyer account with organization membership. Switching demo personas does not grant access.</span>
+                    {user?.userRecord?.role === "PlatformAdmin" && <Link to="/portal/admin-preview">Authoritative External Preview (read-only)</Link>}
                 </div>
             )}
             <header className="portal-topnav">

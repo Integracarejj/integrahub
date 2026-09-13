@@ -34,7 +34,11 @@ export async function decideAuthoritativePublication(publication: AuthoritativeP
 }
 
 export async function downloadAuthoritativePublishedArtifact(publicationId: string, artifact: AuthoritativePublicationArtifact) {
-    const response = await fetch(`/api/portal/recapitalization/publications/${publicationId}/artifacts/${artifact.id}/content`, { credentials: "include", headers: getAuthHeaders() });
+    return downloadPublishedArtifactFrom(`/api/portal/recapitalization/publications/${publicationId}/artifacts/${artifact.id}/content`, artifact);
+}
+
+export async function downloadPublishedArtifactFrom(path: string, artifact: AuthoritativePublicationArtifact) {
+    const response = await fetch(path, { credentials: "include", headers: getAuthHeaders() });
     if (!response.ok) throw new Error((await response.json().catch(() => null))?.error || "Download failed");
     const url = URL.createObjectURL(await response.blob());
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = artifact.fileName; anchor.click(); URL.revokeObjectURL(url);

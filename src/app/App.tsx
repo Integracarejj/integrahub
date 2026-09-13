@@ -32,6 +32,7 @@ import PortalTransactions from "../pages/portal/PortalTransactions";
 import PortalRequests from "../pages/portal/PortalRequests";
 import PortalRequestDetail from "../pages/portal/PortalRequestDetail";
 import AuthoritativePublicationDetail from "../pages/portal/AuthoritativePublicationDetail";
+import AuthoritativeAdminPreview, { AuthoritativeAdminPreviewDetail } from "../pages/portal/AuthoritativeAdminPreview";
 import PortalSubmit from "../pages/portal/PortalSubmit";
 import PortalDocuments from "../pages/portal/PortalDocuments";
 import PortalHelp from "../pages/portal/PortalHelp";
@@ -141,6 +142,8 @@ function portalRouteElements() {
     return (
         <Route element={<PortalGuard><PortalLayout /></PortalGuard>}>
             <Route path="/portal" element={<PortalOverview />} />
+            <Route path="/portal/admin-preview" element={<AuthoritativeAdminPreview />} />
+            <Route path="/portal/admin-preview/:organizationId/publications/:publicationId" element={<AuthoritativeAdminPreviewDetail />} />
             <Route path="/portal/transactions" element={<PortalTransactions />} />
             <Route path="/portal/requests" element={<PortalRequests />} />
             <Route path="/portal/requests/:id" element={<PortalRequestDetail />} />
