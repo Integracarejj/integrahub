@@ -29,8 +29,8 @@ test("admin explicitly enters authoritative preview, downloads, and clears data 
     await page.getByRole("button", { name: /Open DD-2026-00000178/ }).click();
     await expect(page).toHaveURL(/\/portal\/admin-preview\/TEST-BROKER-ORG\/publications\/22222222/);
     await expect(page.getByText("A response snapshot was not recorded for this edition. Current draft findings are not shown.")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Approve", exact: true })).toBeDisabled();
-    await expect(page.getByRole("button", { name: "Request Rework", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Request Rework", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Download Report.docx" })).toBeVisible();
     const downloaded = page.waitForEvent("download");
     await page.getByRole("button", { name: "Download Report.pdf" }).click();
