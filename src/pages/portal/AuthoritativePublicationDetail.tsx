@@ -1,95 +1,22 @@
-import { previewTransport } from "../../services/portalAdminPreview";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { previewTransport } from "../../services/portalAdminPreview";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { isExternalOnlyRole } from "../../utils/accessRouting";
-import { decideAuthoritativePublication, downloadAuthoritativePublishedArtifact, loadAuthoritativePublication,
-    type AuthoritativePublication } from "../../services/portalPublicationPersistence";
+import { decideAuthoritativePublication, downloadAuthoritativePublishedArtifact, loadAuthoritativePublication, type AuthoritativePublication } from "../../services/portalPublicationPersistence";
+import "./AuthoritativePublicationDetail.css";
+import "./PortalOverview.css";
 
 export default function AuthoritativePublicationDetail({ publicationId, previewOrganization }: { publicationId?: string; previewOrganization?: string }) {
-    const params = useParams();
-    const { user } = useCurrentUser();
-    const id = publicationId || params.publicationId || "";
-    // Remount edition state when identity or route changes, including in-flight decisions.
-    return <PublicationDetail key={`${user?.userRecord?.id}:${user?.userRecord?.role}:${previewOrganization || "external"}:${id}`} publicationId={id} previewOrganization={previewOrganization} />;
+    const { publicationId: routeId } = useParams(); const { user } = useCurrentUser(); const id = publicationId || routeId || "";
+    return <Detail key={`${user?.userRecord?.id}:${previewOrganization || "external"}:${id}`} id={id} previewOrganization={previewOrganization} />;
 }
-
-function PublicationDetail({ publicationId, previewOrganization }: { publicationId: string; previewOrganization?: string }) {
-    const params = useParams();
-    const id = publicationId || params.publicationId || "";
-    const { user } = useCurrentUser();
-    const adminPreview = !!previewOrganization && user?.userRecord?.role === "PlatformAdmin";
-    const external = !previewOrganization && isExternalOnlyRole(user?.userRecord?.role);
-    const [publication, setPublication] = useState<AuthoritativePublication | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [busy, setBusy] = useState(false);
-    const [rework, setRework] = useState(false);
-    const [guidance, setGuidance] = useState("");
-    const [refresh, setRefresh] = useState(0);
-    useEffect(() => {
-        if (!external && !adminPreview) return;
-        let cancelled = false;
-        setLoading(true); setPublication(null); setError(null); setRework(false);
-        (adminPreview ? previewTransport(previewOrganization!).load(id) : loadAuthoritativePublication(id)).then(value => { if (!cancelled) setPublication(value); })
-            .catch(reason => { if (!cancelled) setError(reason instanceof Error ? reason.message : "Publication could not be loaded"); })
-            .finally(() => { if (!cancelled) setLoading(false); });
-        return () => { cancelled = true; };
-    }, [id, external, adminPreview, previewOrganization, refresh]);
-
-    async function decide(action: "approve" | "rework") {
-        if (adminPreview || !publication || busy || publication.status !== "Published") return;
-        setBusy(true); setError(null);
-        try {
-            await decideAuthoritativePublication(publication, action, action === "rework" ? guidance.trim() : undefined);
-            // Read the edition again so status/version and content remain server-owned.
-            setPublication(await loadAuthoritativePublication(id));
-            setRework(false); setGuidance("");
-        } catch (reason) {
-            setError(reason instanceof Error ? reason.message : "Partner decision failed");
-        } finally { setBusy(false); }
-    }
-
-    if (!external && !adminPreview) return <div className="portal-overview"><h1>External account required</h1>
-        <p>Demo personas do not grant access to published requests. Sign in with an external account authorized for the target organization.</p></div>;
-    return <div className="portal-overview">
-        {!adminPreview && <Link to="/portal/requests">Back to Requests</Link>}
-        {loading && <p role="status">Loading published request...</p>}
-        {error && <div role="alert"><p>{error}</p><button className="rc-btn rc-btn-ghost" disabled={busy} onClick={() => setRefresh(value => value + 1)}>Refresh publication</button></div>}
-        {publication && <>
-            <h1 className="po-welcome-title">{publication.requestId} — {publication.title}</h1>
-            <p>{publication.transactionName} · {publication.externalOrganizationId} · Publication {publication.publicationNumber}</p>
-            <p role="status">{publication.status === "Published" ? "Awaiting Your Review" : publication.status === "Approved" ? "Approved — Complete" : "Rework requested — awaiting a new publication"}</p>
-            <p>Published: {new Date(publication.publishedAt).toLocaleString()}</p>
-            <p>{publication.description}</p>
-            {!publication.responseSnapshotAvailable && <p>Legacy edition: request and project labels reflect current metadata.</p>}
-            <h2>Published response / findings</h2>
-            <p style={{ whiteSpace: "pre-wrap" }}>{publication.responseSnapshotAvailable
-                ? publication.responseContent || "No response was included in this edition."
-                : "A response snapshot was not recorded for this edition. Current draft findings are not shown."}</p>
-            <h2>Published documents — Publication {publication.publicationNumber}</h2>
-            {publication.artifacts.length === 0 ? <p>No documents were included in this edition.</p> : <ul>
-                {publication.artifacts.map(artifact => <li key={artifact.id}>{artifact.fileName} {" "}
-                    <button className="rc-btn rc-btn-ghost" disabled={busy} onClick={async () => {
-                        setBusy(true); setError(null);
-                        try { await (adminPreview ? previewTransport(previewOrganization!).download(publication.id, artifact) : downloadAuthoritativePublishedArtifact(publication.id, artifact)); }
-                        catch (reason) { setError(reason instanceof Error ? reason.message : "Download failed"); }
-                        finally { setBusy(false); }
-                    }}>Download {artifact.fileName}</button></li>)}
-            </ul>}
-            {publication.partnerGuidance && <p style={{ whiteSpace: "pre-wrap" }}>Rework guidance: {publication.partnerGuidance}</p>}
-            {adminPreview && <p>Read-only admin preview. Partner decisions require a real authorized external account.</p>}
-            {publication.status === "Published" && <div>
-                <button className="rc-btn rc-btn-primary" disabled={adminPreview || busy || rework} onClick={() => void decide("approve")}>Approve</button>{" "}
-                <button className="rc-btn rc-btn-ghost" disabled={adminPreview || busy} onClick={() => setRework(true)}>Request Rework</button>
-            </div>}
-            {rework && <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label="Request Rework?">
-                <div className="rc-modal"><h2>Request Rework?</h2><p>The request returns to its contributor for revision before DD review and a new publication.</p>
-                    <label>Rework guidance<textarea aria-label="Rework guidance" value={guidance} maxLength={2000} onChange={event => setGuidance(event.target.value)} /></label>
-                    <button className="rc-btn rc-btn-ghost" disabled={busy} onClick={() => setRework(false)}>Cancel</button>
-                    <button className="rc-btn rc-btn-primary" disabled={busy || !guidance.trim()} onClick={() => void decide("rework")}>Request Rework</button>
-                </div>
-            </div>}
-        </>}
-    </div>;
+function label(status: string) { return status === "Published" ? "Awaiting Your Review" : status === "Approved" ? "Approved — Complete" : "Rework requested — awaiting a new publication"; }
+function Detail({ id, previewOrganization }: { id: string; previewOrganization?: string }) {
+    const { user } = useCurrentUser(); const adminPreview = !!previewOrganization && user?.userRecord?.role === "PlatformAdmin"; const external = !previewOrganization && isExternalOnlyRole(user?.userRecord?.role);
+    const [publication, setPublication] = useState<AuthoritativePublication | null>(null); const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null); const [busy, setBusy] = useState(false); const [rework, setRework] = useState(false); const [guidance, setGuidance] = useState(""); const [refresh, setRefresh] = useState(0);
+    useEffect(() => { if (!external && !adminPreview) return; let cancelled = false; setLoading(true); setPublication(null); setError(null); setRework(false); const load = adminPreview ? previewTransport(previewOrganization!).load(id) : loadAuthoritativePublication(id); load.then(v => !cancelled && setPublication(v)).catch(e => !cancelled && setError(e instanceof Error ? e.message : "Publication could not be loaded")).finally(() => !cancelled && setLoading(false)); return () => { cancelled = true; }; }, [id, previewOrganization, adminPreview, external, refresh]);
+    async function decide(action: "approve" | "rework") { if (adminPreview || !publication || busy || publication.status !== "Published") return; setBusy(true); setError(null); try { await decideAuthoritativePublication(publication, action, action === "rework" ? guidance.trim() : undefined); setPublication(await loadAuthoritativePublication(id)); setRework(false); setGuidance(""); } catch (e) { setError(e instanceof Error ? e.message : "Partner decision failed"); } finally { setBusy(false); } }
+    if (!external && !adminPreview) return <div className="portal-overview"><h1>External account required</h1><p>Demo personas do not grant access to published requests.</p></div>;
+    return <main className="portal-overview apd-page">{!adminPreview && <Link className="apd-back" to="/portal/requests">Ã¢â€ Â Back to Requests</Link>}{loading && <div className="apd-card" role="status">Loading published requestÃ¢â‚¬Â¦</div>}{error && <div className="apd-error" role="alert"><strong>{error}</strong><button className="rc-btn rc-btn-ghost" disabled={busy} onClick={() => setRefresh(v => v + 1)}>Refresh publication</button></div>}{publication && <><header className="apd-header"><div><p className="apd-eyebrow">{publication.transactionName} Ã‚Â· Publication {publication.publicationNumber}</p><h1 className="po-welcome-title">{publication.requestId}</h1><p className="apd-title">{publication.title}</p></div><span className={`apd-status apd-status--${publication.status.replace(/\s/g, "").toLowerCase()}`}>{label(publication.status)}</span></header><section className="apd-card apd-summary"><div><span>Project</span><strong>{publication.transactionName}</strong></div><div><span>Request</span><strong>{publication.requestId}</strong></div><div><span>Edition</span><strong>Publication {publication.publicationNumber}</strong></div><div><span>Published</span><strong>{new Date(publication.publishedAt).toLocaleDateString()}</strong></div></section><section className="apd-card"><h2>Request details</h2><p className="apd-copy">{publication.description || "No request description was provided."}</p></section><section className="apd-card"><h2>Published findings</h2>{publication.responseSnapshotAvailable ? <p className="apd-copy apd-findings">{publication.responseContent || "No response was included in this edition."}</p> : <div className="apd-legacy"><strong>Historical publication</strong><p>A response snapshot was not recorded for this edition. Current draft findings are not shown.</p></div>}</section><section className="apd-card"><div className="apd-section-heading"><div><h2>Published documents</h2><p>Documents included in Publication {publication.publicationNumber}</p></div></div>{publication.artifacts.length ? <div className="apd-documents">{publication.artifacts.map(a => <div className="apd-document" key={a.id}><div className="apd-file-icon">Ã¢Å’Â</div><div><strong>{a.fileName}</strong><span>Published edition document</span></div><button aria-label={`Download ${a.fileName}`} className="rc-btn rc-btn-ghost" disabled={busy} onClick={async () => { setBusy(true); setError(null); try { await (adminPreview ? previewTransport(previewOrganization!).download(publication.id, a) : downloadAuthoritativePublishedArtifact(publication.id, a)); } catch (e) { setError(e instanceof Error ? e.message : "Download failed"); } finally { setBusy(false); } }}>Download</button></div>)}</div> : <p className="apd-muted">No documents were included in this edition.</p>}</section>{publication.partnerGuidance && <section className="apd-card"><h2>Rework guidance</h2><p className="apd-copy">{publication.partnerGuidance}</p></section>}{adminPreview ? <section className="apd-card apd-preview-note">Read-only admin preview. Partner decisions require a real authorized external account.</section> : publication.status === "Published" ? <section className="apd-action"><div><h2>Ready for your review</h2><p>Review the published findings and documents, then approve or request rework.</p></div><div className="apd-actions"><button className="rc-btn rc-btn-primary" disabled={busy || rework} onClick={() => void decide("approve")}>Approve</button><button className="rc-btn rc-btn-secondary" disabled={busy} onClick={() => setRework(true)}>Request Rework</button></div></section> : <section className="apd-card apd-complete"><strong>{publication.status === "Approved" ? "Review complete" : "Revision requested"}</strong><p>{publication.status === "Approved" ? "Your decision has been recorded. No further action is required." : "The request has returned to the contributor for revision."}</p></section>}{rework && <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label="Request Rework?"><div className="rc-modal"><div className="rc-modal-header"><h2>Request Rework</h2></div><div className="rc-modal-body"><p>Tell the contributor what must be revised before a new publication is issued.</p><label className="rc-modal-field">Rework guidance<textarea aria-label="Rework guidance" rows={4} maxLength={2000} value={guidance} onChange={e => setGuidance(e.target.value)} /></label></div><div className="rc-modal-footer"><button className="rc-btn rc-btn-ghost" disabled={busy} onClick={() => setRework(false)}>Cancel</button><button className="rc-btn rc-btn-primary" disabled={busy || !guidance.trim()} onClick={() => void decide("rework")}>Request Rework</button></div></div></div>}</>}</main>;
 }
