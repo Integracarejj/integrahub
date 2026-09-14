@@ -28,7 +28,7 @@ test("admin explicitly enters authoritative preview, downloads, and clears data 
     await page.getByLabel("Preview organization").selectOption("TEST-BROKER-ORG");
     await page.getByRole("button", { name: /Open DD-2026-00000178/ }).click();
     await expect(page).toHaveURL(/\/portal\/admin-preview\/TEST-BROKER-ORG\/publications\/22222222/);
-    await expect(page.getByText("A response snapshot was not recorded for this edition. Current draft findings are not shown.")).toBeVisible();
+    await expect(page.getByText("A saved response is not available for this earlier request. You can still review the documents below.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Request Rework", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Download Report.docx" })).toBeVisible();
@@ -39,7 +39,7 @@ test("admin explicitly enters authoritative preview, downloads, and clears data 
     await page.getByRole("link", { name: "Back to organization selection" }).click();
     await page.getByLabel("Preview organization").selectOption("OTHER");
     await expect(page.getByText("No published editions for this organization.")).toBeVisible();
-    await expect(page.getByRole("heading", { name: /DD-2026-00000178/ })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Review Request", exact: true })).toHaveCount(0);
     await page.getByLabel("Preview organization").selectOption("TEST-BROKER-ORG");
     await page.getByRole("button", { name: /Open DD-2026-00000178/ }).click();
     await page.getByRole("link", { name: "Back to organization selection" }).click();
@@ -81,10 +81,10 @@ test("preview deep links, refresh and demo navigation never retain organization 
     expect(previewReads).toBe(0);
     await page.getByLabel("Preview organization").selectOption("TEST-BROKER-ORG");
     await page.getByRole("button", { name: /Open DD-2026-00000178/ }).click();
-    await expect(page.getByRole("heading", { name: /DD-2026-00000178/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Review Request", exact: true })).toBeVisible();
     await page.getByRole("link", { name: "Exit to Demo Preview" }).click();
     await expect(page.locator(".portal-preview-banner")).toContainText("Persona-scoped mock data only");
-    await expect(page.getByRole("heading", { name: /DD-2026-00000178/ })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Review Request", exact: true })).toHaveCount(0);
     await page.getByRole("link", { name: "Authoritative External Preview (read-only)" }).click();
     await expect(page.getByLabel("Preview organization")).toHaveValue("");
     await page.getByLabel("Preview organization").selectOption("TEST-BROKER-ORG");
@@ -143,8 +143,8 @@ test("admin preview edition deep links remain organization-scoped", async ({ pag
         return route.fulfill({ status: 404, json: { error: "Publication not found" } });
     });
     await page.goto(`/portal/admin-preview/TEST-BROKER-ORG/publications/${publication.id}`);
-    await expect(page.getByRole("heading", { name: /DD-2026-00000178/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Review Request", exact: true })).toBeVisible();
     await page.goto(`/portal/admin-preview/OTHER/publications/${publication.id}`);
     await expect(page.getByRole("alert")).toContainText("Publication not found");
-    await expect(page.getByRole("heading", { name: /DD-2026-00000178/ })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Review Request", exact: true })).toHaveCount(0);
 });

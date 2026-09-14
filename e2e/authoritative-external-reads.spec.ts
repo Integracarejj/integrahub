@@ -104,23 +104,23 @@ for (const action of ["approve", "rework"] as const) {
         });
         await navigate(page, "/portal/requests");
         await page.getByRole("button", { name: "Open DD-2026-00000178 · Publication 1" }).click();
-        await expect(page.getByRole("heading", { name: /DD-2026-00000178/ })).toBeVisible();
-        await expect(page.getByText("A response snapshot was not recorded for this edition. Current draft findings are not shown.")).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Review Request", exact: true })).toBeVisible();
+        await expect(page.getByText("A saved response is not available for this earlier request. You can still review the documents below.")).toBeVisible();
         await expect(page.getByRole("button", { name: "Download State Survey Report.docx" })).toBeVisible();
         const download = page.waitForEvent("download");
         await page.getByRole("button", { name: "Download RFF_Cert_2027.pdf" }).click();
         expect((await download).suggestedFilename()).toBe("RFF_Cert_2027.pdf");
         if (action === "approve") await page.getByRole("button", { name: "Approve", exact: true }).click();
         else {
-            await page.getByRole("button", { name: "Request Rework", exact: true }).click();
-            const dialog = page.getByRole("dialog", { name: "Request Rework?" });
+            await page.getByRole("button", { name: "Request Changes", exact: true }).click();
+            const dialog = page.getByRole("dialog", { name: "Request Changes" });
             await dialog.getByLabel("Rework guidance").fill("Revise the findings");
-            await dialog.getByRole("button", { name: "Request Rework", exact: true }).click();
+            await dialog.getByRole("button", { name: "Request Changes", exact: true }).click();
         }
-        await expect(page.getByText(action === "approve" ? "Approved — Complete" : "Rework requested — awaiting a new publication", { exact: true })).toBeVisible();
+        await expect(page.locator(".apd-complete").getByText(action === "approve" ? "Review complete" : "Changes requested", { exact: true })).toBeVisible();
         expect(decisions).toHaveLength(1);
         await expect(page.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
-        await expect(page.getByText("A response snapshot was not recorded for this edition. Current draft findings are not shown.")).toBeVisible();
+        await expect(page.getByText("A saved response is not available for this earlier request. You can still review the documents below.")).toBeVisible();
     });
 }
 
@@ -157,13 +157,13 @@ test("stale partner decision stays on the edition and offers a refresh", async (
     await navigate(page, `/portal/publications/${publication.id}`);
     await page.getByRole("button", { name: "Approve", exact: true }).click();
     await expect(page.getByRole("alert")).toContainText("Partner action cannot be applied or is stale");
-    await expect(page.getByRole("button", { name: "Refresh publication" })).toBeEnabled();
-    await expect(page.getByText("Approved — Complete", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Refresh request" })).toBeEnabled();
+    await expect(page.getByText("Approved - Complete", { exact: true })).toHaveCount(0);
     await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route => route.fulfill({ json: {
         publication: { ...publication, status: "Approved", version: "0x0000000000000002" },
     } }));
-    await page.getByRole("button", { name: "Refresh publication" }).click();
-    await expect(page.getByText("Approved — Complete", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Refresh request" }).click();
+    await expect(page.getByText("Approved - Complete", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
     expect(decisions).toBe(1);
 });
@@ -175,8 +175,8 @@ for (const findings of ["Immutable edition findings", ""]) {
             publication: { ...publication, responseSnapshotAvailable: true, responseContent: findings },
         } }));
         await navigate(page, `/portal/publications/${publication.id}`);
-        await expect(page.getByText(findings || "No response was included in this edition.", { exact: true })).toBeVisible();
-        await expect(page.getByText(/A response snapshot was not recorded/)).toHaveCount(0);
+        await expect(page.getByText(findings || "No response was included.", { exact: true })).toBeVisible();
+        await expect(page.getByText(/A saved response is not available/)).toHaveCount(0);
     });
 }
 
@@ -190,10 +190,10 @@ test("authoritative published request supports server-backed partner review with
     await navigate(page, `/portal/requests/${publication.workItemId}`);
     await expect(page.getByText("Corp Gov Docs.pptx")).toBeVisible();
     await expect(page.getByText("knowledge-drive")).toHaveCount(0);
-    await page.getByRole("button", { name: "Request Rework" }).click();
-    const dialog = page.getByRole("dialog", { name: "Request Rework?" });
+    await page.getByRole("button", { name: "Request Changes" }).click();
+    const dialog = page.getByRole("dialog", { name: "Request Changes" });
     await dialog.getByLabel("Rework guidance").fill("Revise section 4");
-    await dialog.getByRole("button", { name: "Request Rework" }).click();
+    await dialog.getByRole("button", { name: "Request Changes" }).click();
     await expect.poll(() => decisions.length).toBe(1);
     expect(decisions[0]).toEqual({ action: "rework", guidance: "Revise section 4", expectedVersion: publication.version });
 });
