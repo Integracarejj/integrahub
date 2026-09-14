@@ -438,10 +438,19 @@ async function getSyncCandidates(config, accessToken) {
     };
 }
 
-function compareWithCmdb(syncCandidates, existingUsers) {
+const ABSENCE_DEACTIVATION_PROTECTED_ROLES = new Set([
+    "PlatformAdmin",
+    "ExternalBuyer",
+    "ExternalBroker",
+]);
+
+export function isProtectedFromAbsenceDeactivation(role) {
+    return ABSENCE_DEACTIVATION_PROTECTED_ROLES.has(role);
+}
+
+export function compareWithCmdb(syncCandidates, existingUsers) {
     const existingByEntraId = {};
     const existingByEmail = {};
-    const platformAdminIds = new Set();
 
     existingUsers.forEach((u) => {
         if (u.entraObjectId) {
@@ -449,9 +458,6 @@ function compareWithCmdb(syncCandidates, existingUsers) {
         }
         if (u.email) {
             existingByEmail[u.email.toLowerCase()] = u;
-        }
-        if (u.role === "PlatformAdmin") {
-            platformAdminIds.add(u.id);
         }
     });
 
@@ -514,12 +520,14 @@ function compareWithCmdb(syncCandidates, existingUsers) {
 
     existingUsers.forEach((eu) => {
         if (!eu.isActive) return; // Already inactive
-        if (platformAdminIds.has(eu.id)) {
-            skippedPlatformAdmins.push({
-                id: eu.id,
-                displayName: eu.displayName,
-                reason: "PlatformAdmin preserved",
-            });
+        if (isProtectedFromAbsenceDeactivation(eu.role)) {
+            if (eu.role === "PlatformAdmin") {
+                skippedPlatformAdmins.push({
+                    id: eu.id,
+                    displayName: eu.displayName,
+                    reason: "PlatformAdmin preserved",
+                });
+            }
             return;
         }
 
@@ -540,7 +548,6 @@ function compareWithCmdb(syncCandidates, existingUsers) {
         wouldDeactivate,
         unchanged,
         skippedPlatformAdmins,
-        platformAdminIds,
     };
 }
 
@@ -747,30 +754,19 @@ router.post("/sync/run", async (req, res) => {
                 }
             }
 
-            const syncEmails = new Set(syncCandidates.map((u) => u.normalizedEmail));
-            const syncEntraIds = new Set(syncCandidates.filter((u) => u.graphId).map((u) => u.graphId.toLowerCase()));
-
-            for (const eu of existingUsers) {
-                if (!eu.isActive) continue;
-                if (comparison.platformAdminIds.has(eu.id)) continue;
-
-                const matchByEntra = eu.entraObjectId && syncEntraIds.has(eu.entraObjectId.toLowerCase());
-                const matchByEmail = eu.email && syncEmails.has(eu.email.toLowerCase());
-
-                if (!matchByEntra && !matchByEmail) {
-                    try {
-                        const request = new sql.Request(transaction);
-                        request.input("id", eu.id);
-                        await request.query(`
-                            UPDATE cmdb.Users SET isActive = 0, graphLastSyncedAt = GETUTCDATE() WHERE id = @id
-                        `);
-                        deactivated.push({
-                            id: eu.id,
-                            displayName: eu.displayName,
-                        });
-                    } catch (err) {
-                        throw new Error(`Failed to deactivate user ${eu.displayName}: ${err.message}`);
-                    }
+            for (const eu of comparison.wouldDeactivate) {
+                try {
+                    const request = new sql.Request(transaction);
+                    request.input("id", eu.id);
+                    await request.query(`
+                        UPDATE cmdb.Users SET isActive = 0, graphLastSyncedAt = GETUTCDATE() WHERE id = @id
+                    `);
+                    deactivated.push({
+                        id: eu.id,
+                        displayName: eu.displayName,
+                    });
+                } catch (err) {
+                    throw new Error(`Failed to deactivate user ${eu.displayName}: ${err.message}`);
                 }
             }
 
