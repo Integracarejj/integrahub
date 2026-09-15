@@ -28,7 +28,7 @@ test("admin explicitly enters authoritative preview, downloads, and clears data 
     await page.getByLabel("Preview organization").selectOption("TEST-BROKER-ORG");
     await page.getByRole("button", { name: /Open DD-2026-00000178/ }).click();
     await expect(page).toHaveURL(/\/portal\/admin-preview\/TEST-BROKER-ORG\/publications\/22222222/);
-    await expect(page.getByText("A saved response is not available for this earlier request. You can still review the documents below.")).toBeVisible();
+    await expect(page.getByText("This earlier request does not include a saved response. Please review the supporting documents below.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Request Rework", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Download Report.docx" })).toBeVisible();

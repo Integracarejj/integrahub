@@ -105,7 +105,7 @@ for (const action of ["approve", "rework"] as const) {
         await navigate(page, "/portal/requests");
         await page.getByRole("button", { name: "Open DD-2026-00000178 · Publication 1" }).click();
         await expect(page.getByRole("heading", { name: "Review Request", exact: true })).toBeVisible();
-        await expect(page.getByText("A saved response is not available for this earlier request. You can still review the documents below.")).toBeVisible();
+        await expect(page.getByText("This earlier request does not include a saved response. Please review the supporting documents below.")).toBeVisible();
         await expect(page.getByRole("button", { name: "Download State Survey Report.docx" })).toBeVisible();
         const download = page.waitForEvent("download");
         await page.getByRole("button", { name: "Download RFF_Cert_2027.pdf" }).click();
@@ -120,7 +120,7 @@ for (const action of ["approve", "rework"] as const) {
         await expect(page.locator(".apd-complete").getByText(action === "approve" ? "Review complete" : "Changes requested", { exact: true })).toBeVisible();
         expect(decisions).toHaveLength(1);
         await expect(page.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
-        await expect(page.getByText("A saved response is not available for this earlier request. You can still review the documents below.")).toBeVisible();
+        await expect(page.getByText("This earlier request does not include a saved response. Please review the supporting documents below.")).toBeVisible();
     });
 }
 
@@ -158,12 +158,12 @@ test("stale partner decision stays on the edition and offers a refresh", async (
     await page.getByRole("button", { name: "Approve", exact: true }).click();
     await expect(page.getByRole("alert")).toContainText("Partner action cannot be applied or is stale");
     await expect(page.getByRole("button", { name: "Refresh request" })).toBeEnabled();
-    await expect(page.getByText("Approved - Complete", { exact: true })).toHaveCount(0);
+    await expect(page.locator(".apd-complete").getByText("Review complete", { exact: true })).toHaveCount(0);
     await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route => route.fulfill({ json: {
         publication: { ...publication, status: "Approved", version: "0x0000000000000002" },
     } }));
     await page.getByRole("button", { name: "Refresh request" }).click();
-    await expect(page.getByText("Approved - Complete", { exact: true })).toBeVisible();
+    await expect(page.locator(".apd-complete").getByText("Review complete", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
     expect(decisions).toBe(1);
 });
