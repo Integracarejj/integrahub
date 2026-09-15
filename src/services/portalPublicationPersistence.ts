@@ -43,3 +43,11 @@ export async function downloadPublishedArtifactFrom(path: string, artifact: Auth
     const url = URL.createObjectURL(await response.blob());
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = artifact.fileName; anchor.click(); URL.revokeObjectURL(url);
 }
+
+export async function previewPublishedArtifactFrom(path: string, artifact: AuthoritativePublicationArtifact) {
+    const response = await fetch(path, { credentials: "include", headers: getAuthHeaders() });
+    if (!response.ok) throw new Error((await response.json().catch(() => null))?.error || "Preview failed");
+    const contentType = response.headers.get("content-type") || artifact.contentType;
+    if (!/^application\/pdf$|^image\//i.test(contentType)) throw new Error("Preview is not available for this document type");
+    return { url: URL.createObjectURL(await response.blob()), contentType };
+}

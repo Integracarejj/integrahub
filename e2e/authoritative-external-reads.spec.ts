@@ -104,13 +104,30 @@ for (const action of ["approve", "rework"] as const) {
         });
         await navigate(page, "/portal/requests");
         await page.getByRole("button", { name: "Open DD-2026-00000178 · Publication 1" }).click();
-        await expect(page.getByRole("heading", { name: "Review Request", exact: true })).toBeVisible();
+        await expect(page.getByRole("heading", { name: current.title, exact: true })).toBeVisible();
+        await expect(page.locator(".apd-meta")).toContainText("Project Liberty");
+        await expect(page.locator(".apd-meta")).toContainText("DD-2026-00000178");
+        await expect(page.getByRole("heading", { name: "IntegraCare Response", exact: true })).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Supporting Documents", exact: true })).toBeVisible();
         await expect(page.getByText("This earlier request does not include a saved response. Please review the supporting documents below.")).toBeVisible();
-        await expect(page.getByRole("button", { name: "Download State Survey Report.docx" })).toBeVisible();
+        const docx = page.locator(".apd-document").filter({ hasText: "State Survey Report.docx" });
+        const pdf = page.locator(".apd-document").filter({ hasText: "RFF_Cert_2027.pdf" });
+        await expect(docx.getByRole("button", { name: "Download State Survey Report.docx" })).toBeVisible();
+        await expect(docx.getByRole("button", { name: "Preview" })).toHaveCount(0);
+        await expect(pdf.getByRole("button", { name: "Preview" })).toBeVisible();
+        const previewRequest = page.waitForRequest(request => request.url().endsWith(`/artifacts/${current.artifacts[0].id}/content`));
+        await pdf.getByRole("button", { name: "Preview" }).click();
+        await previewRequest;
+        const previewDialog = page.getByRole("dialog", { name: "Preview RFF_Cert_2027.pdf" });
+        await expect(previewDialog.getByTitle("RFF_Cert_2027.pdf")).toBeVisible();
+        await previewDialog.getByRole("button", { name: "Close" }).click();
+        await expect(previewDialog).toHaveCount(0);
+        await expect(page.locator(".apd-decision").getByRole("heading", { name: "Finished reviewing?" })).toBeVisible();
+        await expect(page.locator(".apd-decision").getByRole("button", { name: "Approve Request" })).toBeVisible();
         const download = page.waitForEvent("download");
-        await page.getByRole("button", { name: "Download RFF_Cert_2027.pdf" }).click();
+        await pdf.getByRole("button", { name: "Download RFF_Cert_2027.pdf" }).click();
         expect((await download).suggestedFilename()).toBe("RFF_Cert_2027.pdf");
-        if (action === "approve") await page.getByRole("button", { name: "Approve", exact: true }).click();
+        if (action === "approve") await page.getByRole("button", { name: "Approve Request", exact: true }).click();
         else {
             await page.getByRole("button", { name: "Request Changes", exact: true }).click();
             const dialog = page.getByRole("dialog", { name: "Request Changes" });
@@ -119,7 +136,7 @@ for (const action of ["approve", "rework"] as const) {
         }
         await expect(page.locator(".apd-complete").getByText(action === "approve" ? "Review complete" : "Changes requested", { exact: true })).toBeVisible();
         expect(decisions).toHaveLength(1);
-        await expect(page.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
+        await expect(page.getByRole("button", { name: "Approve Request", exact: true })).toHaveCount(0);
         await expect(page.getByText("This earlier request does not include a saved response. Please review the supporting documents below.")).toBeVisible();
     });
 }
@@ -131,7 +148,7 @@ test("real external publication errors and cross-org absence never fall back to 
     await navigate(page, `/portal/publications/${publication.id}?organizationId=TEST-BROKER-ORG`);
     await expect(page.getByRole("alert")).toContainText("Publication not found");
     await expect(page.getByText("Atlas Capital Partners")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Approve Request", exact: true })).toHaveCount(0);
 });
 
 test("an internal demo persona cannot load a live publication", async ({ page }) => {
@@ -155,7 +172,7 @@ test("stale partner decision stays on the edition and offers a refresh", async (
         return route.fulfill({ status: 409, json: { error: "Partner action cannot be applied or is stale" } });
     });
     await navigate(page, `/portal/publications/${publication.id}`);
-    await page.getByRole("button", { name: "Approve", exact: true }).click();
+    await page.getByRole("button", { name: "Approve Request", exact: true }).click();
     await expect(page.getByRole("alert")).toContainText("Partner action cannot be applied or is stale");
     await expect(page.getByRole("button", { name: "Refresh request" })).toBeEnabled();
     await expect(page.locator(".apd-complete").getByText("Review complete", { exact: true })).toHaveCount(0);
@@ -164,7 +181,7 @@ test("stale partner decision stays on the edition and offers a refresh", async (
     } }));
     await page.getByRole("button", { name: "Refresh request" }).click();
     await expect(page.locator(".apd-complete").getByText("Review complete", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Approve Request", exact: true })).toHaveCount(0);
     expect(decisions).toBe(1);
 });
 

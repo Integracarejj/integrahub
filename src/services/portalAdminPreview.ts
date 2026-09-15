@@ -1,5 +1,5 @@
 import { getAuthHeaders } from "../utils/apiFetch";
-import { downloadPublishedArtifactFrom, type AuthoritativePublication } from "./portalPublicationPersistence";
+import { downloadPublishedArtifactFrom, previewPublishedArtifactFrom, type AuthoritativePublication } from "./portalPublicationPersistence";
 
 const base = "/api/admin/recap-external-preview";
 async function read(path: string) {
@@ -17,6 +17,7 @@ export function previewTransport(org: string) {
     const path = `/${encodeURIComponent(org)}/publications`;
     return {
         load: async (id: string): Promise<AuthoritativePublication> => (await read(`${path}/${encodeURIComponent(id)}`)).publication,
+        preview: (id: string, artifact: { id: string; fileName: string; contentType: string }) => previewPublishedArtifactFrom(`${base}${path}/${encodeURIComponent(id)}/artifacts/${encodeURIComponent(artifact.id)}/content`, artifact),
         download: (id: string, artifact: { id: string; fileName: string; contentType: string }) =>
             downloadPublishedArtifactFrom(`${base}${path}/${encodeURIComponent(id)}/artifacts/${encodeURIComponent(artifact.id)}/content`, artifact),
     };
