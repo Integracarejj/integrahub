@@ -3,16 +3,164 @@ import { Link, useParams } from "react-router-dom";
 import { previewTransport } from "../../services/portalAdminPreview";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { isExternalOnlyRole } from "../../utils/accessRouting";
-import { decideAuthoritativePublication, downloadAuthoritativePublishedArtifact, previewPublishedArtifactFrom, loadAuthoritativePublication, type AuthoritativePublication } from "../../services/portalPublicationPersistence";
+import {
+    decideAuthoritativePublication,
+    downloadAuthoritativePublishedArtifact,
+    loadAuthoritativePublication,
+    previewPublishedArtifactFrom,
+    type AuthoritativePublication,
+} from "../../services/portalPublicationPersistence";
 import "./AuthoritativePublicationDetail.css";
 import "./PortalOverview.css";
-export default function AuthoritativePublicationDetail({ publicationId, previewOrganization }: { publicationId?: string; previewOrganization?: string }) { const { publicationId: routeId } = useParams(); const { user } = useCurrentUser(); return <Detail key={`${user?.userRecord?.id}:${previewOrganization || "external"}:${publicationId || routeId || ""}`} id={publicationId || routeId || ""} previewOrganization={previewOrganization} />; }
-function Detail({ id, previewOrganization }: { id:string; previewOrganization?:string }) {
- const { user }=useCurrentUser(); const adminPreview=!!previewOrganization&&user?.userRecord?.role==="PlatformAdmin"; const external=!previewOrganization&&isExternalOnlyRole(user?.userRecord?.role); const [publication,setPublication]=useState<AuthoritativePublication|null>(null); const [loading,setLoading]=useState(true); const [error,setError]=useState<string|null>(null); const [busy,setBusy]=useState(false); const [changes,setChanges]=useState(false); const [preview,setPreview]=useState<{url:string;contentType:string;fileName:string}|null>(null); const [guidance,setGuidance]=useState(""); const [refresh,setRefresh]=useState(0);
- useEffect(()=>{if(!external&&!adminPreview)return;let cancelled=false;setLoading(true);setPublication(null);setError(null);setChanges(false);const load=adminPreview?previewTransport(previewOrganization!).load(id):loadAuthoritativePublication(id);load.then(v=>!cancelled&&setPublication(v)).catch(e=>!cancelled&&setError(e instanceof Error?e.message:"Request could not be loaded")).finally(()=>!cancelled&&setLoading(false));return()=>{cancelled=true};},[id,previewOrganization,adminPreview,external,refresh]);
- useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview.url)},[preview]);
- const closePreview=()=>setPreview(null);
- async function decide(action:"approve"|"rework"){if(adminPreview||!publication||busy||publication.status!=="Published")return;setBusy(true);setError(null);try{await decideAuthoritativePublication(publication,action,action==="rework"?guidance.trim():undefined);setPublication(await loadAuthoritativePublication(id));setChanges(false);setGuidance("");}catch(e){setError(e instanceof Error?e.message:"Your decision could not be saved");}finally{setBusy(false);}}
- if(!external&&!adminPreview)return <div className="portal-overview"><h1>External account required</h1><p>Demo personas do not grant access to requests for review.</p></div>;
- return <main className="portal-overview apd-page">{!adminPreview&&<Link className="apd-back" to="/portal/requests">Back to Requests</Link>}{loading&&<div className="apd-card" role="status">Loading request...</div>}{error&&<div className="apd-error" role="alert"><strong>{error}</strong><button className="rc-btn rc-btn-ghost" disabled={busy} onClick={()=>setRefresh(v=>v+1)}>Refresh request</button></div>}{publication&&<><header className="apd-review-header"><p className="apd-meta">{publication.transactionName} | {publication.requestId} | Submitted {new Date(publication.publishedAt).toLocaleDateString()}</p><h1 className="po-welcome-title">{publication.title}</h1><p className="apd-helper">Review IntegraCare's response and supporting documents below. Approve the request if everything is satisfactory, or request changes and tell us what needs to be updated.</p></header>{publication.description&&<section className="apd-content"><h2>About this request</h2><p className="apd-copy">{publication.description}</p></section>}<section className="apd-content"><h2>IntegraCare Response</h2><p className="apd-section-help">This is IntegraCare's response to your request.</p>{publication.responseSnapshotAvailable?<p className="apd-copy apd-findings">{publication.responseContent||"No response was included."}</p>:<div className="apd-legacy"><strong>Response not available</strong><p>This earlier request does not include a saved response. Please review the supporting documents below.</p></div>}</section><section className="apd-content"><h2>Supporting Documents</h2>{publication.artifacts.length?<div className="apd-documents">{publication.artifacts.map(a=><div className="apd-document" key={a.id}><div className="apd-file-icon">File</div><div><strong>{a.fileName}</strong><span>Supporting document</span></div>{/^application\/pdf$|^image\//i.test(a.contentType)&&<button className="rc-btn rc-btn-ghost" disabled={busy} onClick={async()=>{setBusy(true);setError(null);try{const result=await(adminPreview?previewTransport(previewOrganization!).preview(publication.id,a):previewPublishedArtifactFrom(`/api/portal/recapitalization/publications/${publication.id}/artifacts/${a.id}/content`,a));setPreview({...result,fileName:a.fileName});}catch(e){setError(e instanceof Error?e.message:"Preview failed");}finally{setBusy(false);}}}>Preview</button>}<button aria-label={`Download ${a.fileName}`} className="rc-btn rc-btn-ghost" disabled={busy} onClick={async()=>{setBusy(true);setError(null);try{await(adminPreview?previewTransport(previewOrganization!).download(publication.id,a):downloadAuthoritativePublishedArtifact(publication.id,a));}catch(e){setError(e instanceof Error?e.message:"Download failed");}finally{setBusy(false);}}}>Download</button></div>)}</div>:<p className="apd-muted">No documents are available.</p>}</section>{!adminPreview&&publication.status==="Published"&&<section className="apd-decision"><h2>Finished reviewing?</h2><p>Approve this request, or send it back to IntegraCare with comments.</p><div className="apd-actions"><button className="rc-btn rc-btn-primary" disabled={busy||changes} onClick={()=>void decide("approve")}>Approve Request</button><button className="rc-btn rc-btn-secondary" disabled={busy} onClick={()=>setChanges(true)}>Request Changes</button></div></section>}{adminPreview?<section className="apd-card apd-preview-note">Read-only admin preview. Partner decisions require a real authorized external account.</section>:publication.status!=="Published"&&<section className="apd-card apd-complete"><strong>{publication.status==="Approved"?"Review complete":"Changes requested"}</strong></section>}{preview&&<div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label={`Preview ${preview.fileName}`}><div className="rc-modal apd-preview"><div className="rc-modal-header"><h2>{preview.fileName}</h2><button className="rc-btn rc-btn-ghost" onClick={closePreview}>Close</button></div>{preview.contentType==="application/pdf"?<iframe title={preview.fileName} src={preview.url}/>:<img src={preview.url} alt={preview.fileName}/>}</div></div>}{changes&&<div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label="Request Changes"><div className="rc-modal"><div className="rc-modal-header"><h2>Request Changes</h2></div><div className="rc-modal-body"><p>Tell the contributor what needs to change.</p><label className="rc-modal-field">Comments<textarea aria-label="Rework guidance" rows={4} maxLength={2000} value={guidance} onChange={e=>setGuidance(e.target.value)}/></label></div><div className="rc-modal-footer"><button className="rc-btn rc-btn-ghost" disabled={busy} onClick={()=>setChanges(false)}>Cancel</button><button className="rc-btn rc-btn-primary" disabled={busy||!guidance.trim()} onClick={()=>void decide("rework")}>Request Changes</button></div></div></div>}</>}</main>;
+
+export default function AuthoritativePublicationDetail({ publicationId, previewOrganization }: { publicationId?: string; previewOrganization?: string }) {
+    const { publicationId: routeId } = useParams();
+    const { user } = useCurrentUser();
+    return <Detail key={`${user?.userRecord?.id}:${previewOrganization || "external"}:${publicationId || routeId || ""}`} id={publicationId || routeId || ""} previewOrganization={previewOrganization} />;
+}
+
+function Detail({ id, previewOrganization }: { id: string; previewOrganization?: string }) {
+    const { user } = useCurrentUser();
+    const adminPreview = !!previewOrganization && user?.userRecord?.role === "PlatformAdmin";
+    const external = !previewOrganization && isExternalOnlyRole(user?.userRecord?.role);
+    const [publication, setPublication] = useState<AuthoritativePublication | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [busy, setBusy] = useState(false);
+    const [changes, setChanges] = useState(false);
+    const [preview, setPreview] = useState<{ url: string; contentType: string; fileName: string } | null>(null);
+    const [guidance, setGuidance] = useState("");
+    const [refresh, setRefresh] = useState(0);
+
+    useEffect(() => {
+        if (!external && !adminPreview) return;
+        let cancelled = false;
+        setLoading(true);
+        setPublication(null);
+        setError(null);
+        setChanges(false);
+        const load = adminPreview ? previewTransport(previewOrganization!).load(id) : loadAuthoritativePublication(id);
+        load.then(value => !cancelled && setPublication(value))
+            .catch(loadError => !cancelled && setError(loadError instanceof Error ? loadError.message : "Request could not be loaded"))
+            .finally(() => !cancelled && setLoading(false));
+        return () => { cancelled = true; };
+    }, [id, previewOrganization, adminPreview, external, refresh]);
+
+    useEffect(() => () => {
+        if (preview) URL.revokeObjectURL(preview.url);
+    }, [preview]);
+
+    const closePreview = () => setPreview(null);
+
+    async function decide(action: "approve" | "rework") {
+        if (adminPreview || !publication || busy || publication.status !== "Published") return;
+        setBusy(true);
+        setError(null);
+        try {
+            await decideAuthoritativePublication(publication, action, action === "rework" ? guidance.trim() : undefined);
+            setPublication(await loadAuthoritativePublication(id));
+            setChanges(false);
+            setGuidance("");
+        } catch (decisionError) {
+            setError(decisionError instanceof Error ? decisionError.message : "Your decision could not be saved");
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    if (!external && !adminPreview) {
+        return <div className="portal-overview"><h1>External account required</h1><p>Demo personas do not grant access to requests for review.</p></div>;
+    }
+
+    return <main className="portal-overview apd-page">
+        {!adminPreview && <Link className="apd-back" to="/portal/requests"><span aria-hidden="true">←</span> Requests</Link>}
+        {loading && <div className="apd-card" role="status">Loading request...</div>}
+        {error && <div className="apd-error" role="alert"><strong>{error}</strong><button className="rc-btn rc-btn-ghost" disabled={busy} onClick={() => setRefresh(value => value + 1)}>Refresh request</button></div>}
+        {publication && <>
+            <header className="apd-review-header">
+                <p className="apd-meta">{publication.transactionName}<span aria-hidden="true">·</span>{publication.requestId}<span aria-hidden="true">·</span>Submitted {new Date(publication.publishedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</p>
+                <h1 className="po-welcome-title">{publication.title}</h1>
+                <p className="apd-helper">Review IntegraCare's response and supporting documents below. Approve the request if everything is satisfactory, or request changes and tell us what needs to be updated.</p>
+            </header>
+
+            {publication.description && <section className="apd-content">
+                <h2>About this request</h2>
+                <p className="apd-copy">{publication.description}</p>
+            </section>}
+
+            <section className="apd-content">
+                <h2>IntegraCare Response</h2>
+                <p className="apd-section-help">This is IntegraCare's response to your request.</p>
+                {publication.responseSnapshotAvailable
+                    ? <p className="apd-copy apd-findings">{publication.responseContent || "No response was included."}</p>
+                    : <div className="apd-legacy"><strong>Response not available</strong><p>This earlier request does not include a saved response. Please review the supporting documents below.</p></div>}
+            </section>
+
+            <section className="apd-content apd-documents-section">
+                <h2>Supporting Documents</h2>
+                {publication.artifacts.length
+                    ? <div className="apd-documents">{publication.artifacts.map(artifact => <article className="apd-document" key={artifact.id}>
+                        <div className="apd-document-main"><strong>{artifact.fileName}</strong><span>Supporting document</span></div>
+                        <div className="apd-document-actions">
+                            {/^application\/pdf$|^image\//i.test(artifact.contentType) && <button className="rc-btn rc-btn-secondary rc-btn-sm" disabled={busy} onClick={async () => {
+                                setBusy(true);
+                                setError(null);
+                                try {
+                                    const result = await (adminPreview
+                                        ? previewTransport(previewOrganization!).preview(publication.id, artifact)
+                                        : previewPublishedArtifactFrom(`/api/portal/recapitalization/publications/${publication.id}/artifacts/${artifact.id}/content`, artifact));
+                                    setPreview({ ...result, fileName: artifact.fileName });
+                                } catch (previewError) {
+                                    setError(previewError instanceof Error ? previewError.message : "Preview failed");
+                                } finally {
+                                    setBusy(false);
+                                }
+                            }}>Preview</button>}
+                            <button aria-label={`Download ${artifact.fileName}`} className="rc-btn rc-btn-secondary rc-btn-sm" disabled={busy} onClick={async () => {
+                                setBusy(true);
+                                setError(null);
+                                try {
+                                    await (adminPreview
+                                        ? previewTransport(previewOrganization!).download(publication.id, artifact)
+                                        : downloadAuthoritativePublishedArtifact(publication.id, artifact));
+                                } catch (downloadError) {
+                                    setError(downloadError instanceof Error ? downloadError.message : "Download failed");
+                                } finally {
+                                    setBusy(false);
+                                }
+                            }}>Download</button>
+                        </div>
+                    </article>)}</div>
+                    : <p className="apd-muted">No documents are available.</p>}
+            </section>
+
+            {!adminPreview && publication.status === "Published" && <section className="apd-decision">
+                <h2>Finished reviewing?</h2>
+                <p>Approve this request, or send it back to IntegraCare with comments.</p>
+                <div className="apd-actions">
+                    <button className="rc-btn rc-btn-primary" disabled={busy || changes} onClick={() => void decide("approve")}>Approve Request</button>
+                    <button className="rc-btn rc-btn-secondary" disabled={busy} onClick={() => setChanges(true)}>Request Changes</button>
+                </div>
+            </section>}
+
+            {adminPreview
+                ? <section className="apd-card apd-preview-note">Read-only admin preview. Partner decisions require a real authorized external account.</section>
+                : publication.status !== "Published" && <section className="apd-card apd-complete"><strong>{publication.status === "Approved" ? "Review complete" : "Changes requested"}</strong></section>}
+
+            {preview && <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label={`Preview ${preview.fileName}`}>
+                <div className="rc-modal apd-preview">
+                    <div className="rc-modal-header"><h2>{preview.fileName}</h2><button className="rc-btn rc-btn-ghost" onClick={closePreview}>Close</button></div>
+                    {preview.contentType === "application/pdf" ? <iframe title={preview.fileName} src={preview.url} /> : <img src={preview.url} alt={preview.fileName} />}
+                </div>
+            </div>}
+
+            {changes && <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label="Request Changes">
+                <div className="rc-modal">
+                    <div className="rc-modal-header"><h2>Request Changes</h2></div>
+                    <div className="rc-modal-body"><p>Tell the contributor what needs to change.</p><label className="rc-modal-field">Comments<textarea aria-label="Rework guidance" rows={4} maxLength={2000} value={guidance} onChange={event => setGuidance(event.target.value)} /></label></div>
+                    <div className="rc-modal-footer"><button className="rc-btn rc-btn-ghost" disabled={busy} onClick={() => setChanges(false)}>Cancel</button><button className="rc-btn rc-btn-primary" disabled={busy || !guidance.trim()} onClick={() => void decide("rework")}>Request Changes</button></div>
+                </div>
+            </div>}
+        </>}
+    </main>;
 }
