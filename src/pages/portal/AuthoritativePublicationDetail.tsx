@@ -116,10 +116,12 @@ function Detail({ id, previewOrganization }: { id: string; previewOrganization?:
         {error && <div className="apd-error" role="alert"><strong>{error}</strong><button className="rc-btn rc-btn-ghost" disabled={busy} onClick={() => setRefresh(value => value + 1)}>Refresh request</button></div>}
         {publication && <>
             <header className="apd-review-header">
-                <p className="apd-meta">{publication.transactionName}<span aria-hidden="true">·</span>{publication.requestId}<span aria-hidden="true">·</span>Submitted {new Date(publication.publishedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</p>
+                <div className="apd-header-top">
+                    <p className="apd-meta">{publication.transactionName}<span aria-hidden="true">·</span>{publication.requestId}<span aria-hidden="true">·</span>Submitted {new Date(publication.publishedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</p>
+                    <button type="button" className="apd-guidance-button" aria-label="What do I do next?" title="What do I do next?" aria-expanded={showReviewGuidance} aria-controls="apd-review-guidance" onClick={() => setShowReviewGuidance(value => !value)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M9.6 9a2.5 2.5 0 0 1 4.8 1c0 1.7-2.4 2-2.4 3.7" /><path d="M12 17.5h.01" /></svg>What do I do next?</button>
+                </div>
                 <RequestTitle title={publication.title} />
-                <button type="button" className="apd-guidance-button" aria-label="Review guidance" title="How to review this request" aria-expanded={showReviewGuidance} aria-controls="apd-review-guidance" onClick={() => setShowReviewGuidance(value => !value)}><span aria-hidden="true">ⓘ</span> Review guidance</button>
-                {showReviewGuidance && <p id="apd-review-guidance" className="apd-guidance">{adminPreview ? "Review the supporting documents. Partner decisions are unavailable in this read-only preview." : "Review the supporting documents. Approve when satisfied, or request changes when updates are needed."}</p>}
+                {showReviewGuidance && <p id="apd-review-guidance" className="apd-guidance">{adminPreview ? "Review the supporting documents. Partner decisions are unavailable in this read-only preview." : "Review the supporting documents. Approve the request if everything looks complete, or request changes if IntegraCare needs to update something."}</p>}
             </header>
 
             {publication.description && <section className="apd-description">

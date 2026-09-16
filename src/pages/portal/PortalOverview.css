@@ -430,6 +430,37 @@
     }
 }
 
+/* The real external Overview keeps its review grid distinct from the demo table. */
+.po-external-overview .po-section { min-width: 0; }
+.po-external-overview .po-requests-scroll { max-width: 100%; overflow-x: auto; border-radius: 12px; }
+.po-external-overview .po-requests-table { min-width: 860px; border: 1px solid #dce6f1; border-radius: 12px; box-shadow: 0 5px 18px rgba(20, 49, 82, .05); }
+.po-external-overview .po-requests-header,
+.po-external-overview .po-requests-row {
+    grid-template-columns: 140px minmax(200px, 2.4fr) minmax(100px, 1fr) minmax(90px, .8fr) 90px 118px;
+    gap: 14px;
+    padding: 15px 19px;
+}
+.po-external-overview .po-requests-header { background: #f7faff; border-color: #dce6f1; color: #284768; }
+.po-external-overview .po-requests-row { cursor: default; border-color: #e6edf5; }
+.po-external-overview .po-requests-row:hover { background: #f8fbff; }
+.po-external-overview .po-requests-id { display: inline-flex; align-items: center; gap: 8px; color: #274568; white-space: nowrap; }
+.po-external-overview .po-requests-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; white-space: normal; color: #142b49; font-size: 13px; font-weight: 700; line-height: 1.4; }
+.po-external-overview .po-requests-txn { color: #36516e; font-size: 12px; }
+.po-external-overview .pr-project { width: fit-content; max-width: 100%; padding: 4px 7px; border: 1px solid #d4e4f7; border-radius: 5px; background: #f0f6ff; color: #244d7b; }
+.po-external-overview .pr-action,
+.po-external-overview .pr-open { border-color: transparent; background: transparent; color: #315e90; }
+.po-external-overview .pr-action:hover,
+.po-external-overview .pr-open:hover { border-color: #b9d3ee; background: #eaf4ff; }
+.po-external-overview .pr-open { display: inline-flex; align-items: center; justify-content: center; border-left: 1px solid #dbe6f1; border-radius: 0 7px 7px 0; }
+.po-external-overview .pr-open svg { width: 17px; height: 17px; }
+.po-review-dot { display: inline-block; width: 7px; height: 7px; flex: none; border-radius: 50%; background: #397ac1; box-shadow: 0 0 0 3px #eaf3fd; }
+@media (max-width: 600px) {
+    .po-external-overview .po-requests-header,
+    .po-external-overview .po-requests-row { grid-template-columns: 140px minmax(200px, 2.4fr) minmax(100px, 1fr) minmax(90px, .8fr) 90px 118px; }
+    .po-external-overview .po-requests-header > span,
+    .po-external-overview .po-requests-row > span { display: flex; }
+}
+
 /* ── Compact Upload (after first submission) ── */
 .po-compact-upload {
     border: 2px dashed #818cf8;

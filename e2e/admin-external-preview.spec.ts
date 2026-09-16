@@ -41,7 +41,7 @@ test("admin explicitly enters authoritative preview, downloads, and clears data 
     await expect(page.getByRole("button", { name: "Approve Request", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Request Changes", exact: true })).toHaveCount(0);
     await expect(page.locator(".apd-review-grid-single")).toBeVisible();
-    await page.getByRole("button", { name: "Review guidance" }).click();
+    await page.getByRole("button", { name: "What do I do next?" }).click();
     await expect(page.getByText("Review the supporting documents. Partner decisions are unavailable in this read-only preview.")).toBeVisible();
     const docx = page.locator(".apd-document").filter({ hasText: "Report.docx" });
     const pdf = page.locator(".apd-document").filter({ hasText: "Report.pdf" });

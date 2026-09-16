@@ -93,12 +93,76 @@ test("long request titles expand in place and review guidance stays on demand", 
     expect(await heading.evaluate(element => element.clientHeight)).toBeGreaterThan(collapsedHeight);
     await page.getByRole("button", { name: "Show less" }).click();
     await expect(page.getByRole("button", { name: "Show full request" })).toHaveAttribute("aria-expanded", "false");
-    const help = page.getByRole("button", { name: "Review guidance" });
+    const help = page.getByRole("button", { name: "What do I do next?" });
     await expect(help).toHaveAttribute("aria-expanded", "false");
-    await expect(page.getByText("Review the supporting documents. Approve when satisfied, or request changes when updates are needed.")).toHaveCount(0);
+    await expect(page.getByText("Review the supporting documents. Approve the request if everything looks complete, or request changes if IntegraCare needs to update something.")).toHaveCount(0);
     await help.click();
     await expect(help).toHaveAttribute("aria-expanded", "true");
-    await expect(page.getByText("Review the supporting documents. Approve when satisfied, or request changes when updates are needed.")).toBeVisible();
+    await expect(page.getByText("Review the supporting documents. Approve the request if everything looks complete, or request changes if IntegraCare needs to update something.")).toBeVisible();
+});
+
+test("real external Overview shows the clean Submitted Requests grid and publication-bound actions", async ({ page }) => {
+    await mockRealReads(page);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const multi = { ...publication, responseSnapshotAvailable: false, responseContent: null, artifacts: [
+        { id: "pdf-one", fileName: "First.pdf", contentType: "application/pdf" },
+        { id: "pdf-two", fileName: "Second.pdf", contentType: "application/pdf" },
+        { id: "office", fileName: "Workbook.xlsx", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+    ] };
+    await page.route("**/api/portal/recapitalization/publications", route => route.fulfill({ json: { publications: [multi] } }));
+    await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route => route.fulfill({ json: { publication: multi } }));
+    await page.route("**/api/portal/recapitalization/publications/*/artifacts/*/content", route => route.fulfill({ body: "edition bytes", headers: { "content-type": "application/pdf" } }));
+    await navigate(page, "/portal");
+    const grid = page.locator(".po-external-overview .po-dashboard-grid .po-requests-table");
+    await expect(grid).toBeVisible();
+    await expect(grid.locator(".po-requests-header")).toHaveText(/ID\s*Request\s*Project\s*Category\s*Updated\s*Actions/);
+    await expect(grid.locator(".po-requests-header")).not.toContainText("Review Type");
+    await expect(grid.locator(".po-requests-header")).not.toContainText("Community");
+    await expect(grid.locator(".po-requests-header")).not.toContainText("Status");
+    const row = grid.locator(".po-requests-row").filter({ hasText: publication.requestId.split("-").at(-1)! });
+    await expect(row).toContainText("Government correspondence");
+    await expect(row.getByRole("button", { name: `Preview documents for ${publication.requestId}` })).toBeVisible();
+    await expect(row.getByRole("button", { name: `Download documents for ${publication.requestId}` })).toBeVisible();
+    const openRequest = row.getByRole("button", { name: `Open request ${publication.requestId}`, exact: false });
+    await expect(openRequest).toBeVisible();
+    const tableBounds = await grid.boundingBox();
+    const openBounds = await openRequest.boundingBox();
+    expect(tableBounds).not.toBeNull();
+    expect(openBounds).not.toBeNull();
+    expect(openBounds!.x + openBounds!.width).toBeLessThanOrEqual(tableBounds!.x + tableBounds!.width);
+    expect(await page.locator(".po-external-overview .po-requests-scroll").evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await expect(row.getByRole("button", { name: "Approve Request" })).toHaveCount(0);
+
+    await row.getByRole("button", { name: `Preview documents for ${publication.requestId}` }).click();
+    const previewChooser = page.getByRole("dialog", { name: `Preview documents for ${publication.requestId}` });
+    await expect(previewChooser.getByRole("button", { name: "First.pdf Preview" })).toBeVisible();
+    await expect(previewChooser.getByRole("button", { name: "Second.pdf Preview" })).toBeVisible();
+    await expect(previewChooser.getByText("Workbook.xlsx")).toHaveCount(0);
+    const previewRequest = page.waitForRequest(request => request.url().endsWith(`/publications/${publication.id}/artifacts/pdf-two/content`));
+    await previewChooser.getByRole("button", { name: "Second.pdf Preview" }).click();
+    await previewRequest;
+    const preview = page.getByRole("dialog", { name: "Preview Second.pdf" });
+    await expect(preview).toBeVisible();
+    await preview.getByRole("button", { name: "Close" }).click();
+
+    await row.getByRole("button", { name: `Download documents for ${publication.requestId}` }).click();
+    const downloadChooser = page.getByRole("dialog", { name: `Download documents for ${publication.requestId}` });
+    await expect(downloadChooser.getByRole("button", { name: "Workbook.xlsx Download" })).toBeVisible();
+    const download = page.waitForEvent("download");
+    await downloadChooser.getByRole("button", { name: "Workbook.xlsx Download" }).click();
+    expect((await download).suggestedFilename()).toBe("Workbook.xlsx");
+    await downloadChooser.getByRole("button", { name: "Close" }).click();
+
+    await row.getByRole("button", { name: `Open request ${publication.requestId}`, exact: false }).click();
+    await expect(page).toHaveURL(new RegExp(`/portal/publications/${publication.id}$`));
+    await expect(page.getByRole("heading", { name: publication.title, exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Supporting Documents" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Approve Request" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Request Changes" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Show response" })).toBeVisible();
+    await expect(page.getByText("This earlier request does not include a saved response. Please review the supporting documents below.")).toBeHidden();
+    await page.getByRole("button", { name: "What do I do next?" }).click();
+    await expect(page.getByText("Review the supporting documents. Approve the request if everything looks complete, or request changes if IntegraCare needs to update something.")).toBeVisible();
 });
 
 test("grid chooses among multiple previewable edition documents without opening the request", async ({ page }) => {
