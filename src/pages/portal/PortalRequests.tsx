@@ -1,10 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getActivePersona, getPersonaIdentity, toExternalStatusInput } from "../../services/portalMockData";
 import { getExternalStatusInfo, getStatusPillStyle, getExceptionContext } from "../../services/externalStatusMapping";
 import ProjectBadge from "../../components/common/ProjectBadge";
 import { usePortalReadModel } from "../../hooks/usePortalReadModel";
+import { downloadAuthoritativePublishedArtifact, previewPublishedArtifactFrom, type AuthoritativePublication, type AuthoritativePublicationArtifact } from "../../services/portalPublicationPersistence";
 import "./PortalOverview.css";
+import "./PortalRequests.css";
 
 function StatusBadge({ status }: { status: string }) {
     const c = getStatusPillStyle(status);
@@ -35,6 +37,40 @@ export default function PortalRequests() {
     const [filterCommunity, setFilterCommunity] = useState("all");
     const [filterPackage, setFilterPackage] = useState("all");
     const [filterProject, setFilterProject] = useState("all");
+    const [documentChooser, setDocumentChooser] = useState<{ publication: AuthoritativePublication; mode: "preview" | "download" } | null>(null);
+    const [documentPreview, setDocumentPreview] = useState<{ url: string; contentType: string; fileName: string } | null>(null);
+    const [documentBusy, setDocumentBusy] = useState(false);
+    const [documentError, setDocumentError] = useState<string | null>(null);
+    const documentGeneration = useRef(0);
+    const publicationByWorkItem = useMemo(() => new Map(readModel.publications.map(item => [item.workItemId, item])), [readModel.publications]);
+    useEffect(() => () => { if (documentPreview) URL.revokeObjectURL(documentPreview.url); }, [documentPreview]);
+    useEffect(() => () => { documentGeneration.current++; }, []);
+    useEffect(() => { documentGeneration.current++; setDocumentChooser(null); setDocumentPreview(null); setDocumentError(null); setDocumentBusy(false); }, [readModel.publications]);
+
+    async function documentAction(publication: AuthoritativePublication, artifact: AuthoritativePublicationArtifact, mode: "preview" | "download") {
+        if (documentBusy) return;
+        const generation = documentGeneration.current;
+        setDocumentBusy(true);
+        setDocumentError(null);
+        try {
+            if (mode === "download") await downloadAuthoritativePublishedArtifact(publication.id, artifact);
+            else {
+                const result = await previewPublishedArtifactFrom(`/api/portal/recapitalization/publications/${publication.id}/artifacts/${artifact.id}/content`, artifact);
+                if (generation === documentGeneration.current) setDocumentPreview({ ...result, fileName: artifact.fileName });
+                else URL.revokeObjectURL(result.url);
+            }
+        } catch (error) {
+            if (generation === documentGeneration.current) setDocumentError(error instanceof Error ? error.message : "Document could not be opened");
+        } finally {
+            if (generation === documentGeneration.current) setDocumentBusy(false);
+        }
+    }
+
+    function chooseDocument(publication: AuthoritativePublication, mode: "preview" | "download") {
+        const eligible = mode === "preview" ? publication.artifacts.filter(item => /^application\/pdf$|^image\//i.test(item.contentType)) : publication.artifacts;
+        if (eligible.length === 1) void documentAction(publication, eligible[0], mode);
+        else setDocumentChooser({ publication, mode });
+    }
 
     const scopedRequests = useMemo(() => {
         if (!transactionId || !txn) return allRequests;
@@ -75,7 +111,7 @@ export default function PortalRequests() {
     const projectNames = [...new Set(scopedRequests.map(r => r.transactionName).filter(Boolean))].sort();
 
     return (
-        <div className="portal-overview">
+        <div className={`portal-overview${readModel.isRealExternal ? " pr-external" : ""}`}>
             {txn ? (
                 <div style={{ marginBottom: 20 }}>
                     <div style={{ fontSize: 12, color: "#4f46e5", fontWeight: 600, marginBottom: 4, cursor: "pointer" }} onClick={() => navigate("/portal/requests")}>
@@ -144,32 +180,33 @@ export default function PortalRequests() {
 
             {readModel.loading && <div className="po-empty-state"><p>Loading submitted requests...</p></div>}
             {readModel.error && <div className="po-empty-state"><p>{readModel.error}</p></div>}
+            {documentError && !documentChooser && <div className="pr-error" role="alert">{documentError}<button className="rc-btn rc-btn-ghost" onClick={() => setDocumentError(null)}>Dismiss</button></div>}
 
             {!readModel.loading && !readModel.error && <div className="rc-card">
                 <div className="po-requests-table">
-                    <div className="po-requests-header" style={{ gridTemplateColumns: "0.5fr 2.2fr 0.9fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr" }}>
-                        <span>ID</span><span>Request</span><span>Project</span><span>Status</span><span>Review Type</span><span>Category</span><span>Community</span><span>Updated</span>
+                    <div className="po-requests-header" style={readModel.isRealExternal ? undefined : { gridTemplateColumns: "0.5fr 2.2fr 0.9fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr" }}>
+                        <span>ID</span><span>Request</span><span>Project</span><span>Status</span>{!readModel.isRealExternal && <span>Review Type</span>}<span>Category</span><span>Community</span><span>Updated</span>{readModel.isRealExternal && <span>Actions</span>}
                     </div>
                     {filtered.length === 0 ? (
                         <div className="po-empty-state" style={{ padding: "40px 20px", textAlign: "center" }}>
                             <p style={{ fontSize: 14, color: "#475569" }}>No requests match the selected filters.</p>
                         </div>
                     ) : filtered.map((req) => {
-                        const publication = readModel.publications.find(item => item.workItemId === req.id);
+                        const publication = publicationByWorkItem.get(req.id);
                         const extInfo = getExternalStatusInfo(toExternalStatusInput(req));
                         const excCtx = getExceptionContext(req);
                         const isClarResp = req._rawStatus === "Clarification Needed" && extInfo.status === "Under Review" && !!req._workNotes?.some(n => n.action === "Clarification Response") && !req._returnReason;
                         const isReworking = req._partnerDecision === "Rework Required" && extInfo.status === "Under Review";
                         return (
-                            <div key={req.id} className="po-requests-row" style={{ gridTemplateColumns: "0.5fr 2.2fr 0.9fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr", cursor: publication || !readModel.isRealExternal ? "pointer" : "default" }} onClick={() => { if (publication) navigate(`/portal/publications/${publication.id}`); else if (!readModel.isRealExternal) navigate(`/portal/requests/${req.id}`); }} title={req.requestId}>
+                            <div key={req.id} className="po-requests-row" style={readModel.isRealExternal ? undefined : { gridTemplateColumns: "0.5fr 2.2fr 0.9fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr", cursor: "pointer" }} onClick={readModel.isRealExternal ? undefined : () => navigate(`/portal/requests/${req.id}`)} title={req.requestId}>
                                 <span className="po-requests-id">{req.requestId.split("-").length >= 3 ? req.requestId.split("-")[0] + "-" + req.requestId.split("-").slice(-1)[0] : req.requestId}</span>
                                 <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
                                     <span className="po-requests-title" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={req.title}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</span>
-                                    {publication && <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={event => { event.stopPropagation(); navigate(`/portal/publications/${publication.id}`); }}>Open {req.requestId} · Publication {publication.publicationNumber}</button>}
+                                    {publication && !readModel.isRealExternal && <button className="rc-btn rc-btn-ghost rc-btn-sm" onClick={event => { event.stopPropagation(); navigate(`/portal/publications/${publication.id}`); }}>Open {req.requestId} · Publication {publication.publicationNumber}</button>}
                                     {req._sourcePackageName && (
                                         <span style={{ fontSize: 10, color: "#64748b", fontWeight: 400 }}>{req._sourceFileName || req._sourcePackageName}</span>
                                     )}
-                                    {extInfo.status === "Awaiting Your Review" && (
+                                    {extInfo.status === "Awaiting Your Review" && !readModel.isRealExternal && (
                                         <span style={{ fontSize: 11, color: "#047857", fontWeight: 500 }}>Document ready for approval</span>
                                     )}
                                     {excCtx.contextLabel && (
@@ -186,12 +223,12 @@ export default function PortalRequests() {
                                     )}
                                 </div>
                                 <span style={{ display: "flex", alignItems: "center" }}>
-                                    <ProjectBadge name={req.transactionName} />
+                                    {readModel.isRealExternal ? <span className="pr-project" title={req.transactionName}>{req.transactionName}</span> : <ProjectBadge name={req.transactionName} />}
                                 </span>
                                 <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                     <StatusBadge status={extInfo.label} />
                                 </span>
-                                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                {!readModel.isRealExternal && <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                     {excCtx.recommendationType ? (
                                         <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#0f172a", fontWeight: 600, fontSize: 11, background: "#fff", padding: "2px 8px", borderRadius: 4, border: excCtx.recommendationType === "Duplicate" ? "1px solid #c4b5fd" : "1px solid #a5b4fc", whiteSpace: "nowrap" }}>
                                             {excCtx.recommendationType === "Duplicate" ? "Duplicate" : "Not Applicable"}
@@ -199,15 +236,29 @@ export default function PortalRequests() {
                                     ) : (
                                         <span style={{ color: "#94a3b8", fontSize: 12 }}>{"\u2014"}</span>
                                     )}
-                                </span>
+                                </span>}
                                 <span className="po-requests-txn">{req.category || "\u2014"}</span>
                                 <span className="po-requests-txn">{req.communityNames[0] || "\u2014"}</span>
-                                <span className="po-requests-txn">{req.updatedAt || req.neededBy || "\u2014"}</span>
+                                <span className="po-requests-txn">{readModel.isRealExternal ? String(req.updatedAt || req.neededBy || "\u2014").slice(0, 10) : req.updatedAt || req.neededBy || "\u2014"}</span>
+                                {readModel.isRealExternal && <div className="pr-actions">
+                                    {publication && publication.artifacts.length > 0 && <>
+                                        {publication.artifacts.some(item => /^application\/pdf$|^image\//i.test(item.contentType)) && <button type="button" className="pr-action" aria-label={`Preview documents for ${req.requestId}`} title="Preview documents" disabled={documentBusy} onClick={() => chooseDocument(publication, "preview")}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/></svg></button>}
+                                        <button type="button" className="pr-action" aria-label={`Download documents for ${req.requestId}`} title="Download documents" disabled={documentBusy} onClick={() => chooseDocument(publication, "download")}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 3v12m-4-4 4 4 4-4M4 18v3h16v-3"/></svg></button>
+                                    </>}
+                                    {publication && <button type="button" className="pr-open" aria-label={`Open request ${req.requestId}: ${req.title}`} title="Open request" onClick={() => navigate(`/portal/publications/${publication.id}`)}><span aria-hidden="true">›</span></button>}
+                                </div>}
                             </div>
                         );
                     })}
                 </div>
             </div>}
+            {documentChooser && <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label={`${documentChooser.mode === "preview" ? "Preview" : "Download"} documents for ${documentChooser.publication.requestId}`}>
+                <div className="rc-modal pr-chooser"><div className="rc-modal-header"><h2>{documentChooser.mode === "preview" ? "Preview supporting documents" : "Download supporting documents"}</h2><button className="rc-btn rc-btn-ghost" onClick={() => setDocumentChooser(null)}>Close</button></div>
+                    {documentError && <div className="pr-error" role="alert">{documentError}</div>}
+                    <div className="pr-chooser-list">{documentChooser.publication.artifacts.filter(item => documentChooser.mode === "download" || /^application\/pdf$|^image\//i.test(item.contentType)).map(item => <button key={item.id} className="pr-chooser-item" disabled={documentBusy} onClick={() => { void documentAction(documentChooser.publication, item, documentChooser.mode); if (documentChooser.mode === "preview") setDocumentChooser(null); }}><span>{item.fileName}</span><strong>{documentChooser.mode === "preview" ? "Preview" : "Download"}</strong></button>)}</div>
+                </div>
+            </div>}
+            {documentPreview && <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label={`Preview ${documentPreview.fileName}`}><div className="rc-modal pr-preview"><div className="rc-modal-header"><h2>{documentPreview.fileName}</h2><button className="rc-btn rc-btn-ghost" onClick={() => setDocumentPreview(null)}>Close</button></div>{documentPreview.contentType === "application/pdf" ? <iframe title={documentPreview.fileName} src={documentPreview.url} /> : <img src={documentPreview.url} alt={documentPreview.fileName} />}</div></div>}
         </div>
     );
 }

@@ -77,6 +77,51 @@ test("real B2B Overview, Transactions, and Requests render authoritative SQL pro
     await expect(page.getByText("No requests match the selected filters.")).toBeVisible();
 });
 
+test("long request titles expand in place and review guidance stays on demand", async ({ page }) => {
+    await mockRealReads(page);
+    await page.setViewportSize({ width: 480, height: 900 });
+    const title = "Confirm all lease, operating, financing, management, and other contractual arrangements with proposed partners and affiliated entities across the transaction, including amendments and side letters.";
+    await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route => route.fulfill({ json: { publication: { ...publication, title } } }));
+    await navigate(page, `/portal/publications/${publication.id}`);
+    const heading = page.getByRole("heading", { name: title, exact: true });
+    await expect(heading).toBeVisible();
+    const expand = page.getByRole("button", { name: "Show full request" });
+    await expect(expand).toHaveAttribute("aria-expanded", "false");
+    const collapsedHeight = await heading.evaluate(element => element.clientHeight);
+    await expand.click();
+    await expect(page.getByRole("button", { name: "Show less" })).toHaveAttribute("aria-expanded", "true");
+    expect(await heading.evaluate(element => element.clientHeight)).toBeGreaterThan(collapsedHeight);
+    await page.getByRole("button", { name: "Show less" }).click();
+    await expect(page.getByRole("button", { name: "Show full request" })).toHaveAttribute("aria-expanded", "false");
+    const help = page.getByRole("button", { name: "Review guidance" });
+    await expect(help).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByText("Review the supporting documents. Approve when satisfied, or request changes when updates are needed.")).toHaveCount(0);
+    await help.click();
+    await expect(help).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByText("Review the supporting documents. Approve when satisfied, or request changes when updates are needed.")).toBeVisible();
+});
+
+test("grid chooses among multiple previewable edition documents without opening the request", async ({ page }) => {
+    await mockRealReads(page);
+    const multi = { ...publication, artifacts: [
+        { id: "pdf-one", fileName: "First.pdf", contentType: "application/pdf" },
+        { id: "pdf-two", fileName: "Second.pdf", contentType: "application/pdf" },
+        { id: "office", fileName: "Workbook.xlsx", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+    ] };
+    await page.route("**/api/portal/recapitalization/publications", route => route.fulfill({ json: { publications: [multi] } }));
+    await page.route("**/api/portal/recapitalization/publications/*/artifacts/*/content", route => route.fulfill({ body: "edition bytes", headers: { "content-type": "application/pdf" } }));
+    await navigate(page, "/portal/requests");
+    await page.getByRole("button", { name: `Preview documents for ${publication.requestId}` }).click();
+    const chooser = page.getByRole("dialog", { name: `Preview documents for ${publication.requestId}` });
+    await expect(chooser.getByRole("button", { name: "First.pdf Preview" })).toBeVisible();
+    await expect(chooser.getByRole("button", { name: "Second.pdf Preview" })).toBeVisible();
+    await expect(chooser.getByText("Workbook.xlsx")).toHaveCount(0);
+    await chooser.getByRole("button", { name: "Second.pdf Preview" }).click();
+    await expect(page.getByRole("dialog", { name: "Preview Second.pdf" })).toBeVisible();
+    await page.getByRole("dialog", { name: "Preview Second.pdf" }).getByRole("button", { name: "Close" }).click();
+    await expect(page).toHaveURL(/\/portal\/requests$/);
+});
+
 for (const action of ["approve", "rework"] as const) {
     test(`0178 opens from real Requests with two edition documents and supports ${action}`, async ({ page }) => {
         await mockRealReads(page);
@@ -103,12 +148,34 @@ for (const action of ["approve", "rework"] as const) {
             await route.fulfill({ json: { publication: current } });
         });
         await navigate(page, "/portal/requests");
-        await page.getByRole("button", { name: "Open DD-2026-00000178 · Publication 1" }).click();
+        await expect(page.getByText("Review Type", { exact: true })).toHaveCount(0);
+        await expect(page.getByText("Documents", { exact: true })).toHaveCount(0);
+        await expect(page.getByRole("button", { name: "Preview documents for DD-2026-00000178" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Download documents for DD-2026-00000178" })).toBeVisible();
+        const gridPreviewRequest = page.waitForRequest(request => request.url().endsWith(`/artifacts/${current.artifacts[0].id}/content`));
+        await page.getByRole("button", { name: "Preview documents for DD-2026-00000178" }).click();
+        await gridPreviewRequest;
+        const gridPreview = page.getByRole("dialog", { name: "Preview RFF_Cert_2027.pdf" });
+        await expect(gridPreview).toBeVisible();
+        await gridPreview.getByRole("button", { name: "Close" }).click();
+        await page.getByRole("button", { name: "Download documents for DD-2026-00000178" }).click();
+        const chooser = page.getByRole("dialog", { name: "Download documents for DD-2026-00000178" });
+        await expect(chooser.getByRole("button", { name: "State Survey Report.docx Download" })).toBeVisible();
+        const gridDownload = page.waitForEvent("download");
+        await chooser.getByRole("button", { name: "State Survey Report.docx Download" }).click();
+        expect((await gridDownload).suggestedFilename()).toBe("State Survey Report.docx");
+        await chooser.getByRole("button", { name: "Close" }).click();
+        await expect(page).toHaveURL(/\/portal\/requests$/);
+        await page.getByRole("button", { name: "Open request DD-2026-00000178", exact: false }).click();
         await expect(page.getByRole("heading", { name: current.title, exact: true })).toBeVisible();
         await expect(page.locator(".apd-meta")).toContainText("Project Liberty");
         await expect(page.locator(".apd-meta")).toContainText("DD-2026-00000178");
+        await expect(page.locator(".apd-review-header .po-status-badge")).toHaveCount(0);
         await expect(page.getByRole("heading", { name: "IntegraCare Response", exact: true })).toBeVisible();
         await expect(page.getByRole("heading", { name: "Supporting Documents", exact: true })).toBeVisible();
+        await expect(page.getByText("No response provided", { exact: true })).toBeVisible();
+        await expect(page.getByText("This earlier request does not include a saved response. Please review the supporting documents below.")).toBeHidden();
+        await page.getByRole("button", { name: "Show response" }).click();
         await expect(page.getByText("This earlier request does not include a saved response. Please review the supporting documents below.")).toBeVisible();
         const docx = page.locator(".apd-document").filter({ hasText: "State Survey Report.docx" });
         const pdf = page.locator(".apd-document").filter({ hasText: "RFF_Cert_2027.pdf" });
@@ -122,7 +189,7 @@ for (const action of ["approve", "rework"] as const) {
         await expect(previewDialog.getByTitle("RFF_Cert_2027.pdf")).toBeVisible();
         await previewDialog.getByRole("button", { name: "Close" }).click();
         await expect(previewDialog).toHaveCount(0);
-        await expect(page.locator(".apd-decision").getByRole("heading", { name: "Finished reviewing?" })).toBeVisible();
+        await expect(page.locator(".apd-decision").getByRole("heading", { name: "Your Decision" })).toBeVisible();
         await expect(page.locator(".apd-decision").getByRole("button", { name: "Approve Request" })).toBeVisible();
         const download = page.waitForEvent("download");
         await pdf.getByRole("button", { name: "Download RFF_Cert_2027.pdf" }).click();
@@ -137,7 +204,7 @@ for (const action of ["approve", "rework"] as const) {
         await expect(page.locator(".apd-complete").getByText(action === "approve" ? "Review complete" : "Changes requested", { exact: true })).toBeVisible();
         expect(decisions).toHaveLength(1);
         await expect(page.getByRole("button", { name: "Approve Request", exact: true })).toHaveCount(0);
-        await expect(page.getByText("This earlier request does not include a saved response. Please review the supporting documents below.")).toBeVisible();
+        await expect(page.getByText("No response provided", { exact: true })).toBeVisible();
     });
 }
 
@@ -192,7 +259,12 @@ for (const findings of ["Immutable edition findings", ""]) {
             publication: { ...publication, responseSnapshotAvailable: true, responseContent: findings },
         } }));
         await navigate(page, `/portal/publications/${publication.id}`);
-        await expect(page.getByText(findings || "No response was included.", { exact: true })).toBeVisible();
+        if (findings) await expect(page.getByText(findings, { exact: true })).toBeVisible();
+        else {
+            await expect(page.getByText("No response was included.", { exact: true })).toBeHidden();
+            await page.getByRole("button", { name: "Show response" }).click();
+            await expect(page.getByText("No response was included.", { exact: true })).toBeVisible();
+        }
         await expect(page.getByText(/A saved response is not available/)).toHaveCount(0);
     });
 }

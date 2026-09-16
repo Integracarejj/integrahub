@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { previewTransport } from "../../services/portalAdminPreview";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
@@ -19,6 +19,43 @@ export default function AuthoritativePublicationDetail({ publicationId, previewO
     return <Detail key={`${user?.userRecord?.id}:${previewOrganization || "external"}:${publicationId || routeId || ""}`} id={publicationId || routeId || ""} previewOrganization={previewOrganization} />;
 }
 
+function RequestTitle({ title }: { title: string }) {
+    const heading = useRef<HTMLHeadingElement>(null);
+    const [overflow, setOverflow] = useState(false);
+    const [expanded, setExpanded] = useState(false);
+    useLayoutEffect(() => {
+        const measure = () => {
+            const element = heading.current;
+            if (!element) return;
+            const wasExpanded = element.classList.contains("apd-title-expanded");
+            element.classList.remove("apd-title-expanded");
+            setOverflow(element.scrollHeight > element.clientHeight + 1);
+            if (wasExpanded) element.classList.add("apd-title-expanded");
+        };
+        measure();
+        window.addEventListener("resize", measure);
+        return () => window.removeEventListener("resize", measure);
+    }, [title]);
+    return <div className="apd-title-wrap">
+        <h1 ref={heading} id="apd-request-title" className={`po-welcome-title apd-title${expanded ? " apd-title-expanded" : ""}`}>{title}</h1>
+        {overflow && <button type="button" className="apd-text-control" aria-expanded={expanded} aria-controls="apd-request-title" onClick={() => setExpanded(value => !value)}>{expanded ? "Show less" : "Show full request"}</button>}
+    </div>;
+}
+
+function ResponseSection({ publication }: { publication: AuthoritativePublication }) {
+    const hasResponse = !!publication.responseSnapshotAvailable && !!publication.responseContent?.trim();
+    const [open, setOpen] = useState(hasResponse);
+    return <section className="apd-response">
+        <div className="apd-response-heading"><h2>IntegraCare Response</h2><span>{hasResponse ? "Response provided" : "No response provided"}</span></div>
+        <button type="button" className="apd-response-toggle" aria-expanded={open} aria-controls="apd-response-content" onClick={() => setOpen(value => !value)}>{open ? "Hide response" : "Show response"}<span aria-hidden="true">{open ? "⌃" : "⌄"}</span></button>
+        <div id="apd-response-content" className="apd-response-content" hidden={!open}>
+            {publication.responseSnapshotAvailable
+                ? <p className="apd-copy apd-findings">{publication.responseContent?.trim() ? publication.responseContent : "No response was included."}</p>
+                : <div className="apd-legacy"><strong>Response not available</strong><p>This earlier request does not include a saved response. Please review the supporting documents below.</p></div>}
+        </div>
+    </section>;
+}
+
 function Detail({ id, previewOrganization }: { id: string; previewOrganization?: string }) {
     const { user } = useCurrentUser();
     const adminPreview = !!previewOrganization && user?.userRecord?.role === "PlatformAdmin";
@@ -30,6 +67,7 @@ function Detail({ id, previewOrganization }: { id: string; previewOrganization?:
     const [changes, setChanges] = useState(false);
     const [preview, setPreview] = useState<{ url: string; contentType: string; fileName: string } | null>(null);
     const [guidance, setGuidance] = useState("");
+    const [showReviewGuidance, setShowReviewGuidance] = useState(false);
     const [refresh, setRefresh] = useState(0);
 
     useEffect(() => {
@@ -79,23 +117,17 @@ function Detail({ id, previewOrganization }: { id: string; previewOrganization?:
         {publication && <>
             <header className="apd-review-header">
                 <p className="apd-meta">{publication.transactionName}<span aria-hidden="true">·</span>{publication.requestId}<span aria-hidden="true">·</span>Submitted {new Date(publication.publishedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</p>
-                <h1 className="po-welcome-title">{publication.title}</h1>
-                <p className="apd-helper">Review IntegraCare's response and supporting documents below. Approve the request if everything is satisfactory, or request changes and tell us what needs to be updated.</p>
+                <RequestTitle title={publication.title} />
+                <button type="button" className="apd-guidance-button" aria-label="Review guidance" title="How to review this request" aria-expanded={showReviewGuidance} aria-controls="apd-review-guidance" onClick={() => setShowReviewGuidance(value => !value)}><span aria-hidden="true">ⓘ</span> Review guidance</button>
+                {showReviewGuidance && <p id="apd-review-guidance" className="apd-guidance">{adminPreview ? "Review the supporting documents. Partner decisions are unavailable in this read-only preview." : "Review the supporting documents. Approve when satisfied, or request changes when updates are needed."}</p>}
             </header>
 
-            {publication.description && <section className="apd-content">
+            {publication.description && <section className="apd-description">
                 <h2>About this request</h2>
                 <p className="apd-copy">{publication.description}</p>
             </section>}
 
-            <section className="apd-content">
-                <h2>IntegraCare Response</h2>
-                <p className="apd-section-help">This is IntegraCare's response to your request.</p>
-                {publication.responseSnapshotAvailable
-                    ? <p className="apd-copy apd-findings">{publication.responseContent || "No response was included."}</p>
-                    : <div className="apd-legacy"><strong>Response not available</strong><p>This earlier request does not include a saved response. Please review the supporting documents below.</p></div>}
-            </section>
-
+            <div className={`apd-review-grid${adminPreview || publication.status !== "Published" ? " apd-review-grid-single" : ""}`}>
             <section className="apd-content apd-documents-section">
                 <h2>Supporting Documents</h2>
                 {publication.artifacts.length
@@ -135,17 +167,20 @@ function Detail({ id, previewOrganization }: { id: string; previewOrganization?:
             </section>
 
             {!adminPreview && publication.status === "Published" && <section className="apd-decision">
-                <h2>Finished reviewing?</h2>
-                <p>Approve this request, or send it back to IntegraCare with comments.</p>
+                <h2>Your Decision</h2>
+                <p>Ready to complete your review?</p>
                 <div className="apd-actions">
                     <button className="rc-btn rc-btn-primary" disabled={busy || changes} onClick={() => void decide("approve")}>Approve Request</button>
                     <button className="rc-btn rc-btn-secondary" disabled={busy} onClick={() => setChanges(true)}>Request Changes</button>
                 </div>
             </section>}
+            </div>
 
             {adminPreview
                 ? <section className="apd-card apd-preview-note">Read-only admin preview. Partner decisions require a real authorized external account.</section>
                 : publication.status !== "Published" && <section className="apd-card apd-complete"><strong>{publication.status === "Approved" ? "Review complete" : "Changes requested"}</strong></section>}
+
+            <ResponseSection key={`${publication.id}:${publication.version}`} publication={publication} />
 
             {preview && <div className="rc-modal-overlay" role="dialog" aria-modal="true" aria-label={`Preview ${preview.fileName}`}>
                 <div className="rc-modal apd-preview">
