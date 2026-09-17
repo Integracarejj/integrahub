@@ -9,6 +9,7 @@ import {
     markAuthoritativeWorkItemReadyToPublish, proposeAuthoritativeDisposition,
     requestAuthoritativeClarification, resolveAuthoritativeClarification,
     returnAuthoritativeDisposition, returnAuthoritativeWorkItemFromDdReview,
+    resumeAuthoritativeReturnedWork,
     submitAuthoritativeWorkItemForDdReview, unblockAuthoritativeWorkItem, publishAuthoritativeWorkItem,
     updateAuthoritativeResponse, AuthoritativeWorkItemConflictError,
     type AuthoritativeWorkItemEvent, type AuthoritativeWorkNote,
@@ -32,6 +33,7 @@ const STATUS_STYLE: Record<string, { color: string; background: string; border: 
     Queued: { color: "#475569", background: "#f8fafc", border: "#cbd5e1" },
     Assigned: { color: "#1d4ed8", background: "#eff6ff", border: "#bfdbfe" },
     "In Progress": { color: "#92400e", background: "#fffbeb", border: "#fde68a" },
+    "Returned for Changes": { color: "#9a3412", background: "#fff7ed", border: "#fed7aa" },
     Blocked: { color: "#991b1b", background: "#fef2f2", border: "#fecaca" },
     "Clarification Needed": { color: "#9a3412", background: "#fff7ed", border: "#fed7aa" },
     "Needs DD Review": { color: "#3730a3", background: "#eef2ff", border: "#c7d2fe" },
@@ -49,7 +51,7 @@ const EVENT_LABELS: Record<string, string> = {
     SubmittedForDdReview: "Submitted for DD review", ReturnedFromDdReview: "Returned from DD review",
     ReadyToPublish: "Ready to Publish",
     PublicationStarted: "Publication started", PublishedExternal: "Published externally",
-    PartnerApproved: "Partner approved", PartnerRequestedRework: "Partner requested rework",
+    PartnerApproved: "Partner approved", PartnerRequestedRework: "Partner requested rework", ResumedReturnedWork: "Resumed returned work",
 };
 
 function dateTime(value?: string | null) {
@@ -59,7 +61,7 @@ function dateTime(value?: string | null) {
 
 function eventDetails(event: AuthoritativeWorkItemEvent) {
     const details = event.details || {};
-    const useful = ["reason", "resolution", "disposition"].map(key => details[key]).find(value => typeof value === "string");
+    const useful = ["guidance", "reason", "resolution", "disposition"].map(key => details[key]).find(value => typeof value === "string");
     if (useful) return String(useful);
     if (event.priorStatus && event.resultingStatus && event.priorStatus !== event.resultingStatus) return `${event.priorStatus} → ${event.resultingStatus}`;
     return null;
@@ -195,6 +197,7 @@ export default function AuthoritativeRecapWorkspace({ initialItem }: { initialIt
 
     const actionButtons = useMemo(() => [
         !isDdOperationsContext && capabilities.canAccept && { label: "Accept Work", description: "Begin active work on this request", primary: true, tone: "primary", action: () => setConfirmation("accept") },
+        !isDdOperationsContext && capabilities.canResumeReturnedWork && { label: "Resume Work", description: "Acknowledge the partner return and begin making updates", primary: true, tone: "primary", action: () => void run(() => resumeAuthoritativeReturnedWork(item.id), "Returned work resumed.") },
         !isDdOperationsContext && capabilities.canSubmitForDdReview && { label: "Submit for DD Review", description: "Send the completed response and artifacts to DD Operations", primary: true, tone: "primary", action: () => setConfirmation("submit") },
         !isDdOperationsContext && capabilities.canMarkNotMine && { label: "Not Mine", description: "Return this request for reassignment", tone: "neutral", action: () => { setReasonAction("not-mine"); setReason(""); } },
         !isDdOperationsContext && capabilities.canBlock && { label: "Mark Blocked", description: "Pause work and record the blocker", tone: "blocker", action: () => { setReasonAction("block"); setReason(""); } },
@@ -235,7 +238,7 @@ export default function AuthoritativeRecapWorkspace({ initialItem }: { initialIt
         {item.status === "Needs DD Review" && isContributorContext && <div className="rc-alert rc-alert-info" style={{ margin: "16px 0" }} data-testid="waiting-on-dd-operations"><strong>Waiting on DD Operations.</strong> Your work has been submitted. DD Operations will review it and either return it with guidance or mark it ready to publish.</div>}
         {item.status === "Waiting Partner Review" && <div className="rc-alert rc-alert-info" style={{ margin: "16px 0" }}><strong>Published externally.</strong> Waiting for partner review from {item.authoritativePublicationOrganizationId}. Published {dateTime(item.authoritativePublishedAt)}.</div>}
         {item.authoritativePublicationStatus === "Approved" && <div className="rc-alert rc-alert-success" style={{ margin: "16px 0" }}><strong>Partner approved.</strong> The authoritative request is complete.</div>}
-        {item.authoritativePublicationStatus === "Rework Requested" && item.authoritativePartnerGuidance && <div className="rc-alert rc-alert-warning" style={{ margin: "16px 0" }}><strong>Partner requested rework:</strong> {item.authoritativePartnerGuidance}</div>}
+        {item.authoritativePublicationStatus === "Rework Requested" && item.authoritativePartnerGuidance && <div className="rc-alert rc-alert-warning" style={{ margin: "16px 0" }}><strong>External partner requested changes.</strong> {item.authoritativePublicationOrganizationId && <span> {item.authoritativePublicationOrganizationId} returned this request on {dateTime(item.authoritativePartnerActionAt)}.</span>}<div style={{ marginTop: 8 }}>{item.authoritativePartnerGuidance}</div>{item.status === "Returned for Changes" && <div style={{ marginTop: 8 }}>You are assigned to this request. Resume the returned work to begin making updates.</div>}</div>}
         {(actionButtons.length > 0 || showArtifactUpload) && <section className={`rc-card rc-action-center${item.status === "Assigned" ? " is-gating" : ""}`} style={{ padding: 22 }} data-testid="authoritative-action-center"><div style={{ marginBottom: 16 }}><h2 style={{ margin: 0 }}>Action Center</h2><div style={{ color: "#64748b", fontSize: 13, marginTop: 4 }}>{item.status === "Assigned" ? "Accept or return the assignment before beginning work." : item.status === "In Progress" ? "Continue the response, supporting documents, or workflow." : "Actions available for the current authoritative state."}</div></div>
             {actionButtons.some(action => action.primary) && <div className="rc-action-group"><div className="rc-action-group-label">Primary workflow</div><div className="rc-action-grid">{actionButtons.filter(action => action.primary).map(action => <button key={action.label} className={`rc-action-tile rc-action-tile-${action.tone}`} disabled={busy} onClick={action.action}><strong>{action.label}</strong><span>{action.description}</span></button>)}</div></div>}
             {showArtifactUpload && <div className="rc-action-group"><div className="rc-action-group-label">Work action</div><div className="rc-supporting-upload">

@@ -58,7 +58,9 @@ function mapRow(row, actor) {
         needsReassignment: !!row.needsReassignment,
         capabilities: {
             canAssign: isOperations && row.status === "Queued", canAccept: row.status === "Assigned" && isOwner,
-            canMarkNotMine: !!row.assignedUserId && (isOwner || isOperations), canReassign: isOperations && !!row.assignedUserId,
+            canResumeReturnedWork: row.status === "Returned for Changes" && isOwner && actor?.globalRole !== "Viewer",
+            canMarkNotMine: !!row.assignedUserId && ["Assigned", "In Progress"].includes(row.status) && (isOwner || isOperations),
+            canReassign: isOperations && !!row.assignedUserId && ["Queued", "Assigned", "In Progress", "Clarification Needed", "Blocked"].includes(row.status),
             canClarify: isOwner && actor?.globalRole !== "Viewer" && row.status === "In Progress",
             canBlock: isOwner && actor?.globalRole !== "Viewer" && row.status === "In Progress",
             canSubmitForDdReview: row.status === "In Progress" && !!actor?.id && row.assignedUserId === actor.id,
@@ -75,7 +77,7 @@ function mapRow(row, actor) {
             canResolveClarification: isOperations && row.status === "Clarification Needed",
             canUnblock: isOperations && row.status === "Blocked",
             canReviewDisposition: isOperations && row.status === "Needs DD Review" && !!row.proposedDisposition,
-            canAddWorkNote: isOperations || (isOwner && actor?.globalRole !== "Viewer"),
+            canAddWorkNote: isOperations || (isOwner && actor?.globalRole !== "Viewer" && row.status === "In Progress"),
         },
     };
 }
@@ -112,6 +114,11 @@ export function createRecapWorkItemService({ repository = recapWorkItemRepositor
         async accept(id, actor, expectedVersion) {
             if (!UUID.test(id)) throw new RecapWorkItemValidationError();
             return mapRow((await transition(() => repository.accept(id, actor, version(expectedVersion))))[0], actor);
+        },
+        async resumeReturnedWork(id, actor, expectedVersion) {
+            if (!UUID.test(id)) throw new RecapWorkItemValidationError();
+            await requireMutableOwner(repository, id, actor);
+            return mapRow((await transition(() => repository.resumeReturnedWork(id, actor, version(expectedVersion))))[0], actor);
         },
         async submitForDdReview(id, actor, expectedVersion) {
             if (!UUID.test(id)) throw new RecapWorkItemValidationError();

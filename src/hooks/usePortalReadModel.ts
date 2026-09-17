@@ -63,7 +63,7 @@ export function projectAuthoritativePublications(publications: AuthoritativePubl
         id: publication.workItemId, requestId: publication.requestId, intakeId: publication.workItemId,
         transactionId: publication.transactionId, transactionName: publication.transactionName,
         title: publication.title, description: publication.description, category: "Published Deliverable",
-        status: publication.status === "Approved" ? "Completed" : publication.status === "Rework Requested" ? "Needs Rework" : "Waiting Partner Review",
+        status: publication.status === "Approved" ? "Completed" : publication.status === "Rework Requested" ? publication.workItemStatus === "In Progress" ? "In Progress" : "Needs Rework" : "Waiting Partner Review",
         priority: "Medium", neededBy: "", submittedAt: publication.publishedAt, updatedAt: publication.publishedAt,
         communityIds: [], communityNames: [], owner: null, team: "Due Diligence",
         brokerBuyer: publication.externalOrganizationId, orgId: publication.externalOrganizationId,

@@ -181,7 +181,7 @@ export function createRecapPublicationRepository({ query = defaultQuery, generat
         async partnerAction(publicationId, userId, organizationId, action, guidance, expectedVersion) {
             const approved = action === "approve";
             const status = approved ? "Approved" : "Rework Requested";
-            const workStatus = approved ? "Completed" : "In Progress";
+            const workStatus = approved ? "Completed" : "Returned for Changes";
             const eventType = approved ? "PartnerApproved" : "PartnerRequestedRework";
             const rows = await query(`SET XACT_ABORT ON; BEGIN TRANSACTION;
                 DECLARE @workItemId UNIQUEIDENTIFIER; DECLARE @assignedUserId VARCHAR(255); DECLARE @priorStatus VARCHAR(24);

@@ -173,6 +173,33 @@ test("clarification and blocker paths require reasons, owners to enter, and oper
     assert.equal((await service.unblock(ID, { resolution: "Resolved", expectedVersion: row().version }, ops)).status, "In Progress");
 });
 
+test("partner-returned work requires its assigned contributor to explicitly resume before it is in progress", async () => {
+    let receivedVersion;
+    const returned = row("Returned for Changes", "owner");
+    const service = createRecapWorkItemService({ repository: {
+        get: async () => returned,
+        resumeReturnedWork: async (_id, actor, expectedVersion) => {
+            if (actor.id !== "owner") throw new Error("Work item transition cannot be applied or is stale");
+            assert.equal(actor.id, "owner");
+            receivedVersion = expectedVersion;
+            return [{ ...returned, status: "In Progress", acceptedAt: "2026-09-17T12:00:00.000Z" }];
+        },
+    } });
+    assert.equal((await service.resumeReturnedWork(ID, owner, row().version)).status, "In Progress");
+    assert.equal(receivedVersion, row().version);
+    await assert.rejects(() => service.resumeReturnedWork(ID, stranger, row().version), RecapWorkItemAuthorizationError);
+});
+
+test("repository resume preserves assignment, requires Returned for Changes and records a durable event", async () => {
+    let statement;
+    const repository = createRecapWorkItemRepository({ query: async sql => { statement = sql; return [row("In Progress", "owner")]; } });
+    await repository.resumeReturnedWork(ID, owner, row().version);
+    assert.match(statement, /'ResumedReturnedWork'/);
+    assert.match(statement, /status = 'In Progress', acceptedAt = SYSUTCDATETIME\(\)/);
+    assert.match(statement, /assignedUserId = @actorId AND workItem\.status = 'Returned for Changes'/);
+    assert.doesNotMatch(statement.split("OUTPUT")[0], /assignedUserId\s*=/);
+});
+
 test("dispositions are proposed by the owner and decided only by operations", async () => {
     const service = serviceWith();
     assert.equal((await service.proposeDisposition(ID, { disposition: "Duplicate", reason: "Same request", expectedVersion: row().version }, owner)).status, "Needs DD Review");

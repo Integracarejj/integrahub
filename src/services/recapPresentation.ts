@@ -56,3 +56,7 @@ export function isAuthoritativePartnerRework(request: RecapRequest): boolean {
 export function isAuthoritativePartnerReworkActive(request: RecapRequest): boolean {
     return isAuthoritativePartnerRework(request) && request.status === "In Progress";
 }
+
+export function isAuthoritativePartnerReturn(request: RecapRequest): boolean {
+    return request.origin === "authoritative" && request.status === "Returned for Changes";
+}

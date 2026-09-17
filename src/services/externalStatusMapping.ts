@@ -22,7 +22,7 @@ export interface ExternalStatusInfo {
   completionMessage: string | null;
 }
 
-function getRecapStatus(req: { status: string; _exceptionRecommendation?: string | null; _exceptionDecision?: string | null; _publishedExternal?: boolean; _externalStatus?: string | null; _exceptionSentAt?: string | null; _publishedAt?: string | null; _workNotes?: Array<{ action?: string | null }> | null; _blockerStatus?: string | null; _blockerExternalQuestion?: string | null; _blockerExternalResponse?: string | null; _processingStartedAt?: string | null; _archived?: boolean; _archiveReason?: string | null }): string {
+function getRecapStatus(req: { status: string; _partnerDecision?: string | null; _exceptionRecommendation?: string | null; _exceptionDecision?: string | null; _publishedExternal?: boolean; _externalStatus?: string | null; _exceptionSentAt?: string | null; _publishedAt?: string | null; _workNotes?: Array<{ action?: string | null }> | null; _blockerStatus?: string | null; _blockerExternalQuestion?: string | null; _blockerExternalResponse?: string | null; _processingStartedAt?: string | null; _archived?: boolean; _archiveReason?: string | null }): string {
     const status = req.status;
     const exceptionRec = req._exceptionRecommendation;
     const exceptionDec = req._exceptionDecision;
@@ -96,6 +96,7 @@ function getRecapStatus(req: { status: string; _exceptionRecommendation?: string
     // Publication / Rework / Awaiting Your Review
     if (req._externalStatus === "Published External" || publishedExt) {
         if (status === "Needs Rework") return "rework-review";
+        if (status === "In Progress" && req._partnerDecision === "Rework Required") return "in-progress";
         if (status === "Completed") return "terminal-complete";
         return "awaiting-your-review";
     }
@@ -147,7 +148,7 @@ const STATUS_INFO: Record<string, ExternalStatusInfo> = {
   "rework-review": {
     status: "Rework Review",
     label: "Rework Requested — IntegraCare Review",
-    description: "IntegraCare is reviewing your requested revisions. No action is required from you right now.",
+    description: "Your requested changes were returned to IntegraCare. No action is required from you right now.",
     nextActionOwner: "IntegraCare",
     externalActionRequired: false,
     externalActionLabel: null,
@@ -226,7 +227,7 @@ const STATUS_INFO: Record<string, ExternalStatusInfo> = {
   },
 };
 
-export function getExternalStatusInfo(req: { status: string; _exceptionRecommendation?: string | null; _exceptionDecision?: string | null; _publishedExternal?: boolean; _externalStatus?: string | null; _exceptionSentAt?: string | null; _publishedAt?: string | null; _workNotes?: Array<{ action?: string | null }> | null; _blockerStatus?: string | null; _blockerExternalQuestion?: string | null; _blockerExternalResponse?: string | null; _processingStartedAt?: string | null; _archived?: boolean; _archiveReason?: string | null }): ExternalStatusInfo {
+export function getExternalStatusInfo(req: { status: string; _partnerDecision?: string | null; _exceptionRecommendation?: string | null; _exceptionDecision?: string | null; _publishedExternal?: boolean; _externalStatus?: string | null; _exceptionSentAt?: string | null; _publishedAt?: string | null; _workNotes?: Array<{ action?: string | null }> | null; _blockerStatus?: string | null; _blockerExternalQuestion?: string | null; _blockerExternalResponse?: string | null; _processingStartedAt?: string | null; _archived?: boolean; _archiveReason?: string | null }): ExternalStatusInfo {
   const key = getRecapStatus(req);
   return STATUS_INFO[key] || STATUS_INFO["submitted"];
 }

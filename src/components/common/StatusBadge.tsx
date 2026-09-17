@@ -2,6 +2,7 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; border: string; 
   "Open": { bg: "#eff6ff", text: "#1e40af", border: "#bfdbfe" },
   "Assigned": { bg: "#eef2ff", text: "#4338ca", border: "#c7d2fe" },
   "In Progress": { bg: "#fef3c7", text: "#92400e", border: "#fde68a" },
+  "Returned for Changes": { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa" },
   "Clarification Needed": { bg: "#fef3c7", text: "#92400e", border: "#fde68a" },
   "Blocked": { bg: "#fef2f2", text: "#dc2626", border: "#fecaca" },
   "Duplicate": { bg: "#f5f3ff", text: "#6d28d9", border: "#ddd6fe" },

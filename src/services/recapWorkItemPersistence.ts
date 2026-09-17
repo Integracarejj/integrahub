@@ -4,7 +4,7 @@ import type { RecapRequest } from "./recapMockData";
 export interface AuthoritativeAssignee { id: string; displayName: string | null; email: string | null; role: string }
 export interface WorkItemResponse {
     workItemId: string; intakeRequestId: string; requestNumber: string;
-    status: "Queued" | "Assigned" | "In Progress" | "Clarification Needed" | "Blocked" | "Needs DD Review" | "Ready to Publish" | "Not Applicable" | "Duplicate"; assignedUserId: string | null;
+    status: "Queued" | "Assigned" | "In Progress" | "Returned for Changes" | "Clarification Needed" | "Blocked" | "Needs DD Review" | "Ready to Publish" | "Not Applicable" | "Duplicate"; assignedUserId: string | null;
     assignedUserName: string | null; assignedUserEmail: string | null;
     team: string; priority: RecapRequest["priority"]; dueDate: string | null;
     title: string; description: string; category: string; communities: string[];
@@ -154,6 +154,7 @@ export async function assignAuthoritativeWorkItem(id: string, assignedUserId: st
     return mutate(id, "/assign", { assignedUserId });
 }
 export function acceptAuthoritativeWorkItem(id: string) { return mutate(id, "/accept", {}); }
+export function resumeAuthoritativeReturnedWork(id: string) { return mutate(id, "/resume-returned-work", {}); }
 export function submitAuthoritativeWorkItemForDdReview(id: string) { return mutate(id, "/submit-dd-review", {}); }
 export function returnAuthoritativeWorkItemFromDdReview(id: string, reason?: string) { return mutate(id, "/return-from-dd-review", { reason }); }
 export function markAuthoritativeWorkItemReadyToPublish(id: string) { return mutate(id, "/ready-to-publish", {}); }

@@ -9,7 +9,7 @@ import { assignAuthoritativeWorkItem, getAuthoritativeAssignees, loadAuthoritati
 import { getPresentedRecapRequests, isAuthoritativePartnerReworkActive, isRealInternalRecapMode } from "../../services/recapPresentation";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 
-const STATUS_OPTIONS = ["Open", "Assigned", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate", "Waiting Partner Review", "Needs Rework", "Completed"];
+const STATUS_OPTIONS = ["Open", "Assigned", "In Progress", "Returned for Changes", "Blocked", "Complete", "Not Applicable", "Duplicate", "Waiting Partner Review", "Needs Rework", "Completed"];
 
 type ViewTab = "needs-dd-review" | "ready-to-publish" | "partner-action" | "exceptions" | "published-external" | "activity-feed" | "full-work-queue";
 

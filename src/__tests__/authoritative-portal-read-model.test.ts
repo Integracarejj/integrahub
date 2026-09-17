@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mergePublicationRequests, projectAuthoritativePublications, projectPortalReadModel, type PortalReadModelResponse } from "../hooks/usePortalReadModel";
+import { getExternalStatusInfo } from "../services/externalStatusMapping";
 import type { AuthoritativePublication } from "../services/portalPublicationPersistence";
 
 const response: PortalReadModelResponse = { transactions: [
@@ -72,5 +73,10 @@ describe("authoritative external portal read projection", () => {
             transactionName: "Project Keystone", artifacts: [], workItemStatus: "Completed" };
         expect(projectAuthoritativePublications([{ ...base, status: "Approved", partnerGuidance: null }])[0]).toMatchObject({ status: "Completed", _partnerDecision: "Approved" });
         expect(projectAuthoritativePublications([{ ...base, status: "Rework Requested", partnerGuidance: "Revise" }])[0]).toMatchObject({ status: "Needs Rework", _partnerDecision: "Rework Required" });
+    });
+
+    it("shows rework as active only after the contributor resumes returned work", () => {
+        expect(getExternalStatusInfo({ status: "Needs Rework", _publishedExternal: true, _partnerDecision: "Rework Required" }).status).toBe("Rework Review");
+        expect(getExternalStatusInfo({ status: "In Progress", _publishedExternal: true, _partnerDecision: "Rework Required" }).status).toBe("In Progress");
     });
 });

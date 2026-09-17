@@ -7,7 +7,7 @@ import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
 import { loadAuthoritativeWorkItems } from "../../services/recapWorkItemPersistence";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
-import { getMyWorkRequests, getPresentedRecapRequests, isAuthoritativePartnerRework, isAuthoritativePartnerReworkActive, isRealInternalRecapMode } from "../../services/recapPresentation";
+import { getMyWorkRequests, getPresentedRecapRequests, isAuthoritativePartnerRework, isAuthoritativePartnerReturn, isRealInternalRecapMode } from "../../services/recapPresentation";
 
 type ViewTab = "active-work" | "waiting-dd-ops" | "completed-work" | "my-team" | "returned";
 
@@ -79,7 +79,7 @@ export default function RecapitalizationMyWork() {
 
     const activeWork = useMemo(() => {
         return assignedToMe.filter(r =>
-            isAuthoritativePartnerReworkActive(r) || (r.status === "In Progress" && r._partnerDecision === "Rework Required") || (
+            (r.status === "In Progress" && r._partnerDecision === "Rework Required") || (
             r.status !== "Complete" &&
             r.status !== "Needs DD Review" &&
             r.status !== "Ready to Publish" &&
@@ -129,7 +129,7 @@ export default function RecapitalizationMyWork() {
 
     const returnedItems = useMemo(() => {
         return assignedToMe.filter(r =>
-            (RETURNED_STATUSES.includes(r.status) && !(r.status === "Clarification Needed" && (r._returnReason || isActiveExternalClarification(r)))) || r._needsReassignment
+            isAuthoritativePartnerReturn(r) || (RETURNED_STATUSES.includes(r.status) && !(r.status === "Clarification Needed" && (r._returnReason || isActiveExternalClarification(r)))) || r._needsReassignment
         );
     }, [assignedToMe]);
 
@@ -222,7 +222,7 @@ export default function RecapitalizationMyWork() {
                                     onMouseEnter={e => { (e.target as HTMLElement).style.background = "#1e40af"; }}
                                     onMouseLeave={e => { (e.target as HTMLElement).style.background = "#1d4ed8"; }}
                                 >
-                                    {req.status === "In Progress" || req.status === "Needs Rework" ? "Resume" : req.status === "Blocked" ? "View" : "Open"}
+                                    {req.status === "Returned for Changes" ? "Resume Work" : req.status === "In Progress" || req.status === "Needs Rework" ? "Resume" : req.status === "Blocked" ? "View" : "Open"}
                                 </button>
                             </td>
                         </tr>

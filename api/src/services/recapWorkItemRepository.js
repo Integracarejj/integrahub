@@ -160,6 +160,9 @@ export function createRecapWorkItemRepository({ query = defaultQuery } = {}) {
         async accept(id, actor, expectedVersion) {
             return mutate(id, actor.id, expectedVersion, "Accepted", "status = 'In Progress', acceptedAt = SYSUTCDATETIME()", "workItem.assignedUserId = @actorId AND workItem.status = 'Assigned'");
         },
+        async resumeReturnedWork(id, actor, expectedVersion) {
+            return mutate(id, actor.id, expectedVersion, "ResumedReturnedWork", "status = 'In Progress', acceptedAt = SYSUTCDATETIME()", "workItem.assignedUserId = @actorId AND workItem.status = 'Returned for Changes'");
+        },
 
         async submitForDdReview(id, actor, expectedVersion) {
             return mutate(id, actor.id, expectedVersion, "SubmittedForDdReview", "status = 'Needs DD Review'", "workItem.assignedUserId = @actorId AND workItem.status = 'In Progress' AND workItem.proposedDisposition IS NULL");

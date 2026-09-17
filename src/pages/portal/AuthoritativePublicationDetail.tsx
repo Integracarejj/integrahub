@@ -204,7 +204,9 @@ function Detail({ id, previewOrganization }: { id: string; previewOrganization?:
 
             {adminPreview
                 ? <section className="apd-card apd-preview-note">Read-only admin preview. Partner decisions require a real authorized external account.</section>
-                : publication.status !== "Published" && <section className="apd-card apd-complete"><strong>{publication.status === "Approved" ? "Review complete" : "Changes requested"}</strong></section>}
+                : publication.status !== "Published" && <section className="apd-card apd-complete"><strong>{publication.status === "Approved" ? "Review complete" : publication.workItemStatus === "In Progress" ? "IntegraCare is working on your requested changes" : "Changes requested"}</strong></section>}
+
+            {publication.status === "Rework Requested" && <section className="apd-card apd-partner-comments"><strong>Your comments</strong><p>{publication.partnerGuidance || "Changes were requested."}</p><p>Requested {publication.partnerActionAt ? new Date(publication.partnerActionAt).toLocaleString() : "just now"}. Returned to IntegraCare for updates.</p></section>}
 
             <ResponseSection key={`${publication.id}:${publication.version}`} publication={publication} />
 

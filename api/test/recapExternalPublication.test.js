@@ -135,7 +135,7 @@ test("repository scopes edition lookup/list/content and captures findings only a
     for (const action of ["approve", "rework"]) {
         await repository.partnerAction(PUB, "member", "TEST-BROKER-ORG", action, "Revise", VERSION);
         const call = calls.at(-1);
-        assert.equal(call.params.workStatus, action === "approve" ? "Completed" : "In Progress");
+        assert.equal(call.params.workStatus, action === "approve" ? "Completed" : "Returned for Changes");
         assert.match(call.sql, /status = 'Waiting Partner Review'/);
         assert.match(call.sql, /publication.version = CONVERT\(binary\(8\), @expectedVersion, 1\)/);
         assert.match(call.sql, /WITH \(UPDLOCK, HOLDLOCK\)[\s\S]*publication.status = 'Published'/);
@@ -215,6 +215,15 @@ test("migration 024 adds nullable edition JSON without backfilling mutable respo
     assert.match(sql, /ADD contentSnapshotJson NVARCHAR\(MAX\) NULL/);
     assert.match(sql, /ISJSON\(contentSnapshotJson\) = 1/);
     assert.doesNotMatch(sql, /UPDATE\s+cmdb\./i);
+    const literal = sql.match(/DECLARE @contentSha256 CHAR\(64\) = '([A-F0-9]{64})'/)[1];
+    const normalized = sql.replace(/\r\n/g, "\n").replace(/(DECLARE @contentSha256 CHAR\(64\) = ')[A-F0-9]{64}/, "$1" + "0".repeat(64));
+    assert.equal(literal, createHash("sha256").update(normalized).digest("hex").toUpperCase());
+});
+
+test("migration 025 adds the durable partner-return state and resume audit event", async () => {
+    const sql = await readFile(new URL("../src/migrations/025_recap_partner_returned_for_changes.sql", import.meta.url), "utf8");
+    assert.match(sql, /'Returned for Changes'/);
+    assert.match(sql, /'ResumedReturnedWork'/);
     const literal = sql.match(/DECLARE @contentSha256 CHAR\(64\) = '([A-F0-9]{64})'/)[1];
     const normalized = sql.replace(/\r\n/g, "\n").replace(/(DECLARE @contentSha256 CHAR\(64\) = ')[A-F0-9]{64}/, "$1" + "0".repeat(64));
     assert.equal(literal, createHash("sha256").update(normalized).digest("hex").toUpperCase());

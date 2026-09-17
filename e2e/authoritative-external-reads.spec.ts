@@ -209,7 +209,7 @@ for (const action of ["approve", "rework"] as const) {
             expect(body).toEqual(action === "approve" ? { action, expectedVersion: publication.version }
                 : { action, guidance: "Revise the findings", expectedVersion: publication.version });
             current = { ...current, status: action === "approve" ? "Approved" : "Rework Requested",
-                workItemStatus: action === "approve" ? "Completed" : "In Progress", version: "0x0000000000000002" };
+                workItemStatus: action === "approve" ? "Completed" : "Returned for Changes", version: "0x0000000000000002" };
             await route.fulfill({ json: { publication: current } });
         });
         await navigate(page, "/portal/requests");

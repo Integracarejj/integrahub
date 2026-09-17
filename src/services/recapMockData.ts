@@ -35,7 +35,7 @@ export interface RecapRequest {
     description: string;
     owner: string | null;
     team: string;
-    status: "Queued" | "Provided" | "In Progress" | "Needs DD Review" | "Ready to Publish" | "Clarification Needed" | "Under Review" | "Open" | "Assigned" | "Overdue" | "Pending External" | "Blocked" | "Ready for Review" | "Complete" | "Not Applicable" | "Duplicate" | "Rejected" | "Waiting Partner Review" | "Completed" | "Needs Rework";
+    status: "Queued" | "Provided" | "In Progress" | "Returned for Changes" | "Needs DD Review" | "Ready to Publish" | "Clarification Needed" | "Under Review" | "Open" | "Assigned" | "Overdue" | "Pending External" | "Blocked" | "Ready for Review" | "Complete" | "Not Applicable" | "Duplicate" | "Rejected" | "Waiting Partner Review" | "Completed" | "Needs Rework";
     priority: "High" | "Medium" | "Low";
     dueDate: string;
     lastUpdated: string;

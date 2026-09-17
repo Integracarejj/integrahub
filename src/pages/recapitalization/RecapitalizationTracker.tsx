@@ -25,7 +25,7 @@ interface BulkEdit {
     visible: string;
 }
 
-const STATUS_OPTIONS = ["Open", "Assigned", "In Progress", "Blocked", "Complete", "Not Applicable", "Duplicate", "Waiting Partner Review", "Needs Rework", "Completed"];
+const STATUS_OPTIONS = ["Open", "Assigned", "In Progress", "Returned for Changes", "Blocked", "Complete", "Not Applicable", "Duplicate", "Waiting Partner Review", "Needs Rework", "Completed"];
 
 export default function RecapitalizationTracker() {
     const navigate = useNavigate();
