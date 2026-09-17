@@ -1,4 +1,5 @@
 import { getAuthHeaders } from "../utils/apiFetch";
+import { portalFetch } from "./portalSessionRecovery";
 
 export interface AuthoritativePublicationArtifact { id: string; fileName: string; contentType: string }
 export interface AuthoritativePublication {
@@ -13,7 +14,7 @@ export interface AuthoritativePublication {
 }
 
 async function request(path: string, init?: RequestInit) {
-    const response = await fetch(`/api/portal/recapitalization/publications${path}`, {
+    const response = await portalFetch(`/api/portal/recapitalization/publications${path}`, {
         credentials: "include", ...init,
         headers: { "Content-Type": "application/json", ...getAuthHeaders(), ...(init?.headers || {}) },
     });
@@ -22,11 +23,11 @@ async function request(path: string, init?: RequestInit) {
 }
 
 export async function loadAuthoritativePublications() {
-    return (await request("")).publications as AuthoritativePublication[];
+    return (await request("", { cache: "no-store" })).publications as AuthoritativePublication[];
 }
 
 export async function loadAuthoritativePublication(publicationId: string) {
-    return (await request(`/${encodeURIComponent(publicationId)}`)).publication as AuthoritativePublication;
+    return (await request(`/${encodeURIComponent(publicationId)}`, { cache: "no-store" })).publication as AuthoritativePublication;
 }
 
 export async function decideAuthoritativePublication(publication: AuthoritativePublication, action: "approve" | "rework", guidance?: string) {
@@ -38,14 +39,14 @@ export async function downloadAuthoritativePublishedArtifact(publicationId: stri
 }
 
 export async function downloadPublishedArtifactFrom(path: string, artifact: AuthoritativePublicationArtifact) {
-    const response = await fetch(path, { credentials: "include", headers: getAuthHeaders() });
+    const response = await portalFetch(path, { headers: getAuthHeaders() });
     if (!response.ok) throw new Error((await response.json().catch(() => null))?.error || "Download failed");
     const url = URL.createObjectURL(await response.blob());
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = artifact.fileName; anchor.click(); URL.revokeObjectURL(url);
 }
 
 export async function previewPublishedArtifactFrom(path: string, artifact: AuthoritativePublicationArtifact) {
-    const response = await fetch(path, { credentials: "include", headers: getAuthHeaders() });
+    const response = await portalFetch(path, { headers: getAuthHeaders() });
     if (!response.ok) throw new Error((await response.json().catch(() => null))?.error || "Preview failed");
     const contentType = response.headers.get("content-type") || artifact.contentType;
     if (!/^application\/pdf$|^image\//i.test(contentType)) throw new Error("Preview is not available for this document type");

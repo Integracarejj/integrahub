@@ -1,9 +1,10 @@
 import { getAuthHeaders } from "../utils/apiFetch";
 import { downloadPublishedArtifactFrom, previewPublishedArtifactFrom, type AuthoritativePublication } from "./portalPublicationPersistence";
+import { portalFetch } from "./portalSessionRecovery";
 
 const base = "/api/admin/recap-external-preview";
 async function read(path: string) {
-    const response = await fetch(base + path, { credentials: "include", headers: getAuthHeaders(), cache: "no-store" });
+    const response = await portalFetch(base + path, { headers: getAuthHeaders(), cache: "no-store" });
     if (!response.ok) throw new Error((await response.json().catch(() => null))?.error || "Admin preview could not be loaded");
     return response.json();
 }

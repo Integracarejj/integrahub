@@ -1,4 +1,5 @@
 import { getAuthHeaders } from "../utils/apiFetch";
+import { portalFetch } from "./portalSessionRecovery";
 
 function headers(contentType: string): Record<string, string> {
     return { ...getAuthHeaders(), "Content-Type": contentType };
@@ -21,7 +22,7 @@ export interface AuthoritativePortalTransaction {
 }
 
 export async function listAuthoritativeRecapTransactions(): Promise<AuthoritativePortalTransaction[]> {
-    const response = await fetch("/api/portal/recapitalization/transactions", {
+    const response = await portalFetch("/api/portal/recapitalization/transactions", {
         credentials: "include",
         headers: getAuthHeaders(),
     });

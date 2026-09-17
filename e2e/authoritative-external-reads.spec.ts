@@ -35,6 +35,7 @@ const publication = {
     transactionName: "Project Keystone", workItemStatus: "Waiting Partner Review",
     artifacts: [{ id: "33333333-3333-4333-8333-333333333333", fileName: "Corp Gov Docs.pptx", contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }],
 };
+const entraChallenge = "https://login.microsoftonline.com/example/oauth2/v2.0/authorize";
 
 async function mockRealReads(page: Page) {
     await page.route("**/api/me/permissions", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ user: null, permissions: { globalRole: "ExternalBroker", assignments: [] } }) }));
@@ -314,6 +315,158 @@ test("stale partner decision stays on the edition and offers a refresh", async (
     await expect(page.locator(".apd-complete").getByText("Review complete", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Approve Request", exact: true })).toHaveCount(0);
     expect(decisions).toBe(1);
+});
+
+for (const action of ["approve", "rework"] as const) {
+    test(`expired external session restores the same publication before ${action} without replaying a decision`, async ({ page }) => {
+        await mockRealReads(page);
+        const path = `/portal/publications/${publication.id}`;
+        const currentVersion = "0x0000000000000002";
+        let detailReads = 0;
+        let signIns = 0;
+        const decisions: Record<string, unknown>[] = [];
+        let status = "Published";
+        await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route => {
+            detailReads++;
+            if (detailReads === 1) return route.fulfill({ status: 302, headers: { location: entraChallenge } });
+            return route.fulfill({ json: { publication: { ...publication, status, version: currentVersion } } });
+        });
+        await page.route("**/.auth/login/aad?*", route => {
+            signIns++;
+            const returnRoute = new URL(route.request().url()).searchParams.get("post_login_redirect_uri");
+            expect(returnRoute).toBe(path);
+            return route.fulfill({ status: 302, headers: { location: returnRoute! } });
+        });
+        await page.route("**/api/portal/recapitalization/publications/*/decision", route => {
+            const body = JSON.parse(route.request().postData() || "{}");
+            decisions.push(body);
+            expect(body.expectedVersion).toBe(currentVersion);
+            status = action === "approve" ? "Approved" : "Rework Requested";
+            return route.fulfill({ json: { publication: { ...publication, status, version: "0x0000000000000003" } } });
+        });
+        await navigate(page, path);
+        await expect(page.getByRole("heading", { name: publication.title })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Refresh request" })).toHaveCount(0);
+        expect(signIns).toBe(1);
+        if (action === "approve") await page.getByRole("button", { name: "Approve Request" }).click();
+        else {
+            await page.getByRole("button", { name: "Request Changes" }).click();
+            const dialog = page.getByRole("dialog", { name: "Request Changes" });
+            await dialog.getByLabel("Rework guidance").fill("Revise section 4");
+            await dialog.getByRole("button", { name: "Request Changes" }).click();
+        }
+        await expect(page.locator(".apd-complete")).toContainText(action === "approve" ? "Review complete" : "Changes requested");
+        expect(decisions).toEqual([{ action, ...(action === "rework" ? { guidance: "Revise section 4" } : {}), expectedVersion: currentVersion }]);
+        expect(signIns).toBe(1);
+    });
+}
+
+test("a lost decision response reloads authoritative state instead of repeating the POST", async ({ page }) => {
+    await mockRealReads(page);
+    let status = "Published";
+    let decisions = 0;
+    await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route =>
+        route.fulfill({ json: { publication: { ...publication, status } } }));
+    await page.route("**/api/portal/recapitalization/publications/*/decision", route => {
+        decisions++;
+        status = "Approved";
+        return route.abort("failed");
+    });
+    await navigate(page, `/portal/publications/${publication.id}`);
+    await page.getByRole("button", { name: "Approve Request" }).click();
+    await expect(page.locator(".apd-complete")).toContainText("Review complete");
+    expect(decisions).toBe(1);
+    await expect(page.getByRole("button", { name: "Approve Request" })).toHaveCount(0);
+});
+
+test("an unverifiable decision outcome hides decision controls until authoritative state can be read", async ({ page }) => {
+    await mockRealReads(page);
+    let detailReads = 0;
+    let decisions = 0;
+    let decisionAttempted = false;
+    await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route => {
+        detailReads++;
+        return decisionAttempted ? route.abort("failed") : route.fulfill({ json: { publication } });
+    });
+    await page.route("**/api/portal/recapitalization/publications/*/decision", route => {
+        decisions++;
+        decisionAttempted = true;
+        return route.abort("failed");
+    });
+    await navigate(page, `/portal/publications/${publication.id}`);
+    await page.getByRole("button", { name: "Approve Request" }).click();
+    await expect(page.getByRole("alert")).toContainText("Failed to fetch");
+    await expect(page.getByRole("button", { name: "Approve Request" })).toHaveCount(0);
+    expect(detailReads).toBeGreaterThanOrEqual(2);
+    expect(decisions).toBe(1);
+});
+
+test("a decision redirect reauthenticates and reads the outcome without replaying the POST", async ({ page }) => {
+    await mockRealReads(page);
+    const path = `/portal/publications/${publication.id}`;
+    let status = "Published";
+    let decisions = 0;
+    let signIns = 0;
+    await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route =>
+        route.fulfill({ json: { publication: { ...publication, status } } }));
+    await page.route("**/.auth/login/aad?*", route => {
+        signIns++;
+        expect(new URL(route.request().url()).searchParams.get("post_login_redirect_uri")).toBe(path);
+        return route.fulfill({ status: 302, headers: { location: path } });
+    });
+    await page.route("**/api/portal/recapitalization/publications/*/decision", route => {
+        decisions++;
+        status = "Rework Requested";
+        return route.fulfill({ status: 302, headers: { location: entraChallenge } });
+    });
+    await navigate(page, path);
+    await page.getByRole("button", { name: "Request Changes" }).click();
+    const dialog = page.getByRole("dialog", { name: "Request Changes" });
+    await dialog.getByLabel("Rework guidance").fill("Revise section 4");
+    await dialog.getByRole("button", { name: "Request Changes" }).click();
+    await expect(page.locator(".apd-complete")).toContainText("Changes requested");
+    expect(signIns).toBe(1);
+    expect(decisions).toBe(1);
+    await expect(page.getByRole("button", { name: "Request Changes" })).toHaveCount(0);
+});
+
+test("an initial current-user challenge returns to the intended publication route", async ({ page }) => {
+    await mockRealReads(page);
+    const path = `/portal/publications/${publication.id}`;
+    let identityReads = 0;
+    let signIns = 0;
+    await page.route("**/api/me", route => {
+        identityReads++;
+        if (identityReads === 1) return route.fulfill({ status: 302, headers: { location: entraChallenge } });
+        return route.fulfill({ json: externalUser });
+    });
+    await page.route("**/.auth/login/aad?*", route => {
+        signIns++;
+        expect(new URL(route.request().url()).searchParams.get("post_login_redirect_uri")).toBe(path);
+        return route.fulfill({ status: 302, headers: { location: path } });
+    });
+    await navigate(page, path);
+    await expect(page.getByRole("heading", { name: publication.title })).toBeVisible();
+    expect(signIns).toBe(1);
+    expect(identityReads).toBeGreaterThanOrEqual(2);
+    await expect(page.getByRole("button", { name: "Refresh request" })).toHaveCount(0);
+});
+
+test("a repeated auth challenge stops the loop and offers sign-in rather than Refresh request", async ({ page }) => {
+    await mockRealReads(page);
+    const path = `/portal/publications/${publication.id}`;
+    let signIns = 0;
+    await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route =>
+        route.fulfill({ status: 302, headers: { location: entraChallenge } }));
+    await page.route("**/.auth/login/aad?*", route => {
+        signIns++;
+        return route.fulfill({ status: 302, headers: { location: path } });
+    });
+    await navigate(page, path);
+    await expect(page.getByRole("alert")).toContainText("Your session could not be restored. Please sign in again.");
+    await expect(page.getByRole("button", { name: "Refresh request" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Sign in again" })).toHaveAttribute("href", `/.auth/login/aad?post_login_redirect_uri=${encodeURIComponent(path)}`);
+    expect(signIns).toBe(1);
 });
 
 for (const findings of ["Immutable edition findings", ""]) {

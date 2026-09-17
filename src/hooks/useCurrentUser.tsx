@@ -1,6 +1,7 @@
 import { useEffect, useState, createContext, useContext } from "react";
 import { setAuthenticatedExternalContext } from "../services/portalRuntimeContext";
 import { isExternalOnlyRole } from "../utils/accessRouting";
+import { isPortalSessionRecoveryInProgress, portalFetch, PORTAL_SESSION_CHALLENGE } from "../services/portalSessionRecovery";
 
 export interface UserRecord {
     id: string;
@@ -48,7 +49,14 @@ export function CurrentUserProvider({ children }: { children: React.ReactNode })
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        fetch("/api/me")
+        const onSessionChallenge = () => {
+            setAuthenticatedExternalContext(null);
+            setUser(null);
+            setLoading(true);
+            setError(null);
+        };
+        window.addEventListener(PORTAL_SESSION_CHALLENGE, onSessionChallenge);
+        portalFetch("/api/me", { cache: "no-store" })
             .then((res) => {
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 return res.json();
@@ -70,12 +78,15 @@ export function CurrentUserProvider({ children }: { children: React.ReactNode })
                 setError(null);
             })
             .catch((err) => {
+                if (isPortalSessionRecoveryInProgress()) return;
                 setAuthenticatedExternalContext(null);
+                setUser(null);
                 setError(err.message);
             })
             .finally(() => {
-                setLoading(false);
+                if (!isPortalSessionRecoveryInProgress()) setLoading(false);
             });
+        return () => window.removeEventListener(PORTAL_SESSION_CHALLENGE, onSessionChallenge);
     }, []);
 
     return (

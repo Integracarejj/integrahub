@@ -48,6 +48,7 @@ import RecapitalizationReports from "../pages/recapitalization/RecapitalizationR
 import RecapitalizationSettings from "../pages/recapitalization/RecapitalizationSettings";
 import RecapitalizationWorkspace from "../pages/recapitalization/RecapitalizationWorkspace";
 import { shouldRedirectFromInternal } from "../utils/accessRouting";
+import { portalSignInUrl, PORTAL_SESSION_RECOVERY_FAILED } from "../services/portalSessionRecovery";
 import DocumentHubPage from "../pages/documents/DocumentHubPage";
 
 /**
@@ -171,6 +172,7 @@ function AuthAwareRouter() {
             <div className="error-screen">
                 <h2>Unable to Load</h2>
                 <p>Could not verify your account: {error}</p>
+                {error === PORTAL_SESSION_RECOVERY_FAILED && <a href={portalSignInUrl()}>Sign in again</a>}
             </div>
         );
     }

@@ -5,6 +5,7 @@ import { getPortalRequests, getPortalTransactions } from "../services/portalMock
 import type { PortalRequest, PortalTransaction } from "../services/portalMockData";
 import { getAuthHeaders } from "../utils/apiFetch";
 import { loadAuthoritativePublications, type AuthoritativePublication } from "../services/portalPublicationPersistence";
+import { portalFetch } from "../services/portalSessionRecovery";
 
 export interface AuthoritativePortalPackage {
     id: string; sourcePackageId: string; name: string; fileName: string;
@@ -87,7 +88,7 @@ export function usePortalReadModel() {
         let cancelled = false;
         setLoading(true);
         setLoadedUserId(null); setResponse({ transactions: [] }); setPublications([]); setError(null);
-        Promise.all([fetch("/api/portal/recapitalization/read-model", { credentials: "include", headers: getAuthHeaders() })
+        Promise.all([portalFetch("/api/portal/recapitalization/read-model", { headers: getAuthHeaders() })
             .then(async result => {
                 if (!result.ok) throw new Error((await result.json().catch(() => null))?.error || "Portal data could not be loaded");
                 return result.json();

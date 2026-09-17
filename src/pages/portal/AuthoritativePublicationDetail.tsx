@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { previewTransport } from "../../services/portalAdminPreview";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { isExternalOnlyRole } from "../../utils/accessRouting";
+import { portalSignInUrl, PORTAL_SESSION_RECOVERY_FAILED } from "../../services/portalSessionRecovery";
 import {
     decideAuthoritativePublication,
     downloadAuthoritativePublishedArtifact,
@@ -100,6 +101,27 @@ function Detail({ id, previewOrganization }: { id: string; previewOrganization?:
             setChanges(false);
             setGuidance("");
         } catch (decisionError) {
+            // A lost POST response leaves the outcome unknown. Read the server's
+            // current state before offering another decision; never replay it.
+            if (decisionError instanceof TypeError) {
+                setPublication(null);
+                setLoading(true);
+                try {
+                    const current = await loadAuthoritativePublication(id);
+                    setPublication(current);
+                    if (current.status !== "Published") {
+                        setChanges(false);
+                        setGuidance("");
+                    } else {
+                        setError("We could not confirm your decision. Review the current request before submitting again.");
+                    }
+                } catch (refreshError) {
+                    setError(refreshError instanceof Error ? refreshError.message : "Request could not be loaded");
+                } finally {
+                    setLoading(false);
+                }
+                return;
+            }
             setError(decisionError instanceof Error ? decisionError.message : "Your decision could not be saved");
         } finally {
             setBusy(false);
@@ -113,7 +135,9 @@ function Detail({ id, previewOrganization }: { id: string; previewOrganization?:
     return <main className="portal-overview apd-page">
         {!adminPreview && <Link className="apd-back" to="/portal/requests"><span aria-hidden="true">←</span> Requests</Link>}
         {loading && <div className="apd-card" role="status">Loading request...</div>}
-        {error && <div className="apd-error" role="alert"><strong>{error}</strong><button className="rc-btn rc-btn-ghost" disabled={busy} onClick={() => setRefresh(value => value + 1)}>Refresh request</button></div>}
+        {error && <div className="apd-error" role="alert"><strong>{error}</strong>{error === PORTAL_SESSION_RECOVERY_FAILED
+            ? <a className="rc-btn rc-btn-ghost" href={portalSignInUrl()}>Sign in again</a>
+            : <button className="rc-btn rc-btn-ghost" disabled={busy} onClick={() => setRefresh(value => value + 1)}>Refresh request</button>}</div>}
         {publication && <>
             <header className="apd-review-header">
                 <div className="apd-header-top">
