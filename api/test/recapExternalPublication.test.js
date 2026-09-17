@@ -40,6 +40,32 @@ test("edition detail uses its snapshot instead of current Working response and p
     assert.equal((await service.getExternal(PUB, { id: "member", portalRole: "ExternalBroker" })).responseSnapshotAvailable, true);
 });
 
+test("external publication projections canonicalize SQL driver rowversion bytes for both partner decisions", async () => {
+    const driverVersion = String.fromCharCode(0, 0, 0, 0, 0, 3, 0x1d, 3);
+    const canonicalVersion = "0x0000000000031D03";
+    let receivedVersion = null;
+    const row = { id: PUB, status: "Published", version: driverVersion, targetExternalOrganizationId: "TEST-BROKER-ORG" };
+    const service = createRecapPublicationService({ repository: {
+        getExternalPublication: async () => row,
+        listForExternalUser: async () => [row],
+        listArtifacts: async () => [],
+        partnerAction: async (_id, _user, _organization, action, _guidance, expectedVersion) => {
+            receivedVersion = expectedVersion;
+            return { ...row, status: action === "approve" ? "Approved" : "Rework Requested", version: Buffer.from([0, 0, 0, 0, 0, 3, 0x1d, 4]) };
+        },
+    } });
+    const actor = { id: "member", portalRole: "ExternalBroker" };
+    const detail = await service.getExternal(PUB, actor);
+    assert.equal(detail.version, canonicalVersion);
+    assert.doesNotMatch(detail.version, /[\u0000-\u001f]/);
+    for (const action of ["approve", "rework"]) {
+        const result = await service.partnerAction(PUB, { action, expectedVersion: canonicalVersion, ...(action === "rework" ? { guidance: "Revise" } : {}) }, actor);
+        assert.equal(receivedVersion, canonicalVersion);
+        assert.equal(result.version, "0x0000000000031D04");
+    }
+    await assert.rejects(() => service.partnerAction(PUB, { action: "approve", expectedVersion: driverVersion }, actor));
+});
+
 test("new editions capture once; Pending retries and legacy retries never recapture Working findings", async () => {
     const editions = [];
     const snapshots = new Map();
@@ -101,7 +127,7 @@ test("repository scopes edition lookup/list/content and captures findings only a
         assert.match(call.sql, /membership\.externalOrganizationId = publication\.targetExternalOrganizationId/);
         assert.equal(call.params.userId, "member");
     }
-    assert.match(calls[0].sql, /CONVERT\(varchar\(18\), publication.version, 1\) AS version/);
+    assert.match(calls[0].sql, /publication\.version AS version/);
     assert.match(calls[1].sql, /publication.id = @publicationId/);
     assert.match(calls[2].sql, /published.publicationId = @publicationId AND published.artifactId = @artifactId AND published.status = 'Active'/);
     await repository.begin({ workItemId: WORK, owningExternalOrganizationId: "TEST-BROKER-ORG" }, "publish:key", "dd", VERSION);

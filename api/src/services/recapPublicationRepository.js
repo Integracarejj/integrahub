@@ -5,12 +5,12 @@ const publicationSelect = `SELECT TOP (1) publication.id, publication.workItemId
     publication.operationKey, publication.targetExternalOrganizationId, publication.status,
     publication.publishedByUserId, publication.publishedAt, publication.partnerActorUserId,
     publication.partnerActorOrganizationId, publication.partnerActionAt, publication.partnerGuidance, publication.contentSnapshotJson,
-    CONVERT(varchar(18), publication.version, 1) AS version
+    publication.version AS version
     FROM cmdb.RecapPublications publication`;
 
 const externalPublicationSelect = `SELECT publication.id, publication.workItemId, publication.publicationNumber, publication.status,
     publication.publishedAt, publication.partnerActionAt, publication.partnerGuidance, publication.contentSnapshotJson,
-    CONVERT(varchar(18), publication.version, 1) AS version,
+    publication.version AS version,
     workItem.requestNumber, workItem.title, workItem.description, workItem.status AS workItemStatus,
     requestRow.intakePackageId, requestRow.sourceRowNumber,
     transactionRow.businessTransactionId, transactionRow.name AS transactionName,

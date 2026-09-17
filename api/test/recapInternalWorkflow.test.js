@@ -39,6 +39,12 @@ test("repository binary rowversion is projected as the canonical browser round-t
     assert.equal(assigned.version, "0x0000000000000053");
 });
 
+test("rowversion serializer preserves the driver binary-string bytes used by production", async () => {
+    const driverValue = String.fromCharCode(0, 0, 0, 0, 0, 3, 0x1d, 3);
+    assert.equal(serializeRowVersion(driverValue), "0x0000000000031D03");
+    assert.equal(serializeRowVersion(Uint8Array.from([0, 0, 0, 0, 0, 3, 0x1d, 3])), "0x0000000000031D03");
+});
+
 test("migration 021 is additive, transactional, checksummed, rerunnable, and fail-closed", async () => {
     const sql = await readFile(new URL("../src/migrations/021_recap_internal_workflow.sql", import.meta.url), "utf8");
     const checksum = sql.match(/DECLARE @contentSha256 CHAR\(64\) = '([0-9A-F]{64})'/)?.[1];

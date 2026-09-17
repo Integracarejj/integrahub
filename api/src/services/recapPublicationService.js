@@ -3,9 +3,10 @@ import { ClientSecretGraphAuthProvider } from "../integrations/sharepoint/auth.j
 import { getSharePointSiteTarget, loadSharePointConfig } from "../integrations/sharepoint/config.js";
 import { GraphRequestError, SharePointGraphClient } from "../integrations/sharepoint/graphClient.js";
 import { recapPublicationRepository } from "./recapPublicationRepository.js";
+import { ROWVERSION_TOKEN, serializeRecapRowVersion } from "./recapRowVersion.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const VERSION = /^0x[0-9a-f]{16}$/i;
+const VERSION = ROWVERSION_TOKEN;
 const KEY = /^[A-Za-z0-9._:-]{8,128}$/;
 const MAX_STORED_BYTES = 20 * 1024 * 1024;
 
@@ -48,7 +49,7 @@ function publicPublication(row, artifacts = []) {
         id: String(row.id), workItemId: String(row.workItemId), publicationNumber: Number(row.publicationNumber),
         status: row.status, externalOrganizationId: row.targetExternalOrganizationId,
         publishedAt: row.publishedAt || null, partnerActionAt: row.partnerActionAt || null,
-        partnerGuidance: row.partnerGuidance || null, version: row.version,
+        partnerGuidance: row.partnerGuidance || null, version: serializeRecapRowVersion(row.version),
         requestId: content.requestNumber, title: content.title, description: content.description,
         transactionId: content.businessTransactionId, transactionName: content.transactionName,
         responseContent: snapshot?.responseContent ?? null, responseSnapshotAvailable: snapshot !== null,

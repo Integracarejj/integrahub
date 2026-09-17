@@ -1,10 +1,11 @@
 import { recapWorkItemRepository } from "./recapWorkItemRepository.js";
+import { ROWVERSION_TOKEN, serializeRecapRowVersion } from "./recapRowVersion.js";
 
 export class RecapWorkItemValidationError extends Error {}
 export class RecapWorkItemConflictError extends Error {}
 export class RecapWorkItemAuthorizationError extends Error {}
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const VERSION = /^0x[0-9a-f]{16}$/i;
+const VERSION = ROWVERSION_TOKEN;
 function text(value, max, label = "Text") {
     if (value == null) return null;
     const normalized = String(value).trim();
@@ -14,12 +15,7 @@ function text(value, max, label = "Text") {
 const isOperationsActor = actor => ["PlatformAdmin", "DDTeam"].includes(actor?.globalRole);
 
 export function serializeRowVersion(value) {
-    if (typeof value === "string" && VERSION.test(value.trim())) return value.trim().toLowerCase();
-    if (Buffer.isBuffer(value) && value.length === 8) return `0x${value.toString("hex")}`;
-    if (value?.type === "Buffer" && Array.isArray(value.data) && value.data.length === 8 && value.data.every(byte => Number.isInteger(byte) && byte >= 0 && byte <= 255)) {
-        return `0x${Buffer.from(value.data).toString("hex")}`;
-    }
-    return value;
+    return serializeRecapRowVersion(value);
 }
 
 function requireOperations(actor) {
