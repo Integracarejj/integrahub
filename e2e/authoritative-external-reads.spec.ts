@@ -13,18 +13,22 @@ const transactions = [
     { id: "REC-2026-00000004", name: "Project Keystone", status: "Active", owningExternalOrganizationId: "TEST-BROKER-ORG", recoverablePackage: null },
 ];
 
-const readModel = { transactions: [
-    { ...transactions[0], createdAt: "2026-08-18", packages: [{
-        id: "pkg-3", sourcePackageId: "sub-3", name: "Project Keystone", fileName: "Project Keystone.xlsx",
-        status: "Awaiting Review", requestCount: 2, submittedAt: "2026-08-18T12:00:00Z",
-        submittedBy: { id: "real-user", name: "Jeremy Joyner", email: "joyner.jeremy@ymail.com" },
-        requests: [
-            { rowNumber: 1, category: "Legal", title: "Contracts", description: "All contracts", team: "Legal", owner: null, priority: "High", dueDate: null, communityNames: [] },
-            { rowNumber: 2, category: "Finance", title: "Rent roll", description: "Current rent roll", team: "Finance", owner: null, priority: "Medium", dueDate: null, communityNames: [] },
-        ],
-    }] },
-    { ...transactions[1], createdAt: "2026-08-18", packages: [] },
-] };
+const readModel = {
+    transactions: [
+        {
+            ...transactions[0], createdAt: "2026-08-18", packages: [{
+                id: "pkg-3", sourcePackageId: "sub-3", name: "Project Keystone", fileName: "Project Keystone.xlsx",
+                status: "Awaiting Review", requestCount: 2, submittedAt: "2026-08-18T12:00:00Z",
+                submittedBy: { id: "real-user", name: "Jeremy Joyner", email: "joyner.jeremy@ymail.com" },
+                requests: [
+                    { rowNumber: 1, category: "Legal", title: "Contracts", description: "All contracts", team: "Legal", owner: null, priority: "High", dueDate: null, communityNames: [] },
+                    { rowNumber: 2, category: "Finance", title: "Rent roll", description: "Current rent roll", team: "Finance", owner: null, priority: "Medium", dueDate: null, communityNames: [] },
+                ],
+            }]
+        },
+        { ...transactions[1], createdAt: "2026-08-18", packages: [] },
+    ]
+};
 
 const publication = {
     id: "55555555-5555-4555-8555-555555555555", workItemId: "22222222-2222-4222-8222-222222222222",
@@ -105,11 +109,13 @@ test("long request titles expand in place and review guidance stays on demand", 
 test("real external Overview shows the clean Submitted Requests grid and publication-bound actions", async ({ page }) => {
     await mockRealReads(page);
     await page.setViewportSize({ width: 1280, height: 900 });
-    const multi = { ...publication, responseSnapshotAvailable: false, responseContent: null, artifacts: [
-        { id: "pdf-one", fileName: "First.pdf", contentType: "application/pdf" },
-        { id: "pdf-two", fileName: "Second.pdf", contentType: "application/pdf" },
-        { id: "office", fileName: "Workbook.xlsx", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
-    ] };
+    const multi = {
+        ...publication, responseSnapshotAvailable: false, responseContent: null, artifacts: [
+            { id: "pdf-one", fileName: "First.pdf", contentType: "application/pdf" },
+            { id: "pdf-two", fileName: "Second.pdf", contentType: "application/pdf" },
+            { id: "office", fileName: "Workbook.xlsx", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+        ]
+    };
     await page.route("**/api/portal/recapitalization/publications", route => route.fulfill({ json: { publications: [multi] } }));
     await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route => route.fulfill({ json: { publication: multi } }));
     await page.route("**/api/portal/recapitalization/publications/*/artifacts/*/content", route => route.fulfill({ body: "edition bytes", headers: { "content-type": "application/pdf" } }));
@@ -170,11 +176,13 @@ test("real external Overview shows the clean Submitted Requests grid and publica
 
 test("grid chooses among multiple previewable edition documents without opening the request", async ({ page }) => {
     await mockRealReads(page);
-    const multi = { ...publication, artifacts: [
-        { id: "pdf-one", fileName: "First.pdf", contentType: "application/pdf" },
-        { id: "pdf-two", fileName: "Second.pdf", contentType: "application/pdf" },
-        { id: "office", fileName: "Workbook.xlsx", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
-    ] };
+    const multi = {
+        ...publication, artifacts: [
+            { id: "pdf-one", fileName: "First.pdf", contentType: "application/pdf" },
+            { id: "pdf-two", fileName: "Second.pdf", contentType: "application/pdf" },
+            { id: "office", fileName: "Workbook.xlsx", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+        ]
+    };
     await page.route("**/api/portal/recapitalization/publications", route => route.fulfill({ json: { publications: [multi] } }));
     await page.route("**/api/portal/recapitalization/publications/*/artifacts/*/content", route => route.fulfill({ body: "edition bytes", headers: { "content-type": "application/pdf" } }));
     await navigate(page, "/portal/requests");
@@ -192,7 +200,8 @@ test("grid chooses among multiple previewable edition documents without opening 
 for (const action of ["approve", "rework"] as const) {
     test(`0178 opens from real Requests with two edition documents and supports ${action}`, async ({ page }) => {
         await mockRealReads(page);
-        let current = { ...publication, requestId: "DD-2026-00000178", transactionName: "Project Liberty",
+        let current = {
+            ...publication, requestId: "DD-2026-00000178", transactionName: "Project Liberty",
             title: "Confirm LTC and its subsidiaries have no lease or other contractual arrangement with the proposed EIK or affiliates.",
             responseContent: "", responseSnapshotAvailable: false,
             artifacts: [
@@ -210,8 +219,10 @@ for (const action of ["approve", "rework"] as const) {
             const body = route.request().postDataJSON(); decisions.push(body);
             expect(body).toEqual(action === "approve" ? { action, expectedVersion: publication.version }
                 : { action, guidance: "Revise the findings", expectedVersion: publication.version });
-            current = { ...current, status: action === "approve" ? "Approved" : "Rework Requested",
-                workItemStatus: action === "approve" ? "Completed" : "Returned for Changes", version: "0x0000000000000002" };
+            current = {
+                ...current, status: action === "approve" ? "Approved" : "Rework Requested",
+                workItemStatus: action === "approve" ? "Completed" : "Returned for Changes", version: "0x0000000000000002"
+            };
             await route.fulfill({ json: { publication: current } });
         });
         await navigate(page, "/portal/requests");
@@ -310,9 +321,12 @@ test("real external publication errors and cross-org absence never fall back to 
 
 test("an internal demo persona cannot load a live publication", async ({ page }) => {
     await mockRealReads(page);
-    await page.route("**/api/me", route => route.fulfill({ json: { ...externalUser,
-        userRecord: { ...externalUser.userRecord, role: "PlatformAdmin" }, portalRole: null, isPortalUser: false, externalContext: null,
-    } }));
+    await page.route("**/api/me", route => route.fulfill({
+        json: {
+            ...externalUser,
+            userRecord: { ...externalUser.userRecord, role: "PlatformAdmin" }, portalRole: null, isPortalUser: false, externalContext: null,
+        }
+    }));
     let requests = 0;
     await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route => { requests++; return route.fulfill({ status: 403 }); });
     await navigate(page, `/portal/publications/${publication.id}`);
@@ -333,9 +347,11 @@ test("stale partner decision stays on the edition and offers a refresh", async (
     await expect(page.getByRole("alert")).toContainText("Partner action cannot be applied or is stale");
     await expect(page.getByRole("button", { name: "Refresh request" })).toBeEnabled();
     await expect(page.locator(".apd-current-status").getByText("Review complete.", { exact: true })).toHaveCount(0);
-    await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route => route.fulfill({ json: {
-        publication: { ...publication, status: "Approved", version: "0x0000000000000002" },
-    } }));
+    await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route => route.fulfill({
+        json: {
+            publication: { ...publication, status: "Approved", workItemStatus: "Completed", version: "0x0000000000000002" },
+        }
+    }));
     await page.getByRole("button", { name: "Refresh request" }).click();
     await expect(page.locator(".apd-current-status").getByText("Review complete.", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Approve Request", exact: true })).toHaveCount(0);
@@ -351,10 +367,11 @@ for (const action of ["approve", "rework"] as const) {
         let signIns = 0;
         const decisions: Record<string, unknown>[] = [];
         let status = "Published";
+        let workItemStatus = "Waiting Partner Review";
         await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route => {
             detailReads++;
             if (detailReads === 1) return route.fulfill({ status: 302, headers: { location: entraChallenge } });
-            return route.fulfill({ json: { publication: { ...publication, status, version: currentVersion } } });
+            return route.fulfill({ json: { publication: { ...publication, status, workItemStatus, version: currentVersion } } });
         });
         await page.route("**/.auth/login/aad?*", route => {
             signIns++;
@@ -367,7 +384,8 @@ for (const action of ["approve", "rework"] as const) {
             decisions.push(body);
             expect(body.expectedVersion).toBe(currentVersion);
             status = action === "approve" ? "Approved" : "Rework Requested";
-            return route.fulfill({ json: { publication: { ...publication, status, version: "0x0000000000000003" } } });
+            workItemStatus = action === "approve" ? "Completed" : "Returned for Changes";
+            return route.fulfill({ json: { publication: { ...publication, status, workItemStatus, version: "0x0000000000000003" } } });
         });
         await navigate(page, path);
         await expect(page.getByRole("heading", { name: publication.title })).toBeVisible();
@@ -497,9 +515,11 @@ test("a repeated auth challenge stops the loop and offers sign-in rather than Re
 for (const findings of ["Immutable edition findings", ""]) {
     test(`a new edition distinguishes captured ${findings ? "findings" : "blank findings"} from legacy absence`, async ({ page }) => {
         await mockRealReads(page);
-        await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route => route.fulfill({ json: {
-            publication: { ...publication, responseSnapshotAvailable: true, responseContent: findings },
-        } }));
+        await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route => route.fulfill({
+            json: {
+                publication: { ...publication, responseSnapshotAvailable: true, responseContent: findings },
+            }
+        }));
         await navigate(page, `/portal/publications/${publication.id}`);
         if (findings) await expect(page.getByText(findings, { exact: true })).toBeVisible();
         else {
@@ -516,7 +536,7 @@ test("authoritative published request supports server-backed partner review with
     const decisions: Record<string, unknown>[] = [];
     await page.route("**/api/portal/recapitalization/publications/*/decision", async route => {
         decisions.push(JSON.parse(route.request().postData() || "{}"));
-        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ publication: { ...publication, status: "Rework Requested", partnerGuidance: "Revise section 4" } }) });
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ publication: { ...publication, status: "Rework Requested", workItemStatus: "Returned for Changes", partnerGuidance: "Revise section 4" } }) });
     });
     await navigate(page, `/portal/requests/${publication.workItemId}`);
     await expect(page.getByText("Corp Gov Docs.pptx")).toBeVisible();
