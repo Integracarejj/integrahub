@@ -12,6 +12,7 @@ import type { RecapRequest, WorkArtifact } from "../../services/recapDataService
 import { assignAuthoritativeWorkItem, getAuthoritativeAssignees, loadAuthoritativeWorkItems } from "../../services/recapWorkItemPersistence";
 import { getPresentedRecapRequests, isRealInternalRecapMode } from "../../services/recapPresentation";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { useAuthoritativeRevalidation } from "../../hooks/useAuthoritativeRevalidation";
 import RecapSubNav from "./RecapSubNav";
 import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
@@ -41,6 +42,7 @@ export default function RecapitalizationTracker() {
     const assignees = getAuthoritativeAssignees();
     const members = [...demoMembers, ...assignees.filter(user => !demoMembers.some(member => member.id === user.id)).map(user => ({ id: user.id, name: user.displayName || user.email || user.id, team: "" }))];
     useEffect(() => { loadAuthoritativeWorkItems().then(() => setRefreshKey(k => k + 1)).catch(() => setBulkToast("Durable Work Queue is unavailable.")); }, []);
+    useAuthoritativeRevalidation(async () => { await loadAuthoritativeWorkItems(); setRefreshKey(k => k + 1); }, realInternalMode);
 
     const [search, setSearch] = useState("");
     const [filterTxn, setFilterTxn] = useState("all");

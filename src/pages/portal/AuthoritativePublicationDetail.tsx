@@ -4,6 +4,8 @@ import { previewTransport } from "../../services/portalAdminPreview";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { isExternalOnlyRole } from "../../utils/accessRouting";
 import { portalSignInUrl, PORTAL_SESSION_RECOVERY_FAILED } from "../../services/portalSessionRecovery";
+import { getExternalStatusInfo, getStatusPillStyle } from "../../services/externalStatusMapping";
+import { useAuthoritativeRevalidation } from "../../hooks/useAuthoritativeRevalidation";
 import {
     decideAuthoritativePublication,
     downloadAuthoritativePublishedArtifact,
@@ -41,6 +43,12 @@ function RequestTitle({ title }: { title: string }) {
         <h1 ref={heading} id="apd-request-title" className={`po-welcome-title apd-title${expanded ? " apd-title-expanded" : ""}`}>{title}</h1>
         {overflow && <button type="button" className="apd-text-control" aria-expanded={expanded} aria-controls="apd-request-title" onClick={() => setExpanded(value => !value)}>{expanded ? "Show less" : "Show full request"}</button>}
     </div>;
+}
+
+function ExternalPublicationStatus({ publication }: { publication: AuthoritativePublication }) {
+    const info = getExternalStatusInfo({ status: publication.workItemStatus, _partnerDecision: publication.status === "Rework Requested" ? "Rework Required" : publication.status === "Approved" ? "Approved" : null, _publishedExternal: true, _externalStatus: "Published External" });
+    const style = getStatusPillStyle(info.label);
+    return <span className="po-status-badge apd-status-badge" style={{ background: style.bg, color: style.text, borderColor: style.border }}>{info.label}</span>;
 }
 
 function ResponseSection({ publication }: { publication: AuthoritativePublication }) {
@@ -88,6 +96,12 @@ function Detail({ id, previewOrganization }: { id: string; previewOrganization?:
     useEffect(() => () => {
         if (preview) URL.revokeObjectURL(preview.url);
     }, [preview]);
+
+    useAuthoritativeRevalidation(async () => {
+        if (!external && !adminPreview) return;
+        const latest = adminPreview ? await previewTransport(previewOrganization!).load(id) : await loadAuthoritativePublication(id);
+        setPublication(latest); setError(null);
+    }, external || adminPreview);
 
     const closePreview = () => setPreview(null);
 
@@ -144,7 +158,7 @@ function Detail({ id, previewOrganization }: { id: string; previewOrganization?:
                     <p className="apd-meta">{publication.transactionName}<span aria-hidden="true">·</span>{publication.requestId}<span aria-hidden="true">·</span>Submitted {new Date(publication.publishedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</p>
                     <button type="button" className="apd-guidance-button" aria-label="What do I do next?" title="What do I do next?" aria-expanded={showReviewGuidance} aria-controls="apd-review-guidance" onClick={() => setShowReviewGuidance(value => !value)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M9.6 9a2.5 2.5 0 0 1 4.8 1c0 1.7-2.4 2-2.4 3.7" /><path d="M12 17.5h.01" /></svg>What do I do next?</button>
                 </div>
-                <RequestTitle title={publication.title} />
+                <div className="apd-title-line"><RequestTitle title={publication.title} /><ExternalPublicationStatus publication={publication} /></div>
                 {showReviewGuidance && <p id="apd-review-guidance" className="apd-guidance">{adminPreview ? "Review the supporting documents. Partner decisions are unavailable in this read-only preview." : "Review the supporting documents. Approve the request if everything looks complete, or request changes if IntegraCare needs to update something."}</p>}
             </header>
 

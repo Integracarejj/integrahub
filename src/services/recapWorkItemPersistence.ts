@@ -1,4 +1,5 @@
 import { getAuthHeaders } from "../utils/apiFetch";
+import { requestAuthoritativeRevalidation } from "../hooks/useAuthoritativeRevalidation";
 import type { RecapRequest } from "./recapMockData";
 
 export interface AuthoritativeAssignee { id: string; displayName: string | null; email: string | null; role: string }
@@ -131,7 +132,9 @@ async function mutate(id: string, path: string, body: Record<string, unknown>) {
             throw new AuthoritativeWorkItemVersionError();
         }
         const data = await api(`/${id}${path}`, { method: "POST", body: JSON.stringify({ ...body, expectedVersion: currentVersion }) });
-        return upsert(data.workItem);
+        const item = upsert(data.workItem);
+        requestAuthoritativeRevalidation();
+        return item;
     } catch (error) {
         if (error instanceof AuthoritativeWorkItemConflictError) await loadAuthoritativeWorkItems();
         throw error;
@@ -163,6 +166,7 @@ export async function publishAuthoritativeWorkItem(id: string, idempotencyKey: s
     if (!currentVersion) { await loadAuthoritativeWorkItems(); throw new AuthoritativeWorkItemVersionError(); }
     const data = await api(`/${id}/publish-external`, { method: "POST", body: JSON.stringify({ expectedVersion: currentVersion, idempotencyKey }) });
     await loadAuthoritativeWorkItems();
+    requestAuthoritativeRevalidation();
     return data.publication;
 }
 export function markAuthoritativeWorkItemNotMine(id: string, reason: string) { return mutate(id, "/not-mine", { reason }); }

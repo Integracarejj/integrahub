@@ -116,10 +116,9 @@ test("real external Overview shows the clean Submitted Requests grid and publica
     await navigate(page, "/portal");
     const grid = page.locator(".po-external-overview .po-dashboard-grid .po-requests-table");
     await expect(grid).toBeVisible();
-    await expect(grid.locator(".po-requests-header")).toHaveText(/ID\s*Request\s*Project\s*Category\s*Updated\s*Actions/);
+    await expect(grid.locator(".po-requests-header")).toHaveText(/ID\s*Request\s*Project\s*Status\s*Category\s*Updated\s*Actions/);
     await expect(grid.locator(".po-requests-header")).not.toContainText("Review Type");
     await expect(grid.locator(".po-requests-header")).not.toContainText("Community");
-    await expect(grid.locator(".po-requests-header")).not.toContainText("Status");
     const row = grid.locator(".po-requests-row").filter({ hasText: publication.requestId.split("-").at(-1)! });
     await expect(row).toContainText("Government correspondence");
     await expect(row.getByRole("button", { name: `Preview documents for ${publication.requestId}` })).toBeVisible();
@@ -235,7 +234,7 @@ for (const action of ["approve", "rework"] as const) {
         await expect(page.getByRole("heading", { name: current.title, exact: true })).toBeVisible();
         await expect(page.locator(".apd-meta")).toContainText("Project Liberty");
         await expect(page.locator(".apd-meta")).toContainText("DD-2026-00000178");
-        await expect(page.locator(".apd-review-header .po-status-badge")).toHaveCount(0);
+        await expect(page.locator(".apd-review-header .po-status-badge")).toHaveText("Awaiting Your Review");
         await expect(page.getByRole("heading", { name: "IntegraCare Response", exact: true })).toBeVisible();
         await expect(page.getByRole("heading", { name: "Supporting Documents", exact: true })).toBeVisible();
         await expect(page.getByText("No response provided", { exact: true })).toBeVisible();

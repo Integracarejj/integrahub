@@ -21,10 +21,11 @@ import {
 } from "../../services/recapWorkArtifactPersistence";
 import RecapSubNav from "./RecapSubNav";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { useAuthoritativeRevalidation } from "../../hooks/useAuthoritativeRevalidation";
 import "./Recapitalization.css";
 
 type ReasonAction = "block" | "clarify" | "not-mine" | "not-applicable" | "duplicate" | "resolve" | "unblock" | "return-review" | "return-disposition";
-type ActionTone = "primary" | "neutral" | "blocker" | "clarification" | "disposition";
+type ActionTone = "primary" | "neutral" | "blocker" | "clarification" | "disposition" | "duplicate";
 type WorkspaceAction = { label: string; description: string; primary?: boolean; tone: ActionTone; action: () => void };
 type ReasonDialog = { title: string; description: string; fieldLabel: string; confirmLabel: string; currentLabel?: string };
 type UploadNotice = { kind: "success" | "error"; text: string };
@@ -117,6 +118,7 @@ export default function AuthoritativeRecapWorkspace({ initialItem }: { initialIt
 
     useEffect(() => { void refresh().catch(error => setNotice({ kind: "error", text: error instanceof Error ? error.message : "Unable to load workspace" })); }, [item.id]);
     useEffect(() => { setItem(initialItem); setResponse(initialItem.authoritativeResponse || ""); }, [initialItem]);
+    useAuthoritativeRevalidation(() => refresh(true), true);
 
     const run = async (operation: () => Promise<RecapRequest>, success: string, preserveDraft = false) => {
         if (busy) return false;
@@ -203,7 +205,7 @@ export default function AuthoritativeRecapWorkspace({ initialItem }: { initialIt
         !isDdOperationsContext && capabilities.canBlock && { label: "Mark Blocked", description: "Pause work and record the blocker", tone: "blocker", action: () => { setReasonAction("block"); setReason(""); } },
         !isDdOperationsContext && capabilities.canClarify && { label: "Request Clarification", description: "Ask DD Operations for clarification", tone: "clarification", action: () => { setReasonAction("clarify"); setReason(""); } },
         !isDdOperationsContext && capabilities.canMarkNotApplicable && { label: "Propose Not Applicable", description: "Send an N/A proposal for DD review", tone: "disposition", action: () => { setReasonAction("not-applicable"); setReason(""); } },
-        !isDdOperationsContext && capabilities.canMarkDuplicate && { label: "Propose Duplicate", description: "Send a duplicate proposal for DD review", tone: "disposition", action: () => { setReasonAction("duplicate"); setReason(""); } },
+        !isDdOperationsContext && capabilities.canMarkDuplicate && { label: "Propose Duplicate", description: "Send a duplicate proposal for DD review", tone: "duplicate", action: () => { setReasonAction("duplicate"); setReason(""); } },
         isDdOperationsContext && capabilities.canResolveClarification && { label: "Resolve Clarification", description: "Return the request to active work", primary: true, tone: "clarification", action: () => { setReasonAction("resolve"); setReason(""); } },
         isDdOperationsContext && capabilities.canUnblock && { label: "Resolve Blocker", description: "Provide guidance and return the request to active work", primary: true, tone: "blocker", action: () => { setReasonAction("unblock"); setReason(""); } },
         isDdOperationsContext && capabilities.canReviewDisposition && { label: `Approve ${item.authoritativeProposedDisposition || "Disposition"}`, description: "Approve the contributor's proposed disposition", primary: true, tone: "disposition", action: () => { void run(() => approveAuthoritativeDisposition(item.id), "Disposition approved."); } },
@@ -250,7 +252,7 @@ export default function AuthoritativeRecapWorkspace({ initialItem }: { initialIt
                     <input ref={fileInputRef} id="artifact-upload-hidden" aria-label="Upload Artifact" hidden type="file" disabled={busy} onChange={event => { const file = event.target.files?.[0]; if (file) selectFile(file); event.currentTarget.value = ""; }} />
                 </div>
                 {selectedFile && !uploadingName && <div className="rc-upload-selection" data-testid="selected-upload-file"><div><strong>{selectedFile.name}</strong><span>{replacementTarget ? `Replace ${replacementTarget.fileName}` : "Ready to upload"}</span></div><div className="rc-upload-selection-actions"><button className="rc-btn rc-btn-primary rc-btn-sm" disabled={busy} onClick={() => void uploadFile(selectedFile)}>{replacementTarget ? "Replace document" : "Upload document"}</button><button className="rc-btn rc-btn-ghost rc-btn-sm" disabled={busy} onClick={() => { setSelectedFile(null); setReplacementTarget(null); }}>Remove</button></div></div>}
-                {uploadingName && <div role="status" aria-live="polite" className="rc-upload-feedback is-uploading"><strong>Uploading {uploadingName}…</strong><span>Please keep this workspace open.</span></div>}
+                {uploadingName && <div role="status" aria-live="polite" className="rc-upload-feedback is-uploading"><strong>Uploading {uploadingName}…</strong><span className="rc-upload-progress" role="progressbar" aria-label={`Uploading ${uploadingName}`} aria-valuetext="Upload in progress"><span /></span><span>Please keep this workspace open until the upload completes.</span></div>}
                 {uploadNotice && <div role={uploadNotice.kind === "error" ? "alert" : "status"} aria-live="polite" className={`rc-upload-feedback is-${uploadNotice.kind}`}><strong>{uploadNotice.kind === "success" ? "✓ " : ""}{uploadNotice.text}</strong>{uploadNotice.kind === "error" && <span>Select the file again or retry the upload.</span>}</div>}
                 <div className="rc-upload-documents" data-testid="supporting-documents"><h3>Supporting documents</h3>{artifacts.map(artifact => <div className="rc-document-row" key={artifact.id}><div className="rc-document-name"><span aria-hidden="true">▤</span><div><strong>{artifact.fileName}</strong>{artifact.uploadedAt && <span>Uploaded {dateTime(artifact.uploadedAt)}</span>}</div></div><button className="rc-btn rc-btn-ghost rc-btn-sm" aria-label={`Replace ${artifact.fileName}`} disabled={busy} onClick={() => { setReplacementTarget(artifact); setSelectedFile(null); fileInputRef.current?.click(); }}>Replace document</button><button className="rc-btn rc-btn-secondary rc-btn-sm rc-download-button" aria-label={`Download ${artifact.fileName}`} onClick={() => void downloadAuthoritativeArtifact(item.id, artifact.id, artifact.fileName)}>Download</button></div>)}{artifacts.length === 0 && <p>No supporting documents uploaded yet.</p>}</div>
             </div></div>}

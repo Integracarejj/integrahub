@@ -1,4 +1,5 @@
 import { getAuthHeaders } from "../utils/apiFetch";
+import { requestAuthoritativeRevalidation } from "../hooks/useAuthoritativeRevalidation";
 
 export interface AuthoritativeArtifact {
     id: string; fileName: string; contentType: string; size: number;
@@ -26,14 +27,18 @@ export async function uploadAuthoritativeArtifact(workItemId: string, file: File
         method: "POST", credentials: "include", body: file,
         headers: { ...getAuthHeaders(), "Content-Type": "application/octet-stream", "x-file-name": encodeURIComponent(file.name), "x-file-content-type": file.type || "application/octet-stream" },
     });
-    return (await jsonResponse(response)).artifact;
+    const artifact = (await jsonResponse(response)).artifact;
+    requestAuthoritativeRevalidation();
+    return artifact;
 }
 export async function replaceAuthoritativeArtifact(workItemId: string, artifactId: string, file: File): Promise<AuthoritativeArtifact> {
     const response = await fetch(`/api/recapitalization/work-items/${workItemId}/artifacts/${artifactId}/replacement`, {
         method: "POST", credentials: "include", body: file,
         headers: { ...getAuthHeaders(), "Content-Type": "application/octet-stream", "x-file-name": encodeURIComponent(file.name), "x-file-content-type": file.type || "application/octet-stream" },
     });
-    return (await jsonResponse(response)).artifact;
+    const artifact = (await jsonResponse(response)).artifact;
+    requestAuthoritativeRevalidation();
+    return artifact;
 }
 async function download(path: string, fileName: string) {
     const response = await fetch(path, { credentials: "include", headers: getAuthHeaders() });

@@ -27,6 +27,7 @@ const STAT_HELPERS: Record<string, string> = {
     "Under Review": "IntegraCare is processing this request",
     "In Progress": "IntegraCare is actively working on this request",
     "Rework Review": "IntegraCare is reviewing your requested changes",
+    "Changes Requested": "Your requested changes are queued for the assigned contributor",
     "Information Requested": "IntegraCare needs additional information",
     "Blocker Information Requested": "IntegraCare needs information to resolve a blocker",
     "Awaiting Your Review": "Documents ready for your review",
@@ -818,6 +819,7 @@ export default function PortalOverview() {
                                     <option value="Awaiting Your Review">Awaiting Your Review</option>
                                     <option value="Exception Review">Exception Review</option>
                                     <option value="Rework Review">Rework Submitted</option>
+                                    <option value="Changes Requested">Changes Requested</option>
                                     <option value="Complete">Complete</option>
                                     <option value="Removed">Removed from Scope</option>
                                 </select>
@@ -833,7 +835,7 @@ export default function PortalOverview() {
                             {documentError && !documentChooser && <div className="pr-error" role="alert">{documentError}<button type="button" className="rc-btn rc-btn-ghost" onClick={() => setDocumentError(null)}>Dismiss</button></div>}
                             <div className="po-requests-scroll"><div className="po-requests-table">
                                 <div className="po-requests-header" style={readModel.isRealExternal ? undefined : { gridTemplateColumns: "0.5fr 1.8fr 0.9fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr" }}>
-                                    <span>ID</span><span>Request</span><span>Project</span>{!readModel.isRealExternal && <><span>Status</span><span>Review Type</span></>}<span>Category</span>{!readModel.isRealExternal && <span>Community</span>}<span>Updated</span>{readModel.isRealExternal && <span>Actions</span>}
+                                    <span>ID</span><span>Request</span><span>Project</span><span>Status</span>{!readModel.isRealExternal && <span>Review Type</span>}<span>Category</span>{!readModel.isRealExternal && <span>Community</span>}<span>Updated</span>{readModel.isRealExternal && <span>Actions</span>}
                                 </div>
                                 {dashboardFiltered.slice(0, 10).map((req) => {
                                     const publication = publicationByWorkItem.get(req.id);
@@ -856,9 +858,9 @@ export default function PortalOverview() {
                                         <span style={{ display: "flex", alignItems: "center" }}>
                                             {readModel.isRealExternal ? <span className="pr-project" title={req.transactionName}>{req.transactionName}</span> : <ProjectBadge name={req.transactionName} />}
                                         </span>
-                                        {!readModel.isRealExternal && <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                            <StatusBadge status={req.status} />
-                                        </span>}
+                                        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                            <StatusBadge status={readModel.isRealExternal ? extInfo.label : req.status} />
+                                        </span>
                                         {!readModel.isRealExternal && <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                             {excCtx.recommendationType ? (
                                                 <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#0f172a", fontWeight: 600, fontSize: 11, background: "#fff", padding: "2px 8px", borderRadius: 4, border: excCtx.recommendationType === "Duplicate" ? "1px solid #c4b5fd" : "1px solid #a5b4fc", whiteSpace: "nowrap" }}>

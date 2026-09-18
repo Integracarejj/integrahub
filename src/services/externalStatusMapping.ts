@@ -5,6 +5,7 @@ export type ExternalStatus =
   | "Rework Review"
   | "Information Requested"
   | "Awaiting Your Review"
+  | "Changes Requested"
   | "Exception Review"
   | "Blocker Information Requested"
   | "Complete"
@@ -95,8 +96,10 @@ function getRecapStatus(req: { status: string; _partnerDecision?: string | null;
 
     // Publication / Rework / Awaiting Your Review
     if (req._externalStatus === "Published External" || publishedExt) {
+        if (status === "Returned for Changes" && req._partnerDecision === "Rework Required") return "changes-requested";
         if (status === "Needs Rework") return "rework-review";
         if (status === "In Progress" && req._partnerDecision === "Rework Required") return "in-progress";
+        if (status === "Needs DD Review" || status === "Ready to Publish") return "under-review";
         if (status === "Completed") return "terminal-complete";
         return "awaiting-your-review";
     }
@@ -115,6 +118,16 @@ function getRecapStatus(req: { status: string; _partnerDecision?: string | null;
 }
 
 const STATUS_INFO: Record<string, ExternalStatusInfo> = {
+  "changes-requested": {
+    status: "Changes Requested",
+    label: "Changes Requested",
+    description: "Your requested changes have been returned to the assigned contributor. No action is required from you right now.",
+    nextActionOwner: "IntegraCare",
+    externalActionRequired: false,
+    externalActionLabel: null,
+    isTerminal: false,
+    completionMessage: null,
+  },
   "submitted": {
     status: "Submitted",
     label: "Submitted",
@@ -256,6 +269,7 @@ export const STATUS_PILL_STYLES: Record<string, { bg: string; text: string; bord
   "Submitted": { bg: "#ffffff", text: "#0f172a", border: "#93c5fd" },
   "Under Review": { bg: "#ffffff", text: "#0f172a", border: "#67e8f9" },
   "In Progress": { bg: "#fffbeb", text: "#92400e", border: "#d4a937" },
+  "Changes Requested": { bg: "#fff7ed", text: "#9a3412", border: "#fdba74" },
   "Rework Requested — IntegraCare Review": { bg: "#ffffff", text: "#0f172a", border: "#fed7aa" },
   "Information Requested": { bg: "#ffffff", text: "#0f172a", border: "#fcd34d" },
   "Awaiting Your Review": { bg: "#ffffff", text: "#0f172a", border: "#2dd4bf" },

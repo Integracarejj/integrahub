@@ -1,5 +1,6 @@
 import { getAuthHeaders } from "../utils/apiFetch";
 import { portalFetch } from "./portalSessionRecovery";
+import { requestAuthoritativeRevalidation } from "../hooks/useAuthoritativeRevalidation";
 
 export interface AuthoritativePublicationArtifact { id: string; fileName: string; contentType: string }
 export interface AuthoritativePublication {
@@ -31,7 +32,9 @@ export async function loadAuthoritativePublication(publicationId: string) {
 }
 
 export async function decideAuthoritativePublication(publication: AuthoritativePublication, action: "approve" | "rework", guidance?: string) {
-    return (await request(`/${publication.id}/decision`, { method: "POST", body: JSON.stringify({ action, guidance, expectedVersion: publication.version }) })).publication as AuthoritativePublication;
+    const decided = (await request(`/${publication.id}/decision`, { method: "POST", body: JSON.stringify({ action, guidance, expectedVersion: publication.version }) })).publication as AuthoritativePublication;
+    requestAuthoritativeRevalidation();
+    return decided;
 }
 
 export async function downloadAuthoritativePublishedArtifact(publicationId: string, artifact: AuthoritativePublicationArtifact) {

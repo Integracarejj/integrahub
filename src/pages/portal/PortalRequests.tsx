@@ -149,9 +149,11 @@ export default function PortalRequests() {
                 <select className="po-filter-select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
                     <option value="all">All Statuses</option>
                     <option value="Submitted">Submitted</option>
+                    <option value="In Progress">In Progress</option>
                     <option value="Under Review">Under Review</option>
                     <option value="Information Requested">Information Requested</option>
                     <option value="Awaiting Your Review">Awaiting Your Review</option>
+                    <option value="Changes Requested">Changes Requested</option>
                     <option value="Exception Review">Exception Review</option>
                     <option value="Complete">Complete</option>
                     <option value="Action Needed">Action Needed</option>

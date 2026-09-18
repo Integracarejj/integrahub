@@ -7,6 +7,7 @@ import ProjectBadge from "../../components/common/ProjectBadge";
 import "./Recapitalization.css";
 import { loadAuthoritativeWorkItems } from "../../services/recapWorkItemPersistence";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { useAuthoritativeRevalidation } from "../../hooks/useAuthoritativeRevalidation";
 import { getMyWorkRequests, getPresentedRecapRequests, isAuthoritativePartnerRework, isAuthoritativePartnerReturn, isRealInternalRecapMode } from "../../services/recapPresentation";
 
 type ViewTab = "active-work" | "waiting-dd-ops" | "completed-work" | "my-team" | "returned";
@@ -24,6 +25,7 @@ export default function RecapitalizationMyWork() {
     const realInternalMode = isRealInternalRecapMode(currentIdentity, demoActive);
     const allRequests = useMemo(() => getPresentedRecapRequests(getRequests(), realInternalMode), [refreshKey, realInternalMode]);
     useEffect(() => { loadAuthoritativeWorkItems().then(() => setRefreshKey(k => k + 1)).catch(() => undefined); }, []);
+    useAuthoritativeRevalidation(async () => { await loadAuthoritativeWorkItems(); setRefreshKey(k => k + 1); }, realInternalMode);
 
     const workItems = useMemo(() => {
         const published = allRequests.filter(r => r._publishedAt || r._createdFromReview);

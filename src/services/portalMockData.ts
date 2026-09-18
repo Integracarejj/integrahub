@@ -462,6 +462,7 @@ export interface PortalRequest {
     team: string;
     brokerBuyer: string;
     externalStatus?: string;
+    _externalStatus?: string | null;
     /** Organization ownership: captured at upload time */
     orgId?: string;
     orgName?: string;
@@ -703,10 +704,11 @@ function mapRecapToPortalRequest(req: RecapRequest): PortalRequest {
 export function toExternalStatusInput(req: PortalRequest) {
     return {
         status: req._rawStatus || req.status,
+        _partnerDecision: req._partnerDecision,
         _exceptionRecommendation: req._exceptionRecommendation,
         _exceptionDecision: req._exceptionDecision,
         _publishedExternal: req._publishedExternal,
-        _externalStatus: req.externalStatus,
+        _externalStatus: req._externalStatus || req.externalStatus,
         _exceptionSentAt: req._exceptionSentAt,
         _publishedAt: req._publishedAt,
         _workNotes: req._workNotes,

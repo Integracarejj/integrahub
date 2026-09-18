@@ -76,7 +76,9 @@ describe("authoritative external portal read projection", () => {
     });
 
     it("shows rework as active only after the contributor resumes returned work", () => {
-        expect(getExternalStatusInfo({ status: "Needs Rework", _publishedExternal: true, _partnerDecision: "Rework Required" }).status).toBe("Rework Review");
+        expect(getExternalStatusInfo({ status: "Returned for Changes", _publishedExternal: true, _partnerDecision: "Rework Required" }).status).toBe("Changes Requested");
         expect(getExternalStatusInfo({ status: "In Progress", _publishedExternal: true, _partnerDecision: "Rework Required" }).status).toBe("In Progress");
+        expect(getExternalStatusInfo({ status: "Needs DD Review", _publishedExternal: true }).status).toBe("Under Review");
+        expect(getExternalStatusInfo({ status: "Waiting Partner Review", _publishedExternal: true }).status).toBe("Awaiting Your Review");
     });
 });

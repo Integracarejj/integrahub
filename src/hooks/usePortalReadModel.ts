@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuthoritativeRevalidation } from "./useAuthoritativeRevalidation";
 import { useCurrentUser } from "./useCurrentUser";
 import { isExternalOnlyRole } from "../utils/accessRouting";
 import { getPortalRequests, getPortalTransactions } from "../services/portalMockData";
@@ -68,7 +69,7 @@ export function projectAuthoritativePublications(publications: AuthoritativePubl
         communityIds: [], communityNames: [], owner: null, team: "Due Diligence",
         brokerBuyer: publication.externalOrganizationId, orgId: publication.externalOrganizationId,
         orgName: publication.externalOrganizationId, userId: "", userName: "",
-        _rawStatus: publication.status === "Approved" ? "Completed" : "Waiting Partner Review",
+        _rawStatus: publication.workItemStatus,
         _publishedAt: publication.publishedAt, _publishedExternal: true, _externalStatus: "Published External",
         _partnerDecision: publication.status === "Approved" ? "Approved" : publication.status === "Rework Requested" ? "Rework Required" : null,
         _authoritativePublication: publication,
@@ -83,26 +84,30 @@ export function usePortalReadModel() {
     const [error, setError] = useState<string | null>(null);
     const [publications, setPublications] = useState<AuthoritativePublication[]>([]);
     const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
+    const reload = useCallback(async () => {
+        if (!isRealExternal) return;
+        try {
+            const [body, published] = await Promise.all([portalFetch("/api/portal/recapitalization/read-model", { headers: getAuthHeaders() })
+                .then(async result => {
+                    if (!result.ok) throw new Error((await result.json().catch(() => null))?.error || "Portal data could not be loaded");
+                    return result.json();
+                }), loadAuthoritativePublications()]);
+            setResponse(body); setPublications(published); setLoadedUserId(user?.userRecord?.id || null); setError(null);
+        } catch (reason) { setError(reason instanceof Error ? reason.message : "Portal data could not be loaded");
+        } finally { setLoading(false); }
+    }, [isRealExternal, user?.userRecord?.id]);
     useEffect(() => {
         if (!isRealExternal) return;
-        let cancelled = false;
         setLoading(true);
         setLoadedUserId(null); setResponse({ transactions: [] }); setPublications([]); setError(null);
-        Promise.all([portalFetch("/api/portal/recapitalization/read-model", { headers: getAuthHeaders() })
-            .then(async result => {
-                if (!result.ok) throw new Error((await result.json().catch(() => null))?.error || "Portal data could not be loaded");
-                return result.json();
-            }), loadAuthoritativePublications()])
-            .then(([body, published]) => { if (!cancelled) { setResponse(body); setPublications(published); setLoadedUserId(user?.userRecord?.id || null); setError(null); } })
-            .catch(reason => { if (!cancelled) setError(reason instanceof Error ? reason.message : "Portal data could not be loaded"); })
-            .finally(() => { if (!cancelled) setLoading(false); });
-        return () => { cancelled = true; };
-    }, [isRealExternal, user?.userRecord?.id]);
+        void reload();
+    }, [isRealExternal, reload]);
+    useAuthoritativeRevalidation(reload, isRealExternal);
     const currentIdentity = loadedUserId !== null && loadedUserId === user?.userRecord?.id;
     const authoritative = useMemo(() => projectPortalReadModel(currentIdentity ? response : { transactions: [] }), [response, currentIdentity]);
     const visiblePublications = currentIdentity ? publications : [];
     return isRealExternal
-        ? { ...authoritative, requests: mergePublicationRequests(authoritative.requests, visiblePublications), publications: visiblePublications, isRealExternal, loading, error }
+        ? { ...authoritative, requests: mergePublicationRequests(authoritative.requests, visiblePublications), publications: visiblePublications, isRealExternal, loading, error, refresh: reload }
         : { transactions: getPortalTransactions(), requests: getPortalRequests(), packages: [] as AuthoritativePortalPackage[], publications: [] as AuthoritativePublication[], isRealExternal, loading: false, error: null };
 }
 

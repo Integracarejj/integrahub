@@ -8,6 +8,7 @@ import "./Recapitalization.css";
 import { assignAuthoritativeWorkItem, getAuthoritativeAssignees, loadAuthoritativeWorkItems, markAuthoritativeWorkItemReadyToPublish, returnAuthoritativeWorkItemFromDdReview } from "../../services/recapWorkItemPersistence";
 import { getPresentedRecapRequests, isAuthoritativePartnerReworkActive, isRealInternalRecapMode } from "../../services/recapPresentation";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { useAuthoritativeRevalidation } from "../../hooks/useAuthoritativeRevalidation";
 
 const STATUS_OPTIONS = ["Open", "Assigned", "In Progress", "Returned for Changes", "Blocked", "Complete", "Not Applicable", "Duplicate", "Waiting Partner Review", "Needs Rework", "Completed"];
 
@@ -39,6 +40,7 @@ export default function RecapitalizationDdOperations() {
     const demoActive = isDemoPresentationActive();
     const realInternalMode = isRealInternalRecapMode(currentIdentity, demoActive);
     useEffect(() => { loadAuthoritativeWorkItems().then(() => setRefreshKey(k => k + 1)).catch(() => undefined); }, []);
+    useAuthoritativeRevalidation(async () => { await loadAuthoritativeWorkItems(); setRefreshKey(k => k + 1); }, realInternalMode);
     const ddMembers = useMemo(() => members.filter(m => m.team === "DD Management"), [members]);
 
     const allRequests = useMemo(() => getPresentedRecapRequests(getRequests(), realInternalMode), [refreshKey, realInternalMode]);

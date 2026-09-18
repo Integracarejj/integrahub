@@ -274,6 +274,10 @@
 .apd-meta { color: #214b7a; font-weight: 700; }
 .apd-meta span { color: #52749a; }
 .apd-title-wrap { max-width: 920px; }
+.apd-title-line { display: flex; align-items: flex-start; gap: 10px; }
+.apd-title-line .apd-title-wrap { flex: 1; min-width: 0; }
+.apd-status-badge { margin-top: 7px; white-space: nowrap; }
+@media (max-width: 600px) { .apd-title-line { flex-wrap: wrap; } .apd-status-badge { margin-top: 0; } }
 .apd-review-header .apd-title { max-width: 920px; color: #112b4e; font-size: clamp(25px, 2.8vw, 34px); }
 .apd-title:not(.apd-title-expanded) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .apd-text-control,
