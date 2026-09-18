@@ -845,7 +845,7 @@ export default function PortalOverview() {
                                     const isReworking = req._partnerDecision === "Rework Required" && extInfo.status === "Rework Review";
                                     return (
                                     <div key={req.id} className="po-requests-row" style={readModel.isRealExternal ? undefined : { gridTemplateColumns: "0.5fr 1.8fr 0.9fr 0.9fr 0.8fr 0.9fr 0.7fr 0.7fr" }} onClick={readModel.isRealExternal ? undefined : () => navigate(`/portal/requests/${req.id}`)} title={req.requestId}>
-                                        <span className="po-requests-id">{readModel.isRealExternal && extInfo.externalActionRequired && <span className="po-review-dot" title="Needs your review" aria-label="Needs your review" />}{readModel.isRealExternal ? req.requestId : shortId(req.requestId)}</span>
+                                        <span className="po-requests-id" title={readModel.isRealExternal ? req.requestId : undefined}>{readModel.isRealExternal && extInfo.externalActionRequired && <span className="po-review-dot" title="Needs your review" aria-label="Needs your review" />}{readModel.isRealExternal ? req.requestId : shortId(req.requestId)}</span>
                                         <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
                                             <span className="po-requests-title" style={readModel.isRealExternal ? undefined : { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={req.title}>{req.title.split(" - ").slice(1).join(" - ").trim() || req.title}</span>
                                             {!readModel.isRealExternal && isClarResp && (

@@ -45,10 +45,20 @@ function RequestTitle({ title }: { title: string }) {
     </div>;
 }
 
-function ExternalPublicationStatus({ publication }: { publication: AuthoritativePublication }) {
-    const info = getExternalStatusInfo({ status: publication.workItemStatus, _partnerDecision: publication.status === "Rework Requested" ? "Rework Required" : publication.status === "Approved" ? "Approved" : null, _publishedExternal: true, _externalStatus: "Published External" });
+function ExternalPublicationStatus({ info }: { info: ReturnType<typeof getExternalStatusInfo> }) {
     const style = getStatusPillStyle(info.label);
     return <span className="po-status-badge apd-status-badge" style={{ background: style.bg, color: style.text, borderColor: style.border }}>{info.label}</span>;
+}
+
+function currentStatusMessage(status: string): string | null {
+    switch (status) {
+        case "In Progress": return "IntegraCare is working on your requested changes.";
+        case "Under Review": return "IntegraCare is reviewing the updated response.";
+        case "Awaiting Your Review": return "The updated response is ready for your review.";
+        case "Changes Requested": return "Your requested changes have been returned to IntegraCare.";
+        case "Complete": return "Review complete.";
+        default: return null;
+    }
 }
 
 function ResponseSection({ publication }: { publication: AuthoritativePublication }) {
@@ -146,6 +156,14 @@ function Detail({ id, previewOrganization }: { id: string; previewOrganization?:
         return <div className="portal-overview"><h1>External account required</h1><p>Demo personas do not grant access to requests for review.</p></div>;
     }
 
+    const statusInfo = publication && getExternalStatusInfo({
+        status: publication.workItemStatus,
+        _partnerDecision: publication.status === "Rework Requested" ? "Rework Required" : publication.status === "Approved" ? "Approved" : null,
+        _publishedExternal: true,
+        _externalStatus: "Published External",
+    });
+    const statusMessage = statusInfo ? currentStatusMessage(statusInfo.label) : null;
+
     return <main className="portal-overview apd-page">
         {!adminPreview && <Link className="apd-back" to="/portal/requests"><span aria-hidden="true">←</span> Requests</Link>}
         {loading && <div className="apd-card" role="status">Loading request...</div>}
@@ -158,7 +176,8 @@ function Detail({ id, previewOrganization }: { id: string; previewOrganization?:
                     <p className="apd-meta">{publication.transactionName}<span aria-hidden="true">·</span>{publication.requestId}<span aria-hidden="true">·</span>Submitted {new Date(publication.publishedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</p>
                     <button type="button" className="apd-guidance-button" aria-label="What do I do next?" title="What do I do next?" aria-expanded={showReviewGuidance} aria-controls="apd-review-guidance" onClick={() => setShowReviewGuidance(value => !value)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M9.6 9a2.5 2.5 0 0 1 4.8 1c0 1.7-2.4 2-2.4 3.7" /><path d="M12 17.5h.01" /></svg>What do I do next?</button>
                 </div>
-                <div className="apd-title-line"><RequestTitle title={publication.title} /><ExternalPublicationStatus publication={publication} /></div>
+                {statusInfo && <div className="apd-status-area"><ExternalPublicationStatus info={statusInfo} /></div>}
+                <RequestTitle title={publication.title} />
                 {showReviewGuidance && <p id="apd-review-guidance" className="apd-guidance">{adminPreview ? "Review the supporting documents. Partner decisions are unavailable in this read-only preview." : "Review the supporting documents. Approve the request if everything looks complete, or request changes if IntegraCare needs to update something."}</p>}
             </header>
 
@@ -216,11 +235,11 @@ function Detail({ id, previewOrganization }: { id: string; previewOrganization?:
             </section>}
             </div>
 
-            {adminPreview
-                ? <section className="apd-card apd-preview-note">Read-only admin preview. Partner decisions require a real authorized external account.</section>
-                : publication.status !== "Published" && <section className="apd-card apd-complete"><strong>{publication.status === "Approved" ? "Review complete" : publication.workItemStatus === "In Progress" ? "IntegraCare is working on your requested changes" : "Changes requested"}</strong></section>}
+            {statusMessage && <section className="apd-current-status" aria-live="polite"><strong>{statusMessage}</strong></section>}
 
-            {publication.status === "Rework Requested" && <section className="apd-card apd-partner-comments"><strong>Your comments</strong><p>{publication.partnerGuidance || "Changes were requested."}</p><p>Requested {publication.partnerActionAt ? new Date(publication.partnerActionAt).toLocaleString() : "just now"}. Returned to IntegraCare for updates.</p></section>}
+            {adminPreview && <section className="apd-card apd-preview-note">Read-only admin preview. Partner decisions require a real authorized external account.</section>}
+
+            {publication.partnerGuidance && <section className="apd-card apd-partner-comments"><strong>Your previous change request</strong><p>{publication.partnerGuidance}</p><p>Requested {publication.partnerActionAt ? new Date(publication.partnerActionAt).toLocaleString() : "just now"}.</p></section>}
 
             <ResponseSection key={`${publication.id}:${publication.version}`} publication={publication} />
 

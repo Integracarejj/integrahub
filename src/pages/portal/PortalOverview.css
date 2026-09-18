@@ -436,16 +436,18 @@
 .po-external-overview .po-requests-table { min-width: 860px; border: 1px solid #dce6f1; border-radius: 12px; box-shadow: 0 5px 18px rgba(20, 49, 82, .05); }
 .po-external-overview .po-requests-header,
 .po-external-overview .po-requests-row {
-    grid-template-columns: 140px minmax(200px, 2.4fr) minmax(100px, 1fr) minmax(90px, .8fr) 90px 118px;
+    grid-template-columns: minmax(120px, 140px) minmax(220px, 2.4fr) minmax(100px, 1fr) minmax(118px, .9fr) minmax(88px, .75fr) 118px;
     gap: 14px;
     padding: 15px 19px;
 }
-.po-external-overview .po-requests-header { background: #f7faff; border-color: #dce6f1; color: #284768; }
+.po-external-overview .po-requests-header { position: sticky; top: 64px; z-index: 10; background: #f7faff; border-color: #dce6f1; color: #284768; }
 .po-external-overview .po-requests-row { cursor: default; border-color: #e6edf5; }
 .po-external-overview .po-requests-row:hover { background: #f8fbff; }
-.po-external-overview .po-requests-id { display: inline-flex; align-items: center; gap: 8px; color: #274568; white-space: nowrap; }
+.po-external-overview .po-requests-header > *,
+.po-external-overview .po-requests-row > * { min-width: 0; }
+.po-external-overview .po-requests-id { display: inline-flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; color: #274568; text-overflow: ellipsis; white-space: nowrap; }
 .po-external-overview .po-requests-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; white-space: normal; color: #142b49; font-size: 13px; font-weight: 700; line-height: 1.4; }
-.po-external-overview .po-requests-txn { color: #36516e; font-size: 12px; }
+.po-external-overview .po-requests-txn { overflow: hidden; color: #36516e; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .po-external-overview .pr-project { width: fit-content; max-width: 100%; padding: 4px 7px; border: 1px solid #d4e4f7; border-radius: 5px; background: #f0f6ff; color: #244d7b; }
 .po-external-overview .pr-action,
 .po-external-overview .pr-open { border-color: transparent; background: transparent; color: #315e90; }
@@ -456,7 +458,7 @@
 .po-review-dot { display: inline-block; width: 7px; height: 7px; flex: none; border-radius: 50%; background: #397ac1; box-shadow: 0 0 0 3px #eaf3fd; }
 @media (max-width: 600px) {
     .po-external-overview .po-requests-header,
-    .po-external-overview .po-requests-row { grid-template-columns: 140px minmax(200px, 2.4fr) minmax(100px, 1fr) minmax(90px, .8fr) 90px 118px; }
+    .po-external-overview .po-requests-row { grid-template-columns: minmax(120px, 140px) minmax(220px, 2.4fr) minmax(100px, 1fr) minmax(118px, .9fr) minmax(88px, .75fr) 118px; }
     .po-external-overview .po-requests-header > span,
     .po-external-overview .po-requests-row > span { display: flex; }
 }

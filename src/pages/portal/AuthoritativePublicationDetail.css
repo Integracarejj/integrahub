@@ -274,10 +274,8 @@
 .apd-meta { color: #214b7a; font-weight: 700; }
 .apd-meta span { color: #52749a; }
 .apd-title-wrap { max-width: 920px; }
-.apd-title-line { display: flex; align-items: flex-start; gap: 10px; }
-.apd-title-line .apd-title-wrap { flex: 1; min-width: 0; }
-.apd-status-badge { margin-top: 7px; white-space: nowrap; }
-@media (max-width: 600px) { .apd-title-line { flex-wrap: wrap; } .apd-status-badge { margin-top: 0; } }
+.apd-status-area { display: flex; justify-content: center; margin: 4px 0 16px; }
+.apd-status-badge { white-space: nowrap; }
 .apd-review-header .apd-title { max-width: 920px; color: #112b4e; font-size: clamp(25px, 2.8vw, 34px); }
 .apd-title:not(.apd-title-expanded) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .apd-text-control,
@@ -312,6 +310,10 @@
 .apd-actions { display: grid; gap: 9px; }
 .apd-actions .rc-btn { justify-content: center; min-height: 40px; }
 .apd-preview-note { margin-top: 18px; color: #315473; }
+.apd-current-status { margin-top: 20px; padding: 12px 15px; border-left: 3px solid #497dab; border-radius: 0 8px 8px 0; background: #f5f9fd; color: #193b60; }
+.apd-partner-comments { margin-top: 14px; border-color: #d7e2ee; background: #fff; }
+.apd-partner-comments strong { color: #173b63; }
+.apd-partner-comments p:last-child { color: #52708e; font-size: 13px; }
 .apd-response { margin-top: 26px; padding: 19px 20px; border: 1px solid #d5e1ed; border-radius: 9px; background: #fff; }
 .apd-response-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; }
 .apd-response-heading h2 { margin: 0; color: #132f54; font-size: 20px; }

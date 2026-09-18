@@ -116,11 +116,14 @@ test("real external Overview shows the clean Submitted Requests grid and publica
     await navigate(page, "/portal");
     const grid = page.locator(".po-external-overview .po-dashboard-grid .po-requests-table");
     await expect(grid).toBeVisible();
-    await expect(grid.locator(".po-requests-header")).toHaveText(/ID\s*Request\s*Project\s*Status\s*Category\s*Updated\s*Actions/);
+    const header = grid.locator(".po-requests-header");
+    await expect(header).toHaveText(/ID\s*Request\s*Project\s*Status\s*Category\s*Updated\s*Actions/);
+    await expect(header).toHaveCSS("position", "sticky");
     await expect(grid.locator(".po-requests-header")).not.toContainText("Review Type");
     await expect(grid.locator(".po-requests-header")).not.toContainText("Community");
     const row = grid.locator(".po-requests-row").filter({ hasText: publication.requestId.split("-").at(-1)! });
     await expect(row).toContainText("Government correspondence");
+    await expect(row.locator(".po-requests-id")).toHaveAttribute("title", publication.requestId);
     await expect(row.getByRole("button", { name: `Preview documents for ${publication.requestId}` })).toBeVisible();
     await expect(row.getByRole("button", { name: `Download documents for ${publication.requestId}` })).toBeVisible();
     const openRequest = row.getByRole("button", { name: `Open request ${publication.requestId}`, exact: false });
@@ -234,7 +237,9 @@ for (const action of ["approve", "rework"] as const) {
         await expect(page.getByRole("heading", { name: current.title, exact: true })).toBeVisible();
         await expect(page.locator(".apd-meta")).toContainText("Project Liberty");
         await expect(page.locator(".apd-meta")).toContainText("DD-2026-00000178");
-        await expect(page.locator(".apd-review-header .po-status-badge")).toHaveText("Awaiting Your Review");
+        await expect(page.locator(".apd-status-area .po-status-badge")).toHaveText("Awaiting Your Review");
+        await expect(page.locator(".apd-current-status")).toContainText("The updated response is ready for your review.");
+        await expect(page.getByRole("button", { name: "What do I do next?" })).toBeVisible();
         await expect(page.getByRole("heading", { name: "IntegraCare Response", exact: true })).toBeVisible();
         await expect(page.getByRole("heading", { name: "Supporting Documents", exact: true })).toBeVisible();
         await expect(page.getByText("No response provided", { exact: true })).toBeVisible();
@@ -265,12 +270,33 @@ for (const action of ["approve", "rework"] as const) {
             await dialog.getByLabel("Rework guidance").fill("Revise the findings");
             await dialog.getByRole("button", { name: "Request Changes", exact: true }).click();
         }
-        await expect(page.locator(".apd-complete").getByText(action === "approve" ? "Review complete" : "Changes requested", { exact: true })).toBeVisible();
+        await expect(page.locator(".apd-current-status")).toContainText(action === "approve" ? "Review complete." : "Your requested changes have been returned to IntegraCare.");
         expect(decisions).toHaveLength(1);
         await expect(page.getByRole("button", { name: "Approve Request", exact: true })).toHaveCount(0);
         await expect(page.getByText("No response provided", { exact: true })).toBeVisible();
     });
 }
+
+test("detail separates the current canonical state from durable prior partner guidance", async ({ page }) => {
+    await mockRealReads(page);
+    let current = { ...publication, status: "Rework Requested", workItemStatus: "Returned for Changes", partnerGuidance: "Please update the certificate for the correct community.", partnerActionAt: "2026-09-17T19:23:52Z" };
+    await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route => route.fulfill({ json: { publication: current } }));
+    await navigate(page, `/portal/publications/${publication.id}`);
+
+    for (const [workItemStatus, publicationStatus, badge, message] of [
+        ["Returned for Changes", "Rework Requested", "Changes Requested", "Your requested changes have been returned to IntegraCare."],
+        ["In Progress", "Rework Requested", "In Progress", "IntegraCare is working on your requested changes."],
+        ["Needs DD Review", "Rework Requested", "Under Review", "IntegraCare is reviewing the updated response."],
+        ["Waiting Partner Review", "Published", "Awaiting Your Review", "The updated response is ready for your review."],
+    ] as const) {
+        current = { ...current, workItemStatus, status: publicationStatus };
+        await page.reload();
+        await expect(page.locator(".apd-status-area .po-status-badge")).toHaveText(badge);
+        await expect(page.locator(".apd-current-status")).toContainText(message);
+        await expect(page.locator(".apd-partner-comments")).toContainText("Your previous change request");
+        await expect(page.locator(".apd-partner-comments")).toContainText(current.partnerGuidance!);
+    }
+});
 
 test("real external publication errors and cross-org absence never fall back to demo", async ({ page }) => {
     await mockRealReads(page);
@@ -306,12 +332,12 @@ test("stale partner decision stays on the edition and offers a refresh", async (
     await page.getByRole("button", { name: "Approve Request", exact: true }).click();
     await expect(page.getByRole("alert")).toContainText("Partner action cannot be applied or is stale");
     await expect(page.getByRole("button", { name: "Refresh request" })).toBeEnabled();
-    await expect(page.locator(".apd-complete").getByText("Review complete", { exact: true })).toHaveCount(0);
+    await expect(page.locator(".apd-current-status").getByText("Review complete.", { exact: true })).toHaveCount(0);
     await page.route(`**/api/portal/recapitalization/publications/${publication.id}`, route => route.fulfill({ json: {
         publication: { ...publication, status: "Approved", version: "0x0000000000000002" },
     } }));
     await page.getByRole("button", { name: "Refresh request" }).click();
-    await expect(page.locator(".apd-complete").getByText("Review complete", { exact: true })).toBeVisible();
+    await expect(page.locator(".apd-current-status").getByText("Review complete.", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Approve Request", exact: true })).toHaveCount(0);
     expect(decisions).toBe(1);
 });
@@ -354,7 +380,7 @@ for (const action of ["approve", "rework"] as const) {
             await dialog.getByLabel("Rework guidance").fill("Revise section 4");
             await dialog.getByRole("button", { name: "Request Changes" }).click();
         }
-        await expect(page.locator(".apd-complete")).toContainText(action === "approve" ? "Review complete" : "Changes requested");
+        await expect(page.locator(".apd-current-status")).toContainText(action === "approve" ? "Review complete." : "Your requested changes have been returned to IntegraCare.");
         expect(decisions).toEqual([{ action, ...(action === "rework" ? { guidance: "Revise section 4" } : {}), expectedVersion: currentVersion }]);
         expect(signIns).toBe(1);
     });
@@ -373,7 +399,7 @@ test("a lost decision response reloads authoritative state instead of repeating 
     });
     await navigate(page, `/portal/publications/${publication.id}`);
     await page.getByRole("button", { name: "Approve Request" }).click();
-    await expect(page.locator(".apd-complete")).toContainText("Review complete");
+    await expect(page.locator(".apd-current-status")).toContainText("Review complete.");
     expect(decisions).toBe(1);
     await expect(page.getByRole("button", { name: "Approve Request" })).toHaveCount(0);
 });
@@ -423,7 +449,7 @@ test("a decision redirect reauthenticates and reads the outcome without replayin
     const dialog = page.getByRole("dialog", { name: "Request Changes" });
     await dialog.getByLabel("Rework guidance").fill("Revise section 4");
     await dialog.getByRole("button", { name: "Request Changes" }).click();
-    await expect(page.locator(".apd-complete")).toContainText("Changes requested");
+    await expect(page.locator(".apd-current-status")).toContainText("Your requested changes have been returned to IntegraCare.");
     expect(signIns).toBe(1);
     expect(decisions).toBe(1);
     await expect(page.getByRole("button", { name: "Request Changes" })).toHaveCount(0);
